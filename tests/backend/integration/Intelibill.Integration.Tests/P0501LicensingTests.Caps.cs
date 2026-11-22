@@ -34,28 +34,109 @@ public sealed partial class P0501LicensingTests
         var scenario = await ArrangeCapAsync(host, client, cap);
         var (actor, lease, grant) = (scenario.Actor, scenario.Lease, scenario.Grant);
 
-        var permit = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, lease), scenario.Till));
+        var permit = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease), scenario.Till));
         Assert.Equal((_clock.Now, scenario.ValidUntil, scenario.Reason), (permit.NotBefore, permit.ValidUntil, permit.LimitingReason));
 
         // Half-open: usable up to, never at, the deadline.
         var scope = ScopeOf(actor, lease);
         var last = scenario.ValidUntil.AddMicroseconds(-1);
-        Assert.Equal(scenario.ValidUntil, Issued(await VerifyAsync(host, actor, permit.SignedPermit, scope, last)).ValidUntil);
+        var proven = Issued(await VerifyAsync(host, actor, permit.SignedPermit, scope, last));
+        Assert.Equal((scenario.ValidUntil, scenario.Till), (proven.ValidUntil, proven.TillSessionId));
         Assert.Equal("OfflinePermit.OutsideValidity", Code(await VerifyAsync(host, actor, permit.SignedPermit, scope, scenario.ValidUntil)));
         Assert.Equal("OfflinePermit.OutsideValidity",
             Code(await VerifyAsync(host, actor, permit.SignedPermit, scope, permit.NotBefore.AddMicroseconds(-1))));
 
         _clock.Now = last;
-        var final = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, lease), scenario.Till));
+        var final = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease), scenario.Till));
         Assert.Equal((last, scenario.ValidUntil), (final.NotBefore, final.ValidUntil));
 
         _clock.Now = scenario.ValidUntil;
         var before = await EvidenceAsync(actor.Shop);
-        var refused = await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, lease), scenario.Till);
+        var refused = await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease), scenario.Till);
         Assert.True(refused.IsError, "A permit was issued at its own deadline.");
         Assert.Equal(before, await EvidenceAsync(actor.Shop));
         _output.WriteLine("{0}: window [{1:O}, {2:O}) reason {3}; at the deadline issuance answers {4}", cap, permit.NotBefore,
             permit.ValidUntil, permit.LimitingReason, Code(refused));
+    }
+
+    /// <summary>
+    /// A session that outlives its newest refresh credential (e.g. after refresh lifetime shortening)
+    /// is capped by the credential while usable and refused for capture, first issuance and replay at expiry.
+    /// </summary>
+    [Fact]
+    public async Task Refresh_credential_expiry_caps_and_refuses_even_when_session_outlives_it()
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        var reserveAt = verified.AddHours(1);
+        var sessionEnd = reserveAt.AddDays(30);
+        var shorterRefreshEnd = reserveAt.AddHours(2);
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
+
+        // Capture the grant while both session and refresh credential end 30 days out, then shorten the credential.
+        await PinAuthEndAsync(actor.Session, sessionEnd, sessionEnd);
+        _clock.Now = reserveAt;
+        var (lease, captured) = await ReserveAsync(host, actor);
+        var grant = Issued(captured).GrantId;
+        var initialDone = await SnapshotAsync(host, actor, grant, lease);
+        var overlongPermit = Issued(await IssueAsync(host, actor, grant, initialDone));
+        Assert.Equal(verified.AddHours(48), overlongPermit.ValidUntil);
+
+        // Shorten the current refresh credential while leaving auth_sessions.expires_at 30 days ahead.
+        await PinAuthEndAsync(actor.Session, sessionEnd, shorterRefreshEnd);
+        await RefusedAsync(actor.Shop, "OfflinePermit.Tightened", () => IssueAsync(host, actor, grant, initialDone));
+
+        var cappedDone = await SnapshotAsync(host, actor, grant, lease);
+        var capped = Issued(await IssueAsync(host, actor, grant, cappedDone));
+        Assert.Equal((shorterRefreshEnd, AuthDeadline), (capped.ValidUntil, capped.LimitingReason));
+
+        _clock.Now = shorterRefreshEnd.AddMicroseconds(-1);
+        Assert.Equal(capped.SignedPermit, Issued(await IssueAsync(host, actor, grant, cappedDone)).SignedPermit);
+        var lastMoment = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease)));
+        Assert.Equal((_clock.Now, shorterRefreshEnd, AuthDeadline),
+            (lastMoment.NotBefore, lastMoment.ValidUntil, lastMoment.LimitingReason));
+
+        // At refresh expiry, the session still has 30 days left, yet capture, first issuance and replay all refuse.
+        _clock.Now = shorterRefreshEnd;
+        var freshAtExpiry = await SnapshotAsync(host, actor, grant, lease);
+        await RefusedAsync(actor.Shop, "Auth.SessionInvalidated", async () => (await ReserveAsync(host, actor, "p0501-after-refresh")).Grant);
+        await RefusedAsync(actor.Shop, "Auth.SessionInvalidated", () => IssueAsync(host, actor, grant, freshAtExpiry));
+        await RefusedAsync(actor.Shop, "Auth.SessionInvalidated", () => IssueAsync(host, actor, grant, cappedDone));
+        _output.WriteLine("Refresh credential cap: sessionEnd={0:O}, refreshEnd={1:O}; capture/issue/replay refused at refreshEnd",
+            sessionEnd, shorterRefreshEnd);
+    }
+
+    /// <summary>When tills are disabled, an unverified till session ID is refused instead of entering signed evidence.</summary>
+    [Fact]
+    public async Task Disabled_tills_refuse_unrelated_till_session_id()
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        using var otherClient = CreateClient(host);
+        var other = await OpenShopAsync(otherClient, verified, verified.AddDays(30));
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
+
+        _clock.Now = verified.AddHours(1);
+        var otherShopTill = await OpenTillAsync(host, other);
+        var (lease, captured) = await ReserveAsync(host, actor);
+        var grant = Issued(captured).GrantId;
+        var done = await SnapshotAsync(host, actor, grant, lease);
+
+        await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant, done, Guid.NewGuid()));
+        await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant, done, otherShopTill));
+
+        // Without a till ID, disabled-till issuance succeeds with a null till in both signed bytes and stored row.
+        var issued = Issued(await IssueAsync(host, actor, grant, done));
+        var proven = Issued(await VerifyAsync(host, actor, issued.SignedPermit, ScopeOf(actor, lease), _clock.Now));
+        Assert.Null(proven.TillSessionId);
+        await using var db = Open(Migrator);
+        var storedTill = await db.Set<OfflineLicensePermit>().Where(x => x.Id == issued.PermitId)
+            .Select(x => x.TillSessionId).SingleAsync(Ct);
+        Assert.Null(storedTill);
     }
 
     private async Task<CapScenario> ArrangeCapAsync(ApiWebApplicationFactory host, HttpClient client, string cap)

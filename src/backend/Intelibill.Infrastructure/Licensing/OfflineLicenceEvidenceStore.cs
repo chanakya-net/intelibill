@@ -26,16 +26,44 @@ internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOf
                 && session.ActiveShopId == shopId && membership.ShopId == shopId
                 && membership.Status == MembershipStatus.Active
                 && (membership.Role == ShopRole.Owner || membership.Role == ShopRole.Manager)
-            select new { membership.AuthorityVersion, session.ScopeVersion, session.ExpiresAt }).SingleOrDefaultAsync(ct);
+            select new { membership.AuthorityVersion, session.ScopeVersion, session.ExpiresAt, session.SecurityVersion })
+            .SingleOrDefaultAsync(ct);
         if (live is null)
             return null;
 
-        // Offline, the device cannot renew: its sign-in ends with the session or its last usable credential.
+        // Offline, the device cannot renew past its current refresh credential or its session end.
+        // Without a usable matching refresh credential the device has no valid offline auth lifetime.
         var refresh = await db.RefreshTokens.AsNoTracking()
-            .Where(token => token.AuthSessionId == sessionId && !token.IsRevoked && token.ConsumedAt == null && token.ExpiresAt > now)
+            .Where(token => token.AuthSessionId == sessionId && token.UserId == userId
+                && token.SecurityVersion == live.SecurityVersion && !token.IsRevoked
+                && token.ConsumedAt == null && token.ExpiresAt > now)
             .MaxAsync(token => (DateTimeOffset?)token.ExpiresAt, ct);
-        var deadline = refresh is { } usable && usable < live.ExpiresAt ? usable : live.ExpiresAt;
+        if (refresh is not { } usable)
+            return null;
+
+        var deadline = usable < live.ExpiresAt ? usable : live.ExpiresAt;
         return new OfflineAuthFacts(live.AuthorityVersion, live.ScopeVersion, OfflinePermitContractV1.Instant(deadline));
+    }
+
+    public async Task<ErrorOr<T>> ExecuteInSavepointAsync<T>(string name, Func<Task<ErrorOr<T>>> action, CancellationToken ct)
+    {
+        var transaction = db.Database.CurrentTransaction
+            ?? throw new InvalidOperationException("A savepoint requires an open transaction.");
+        await transaction.CreateSavepointAsync(name, ct);
+        try
+        {
+            var result = await action();
+            if (result.IsError)
+                await transaction.RollbackToSavepointAsync(name, CancellationToken.None);
+            await transaction.ReleaseSavepointAsync(name, CancellationToken.None);
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackToSavepointAsync(name, CancellationToken.None);
+            await transaction.ReleaseSavepointAsync(name, CancellationToken.None);
+            throw;
+        }
     }
 
     public void StageGrant(OfflineLicenseGrant grant) => db.Add(grant);

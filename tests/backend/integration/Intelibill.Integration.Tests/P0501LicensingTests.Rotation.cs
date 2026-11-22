@@ -27,12 +27,13 @@ public sealed partial class P0501LicensingTests
             _clock.Now = verified.AddHours(1);
             (lease, var captured) = await ReserveAsync(hostA, actor);
             grant = Issued(captured).GrantId;
-            first = Issued(await IssueAsync(hostA, actor, grant, await SnapshotAsync(hostA, actor, lease)));
+            first = Issued(await IssueAsync(hostA, actor, grant, await SnapshotAsync(hostA, actor, grant, lease)));
         }
         var scope = ScopeOf(actor, lease);
         var issuedAt = first.NotBefore;
 
-        // A new process: B is the only configured signing key. A's private half exists nowhere it can reach.
+        // A fresh host (second WebApplicationFactory in the same test process): B is the only configured
+        // signing key, and A's private half is not present in hostB's configuration.
         using var hostB = CreateHost(_keyB);
         _clock.Now = verified.AddHours(30);
         var historical = Issued(await VerifyAsync(hostB, actor, first.SignedPermit, scope, issuedAt));
@@ -40,7 +41,7 @@ public sealed partial class P0501LicensingTests
         Assert.Equal("OfflinePermit.OutsideValidity", Code(await VerifyAsync(hostB, actor, first.SignedPermit, scope, first.ValidUntil)));
 
         // The original grant, signed by A, still anchors new permits, which B now signs.
-        var second = Issued(await IssueAsync(hostB, actor, grant, await SnapshotAsync(hostB, actor, lease)));
+        var second = Issued(await IssueAsync(hostB, actor, grant, await SnapshotAsync(hostB, actor, grant, lease)));
         Assert.Equal(_keyB.Id, second.KeyId);
         Assert.Equal(second.PermitId, Issued(await VerifyAsync(hostB, actor, second.SignedPermit, scope, _clock.Now)).PermitId);
         await AssertOnlyPublicKeysAsync(actor.Shop, _keyA, _keyB);
@@ -54,16 +55,16 @@ public sealed partial class P0501LicensingTests
         // A retained identifier can never be rebound to other material.
         using var rebound = CreateHost(new PermitKey(_keyA.Id, stranger));
         await RefusedAsync(actor.Shop, "OfflinePermit.KeyRebound",
-            async () => await IssueAsync(rebound, actor, grant, await SnapshotAsync(rebound, actor, lease)));
+            async () => await IssueAsync(rebound, actor, grant, await SnapshotAsync(rebound, actor, grant, lease)));
         // A key that also signs another purpose, and no key at all, sign nothing.
         using var shared = CreateHost(configure: services => services.AddSingleton<IOptionsMonitor<MerchantBillingDelegationOptions>>(
             new PermitKeyOptions(_keyB, everyPurpose: true)));
         await RefusedAsync(actor.Shop, "OfflinePermit.SigningUnavailable",
-            async () => await IssueAsync(shared, actor, grant, await SnapshotAsync(shared, actor, lease)));
+            async () => await IssueAsync(shared, actor, grant, await SnapshotAsync(shared, actor, grant, lease)));
         using var keyless = CreateHost(configure: services => services.AddSingleton<IOptionsMonitor<MerchantBillingDelegationOptions>>(
             new PermitKeyOptions(null)));
         await RefusedAsync(actor.Shop, "OfflinePermit.SigningUnavailable",
-            async () => await IssueAsync(keyless, actor, grant, await SnapshotAsync(keyless, actor, lease)));
+            async () => await IssueAsync(keyless, actor, grant, await SnapshotAsync(keyless, actor, grant, lease)));
         await RefusedAsync(actor.Shop, "OfflinePermit.SigningUnavailable", async () => (await ReserveAsync(keyless, actor)).Grant);
 
         // Both permits remain provable after all of that.

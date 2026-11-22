@@ -67,7 +67,8 @@ public sealed partial class P0501LicensingTests
         foreach (var actor in new[] { a, b })
         {
             var (lease, captured) = await ReserveAsync(host, actor);
-            Issued(await IssueAsync(host, actor, Issued(captured).GrantId, await SnapshotAsync(host, actor, lease)));
+            var grant = Issued(captured).GrantId;
+            Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease)));
         }
         Assert.Equal(legacy, await LeaseDigestAsync(owner));
         Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(a.Shop));
@@ -76,12 +77,63 @@ public sealed partial class P0501LicensingTests
         await AssertAppendOnlyAsync(owner);
         await AssertConstraintsAsync(owner, a, b);
 
-        // Evidence in place: the downgrade refuses, and everything it touched is as before.
+        // Entitlement evidence is populated, so the predecessor guard refuses first and leaves everything intact.
         var refusal = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Predecessor, Ct));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refusal.GetBaseException()).SqlState);
+        var pg = Assert.IsType<PostgresException>(refusal.GetBaseException());
+        Assert.Equal("55000", pg.SqlState);
+        Assert.Equal("Retained entitlement evidence prevents downgrade", pg.MessageText);
         await AssertEvidenceSchemaAsync(owner);
         Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(b.Shop));
         Assert.Equal(legacy, await LeaseDigestAsync(owner));
+    }
+
+    /// <summary>
+    /// Isolated downgrade guard: predecessor entitlement tables are empty while offline verification
+    /// material is retained. This migration's own guard must refuse and restore table contents and forced RLS.
+    /// </summary>
+    [Fact]
+    public async Task Downgrade_refuses_retained_offline_verification_keys_without_entitlement_rows()
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30), licensed: false);
+
+        await using var owner = Open(Migrator);
+        Assert.Equal(0, await ScalarAsync<int>(owner, $"""
+            SELECT (SELECT count(*) FROM public.shop_license_states) +
+                   (SELECT count(*) FROM public.license_grant_evidence) +
+                   (SELECT count(*) FROM public.entitlement_messages) AS "Value"
+            """));
+
+        var keyRowId = Guid.NewGuid();
+        var usedAt = verified.AddHours(1);
+        await owner.Database.ExecuteSqlAsync($"""
+            INSERT INTO public.offline_license_verification_keys (id, shop_id, key_id, public_key, fingerprint, first_used_at)
+            VALUES ({keyRowId}, {actor.Shop}, {_keyA.Id}, {_keyA.PublicKey}, {_keyA.Fingerprint}, {usedAt})
+            """, Ct);
+        Assert.Equal(new Evidence(0, 0, 1), await EvidenceAsync(actor.Shop));
+
+        var migrator = owner.GetService<IMigrator>();
+        var refusal = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Predecessor, Ct));
+        var pg = Assert.IsType<PostgresException>(refusal.GetBaseException());
+        Assert.Equal("55000", pg.SqlState);
+        Assert.Equal("Retained offline licence evidence prevents downgrade", pg.MessageText);
+
+        // The rolled-back downgrade restores forced RLS, triggers, constraints, history and the retained key row.
+        await AssertEvidenceSchemaAsync(owner);
+        Assert.Equal(1, await ScalarAsync<int>(owner, $"""
+            SELECT count(*)::int AS "Value" FROM "__EFMigrationsHistory" WHERE migration_id = {EvidenceMigration}
+            """));
+        var retained = await owner.Set<OfflineLicenseVerificationKey>().AsNoTracking().SingleAsync(x => x.Id == keyRowId, Ct);
+        Assert.Equal((actor.Shop, _keyA.Id, _keyA.Fingerprint), (retained.ShopId, retained.KeyId, retained.Fingerprint));
+        Assert.Equal(_keyA.PublicKey, retained.PublicKey);
+        Assert.Equal((1, 1), await AsShopAsync(actor.Shop,
+            $"SELECT count(*)::int, count(*) FILTER (WHERE shop_id = '{actor.Shop:D}')::int FROM offline_license_verification_keys"));
+        Assert.Equal((0, 0), await AsShopAsync(null, "SELECT count(*)::int, 0 FROM offline_license_verification_keys"));
+        _output.WriteLine("Isolated offline-evidence downgrade refused ({0}): {1}; key {2} and forced RLS preserved",
+            pg.SqlState, pg.MessageText, retained.KeyId);
     }
 
     private static async Task AssertEvidenceSchemaAsync(DbContext owner)

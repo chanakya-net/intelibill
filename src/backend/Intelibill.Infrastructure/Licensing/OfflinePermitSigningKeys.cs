@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using Azure;
+using Azure.Identity;
 using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Infrastructure.Billing;
 using Intelibill.Shared.Contracts.V1;
@@ -22,9 +24,10 @@ internal sealed class OfflinePermitKeyOptions
 /// </summary>
 internal sealed class OfflinePermitSigningKeys(
     IMerchantBillingSigningKeys keys, IOptionsMonitor<MerchantBillingDelegationOptions> signing,
-    IOptionsMonitor<OfflinePermitKeyOptions> pins) : IOfflinePermitSigner
+    IOptionsMonitor<OfflinePermitKeyOptions> pins, TimeSpan? signBudget = null) : IOfflinePermitSigner
 {
-    private static readonly TimeSpan SignBudget = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan DefaultSignBudget = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _signBudget = signBudget ?? DefaultSignBudget;
 
     // Every other purpose of the same facility. A key that signs requests must never sign permits.
     private static readonly string[] OtherPurposes =
@@ -38,27 +41,38 @@ internal sealed class OfflinePermitSigningKeys(
         if (OtherPurposes.Any(purpose => SharesKey(settings, signing.Get(purpose))))
             return null;
 
-        using var key = await keys.ResolveAsync(ct);
-        if (key is null || PublicKeyOf(settings, key.Id) is not { } publicKey)
-            return null;
-
-        var input = OfflinePermitSignatures.SigningInput(type, key.Id, payload);
+        // One bounded token covers key resolution and signing while the issuer holds authority locks.
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        budget.CancelAfter(SignBudget);
-        byte[] signature;
+        budget.CancelAfter(_signBudget);
         try
         {
-            signature = await key.SignAsync(Encoding.ASCII.GetBytes(input), budget.Token);
+            using var key = await keys.ResolveAsync(budget.Token);
+            if (key is null || PublicKeyOf(settings, key.Id) is not { } publicKey)
+                return null;
+
+            var input = OfflinePermitSignatures.SigningInput(type, key.Id, payload);
+            var signature = await key.SignAsync(Encoding.ASCII.GetBytes(input), budget.Token);
+            var token = OfflinePermitSignatures.Attach(input, signature);
+            return OfflinePermitSignatures.Verify(token, type, publicKey).IsError ? null : new(key.Id, publicKey, token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             // The caller holds row and advisory locks while this waits; give up rather than hold them.
             return null;
         }
-
-        var token = OfflinePermitSignatures.Attach(input, signature);
-        return OfflinePermitSignatures.Verify(token, type, publicKey).IsError ? null : new(key.Id, publicKey, token);
+        catch (Exception error) when (!ct.IsCancellationRequested && IsUnavailableFailure(error))
+        {
+            // Map expected key-provider and cryptographic failures without logging provider messages or key material.
+            return null;
+        }
     }
+
+    private static bool IsUnavailableFailure(Exception error) => error is
+        CryptographicException or
+        RequestFailedException or
+        AuthenticationFailedException or
+        HttpRequestException or
+        TimeoutException;
 
     private byte[]? PublicKeyOf(MerchantBillingDelegationOptions settings, string keyId)
     {

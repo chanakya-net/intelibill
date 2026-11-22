@@ -31,7 +31,7 @@ public sealed partial class P0501LicensingTests
         _clock.Now = verified.AddHours(1);
         var (lease, captured) = await ReserveAsync(host, actor);
         var grant = Issued(captured).GrantId;
-        var done = await SnapshotAsync(host, actor, lease);
+        var done = await SnapshotAsync(host, actor, grant, lease);
         var suspendAt = _clock.Now;
 
         // The restriction is account-wide; delivered for this shop or for a sibling under the same account.
@@ -53,7 +53,7 @@ public sealed partial class P0501LicensingTests
 
         await restriction;
         var result = await issuance;
-        var later = await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, lease));
+        var later = await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease));
         _output.WriteLine("restrictionFirst={0} throughSibling={1}: both queued behind backend {2} after {3:F0} ms, settled after {4:F0} ms; " +
             "issuance {5}, next attempt {6}", restrictionFirst, throughSibling, holder.Pid, queued.TotalMilliseconds,
             timer.Elapsed.TotalMilliseconds, Code(result), Code(later));
@@ -87,7 +87,8 @@ public sealed partial class P0501LicensingTests
         var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
         _clock.Now = verified.AddHours(1);
         var (lease, captured) = await ReserveAsync(host, actor);
-        var done = await SnapshotAsync(host, actor, lease);
+        var grant = Issued(captured).GrantId;
+        var done = await SnapshotAsync(host, actor, grant, lease);
         var before = await EvidenceAsync(actor.Shop);
 
         var write = change switch
@@ -97,7 +98,7 @@ public sealed partial class P0501LicensingTests
             _ => $"UPDATE shop_memberships SET authority_version = authority_version + 1 WHERE user_id = '{actor.User:D}'",
         };
         await using var holder = await RowHold.BeginAsync(Migrator, $"SELECT 1 FROM users WHERE id = '{actor.User:D}' FOR UPDATE; {write};");
-        var issuance = IssueAsync(host, actor, Issued(captured).GrantId, done);
+        var issuance = IssueAsync(host, actor, grant, done);
         await WaitForBlockedByAsync(issuance, holder.Pid);
         await holder.ReleaseAsync();
 
@@ -122,12 +123,13 @@ public sealed partial class P0501LicensingTests
         var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
         _clock.Now = deadline.AddSeconds(-1);
         var (lease, captured) = await ReserveAsync(host, actor);
-        var done = await SnapshotAsync(host, actor, lease);
+        var grant = Issued(captured).GrantId;
+        var done = await SnapshotAsync(host, actor, grant, lease);
         var before = await EvidenceAsync(actor.Shop);
 
         // Admitted and computed at 11:59:59; the signature returns at 12:00:00, the deadline itself.
         advance = true;
-        var late = await IssueAsync(host, actor, Issued(captured).GrantId, done);
+        var late = await IssueAsync(host, actor, grant, done);
         Assert.Equal("Licence.VerificationUnavailable", Code(late));
         Assert.Equal(before, await EvidenceAsync(actor.Shop));
 
@@ -135,6 +137,83 @@ public sealed partial class P0501LicensingTests
         var lateGrant = (await ReserveAsync(host, actor, "p0501-late-device")).Grant;
         Assert.Equal("Licence.VerificationUnavailable", Code(lateGrant));
         Assert.Equal(before, await EvidenceAsync(actor.Shop));
+    }
+
+    /// <summary>
+    /// With a fresh signing key (zero keys retained), advancing the clock through the licence, auth or
+    /// lease boundary during signing produces a typed refusal; committing the outer legacy reservation
+    /// preserves the lease while leaving zero grants, permits or keys in PostgreSQL.
+    /// </summary>
+    [Theory]
+    [InlineData("licence", "Licence.VerificationUnavailable")]
+    [InlineData("auth", "Auth.SessionInvalidated")]
+    [InlineData("lease", "OfflinePermit.DeadlineReached")]
+    public async Task Capture_refusal_during_signing_leaves_no_key_when_legacy_reservation_commits(string boundary, string expectedCode)
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        var targetTime = boundary switch
+        {
+            "licence" => verified.AddHours(48),
+            "auth" => verified.AddHours(3),
+            _ => verified.AddHours(2),
+        };
+        var advance = false;
+        using var host = CreateHost(configure: services =>
+        {
+            var inner = services.Last(x => x.ServiceType == typeof(IOfflinePermitSigner));
+            services.AddSingleton<IOfflinePermitSigner>(provider => new WaitingSigner(
+                (IOfflinePermitSigner)inner.ImplementationFactory!(provider), () => { if (advance) _clock.Now = targetTime; }));
+        });
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
+        if (boundary == "auth")
+            await PinAuthEndAsync(actor.Session, targetTime.AddDays(10), targetTime);
+
+        Assert.Equal(new Evidence(0, 0, 0), await EvidenceAsync(actor.Shop));
+        _clock.Now = targetTime.AddSeconds(-1);
+        advance = true;
+        var (leaseId, capture) = await ReserveAsync(host, actor, leaseExpiresAt: boundary == "lease" ? targetTime : null,
+            commitLegacyOnRefusal: true);
+
+        Assert.Equal(expectedCode, Code(capture));
+        Assert.Equal(new Evidence(0, 0, 0), await EvidenceAsync(actor.Shop));
+        await using var db = Open(Migrator);
+        Assert.True(await db.InvoiceLeases.AsNoTracking().AnyAsync(x => x.Id == leaseId && x.ShopId == actor.Shop, Ct));
+    }
+
+    /// <summary>
+    /// Savepoint rollback proof: even if the key row was already inserted inside the capture savepoint
+    /// before the clock crossed a boundary, rolling back the savepoint removes the key while letting
+    /// the outer legacy reservation commit its lease.
+    /// </summary>
+    [Fact]
+    public async Task Capture_savepoint_rolls_back_inserted_key_on_late_boundary()
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        var deadline = verified.AddHours(48);
+        using var host = CreateHost(configure: services =>
+        {
+            var descriptor = services.Last(x => x.ServiceType == typeof(IOfflineLicenceEvidenceStore));
+            services.Remove(descriptor);
+            services.AddScoped<IOfflineLicenceEvidenceStore>(provider =>
+            {
+                var inner = (IOfflineLicenceEvidenceStore)(descriptor.ImplementationFactory?.Invoke(provider)
+                    ?? ActivatorUtilities.CreateInstance(provider, descriptor.ImplementationType!));
+                return new ClockAdvancingRetainStore(inner, () => _clock.Now = deadline);
+            });
+        });
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
+
+        _clock.Now = deadline.AddSeconds(-1);
+        var (leaseId, capture) = await ReserveAsync(host, actor, commitLegacyOnRefusal: true);
+
+        Assert.Equal("Licence.VerificationUnavailable", Code(capture));
+        Assert.Equal(new Evidence(0, 0, 0), await EvidenceAsync(actor.Shop));
+        await using var db = Open(Migrator);
+        Assert.True(await db.InvoiceLeases.AsNoTracking().AnyAsync(x => x.Id == leaseId && x.ShopId == actor.Shop, Ct));
     }
 
     [Fact]
@@ -147,11 +226,12 @@ public sealed partial class P0501LicensingTests
         var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
         _clock.Now = verified.AddHours(1);
         var (lease, captured) = await ReserveAsync(host, actor);
-        var done = await SnapshotAsync(host, actor, lease);
+        var grant = Issued(captured).GrantId;
+        var done = await SnapshotAsync(host, actor, grant, lease);
 
         await using var holder = await RowHold.BeginAsync(Migrator,
             $"SELECT public.take_merchant_licence_fence('{actor.Binding.Account:D}'::uuid, '{actor.Shop:D}'::uuid, false)");
-        var attempts = Enumerable.Range(0, 4).Select(_ => IssueAsync(host, actor, Issued(captured).GrantId, done)).ToArray();
+        var attempts = Enumerable.Range(0, 4).Select(_ => IssueAsync(host, actor, grant, done)).ToArray();
         await WaitForLockWaitersAsync(attempts.Length);
         await holder.ReleaseAsync();
 
@@ -207,6 +287,35 @@ public sealed partial class P0501LicensingTests
             whileSigning();
             return signature;
         }
+    }
+
+    /// <summary>Advances the clock immediately after RetainKeyAsync inserts the key inside the capture savepoint.</summary>
+    private sealed class ClockAdvancingRetainStore(IOfflineLicenceEvidenceStore inner, Action afterRetain)
+        : IOfflineLicenceEvidenceStore
+    {
+        public bool IsBeingReserved(InvoiceLease lease) => inner.IsBeingReserved(lease);
+        public Task<OfflineAuthFacts?> ReadAuthAsync(Guid shopId, Guid userId, Guid sessionId, DateTimeOffset now, CancellationToken ct) =>
+            inner.ReadAuthAsync(shopId, userId, sessionId, now, ct);
+        public Task<ErrorOr<T>> ExecuteInSavepointAsync<T>(string name, Func<Task<ErrorOr<T>>> action, CancellationToken ct) =>
+            inner.ExecuteInSavepointAsync(name, action, ct);
+        public void StageGrant(OfflineLicenseGrant grant) => inner.StageGrant(grant);
+        public Task<OfflineLicenseGrant?> FindGrantAsync(Guid shopId, Guid grantId, CancellationToken ct) =>
+            inner.FindGrantAsync(shopId, grantId, ct);
+        public Task<InvoiceLease?> FindLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct) =>
+            inner.FindLeaseAsync(shopId, leaseId, ct);
+        public Task<OfflineSnapshotFacts> ReadSnapshotAsync(Guid shopId, Guid snapshotId, CancellationToken ct) =>
+            inner.ReadSnapshotAsync(shopId, snapshotId, ct);
+        public Task<OfflineLicensePermit?> FindPermitAsync(Guid shopId, Guid snapshotId, CancellationToken ct) =>
+            inner.FindPermitAsync(shopId, snapshotId, ct);
+        public async Task<ErrorOr<Success>> RetainKeyAsync(Guid shopId, string keyId, byte[] publicKey, DateTimeOffset now,
+            CancellationToken ct)
+        {
+            var result = await inner.RetainKeyAsync(shopId, keyId, publicKey, now, ct);
+            afterRetain();
+            return result;
+        }
+        public Task<byte[]?> FindKeyAsync(Guid shopId, string keyId, CancellationToken ct) => inner.FindKeyAsync(shopId, keyId, ct);
+        public Task<bool> TryInsertPermitAsync(OfflineLicensePermit permit, CancellationToken ct) => inner.TryInsertPermitAsync(permit, ct);
     }
 
     /// <summary>An open owner transaction; disposal always ends it, committed only by <see cref="ReleaseAsync"/>.</summary>

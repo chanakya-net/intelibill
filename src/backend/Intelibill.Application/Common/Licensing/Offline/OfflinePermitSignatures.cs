@@ -1,7 +1,6 @@
 using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using ErrorOr;
 using PermitErrors = Intelibill.Application.Common.Errors.Errors.OfflinePermit;
 
@@ -79,8 +78,10 @@ public static class OfflinePermitSignatures
 
     public static string Fingerprint(ReadOnlySpan<byte> publicKey) => Convert.ToHexStringLower(SHA256.HashData(publicKey));
 
+    private static readonly byte[] HeaderSuffix = "\"}"u8.ToArray();
+
     private static byte[] Header(string type, string keyId) =>
-        Encoding.UTF8.GetBytes($$"""{"alg":"RS256","typ":"{{type}}","kid":"{{keyId}}"}""");
+        Encoding.ASCII.GetBytes($"{{\"alg\":\"RS256\",\"typ\":\"{type}\",\"kid\":\"{keyId}\"}}");
 
     private static Parts? Parse(string? token, string type)
     {
@@ -89,29 +90,33 @@ public static class OfflinePermitSignatures
 
         var segments = token.Split('.');
         if (Decode(segments[0]) is not { } header || Decode(segments[1]) is not { } payload ||
-            Decode(segments[2]) is not { Length: > 0 } signature || ReadKid(header) is not { } keyId ||
-            !header.AsSpan().SequenceEqual(Header(type, keyId)))
+            Decode(segments[2]) is not { Length: > 0 } signature || ReadCanonicalKeyId(header, type) is not { } keyId)
             return null;
 
         return new Parts(keyId, payload, signature, segments[0] + "." + segments[1]);
     }
 
-    private static string? ReadKid(byte[] header)
+    // Matches the canonical ASCII header byte-for-byte without fallible JSON/UTF-16 string materialization.
+    private static string? ReadCanonicalKeyId(ReadOnlySpan<byte> header, string type)
     {
-        try
-        {
-            using var json = JsonDocument.Parse(header);
-            return json.RootElement.ValueKind == JsonValueKind.Object &&
-                json.RootElement.TryGetProperty("kid", out var kid) && kid.ValueKind == JsonValueKind.String &&
-                kid.GetString() is { Length: > 0 and <= 128 } value &&
-                value.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
-                ? value : null;
-        }
-        catch (JsonException)
-        {
+        var prefix = Encoding.ASCII.GetBytes($"{{\"alg\":\"RS256\",\"typ\":\"{type}\",\"kid\":\"");
+        if (header.Length <= prefix.Length + HeaderSuffix.Length ||
+            !header.StartsWith(prefix) || !header.EndsWith(HeaderSuffix))
             return null;
-        }
+
+        var kid = header[prefix.Length..^HeaderSuffix.Length];
+        if (kid.Length is 0 or > 128)
+            return null;
+        foreach (var value in kid)
+            if (!IsKeyIdByte(value))
+                return null;
+
+        return Encoding.ASCII.GetString(kid);
     }
+
+    private static bool IsKeyIdByte(byte value) =>
+        value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9')
+            or (byte)'-' or (byte)'_';
 
     // Only the canonical unpadded alphabet round-trips; anything else is a different token.
     private static byte[]? Decode(string segment)

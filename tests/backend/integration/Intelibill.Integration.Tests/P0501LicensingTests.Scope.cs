@@ -27,18 +27,20 @@ public sealed partial class P0501LicensingTests
         var legacyLease = (await ReadSuccessAsync(legacy)).GetProperty("leaseId").GetGuid();
 
         _clock.Now = verified.AddHours(1);
-        var early = await SnapshotAsync(host, actor, Guid.Empty);
         var (lease, captured) = await ReserveAsync(host, actor);
         var grant = Issued(captured).GrantId;
         var (otherLease, otherCaptured) = await ReserveAsync(host, other);
+        var otherGrant = Issued(otherCaptured).GrantId;
         var (secondLease, secondCaptured) = await ReserveAsync(host, actor, "p0501-second-device");
-        var done = await SnapshotAsync(host, actor, lease);
+        var secondGrant = Issued(secondCaptured).GrantId;
+        var done = await SnapshotAsync(host, actor, grant, lease);
         Assert.Equal(1, done.BatchCount);
 
         // The reservation endpoint is unchanged and its lease has no grant: nothing can anchor it later.
         await RefusedAsync(actor.Shop, "OfflinePermit.LeaseNotNew", () => AdoptAsync(host, actor, legacyLease));
-        await RefusedAsync(actor.Shop, "OfflinePermit.GrantNotFound",
-            () => IssueAsync(host, actor, Guid.NewGuid(), done with { LeaseId = legacyLease }));
+        var missingGrantId = Guid.NewGuid();
+        var missingGrantDone = await SnapshotAsync(host, actor, missingGrantId, legacyLease);
+        await RefusedAsync(actor.Shop, "OfflinePermit.GrantNotFound", () => IssueAsync(host, actor, missingGrantId, missingGrantDone));
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", async () => (await ReserveAsync(host, actor, useClaims: false)).Grant);
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch",
             async () => (await ReserveAsync(host, actor, claims: actor.Claims with { SessionId = Guid.NewGuid() })).Grant);
@@ -46,35 +48,62 @@ public sealed partial class P0501LicensingTests
         // Wrong caller, device, lease, grant or shop.
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant, done, useClaims: false));
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant, done, claims: other.Claims));
-        await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant, done with { DeviceId = "another-device" }));
-        await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant, done with { LeaseId = secondLease }));
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch",
-            () => IssueAsync(host, actor, Issued(secondCaptured).GrantId, done));
-        await RefusedAsync(actor.Shop, "OfflinePermit.GrantNotFound", () => IssueAsync(host, actor, Guid.NewGuid(), done));
+            async () => await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease, "another-device")));
+        await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch",
+            async () => await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, secondLease)));
+        await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, secondGrant, done));
         await RefusedAsync(actor.Shop, "OfflinePermit.GrantNotFound",
-            () => IssueAsync(host, actor, Issued(otherCaptured).GrantId, done with { LeaseId = otherLease }));
-
-        // A snapshot the server did not complete for this reservation.
-        await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, done with { BatchCount = 0 }));
-        await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, done with { BatchCount = 2 }));
-        await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, done with { SnapshotId = Guid.NewGuid() }));
-        await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete",
-            () => IssueAsync(host, actor, grant, done with { CatalogVersion = done.CatalogVersion + 1 }));
-        // Captured a microsecond before this lease was reserved: it cannot be this reservation's stock.
-        await using (var db = Open(Migrator))
-            Assert.True(await db.OfflineExpiryEvidence.AnyAsync(x => x.SnapshotId == early.SnapshotId, Ct));
-        _clock.Now = verified.AddHours(1).AddMicroseconds(1);
-        var (lateLease, lateCaptured) = await ReserveAsync(host, actor, "p0501-late-device");
-        await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, Issued(lateCaptured).GrantId,
-            early with { LeaseId = lateLease, DeviceId = "p0501-late-device" }));
+            async () => await IssueAsync(host, actor, otherGrant, await SnapshotAsync(host, actor, otherGrant, otherLease)));
 
         await AssertLiveAuthorityAsync(host, actor, grant, lease);
+    }
+
+    /// <summary>
+    /// On an unprojected or restricted shop, live actor authority is checked before exposing commercial
+    /// licence outcomes: only a live session sees the commercial result, and neither case writes evidence.
+    /// </summary>
+    [Theory]
+    [InlineData(false, "Licence.VerificationUnavailable")]
+    [InlineData(true, "Licence.TradingRestricted")]
+    public async Task Revoked_session_never_sees_commercial_denial_on_unprojected_or_restricted_shop(
+        bool restricted, string expectedLiveCode)
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30), licensed: restricted);
+        _clock.Now = verified.AddHours(1);
+
+        Guid? grant = null;
+        OfflineSnapshotCompletion? done = null;
+        if (restricted)
+        {
+            var (lease, captured) = await ReserveAsync(host, actor);
+            grant = Issued(captured).GrantId;
+            done = await SnapshotAsync(host, actor, grant.Value, lease);
+            await ApplyAsync(actor.Binding, verified.AddDays(30), revision: 2, restriction: "Trading", suspensionEffectiveAt: _clock.Now);
+        }
+
+        // Valid live actor sees the commercial licence outcome with zero evidence writes.
+        await RefusedAsync(actor.Shop, expectedLiveCode, async () => (await ReserveAsync(host, actor, "p0501-live")).Grant);
+        if (grant is { } g && done is { } d)
+            await RefusedAsync(actor.Shop, expectedLiveCode, () => IssueAsync(host, actor, g, d));
+
+        // Revoking the session hides the commercial outcome behind Auth.SessionInvalidated.
+        await using var db = Open(Migrator);
+        await db.Database.ExecuteSqlAsync(
+            $"UPDATE auth_sessions SET revoked_at = {_clock.Now}, revocation_reason = 'p0501-r006' WHERE id = {actor.Session}", Ct);
+        await RefusedAsync(actor.Shop, "Auth.SessionInvalidated", async () => (await ReserveAsync(host, actor, "p0501-revoked")).Grant);
+        if (grant is { } g2 && done is { } d2)
+            await RefusedAsync(actor.Shop, "Auth.SessionInvalidated", () => IssueAsync(host, actor, g2, d2));
     }
 
     /// <summary>Membership, session, licence and staleness facts known now always win over the stored grant.</summary>
     private async Task AssertLiveAuthorityAsync(ApiWebApplicationFactory host, Actor actor, Guid grant, Guid lease)
     {
-        var done = await SnapshotAsync(host, actor, lease);
+        var done = await SnapshotAsync(host, actor, grant, lease);
         await using var db = Open(Migrator);
 
         // Changed away and back: same role and scope, different versions.
@@ -97,7 +126,7 @@ public sealed partial class P0501LicensingTests
         _clock.Now = At("2026-11-22T12:00:00Z");
         await RefusedAsync(actor.Shop, "Licence.VerificationUnavailable", async () => (await ReserveAsync(host, actor)).Grant);
         await RefusedAsync(actor.Shop, "Licence.VerificationUnavailable",
-            async () => await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, lease)));
+            async () => await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease)));
 
         _clock.Now = start;
         await db.Database.ExecuteSqlAsync($"UPDATE auth_sessions SET revoked_at = {start}, revocation_reason = 'p0501' WHERE id = {actor.Session}", Ct);
@@ -123,7 +152,7 @@ public sealed partial class P0501LicensingTests
         _clock.Now = verified.AddHours(1);
         var (lease, captured) = await ReserveAsync(host, actor);
         var grant = Issued(captured);
-        var permit = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, lease)));
+        var permit = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, grant.GrantId, lease)));
         var scope = ScopeOf(actor, lease);
         var at = _clock.Now;
 
@@ -163,7 +192,7 @@ public sealed partial class P0501LicensingTests
         _clock.Now = verified.AddHours(1);
         var (lease, captured) = await ReserveAsync(host, actor);
         var grant = Issued(captured).GrantId;
-        var done = await SnapshotAsync(host, actor, lease);
+        var done = await SnapshotAsync(host, actor, grant, lease);
         var permit = Issued(await IssueAsync(host, actor, grant, done));
         var stored = await EvidenceAsync(actor.Shop);
 
@@ -176,7 +205,7 @@ public sealed partial class P0501LicensingTests
         // A stricter head arrives: the overlong stored permit is no longer handed out, and stays on record.
         await ApplyAsync(actor.Binding, verified.AddHours(20), revision: 2);
         await RefusedAsync(actor.Shop, "OfflinePermit.Tightened", () => IssueAsync(host, actor, grant, done));
-        var shorter = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, lease)));
+        var shorter = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease)));
         Assert.Equal((verified.AddHours(20), OfflineLicencePermitPolicy.CurrentLicenceEnd), (shorter.ValidUntil, shorter.LimitingReason));
         await using var db = Open(Migrator);
         Assert.Equal(permit.SignedPermit, await db.Set<OfflineLicensePermit>().Where(x => x.Id == permit.PermitId)

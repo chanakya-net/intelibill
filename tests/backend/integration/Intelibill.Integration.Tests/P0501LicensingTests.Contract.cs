@@ -57,9 +57,25 @@ public sealed partial class P0501LicensingTests
         }
 
         foreach (var vector in root.GetProperty("negative").EnumerateArray())
+        {
+            var name = vector.GetProperty("name").GetString()!;
+            var negativeToken = vector.GetProperty("token").GetString();
+            var lookups = 0;
+            byte[]? CountingRetained(string id)
+            {
+                lookups++;
+                return Retained(id);
+            }
+
+            if (vector.TryGetProperty("skipKeyLookup", out var skip) && skip.GetBoolean())
+                Assert.Null(OfflinePermitSignatures.ReadKeyId(negativeToken, OfflinePermitContractV1.PermitType));
+
             Assert.True(vector.GetProperty("error").GetString() ==
-                Code(OfflinePermitSignatures.VerifyPermit(vector.GetProperty("token").GetString(), scope, validAt, Retained)),
-                vector.GetProperty("name").GetString());
+                Code(OfflinePermitSignatures.VerifyPermit(negativeToken, scope, validAt, CountingRetained)), name);
+
+            if (vector.TryGetProperty("skipKeyLookup", out var noLookup) && noLookup.GetBoolean())
+                Assert.True(lookups == 0, $"{name} performed {lookups} key lookup(s)");
+        }
 
         AssertDeadlineVectors(root);
     }

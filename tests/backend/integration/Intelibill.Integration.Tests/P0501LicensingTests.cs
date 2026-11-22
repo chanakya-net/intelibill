@@ -23,7 +23,7 @@ public sealed partial class P0501LicensingTests
         _clock.Now = At("2026-11-22T11:59:00Z");
         var (lease, captured) = await ReserveAsync(host, actor);
         var grant = Issued(captured);
-        var first = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, lease)));
+        var first = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, grant.GrantId, lease)));
 
         Assert.Equal((_clock.Now, deadline, OfflineLicencePermitPolicy.AuthorityFreshness),
             (first.NotBefore, first.ValidUntil, first.LimitingReason));
@@ -51,12 +51,12 @@ public sealed partial class P0501LicensingTests
 
         // A later stock snapshot is new stock evidence, not new licence freshness.
         _clock.Now = At("2026-11-22T11:59:59Z");
-        var reread = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, lease)));
+        var reread = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, grant.GrantId, lease)));
         Assert.Equal((_clock.Now, deadline), (reread.NotBefore, reread.ValidUntil));
 
         // A more generous head arrives. The old reservation keeps the revision and deadline it was verified under.
         await ApplyAsync(actor.Binding, verified.AddDays(60), revision: 2);
-        var afterRenewal = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, lease)));
+        var afterRenewal = Issued(await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, grant.GrantId, lease)));
         var kept = Issued(await VerifyAsync(host, actor, afterRenewal.SignedPermit, scope, _clock.Now));
         Assert.Equal((deadline, 1L, 2L, verified),
             (afterRenewal.ValidUntil, kept.ShopRevision, kept.CurrentShopRevision, kept.AuthorityVerifiedAt));
@@ -64,14 +64,15 @@ public sealed partial class P0501LicensingTests
         // At the deadline the old reservation yields nothing more and nothing is written.
         _clock.Now = deadline;
         var before = await EvidenceAsync(actor.Shop);
-        var late = await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, lease));
+        var late = await IssueAsync(host, actor, grant.GrantId, await SnapshotAsync(host, actor, grant.GrantId, lease));
         Assert.Equal("OfflinePermit.DeadlineReached", Code(late));
         Assert.Equal(before, await EvidenceAsync(actor.Shop));
         _output.WriteLine("At {0:O} the old reservation is refused {1}; evidence rows unchanged {2}", _clock.Now, Code(late), before);
 
         // Only a new verified reservation uses the confirmed renewal.
         var (renewedLease, recaptured) = await ReserveAsync(host, actor);
-        var renewed = Issued(await IssueAsync(host, actor, Issued(recaptured).GrantId, await SnapshotAsync(host, actor, renewedLease)));
+        var renewedGrant = Issued(recaptured).GrantId;
+        var renewed = Issued(await IssueAsync(host, actor, renewedGrant, await SnapshotAsync(host, actor, renewedGrant, renewedLease)));
         var fresh = Issued(await VerifyAsync(host, actor, renewed.SignedPermit, ScopeOf(actor, renewedLease), _clock.Now));
         Assert.Equal((At("2026-11-24T11:59:59Z"), 2L), (renewed.ValidUntil, fresh.ShopRevision));
     }

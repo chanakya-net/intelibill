@@ -8,20 +8,19 @@ namespace Intelibill.Application.Common.Licensing.Offline;
 
 public sealed partial class OfflineLicencePermitIssuer
 {
-    private async Task<ErrorOr<OfflinePermitEvidence>> IssueWithinAsync(SessionClaims session, OfflinePermitRequest request,
-        CancellationToken ct)
+    private async Task<ErrorOr<OfflinePermitEvidence>> IssueWithinAsync(SessionClaims session,
+        OfflineSnapshotCompletion completion, Guid? tillSessionId, CancellationToken ct)
     {
-        var completion = request.Completion;
         var admitted = await AdmitAsync(session, completion.ShopId, ct);
         if (admitted.IsError)
             return admitted.Errors;
 
         var (licence, head, auth) = admitted.Value;
-        var tillDayEnd = await gates.EnterAsync(completion.ShopId, session.UserId, request.TillSessionId, Now(), ct);
-        if (tillDayEnd.IsError)
-            return tillDayEnd.Errors;
+        var tillGate = await gates.EnterAsync(completion.ShopId, session.UserId, tillSessionId, Now(), ct);
+        if (tillGate.IsError)
+            return tillGate.Errors;
 
-        var loaded = await LoadEvidenceAsync(request, head, auth, ct);
+        var loaded = await LoadEvidenceAsync(completion, head, auth, ct);
         if (loaded.IsError)
             return loaded.Errors;
 
@@ -30,31 +29,37 @@ public sealed partial class OfflineLicencePermitIssuer
         var now = Now();
         var caps = new OfflinePermitCaps(grant.AuthorityVerifiedAt, grant.AuthorityValidUntil, head.ValidUntil,
             grant.DeviceVerifiedAt, Earlier(grant.AuthDeadline, auth.AuthDeadline), lease.ExpiresAt,
-            new FiscalYear(lease.FiscalYearStart).NextStartsAt, existing?.CompletedAt ?? now, snapshot.EarliestExpiry,
-            tillDayEnd.Value);
+            new FiscalYear(lease.FiscalYearStart).NextStartsAt, completion.CompletedAt, snapshot.EarliestExpiry,
+            tillGate.Value.TillDayEndsAt);
         if (existing is not null)
-            return Redeliver(existing, request, caps, now);
+            return StillOperating(licence, now) is { } expired
+                ? expired
+                : Redeliver(existing, completion, tillGate.Value.TillSessionId, caps, now);
 
         var window = OfflineLicencePermitPolicy.Evaluate(caps, now);
         if (window.IsError)
             return window.Errors;
 
-        var stored = await SignAndStoreAsync(request, grant, head, caps, window.Value, ct);
+        var stored = await SignAndStoreAsync(completion, tillGate.Value.TillSessionId, grant, head, caps, window.Value, ct);
         if (stored.IsError)
             return stored.Errors;
 
-        // Waits above (actor row, till, signing, a competing insert) may have outlasted the head or the window.
-        if (StillOperating(licence) is { } stale)
+        // Waits above (actor row, till, signing, a competing insert) may have outlasted the head or
+        // the half-open window, or the clock may have stepped backward below NotBefore.
+        var finalNow = Now();
+        if (StillOperating(licence, finalNow) is { } stale)
             return stale;
-        return Now() < stored.Value.ValidUntil ? stored : PermitErrors.DeadlineReached(stored.Value.LimitingReason);
+        return AdmitWindow(stored.Value, finalNow);
     }
 
-    /// <summary>The original grant, its lease and the snapshot's retained rows, each checked against the caller.</summary>
+    /// <summary>The original grant, its lease and the snapshot's retained rows, each checked against the capture.</summary>
     private async Task<ErrorOr<(OfflineLicenseGrant Grant, InvoiceLease Lease, OfflineSnapshotFacts Snapshot)>> LoadEvidenceAsync(
-        OfflinePermitRequest request, VerifiedHead head, OfflineAuthFacts auth, CancellationToken ct)
+        OfflineSnapshotCompletion completion, VerifiedHead head, OfflineAuthFacts auth, CancellationToken ct)
     {
-        var completion = request.Completion;
-        if (await store.FindGrantAsync(completion.ShopId, request.GrantId, ct) is not { } grant)
+        if (!captures.TryVerifyCompleted(completion))
+            return PermitErrors.SnapshotIncomplete;
+
+        if (await store.FindGrantAsync(completion.ShopId, completion.GrantId, ct) is not { } grant)
             return PermitErrors.GrantNotFound;
         if (grant.UserId != completion.UserId || grant.SessionId != completion.SessionId ||
             grant.LeaseId != completion.LeaseId || !string.Equals(grant.DeviceId, completion.DeviceId, StringComparison.Ordinal))
@@ -92,44 +97,54 @@ public sealed partial class OfflineLicencePermitIssuer
             ? null : PermitErrors.InvalidSignature;
     }
 
-    /// <summary>Every emitted lot is retained, under one catalogue, captured after the reservation and before now.</summary>
+    /// <summary>Every emitted lot is retained, under one catalogue, inside this completed capture's chronology.</summary>
     private static bool IsComplete(OfflineSnapshotFacts snapshot, OfflineSnapshotCompletion completion, OfflineLicenseGrant grant,
         DateTimeOffset now)
     {
-        if (completion.BatchCount < 0 || snapshot.BatchCount != completion.BatchCount)
+        if (completion.BatchCount < 0 || snapshot.BatchCount != completion.BatchCount ||
+            completion.StartedAt < grant.CapturedAt || completion.CompletedAt < completion.StartedAt ||
+            completion.CompletedAt > now)
             return false;
         if (snapshot.BatchCount == 0)
             return true;
         return snapshot is { CatalogVersions: 1, FirstCapturedAt: { } first, LastCapturedAt: { } last, EarliestExpiry: not null } &&
-            snapshot.CatalogVersion == completion.CatalogVersion && first >= grant.CapturedAt && last <= now;
+            snapshot.CatalogVersion == completion.CatalogVersion && first >= completion.StartedAt &&
+            first >= grant.CapturedAt && last <= completion.CompletedAt;
     }
 
     /// <summary>
     /// The same completion again. Authority was checked on the way here; the stored bytes go out only
-    /// while they are still inside every limit known now. History stays either way.
+    /// when every immutable completion fact matches and the instant lies inside [NotBefore, ValidUntil).
     /// </summary>
-    private static ErrorOr<OfflinePermitEvidence> Redeliver(OfflineLicensePermit existing, OfflinePermitRequest request,
-        OfflinePermitCaps caps, DateTimeOffset now)
+    private static ErrorOr<OfflinePermitEvidence> Redeliver(OfflineLicensePermit existing, OfflineSnapshotCompletion completion,
+        Guid? verifiedTillSessionId, OfflinePermitCaps caps, DateTimeOffset now)
     {
-        if (existing.GrantId != request.GrantId || existing.TillSessionId != request.TillSessionId)
+        if (existing.GrantId != completion.GrantId || existing.LeaseId != completion.LeaseId ||
+            existing.UserId != completion.UserId || existing.SessionId != completion.SessionId ||
+            !string.Equals(existing.DeviceId, completion.DeviceId, StringComparison.Ordinal) ||
+            existing.BatchCount != completion.BatchCount || existing.CatalogVersion != completion.CatalogVersion ||
+            existing.CompletedAt != completion.CompletedAt || existing.TillSessionId != verifiedTillSessionId)
             return PermitErrors.SnapshotIncomplete;
-        if (now >= existing.ValidUntil)
-            return PermitErrors.DeadlineReached(existing.LimitingReason);
+
+        var evidence = ToEvidence(existing);
+        if (AdmitWindow(evidence, now) is { IsError: true } outside)
+            return outside.Errors;
+
         return OfflineLicencePermitPolicy.Deadlines(caps).Min(cap => cap.Deadline) < existing.ValidUntil
             ? PermitErrors.Tightened
-            : ToEvidence(existing);
+            : evidence;
     }
 
-    private async Task<ErrorOr<OfflinePermitEvidence>> SignAndStoreAsync(OfflinePermitRequest request, OfflineLicenseGrant grant,
-        VerifiedHead head, OfflinePermitCaps caps, OfflinePermitWindow window, CancellationToken ct)
+    private async Task<ErrorOr<OfflinePermitEvidence>> SignAndStoreAsync(OfflineSnapshotCompletion completion,
+        Guid? verifiedTillSessionId, OfflineLicenseGrant grant, VerifiedHead head, OfflinePermitCaps caps,
+        OfflinePermitWindow window, CancellationToken ct)
     {
-        var completion = request.Completion;
         var permit = new OfflineLicensePermitV1(OfflinePermitContractV1.Version, Guid.NewGuid(), grant.Id,
             OfflinePermitContractV1.Digest(grant.SignedGrant), grant.ShopId, grant.AccountId, grant.UserId, grant.SessionId,
             grant.DeviceId, grant.LeaseId, completion.SnapshotId, grant.AccountRevision, grant.ShopRevision,
             head.AccountRevision, head.ShopRevision, grant.AuthorityVerifiedAt, grant.DeviceVerifiedAt,
             caps.SnapshotCompletedAt, window.NotBefore, window.NotBefore, window.ValidUntil, window.LimitingReason,
-            request.TillSessionId);
+            verifiedTillSessionId);
         var signed = await SignAsync(grant.ShopId, OfflinePermitContractV1.PermitType, OfflinePermitContractV1.Encode(permit), ct);
         if (signed.IsError)
             return signed.Errors;
@@ -148,8 +163,17 @@ public sealed partial class OfflineLicencePermitIssuer
 
         // Another request stored this completion first; its bytes are the permit.
         return await store.FindPermitAsync(row.ShopId, row.SnapshotId, ct) is { } winner
-            ? Redeliver(winner, request, caps, Now())
+            ? Redeliver(winner, completion, verifiedTillSessionId, caps, Now())
             : PermitErrors.Busy;
+    }
+
+    private static ErrorOr<OfflinePermitEvidence> AdmitWindow(OfflinePermitEvidence permit, DateTimeOffset now)
+    {
+        if (OfflineLicencePermitPolicy.Covers(permit.NotBefore, permit.ValidUntil, now))
+            return permit;
+        return now < permit.NotBefore
+            ? PermitErrors.OutsideValidity
+            : PermitErrors.DeadlineReached(permit.LimitingReason);
     }
 
     private static OfflinePermitEvidence ToEvidence(OfflineLicensePermit permit) =>

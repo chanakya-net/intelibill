@@ -124,7 +124,7 @@ public static class OfflinePermitContractV1
         {
             return JsonSerializer.Deserialize<T>(payload, Strict);
         }
-        catch (Exception error) when (error is JsonException or FormatException or NotSupportedException)
+        catch (Exception error) when (error is JsonException or FormatException or NotSupportedException or InvalidOperationException)
         {
             return null;
         }

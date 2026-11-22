@@ -7,7 +7,6 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Application.Common.Security;
-using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
@@ -32,9 +31,10 @@ namespace Intelibill.Integration.Tests;
 
 /// <summary>
 /// P05-01: the registered offline-permit issuer on real PostgreSQL, under the restricted runtime role
-/// and a fixed clock. Entitlements are fixture-signed and applied through the real projection store;
-/// permits are signed with a locally generated RSA key. Nothing here contacts a licensing provider or
-/// a key vault.
+/// and a fixed clock. Entitlement projections supply a synthetic, already-verified assertion to the
+/// real projection store (entitlement-signature verification is covered separately by P0402LicensingTests);
+/// grants and permits are signed with locally generated RSA keys. Nothing here contacts a live
+/// licensing provider or Azure Key Vault.
 /// </summary>
 [Collection("Integration Tests")]
 public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, ITestOutputHelper output) : IDisposable
@@ -158,7 +158,10 @@ public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, I
         return binding;
     }
 
-    /// <summary>A fixture-signed head, verified at the clock, applied by the production projection store.</summary>
+    /// <summary>
+    /// Applies a synthetic, already-verified entitlement assertion through the production projection store.
+    /// Entitlement HTTP signature verification is exercised separately by P0402LicensingTests.
+    /// </summary>
     private async Task ApplyAsync(Binding binding, DateTimeOffset end, long revision = 1, string restriction = "Unrestricted",
         string state = "Active", DateTimeOffset? boundary = null, DateTimeOffset? suspensionEffectiveAt = null,
         long? accountRevision = null)
@@ -183,10 +186,12 @@ public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, I
 
     /// <summary>
     /// What a reservation does, through the same production services, with the issuer taking part
-    /// before the lease is saved. A refused capture rolls the whole reservation back.
+    /// before the lease is saved. By default a refused capture rolls the reservation back; callers
+    /// testing legacy fallback may commit the outer unanchored lease instead.
     /// </summary>
     private async Task<(Guid Lease, ErrorOr<OfflineGrantEvidence> Grant)> ReserveAsync(ApiWebApplicationFactory host, Actor actor,
-        string device = Device, SessionClaims? claims = null, bool useClaims = true, DateTimeOffset? leaseExpiresAt = null)
+        string device = Device, SessionClaims? claims = null, bool useClaims = true, DateTimeOffset? leaseExpiresAt = null,
+        bool commitLegacyOnRefusal = false)
     {
         using var ambient = AmbientSessionContext.Enter(actor.User, actor.Shop);
         await using var scope = host.Services.CreateAsyncScope();
@@ -207,7 +212,7 @@ public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, I
         await services.GetRequiredService<IInvoiceLeaseRepository>().AddAsync(lease, Ct);
         var grant = await services.GetRequiredService<IOfflineLicencePermitIssuer>()
             .CaptureGrantAsync(useClaims ? claims ?? actor.Claims : null, lease, Ct);
-        if (grant.IsError)
+        if (grant.IsError && !commitLegacyOnRefusal)
         {
             await work.RollbackTransactionAsync(Ct);
             return (lease.Id, grant);
@@ -217,27 +222,23 @@ public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, I
         return (lease.Id, grant);
     }
 
-    /// <summary>Runs the production snapshot stream to its final record and reports what it emitted.</summary>
-    private async Task<OfflineSnapshotCompletion> SnapshotAsync(ApiWebApplicationFactory host, Actor actor, Guid lease,
-        string device = Device)
+    /// <summary>Starts a server-owned snapshot capture and enumerates its stream to completion.</summary>
+    private static async Task<OfflineSnapshotCompletion> SnapshotAsync(ApiWebApplicationFactory host, Actor actor, Guid grant,
+        Guid lease, string device = Device, SessionClaims? claims = null)
     {
         using var ambient = AmbientSessionContext.Enter(actor.User, actor.Shop);
         await using var scope = host.Services.CreateAsyncScope();
-        var stream = scope.ServiceProvider.GetRequiredService<IOfflineSalesSnapshotStreamingService>();
-        var id = Guid.NewGuid();
-        long catalog = 0;
-        var batches = -1;
-        await foreach (var record in stream.StreamAsync(actor.Shop, id, _clock.Now, Ct))
+        var issuer = scope.ServiceProvider.GetRequiredService<IOfflineLicencePermitIssuer>();
+        var capture = issuer.StartSnapshotCapture(claims ?? actor.Claims, grant, lease, device);
+        await foreach (var _ in capture.StreamAsync(Ct))
         {
-            if (record is OfflineSalesSnapshotMetadataRecord start) catalog = start.Metadata.CatalogVersion ?? 0;
-            if (record is OfflineSalesSnapshotCompleteRecord done) batches = done.Complete.BatchCount;
         }
-        Assert.True(batches >= 0, "The snapshot stream did not reach its completion record.");
-        return new(id, actor.Shop, actor.User, actor.Session, device, lease, catalog, batches);
+        Assert.NotNull(capture.Completion);
+        return capture.Completion!;
     }
 
     private static async Task<ErrorOr<OfflinePermitEvidence>> IssueAsync(ApiWebApplicationFactory host, Actor actor, Guid grant,
-        OfflineSnapshotCompletion completion, Guid? till = null, SessionClaims? claims = null, bool useClaims = true)
+        OfflineSnapshotCompletion? completion, Guid? till = null, SessionClaims? claims = null, bool useClaims = true)
     {
         using var ambient = AmbientSessionContext.Enter(actor.User, actor.Shop);
         await using var scope = host.Services.CreateAsyncScope();
