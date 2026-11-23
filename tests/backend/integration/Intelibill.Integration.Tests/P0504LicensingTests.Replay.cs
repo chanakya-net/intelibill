@@ -100,14 +100,17 @@ public sealed partial class P0504LicensingTests
         var result = await SyncAsync(client, invoice);
         var path = $"/api/offline-reconciliation/{result.GetProperty("reviewCaseId").GetGuid():D}";
         var detail = await client.GetFromJsonAsync<JsonElement>(path, Ct);
+        Assert.Equal("LicenseHistoryReview", detail.GetProperty("issueType").GetString());
+        Assert.DoesNotContain("RetryHistoricalLease",
+            detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!));
         using var resolve = await client.PostAsJsonAsync(path + "/resolve", new
         {
             operationId = Guid.NewGuid().ToString("N"), expectedVersion = detail.GetProperty("version").GetUInt32(),
             action = "RetryHistoricalLease", reason = "Verify original permit",
         }, Ct);
-        Assert.Equal(HttpStatusCode.Conflict, resolve.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, resolve.StatusCode);
         var body = await resolve.Content.ReadAsStringAsync(Ct);
-        Assert.Contains("Reconciliation.ReplayRejected", body, StringComparison.Ordinal);
+        Assert.Contains("Reconciliation.ActionNotAllowed", body, StringComparison.Ordinal);
         await using var db = Open(Migrator);
         Assert.False(await db.Sales.AnyAsync(x => x.ShopId == actor.Shop, Ct));
     }

@@ -1285,7 +1285,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 Assert.Equal(secondSale.ClientSaleId, second.ClientSaleId);
                 Assert.Equal("created", second.Status);
             });
-        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -1338,7 +1338,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 Assert.Equal(secondSale.ClientSaleId, second.ClientSaleId);
                 Assert.Equal("created", second.Status);
             });
-        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -1373,7 +1373,7 @@ public class SyncOfflineSalesCommandHandlerTests
         var syncResult = Assert.Single(result.Value.Results);
         Assert.Equal("NeedsReview", syncResult.Status);
         Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code);
-        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -2071,8 +2071,8 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(_recordedSubmissions.Single().InvoiceNumber, issue.InvoiceNumber);
         Assert.All(_invoiceLeaseRepository.ReceivedCalls(), call => Assert.Equal(nameof(IInvoiceLeaseRepository.FindReservedRangeAsync), call.GetMethodInfo().Name));
         await AssertNothingPostedAsync();
-        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -2097,7 +2097,7 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(openCase.Id, result.ReviewCaseId);
         Assert.Empty(issues);
         await AssertNothingPostedAsync();
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CreateSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _postingPeriods.DidNotReceive().AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
     }
 

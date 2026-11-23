@@ -8,9 +8,24 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 [JsonConverter(typeof(FrozenLicenceEvidence.Converter))]
 public sealed class FrozenLicenceEvidence(JsonElement value)
 {
+    internal bool IsObject => value.ValueKind == JsonValueKind.Object;
     internal int? Version => Field("version") is { ValueKind: JsonValueKind.Number } version && version.TryGetInt32(out var n) ? n : null;
     internal string? Text(string name) => Field(name) is { ValueKind: JsonValueKind.String } field ? field.GetString() : null;
     internal Guid? Id(string name) => Guid.TryParseExact(Text(name), "D", out var id) ? id : null;
+
+    /// <summary>Returns the claimed key id only when it fits the bounded safe identifier alphabet.</summary>
+    internal string? SafeKeyId()
+    {
+        var keyId = Text("keyId");
+        if (keyId is not { Length: >= 1 and <= 128 }) return null;
+        foreach (var ch in keyId)
+        {
+            if (ch is not ((>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_'))
+                return null;
+        }
+        return keyId;
+    }
+
     private JsonElement? Field(string name) => value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out var field) ? field : null;
     public override string ToString() => "Frozen offline licence evidence";
 

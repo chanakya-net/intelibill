@@ -99,6 +99,7 @@ public static class DependencyInjection
 
         services.AddScoped<IOfflineSaleVarianceAnalyzer, OfflineSaleVarianceAnalyzer>();
         services.AddScoped<IOfflineSalePoster, OfflineSalePoster>();
+        services.AddScoped<LicenseHistoryReviewAssessment>();
         services.AddScoped<ReconciliationCaseMapper>();
 
         return services;

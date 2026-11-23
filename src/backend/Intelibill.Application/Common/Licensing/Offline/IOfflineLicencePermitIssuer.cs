@@ -106,6 +106,8 @@ public interface IOfflineLicenceEvidenceStore
 
     Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
         string payloadHash, CancellationToken ct);
+    Task<Guid?> FindConflictingReceiptIdAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+        string payloadHash, CancellationToken ct);
     Task<bool> HasGrantForLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct);
 
     void StageGrant(OfflineLicenseGrant grant);
@@ -113,6 +115,9 @@ public interface IOfflineLicenceEvidenceStore
     Task<InvoiceLease?> FindLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct);
     Task<OfflineSnapshotFacts> ReadSnapshotAsync(Guid shopId, Guid snapshotId, CancellationToken ct);
     Task<OfflineLicensePermit?> FindPermitAsync(Guid shopId, Guid snapshotId, CancellationToken ct);
+    Task<OfflineLicensePermit?> FindPermitByIdAsync(Guid shopId, Guid permitId, CancellationToken ct);
+    Task<IReadOnlyList<LicenseGrantEvidence>> ReadGrantEvidenceAsync(Guid shopId, Guid accountId,
+        Guid affiliationRequestId, CancellationToken ct);
 
     /// <summary>Keeps the public key for (shop, key id); refuses an identifier already bound to other material.</summary>
     Task<ErrorOr<Success>> RetainKeyAsync(Guid shopId, string keyId, byte[] publicKey, DateTimeOffset now, CancellationToken ct);

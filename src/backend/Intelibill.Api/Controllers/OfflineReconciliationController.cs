@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -86,7 +87,9 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
                 request.ExpectedVersion,
                 request.Action ?? string.Empty,
                 request.Reason ?? string.Empty,
-                request.LinkedOperationId, request.TillReconciliationEvidence),
+                request.LinkedOperationId,
+                request.TillReconciliationEvidence,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -121,7 +124,8 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
                 UserId!.Value,
                 ActiveShopId!.Value,
                 request!.OperationId ?? string.Empty,
-                bundle),
+                bundle,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

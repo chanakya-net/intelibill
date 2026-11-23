@@ -118,8 +118,45 @@ export interface ReconciliationLinkCandidate {
   readonly occurredAt: string;
 }
 
+export interface LicenceHistoryObservation {
+  readonly reasonCode: string;
+  readonly subreason: string;
+  readonly observedAt: string;
+  readonly comparedField: string | null;
+  readonly windowStart: string | null;
+  readonly windowEnd: string | null;
+  readonly observedAccountRevision: number | null;
+  readonly observedShopRevision: number | null;
+  readonly sourceCompletionCutoff: string | null;
+  readonly competingSubmissionId: string | null;
+}
+
+export interface LicenceHistoryReview {
+  readonly version: number;
+  readonly currentReasonCode: string;
+  readonly currentSubreason: string;
+  readonly retryEligible: boolean;
+  readonly linkEligible: boolean;
+  readonly hasStoredObservations: boolean;
+  readonly firstReceivedAt: string | null;
+  readonly claimedPermitId: string | null;
+  readonly retainedPermitId: string | null;
+  readonly claimedGrantId: string | null;
+  readonly retainedGrantId: string | null;
+  readonly claimedLeaseId: string | null;
+  readonly originalLeaseId: string | null;
+  readonly claimedSnapshotId: string | null;
+  readonly claimedKeyId: string | null;
+  readonly retainedKeyId: string | null;
+  readonly permitNotBefore: string | null;
+  readonly permitValidUntil: string | null;
+  readonly sourceCompletionCutoff: string | null;
+  readonly observations: readonly LicenceHistoryObservation[];
+}
+
 export interface ReconciliationCase extends ReconciliationCaseSummary {
   readonly tillLatePosting?: import('../../tills/services/till.models').TillLatePosting | null;
+  readonly licenceHistory?: LicenceHistoryReview | null;
   readonly itemId: string | null;
   readonly inventoryBatchId: string | null;
   readonly printedQuantity: number | null;

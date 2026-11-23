@@ -1,14 +1,70 @@
+using System.Buffers.Binary;
+using System.Security.Cryptography;
+using System.Text;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class OfflineSubmissionRepository(ApplicationDbContext context)
     : RepositoryBase<OfflineSubmission>(context), IOfflineSubmissionRepository
 {
+    private const string IntakeLockTimeout = "5s";
+    private const string IntakeLockSavepoint = "offline_device_intake_lock";
+
+    public async Task<RowLockOutcome> LockDeviceIntakeAsync(Guid shopId, string deviceId, CancellationToken cancellationToken)
+    {
+        if (!Context.Database.IsNpgsql())
+            return RowLockOutcome.Acquired;
+
+        var transaction = Context.Database.CurrentTransaction
+            ?? throw new InvalidOperationException("The device intake lock must be taken inside a transaction.");
+
+        var lockKey = ComputeDeviceLockKey(shopId, deviceId);
+        await transaction.CreateSavepointAsync(IntakeLockSavepoint, cancellationToken);
+        try
+        {
+            var previousTimeout = await Context.Database
+                .SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"")
+                .SingleAsync(cancellationToken);
+            await Context.Database.ExecuteSqlAsync(
+                $"SELECT set_config('lock_timeout', {IntakeLockTimeout}, true)",
+                cancellationToken);
+            await Context.Database.ExecuteSqlAsync(
+                $"SELECT pg_advisory_xact_lock({lockKey})",
+                cancellationToken);
+            await Context.Database.ExecuteSqlAsync(
+                $"SELECT set_config('lock_timeout', {previousTimeout}, true)",
+                cancellationToken);
+            await transaction.ReleaseSavepointAsync(IntakeLockSavepoint, CancellationToken.None);
+            return RowLockOutcome.Acquired;
+        }
+        catch (Exception ex) when ((ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState == PostgresErrorCodes.LockNotAvailable)
+        {
+            await transaction.RollbackToSavepointAsync(IntakeLockSavepoint, CancellationToken.None);
+            await transaction.ReleaseSavepointAsync(IntakeLockSavepoint, CancellationToken.None);
+            return RowLockOutcome.TimedOut;
+        }
+        catch
+        {
+            await transaction.RollbackToSavepointAsync(IntakeLockSavepoint, CancellationToken.None);
+            await transaction.ReleaseSavepointAsync(IntakeLockSavepoint, CancellationToken.None);
+            throw;
+        }
+    }
+
+    public Task<OfflineSubmission?> GetTrackedByIdAsync(Guid shopId, Guid submissionId, CancellationToken cancellationToken) =>
+        DbSet.FirstOrDefaultAsync(s => s.ShopId == shopId && s.Id == submissionId, cancellationToken);
+
+    private static long ComputeDeviceLockKey(Guid shopId, string deviceId)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"offline-intake:{shopId:D}:{deviceId.Trim()}"));
+        return BinaryPrimitives.ReadInt64LittleEndian(hash);
+    }
     public async Task<OfflineSubmission> RecordAsync(OfflineSubmission candidate, CancellationToken cancellationToken)
     {
         // Runs in whatever transaction is open (or autocommits): an identical resend keeps the first row.

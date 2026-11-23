@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.OfflineReconciliation.Commands.SubmitRecoveryBundle;
 
 /// <param name="ActorUserId">The operator submitting the bundle: an active owner or manager of the shop.</param>
@@ -8,7 +10,8 @@ public sealed record SubmitRecoveryBundleCommand(
     Guid ActorUserId,
     Guid ShopId,
     string OperationId,
-    RecoveryBundle Bundle);
+    RecoveryBundle Bundle,
+    SessionClaims? Session = null);
 
 /// <summary>A support recovery bundle: the unsynced invoices of one device, checksummed as exported.</summary>
 /// <param name="Format">Always <c>intelibill.offline-recovery</c>.</param>

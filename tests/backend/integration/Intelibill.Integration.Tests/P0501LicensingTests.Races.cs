@@ -296,6 +296,9 @@ public sealed partial class P0501LicensingTests
         public Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
             string payloadHash, CancellationToken ct) =>
             inner.HasConflictingReceiptAsync(shopId, deviceId, clientSaleId, invoiceNumber, payloadHash, ct);
+        public Task<Guid?> FindConflictingReceiptIdAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+            string payloadHash, CancellationToken ct) =>
+            inner.FindConflictingReceiptIdAsync(shopId, deviceId, clientSaleId, invoiceNumber, payloadHash, ct);
         public Task<bool> HasGrantForLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct) =>
             inner.HasGrantForLeaseAsync(shopId, leaseId, ct);
         public bool IsBeingReserved(InvoiceLease lease) => inner.IsBeingReserved(lease);
@@ -312,6 +315,11 @@ public sealed partial class P0501LicensingTests
             inner.ReadSnapshotAsync(shopId, snapshotId, ct);
         public Task<OfflineLicensePermit?> FindPermitAsync(Guid shopId, Guid snapshotId, CancellationToken ct) =>
             inner.FindPermitAsync(shopId, snapshotId, ct);
+        public Task<OfflineLicensePermit?> FindPermitByIdAsync(Guid shopId, Guid permitId, CancellationToken ct) =>
+            inner.FindPermitByIdAsync(shopId, permitId, ct);
+        public Task<IReadOnlyList<LicenseGrantEvidence>> ReadGrantEvidenceAsync(Guid shopId, Guid accountId,
+            Guid affiliationRequestId, CancellationToken ct) =>
+            inner.ReadGrantEvidenceAsync(shopId, accountId, affiliationRequestId, ct);
         public async Task<ErrorOr<Success>> RetainKeyAsync(Guid shopId, string keyId, byte[] publicKey, DateTimeOffset now,
             CancellationToken ct)
         {

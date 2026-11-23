@@ -58,7 +58,47 @@ public sealed record ReconciliationCaseDto(
     IReadOnlyList<string> AvailableActions,
     IReadOnlyList<ReconciliationCaseEventDto> Events,
     IReadOnlyList<ReconciliationLinkCandidateDto> LinkCandidates,
-    Intelibill.Application.Features.Tills.TillLatePostingDto? TillLatePosting = null);
+    Intelibill.Application.Features.Tills.TillLatePostingDto? TillLatePosting = null,
+    LicenceHistoryReviewDto? LicenceHistory = null);
+
+/// <summary>
+/// Safe, versioned historical licence evidence for a LicenseHistoryReview case (and legacy #903
+/// provenance cases with the <c>OfflineLicenceHistory.</c> prefix). Contains no raw signed tokens,
+/// unbounded client strings, commercial plan details, or inaccessible parties.
+/// </summary>
+public sealed record LicenceHistoryReviewDto(
+    int Version,
+    string CurrentReasonCode,
+    string CurrentSubreason,
+    bool RetryEligible,
+    bool LinkEligible,
+    bool HasStoredObservations,
+    DateTimeOffset? FirstReceivedAt,
+    Guid? ClaimedPermitId,
+    Guid? RetainedPermitId,
+    Guid? ClaimedGrantId,
+    Guid? RetainedGrantId,
+    Guid? ClaimedLeaseId,
+    Guid? OriginalLeaseId,
+    Guid? ClaimedSnapshotId,
+    string? ClaimedKeyId,
+    string? RetainedKeyId,
+    DateTimeOffset? PermitNotBefore,
+    DateTimeOffset? PermitValidUntil,
+    DateTimeOffset? SourceCompletionCutoff,
+    IReadOnlyList<LicenceHistoryObservationDto> Observations);
+
+public sealed record LicenceHistoryObservationDto(
+    string ReasonCode,
+    string Subreason,
+    DateTimeOffset ObservedAt,
+    string? ComparedField,
+    DateTimeOffset? WindowStart,
+    DateTimeOffset? WindowEnd,
+    long? ObservedAccountRevision,
+    long? ObservedShopRevision,
+    DateTimeOffset? SourceCompletionCutoff,
+    Guid? CompetingSubmissionId);
 
 /// <summary>
 /// Evidence the caller may link the case to, already checked the way the link action checks it:

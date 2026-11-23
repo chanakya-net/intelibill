@@ -14,10 +14,19 @@ namespace Intelibill.Infrastructure.Licensing;
 /// </summary>
 internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOfflineLicenceEvidenceStore
 {
-    public Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+    public async Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
         string payloadHash, CancellationToken ct) =>
-        db.OfflineSubmissions.AnyAsync(s => s.ShopId == shopId && s.DeviceId == deviceId && s.PayloadHash != payloadHash &&
-            (s.ClientSaleId == clientSaleId || s.InvoiceNumber == invoiceNumber), ct);
+        await FindConflictingReceiptIdAsync(shopId, deviceId, clientSaleId, invoiceNumber, payloadHash, ct) is not null;
+
+    public Task<Guid?> FindConflictingReceiptIdAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+        string payloadHash, CancellationToken ct) =>
+        db.OfflineSubmissions.AsNoTracking()
+            .Where(s => s.ShopId == shopId && s.DeviceId == deviceId && s.PayloadHash != payloadHash &&
+                (s.ClientSaleId == clientSaleId || s.InvoiceNumber == invoiceNumber))
+            .OrderBy(s => s.ReceivedAt)
+            .ThenBy(s => s.Id)
+            .Select(s => (Guid?)s.Id)
+            .FirstOrDefaultAsync(ct);
 
     public Task<bool> HasGrantForLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct) =>
         db.Set<OfflineLicenseGrant>().AnyAsync(g => g.ShopId == shopId && g.LeaseId == leaseId, ct);
@@ -102,6 +111,18 @@ internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOf
     public Task<OfflineLicensePermit?> FindPermitAsync(Guid shopId, Guid snapshotId, CancellationToken ct) =>
         db.Set<OfflineLicensePermit>().AsNoTracking()
             .SingleOrDefaultAsync(row => row.ShopId == shopId && row.SnapshotId == snapshotId, ct);
+
+    public Task<OfflineLicensePermit?> FindPermitByIdAsync(Guid shopId, Guid permitId, CancellationToken ct) =>
+        db.Set<OfflineLicensePermit>().AsNoTracking()
+            .SingleOrDefaultAsync(row => row.ShopId == shopId && row.Id == permitId, ct);
+
+    public async Task<IReadOnlyList<LicenseGrantEvidence>> ReadGrantEvidenceAsync(Guid shopId, Guid accountId,
+        Guid affiliationRequestId, CancellationToken ct) =>
+        await db.Set<LicenseGrantEvidence>().AsNoTracking()
+            .Where(row => row.ShopId == shopId && row.AccountId == accountId && row.AffiliationRequestId == affiliationRequestId)
+            .OrderBy(row => row.AppliedAt)
+            .ThenBy(row => row.EventId)
+            .ToListAsync(ct);
 
     public async Task<ErrorOr<Success>> RetainKeyAsync(Guid shopId, string keyId, byte[] publicKey, DateTimeOffset now,
         CancellationToken ct)

@@ -1,4 +1,6 @@
 using System.Text.Json;
+using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
@@ -24,7 +26,8 @@ public sealed class ReconciliationCaseMapper(
     ITillRepository tillRepository,
     IOfflineExpiryAuthority expiryAuthority,
     TimeProvider timeProvider,
-    OfflineTillReconciliationEligibility tillEligibility)
+    OfflineTillReconciliationEligibility tillEligibility,
+    LicenseHistoryReviewAssessment? historyAssessment = null)
 {
     public async Task<IReadOnlyList<ReconciliationCaseSummaryDto>> ToSummariesAsync(
         IReadOnlyList<ReconciliationIssue> issues,
@@ -57,6 +60,20 @@ public sealed class ReconciliationCaseMapper(
             .ToList();
     }
 
+    public async Task<ErrorOr<ReconciliationCaseDto>> ToDetailOrErrorAsync(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        ShopRole role,
+        Guid actorUserId,
+        CancellationToken cancellationToken,
+        ShopLicenceLease? existingLicence = null)
+    {
+        var (dto, denial) = await BuildDetailAsync(issue, submission, role, actorUserId, existingLicence, cancellationToken);
+        if (denial is { } err)
+            return err;
+        return dto;
+    }
+
     /// <param name="issue">The case, as read (or as just saved).</param>
     /// <param name="submission">The case's envelope, when it has one.</param>
     /// <param name="role">The caller's live role, for the available actions.</param>
@@ -67,6 +84,16 @@ public sealed class ReconciliationCaseMapper(
         OfflineSubmission? submission,
         ShopRole role,
         Guid actorUserId,
+        CancellationToken cancellationToken,
+        ShopLicenceLease? existingLicence = null) =>
+        (await BuildDetailAsync(issue, submission, role, actorUserId, existingLicence, cancellationToken)).Dto;
+
+    private async Task<(ReconciliationCaseDto Dto, Error? Denial)> BuildDetailAsync(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        ShopRole role,
+        Guid actorUserId,
+        ShopLicenceLease? existingLicence,
         CancellationToken cancellationToken)
     {
         var events = await caseEventRepository.GetByCaseAsync(issue.ShopId, issue.Id, cancellationToken);
@@ -107,12 +134,29 @@ public sealed class ReconciliationCaseMapper(
             var expiryPosted = await saleRepository.GetByClientSaleIdAsync(issue.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
             expiryLinkVerified = expiryPosted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, expiryPosted, cancellationToken);
         }
-        var actions = ReconciliationActionPolicy.AvailableActions(issue, submission, role, actorUserId, expiryVerified, expiryLinkVerified, tillEligible);
-        var candidates = await LinkCandidatesAsync(issue, submission, actions, cancellationToken);
+
+        LicenseHistoryCaseEvaluation? historyEval = historyAssessment is null
+            ? null
+            : await historyAssessment.EvaluateAsync(issue, submission, lease, now, existingLicence, targetLinkedSaleId: null, cancellationToken);
+
+        var actions = historyEval?.Denial is not null
+            ? []
+            : ReconciliationActionPolicy.AvailableActions(
+                issue,
+                submission,
+                role,
+                actorUserId,
+                expiryVerified,
+                expiryLinkVerified,
+                tillEligible,
+                historyEval?.HasSavedObservations ?? false,
+                historyEval?.RetryEligible ?? false,
+                historyEval?.LinkEligible ?? false);
+        var candidates = await LinkCandidatesAsync(issue, submission, actions, historyEval, cancellationToken);
 
         var late = submission?.SaleId is { } posted ? await tillRepository.FindLatePostingAsync(issue.ShopId, submission.Id, posted, cancellationToken) : null;
 
-        return new ReconciliationCaseDto(
+        var dto = new ReconciliationCaseDto(
             issue.Id,
             issue.Version,
             issue.InvoiceNumber,
@@ -153,7 +197,9 @@ public sealed class ReconciliationCaseMapper(
             candidates,
             late is null ? null : new(late.Id, late.OfflineSubmissionId, late.SaleId, late.CaseId, late.SessionId, late.CloseId,
                 late.SourceBusinessDate, late.OccurredAt, late.RecordedAt, late.CashierId, late.TenderLines, late.EvidenceStatus,
-                late.ManagerReason, late.IncludedInCount, late.EvidenceReason));
+                late.ManagerReason, late.IncludedInCount, late.EvidenceReason),
+            historyEval?.Dto);
+        return (dto, historyEval?.Denial);
     }
 
     /// <summary>
@@ -164,6 +210,7 @@ public sealed class ReconciliationCaseMapper(
         ReconciliationIssue issue,
         OfflineSubmission? submission,
         IReadOnlyList<ReconciliationAction> actions,
+        LicenseHistoryCaseEvaluation? historyEval,
         CancellationToken cancellationToken)
     {
         var candidates = new List<ReconciliationLinkCandidateDto>();
@@ -186,6 +233,21 @@ public sealed class ReconciliationCaseMapper(
 
         if (actions.Contains(ReconciliationAction.LinkExistingSale))
         {
+            if (historyEval is { IsHistoryCase: true })
+            {
+                foreach (var sale in historyEval.ExactLinkSales)
+                {
+                    candidates.Add(new ReconciliationLinkCandidateDto(
+                        sale.Id,
+                        ReconciliationLinkCandidateDto.SaleKind,
+                        sale.InvoiceNumber,
+                        null,
+                        sale.SoldAt));
+                }
+
+                return candidates;
+            }
+
             var deviceId = submission?.DeviceId ?? issue.DeviceId;
             var clientSaleId = submission?.ClientSaleId ?? issue.ClientSaleId;
             var sales = new List<Sale>(2);

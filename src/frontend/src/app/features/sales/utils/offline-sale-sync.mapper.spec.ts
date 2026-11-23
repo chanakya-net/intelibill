@@ -257,6 +257,30 @@ describe('offline-sale-sync.mapper', () => {
     expect(offlineReviewReasonKey('Invoice.TaxProfileRequired')).toBe(
       'sales.history.offlineQueue.review.reasons.documentNotIssued',
     );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.EvidenceUnsupported')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistoryUnsupported',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.EvidenceInvalid')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistoryInvalid',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.OutsidePermitWindow')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistoryOutsideWindow',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.RestrictionConflict')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistoryRestrictionConflict',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.EvidenceMissing')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistoryMissing',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.ConflictingReceipt')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistoryConflictingReceipt',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.Supported')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistorySupported',
+    );
+    expect(offlineReviewReasonKey('OfflineLicenceHistory.FutureCode')).toBe(
+      'sales.history.offlineQueue.review.reasons.licenceHistory',
+    );
     expect(offlineReviewReasonKey('Something.Else')).toBe(
       'sales.history.offlineQueue.review.reasons.unknown',
     );

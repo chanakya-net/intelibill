@@ -10,6 +10,15 @@ public interface IOfflineSubmissionRepository : IRepository<OfflineSubmission>
     /// </summary>
     Task<OfflineSubmission> RecordAsync(OfflineSubmission candidate, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Serializes envelope registration and case selection for one (shop, device) inside the open
+    /// transaction using a bounded PostgreSQL advisory lock.
+    /// </summary>
+    Task<RowLockOutcome> LockDeviceIntakeAsync(Guid shopId, string deviceId, CancellationToken cancellationToken);
+
+    /// <summary>Reads the committed envelope row within the shop, tracked for a subsequent sale link.</summary>
+    Task<OfflineSubmission?> GetTrackedByIdAsync(Guid shopId, Guid submissionId, CancellationToken cancellationToken);
+
     Task<OfflineSubmission?> FindEarliestByHashAsync(
         Guid shopId,
         string deviceId,

@@ -67,6 +67,9 @@ import {
   caseStatusSeverity,
   isUncertainFailure,
   issueTypeLabelKey,
+  licenceHistoryFieldKey,
+  licenceHistoryReasonKey,
+  licenceHistorySubreasonKey,
   paymentMethodLabelKey,
   reconciliationErrorKey,
   recoveryStatusLabelKey,
@@ -177,6 +180,9 @@ export class OfflineReconciliationPageComponent {
   readonly caseStatusLabelKey = caseStatusLabelKey;
   readonly caseStatusSeverity = caseStatusSeverity;
   readonly issueTypeLabelKey = issueTypeLabelKey;
+  readonly licenceHistoryFieldKey = licenceHistoryFieldKey;
+  readonly licenceHistoryReasonKey = licenceHistoryReasonKey;
+  readonly licenceHistorySubreasonKey = licenceHistorySubreasonKey;
   readonly paymentMethodLabelKey = paymentMethodLabelKey;
   readonly recoveryStatusLabelKey = recoveryStatusLabelKey;
   readonly recoveryStatusSeverity = recoveryStatusSeverity;

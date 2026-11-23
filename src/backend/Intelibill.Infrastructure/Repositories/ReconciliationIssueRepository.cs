@@ -64,6 +64,22 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
             .OrderBy(issue => issue.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+    private const string LicenceHistoryCodePrefix = "OfflineLicenceHistory.";
+    private const string ValidationVarianceCode = "offline_sync.validation_variance";
+
+    private static readonly ReconciliationIssueType[] PrePostingHoldTypes =
+    [
+        ReconciliationIssueType.InvoiceConflict,
+        ReconciliationIssueType.ArithmeticConflict,
+        ReconciliationIssueType.IssueTimingReview,
+        ReconciliationIssueType.ProvenanceReview,
+        ReconciliationIssueType.RecoveryReview,
+        ReconciliationIssueType.ClosedPeriodReview,
+        ReconciliationIssueType.TillReview,
+        ReconciliationIssueType.ExpiryReview,
+        ReconciliationIssueType.LicenseHistoryReview,
+    ];
+
     public async Task<ReconciliationIssue?> FindUnresolvedByEnvelopeAsync(
         Guid shopId,
         Guid offlineSubmissionId,
@@ -74,6 +90,40 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
                 && issue.OfflineSubmissionId == offlineSubmissionId
                 && issue.Status != ReconciliationCaseStatus.Resolved)
             .OrderBy(issue => issue.CreatedAt)
+            .ThenBy(issue => issue.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<ReconciliationIssue?> FindCanonicalHistoryCaseAsync(
+        Guid shopId,
+        Guid offlineSubmissionId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(issue => issue.ShopId == shopId
+                && issue.OfflineSubmissionId == offlineSubmissionId
+                && issue.Status != ReconciliationCaseStatus.Resolved
+                && (issue.IssueType == ReconciliationIssueType.LicenseHistoryReview
+                    || (issue.IssueType == ReconciliationIssueType.ProvenanceReview
+                        && issue.Code.StartsWith(LicenceHistoryCodePrefix))
+                    || ((PrePostingHoldTypes.Contains(issue.IssueType)
+                            || (issue.IssueType == ReconciliationIssueType.ValidationConflict && issue.Code != ValidationVarianceCode))
+                        && Context.LicenseHistoryReviewObservations.Any(o => o.ShopId == shopId && o.CaseId == issue.Id))))
+            .OrderBy(issue => issue.IssueType == ReconciliationIssueType.LicenseHistoryReview ? 0 : 1)
+            .ThenBy(issue => issue.CreatedAt)
+            .ThenBy(issue => issue.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<ReconciliationIssue?> FindUnresolvedPrePostingByEnvelopeAsync(
+        Guid shopId,
+        Guid offlineSubmissionId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(issue => issue.ShopId == shopId
+                && issue.OfflineSubmissionId == offlineSubmissionId
+                && issue.Status != ReconciliationCaseStatus.Resolved
+                && (PrePostingHoldTypes.Contains(issue.IssueType)
+                    || (issue.IssueType == ReconciliationIssueType.ValidationConflict && issue.Code != ValidationVarianceCode)))
+            .OrderBy(issue => issue.IssueType == ReconciliationIssueType.LicenseHistoryReview ? 0 : 1)
+            .ThenBy(issue => issue.CreatedAt)
             .ThenBy(issue => issue.Id)
             .FirstOrDefaultAsync(cancellationToken);
 

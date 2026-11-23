@@ -142,6 +142,20 @@ const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
     'sales.history.offlineQueue.review.reasons.provenanceUnknown',
   'OfflineReconciliation.IssuerUnverified':
     'sales.history.offlineQueue.review.reasons.issuerUnverified',
+  'OfflineLicenceHistory.EvidenceUnsupported':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryUnsupported',
+  'OfflineLicenceHistory.EvidenceInvalid':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryInvalid',
+  'OfflineLicenceHistory.OutsidePermitWindow':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryOutsideWindow',
+  'OfflineLicenceHistory.RestrictionConflict':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryRestrictionConflict',
+  'OfflineLicenceHistory.EvidenceMissing':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryMissing',
+  'OfflineLicenceHistory.ConflictingReceipt':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryConflictingReceipt',
+  'OfflineLicenceHistory.Supported':
+    'sales.history.offlineQueue.review.reasons.licenceHistorySupported',
   // Variance cases filed beside a posted sale; they appear only in the reconciliation console.
   'offline_sync.customer_inactive': 'sales.history.offlineQueue.review.reasons.customerInactive',
   'offline_sync.customer_changed': 'sales.history.offlineQueue.review.reasons.customerChanged',
@@ -153,10 +167,10 @@ const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
 };
 
 export function offlineReviewReasonKey(errorCode: string | null): string {
-  if (errorCode?.startsWith('OfflineLicenceHistory.'))
-    return 'sales.history.offlineQueue.review.reasons.licenceHistory';
   if (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode])
     return OFFLINE_REVIEW_REASON_KEYS[errorCode];
+  if (errorCode?.startsWith('OfflineLicenceHistory.'))
+    return 'sales.history.offlineQueue.review.reasons.licenceHistory';
   // Every GST document refusal on a device-issued sale files the same informational case: posted, no document.
   if (errorCode?.startsWith('Invoice.'))
     return 'sales.history.offlineQueue.review.reasons.documentNotIssued';

@@ -12,6 +12,7 @@ internal sealed class ReconciliationIssueConfiguration : IEntityTypeConfiguratio
         builder.ToTable("reconciliation_issues");
 
         builder.HasKey(i => i.Id);
+        builder.HasAlternateKey(i => new { i.Id, i.ShopId });
 
         builder.Property(i => i.ShopId)
             .IsRequired();
@@ -65,6 +66,9 @@ internal sealed class ReconciliationIssueConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(i => new { i.ShopId, i.LinkedOperationId })
             .IsUnique()
             .HasFilter("resolution = 4");
+        builder.HasIndex(i => new { i.ShopId, i.OfflineSubmissionId })
+            .IsUnique()
+            .HasFilter("issue_type = 15 AND offline_submission_id IS NOT NULL");
         builder.HasIndex(i => i.OfflineSubmissionId);
         builder.HasIndex(i => i.ResolutionStockTransactionId);
         builder.HasIndex(i => new { i.ShopId, i.ClientSaleId, i.DeviceId });

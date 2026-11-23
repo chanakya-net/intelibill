@@ -21,6 +21,37 @@ public sealed class ReconciliationActionPolicyTests
     }
 
     [Theory]
+    [InlineData(ReconciliationIssueType.LicenseHistoryReview, "OfflineLicenceHistory.EvidenceUnsupported")]
+    [InlineData(ReconciliationIssueType.ProvenanceReview, "OfflineLicenceHistory.EvidenceInvalid")]
+    public void LicenseHistoryReview_UnverifiedOffersOnlyEscalateAndNeverTillOrAcknowledge(ReconciliationIssueType type, string code)
+    {
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: Cashier, original: Cashier);
+        var issue = Case(type, code, envelope.Id);
+
+        Assert.Equal([ReconciliationAction.Escalate],
+            ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner, tillReconciliationEligible: true));
+    }
+
+    [Fact]
+    public void LicenseHistoryReview_WithSupportedProof_OffersRetryOnly_AndPrefersLinkAloneWhenSaleMatches()
+    {
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: Cashier, original: Cashier);
+        var issue = Case(ReconciliationIssueType.LicenseHistoryReview, "OfflineLicenceHistory.EvidenceInvalid", envelope.Id);
+
+        var retryOnly = ReconciliationActionPolicy.AvailableActions(
+            issue, envelope, ShopRole.Owner, Owner, licenceHistoryRetryVerified: true, licenceHistorySaleLinkVerified: false);
+        Assert.Equal([ReconciliationAction.RetryHistoricalLease, ReconciliationAction.Escalate], retryOnly);
+
+        var preferLink = ReconciliationActionPolicy.AvailableActions(
+            issue, envelope, ShopRole.Owner, Owner, licenceHistoryRetryVerified: true, licenceHistorySaleLinkVerified: true);
+        Assert.Equal([ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate], preferLink);
+
+        var absentEnvelope = Case(ReconciliationIssueType.LicenseHistoryReview, "OfflineLicenceHistory.EvidenceMissing", submissionId: null);
+        Assert.Equal([ReconciliationAction.Escalate], ReconciliationActionPolicy.AvailableActions(
+            absentEnvelope, null, ShopRole.Owner, Owner, licenceHistoryRetryVerified: true, licenceHistorySaleLinkVerified: true));
+    }
+
+    [Theory]
     [InlineData(ReconciliationIssueType.PricingVariance)]
     [InlineData(ReconciliationIssueType.DiscountVariance)]
     [InlineData(ReconciliationIssueType.CustomerVariance)]

@@ -53,6 +53,25 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The canonical unresolved licence history case for the envelope (tracked): type 15, a legacy
+    /// provenance case with the <c>OfflineLicenceHistory.</c> prefix, or a pre-posting hold that
+    /// carries a saved licence history observation. Excludes post-sale variances.
+    /// </summary>
+    Task<ReconciliationIssue?> FindCanonicalHistoryCaseAsync(
+        Guid shopId,
+        Guid offlineSubmissionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The oldest unresolved pre-posting hold filed for the envelope (tracked), excluding post-sale
+    /// variances that may coexist beside a posted sale.
+    /// </summary>
+    Task<ReconciliationIssue?> FindUnresolvedPrePostingByEnvelopeAsync(
+        Guid shopId,
+        Guid offlineSubmissionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Locks the case row until the current transaction ends, so resolutions of one case queue
     /// behind each other and each reads the case as the previous one committed it.
     /// </summary>

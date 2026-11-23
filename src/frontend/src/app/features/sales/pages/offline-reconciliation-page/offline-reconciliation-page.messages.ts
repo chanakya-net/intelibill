@@ -6,6 +6,7 @@ import type {
   ReconciliationStatusFilter,
   RecoveryInvoiceStatus,
 } from '../../services/offline-reconciliation.models';
+import { offlineReviewReasonKey } from '../../utils/offline-sale-sync.mapper';
 
 // Every server enum and error code the console shows is translated through these maps; anything the
 // server adds later falls back to a generic label instead of leaking its raw code.
@@ -57,6 +58,8 @@ const ISSUE_TYPE_LABEL_KEYS: Readonly<Record<string, string>> = {
   DocumentReview: 'sales.offlineReconciliation.issueTypes.documentReview',
   // Held because the invoice's month is closed; posts after an owner reopens it.
   ClosedPeriodReview: 'sales.offlineReconciliation.issueTypes.closedPeriodReview',
+  // Held because historical offline licence evidence is uncertain, conflicting, or unproven.
+  LicenseHistoryReview: 'sales.offlineReconciliation.issueTypes.licenseHistoryReview',
 };
 
 const RECOVERY_STATUS_LABEL_KEYS: Readonly<Record<RecoveryInvoiceStatus, string>> = {
@@ -118,7 +121,110 @@ const ERROR_KEYS: Readonly<Record<string, string>> = {
   'Recovery.LeaseNotOwned': 'sales.offlineReconciliation.errors.leaseNotOwned',
   'Recovery.IssuerMismatch': 'sales.offlineReconciliation.errors.issuerMismatch',
   'Recovery.NotAuthorized': 'sales.offlineReconciliation.errors.notAuthorized',
+  'Licence.SecuritySuspended': 'sales.offlineReconciliation.errors.licenceSecuritySuspended',
+  'PostingPeriod.Closed': 'apiErrors.postingPeriodClosed',
+  'PostingPeriod.Busy': 'apiErrors.postingPeriodBusy',
+  'OfflineLicenceHistory.EvidenceUnsupported':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryUnsupported',
+  'OfflineLicenceHistory.EvidenceInvalid':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryInvalid',
+  'OfflineLicenceHistory.OutsidePermitWindow':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryOutsideWindow',
+  'OfflineLicenceHistory.RestrictionConflict':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryRestrictionConflict',
+  'OfflineLicenceHistory.EvidenceMissing':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryMissing',
+  'OfflineLicenceHistory.ConflictingReceipt':
+    'sales.history.offlineQueue.review.reasons.licenceHistoryConflictingReceipt',
 };
+
+const LICENCE_HISTORY_SUBREASON_KEYS: Readonly<Record<string, string>> = {
+  Supported: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.supported',
+  SecuritySuspended: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.securitySuspended',
+  LicenceDenied: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.licenceDenied',
+  EnvelopeMissing: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.envelopeMissing',
+  PayloadCorrupted: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.payloadCorrupted',
+  LeaseMissing: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.leaseMissing',
+  UndatedTradingRestriction:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.undatedTradingRestriction',
+  CompetingReceipt: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.competingReceipt',
+  EvidenceMissingOnAnchoredLease:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.evidenceMissingOnAnchoredLease',
+  ObserveOnlyUnproven:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.observeOnlyUnproven',
+  LeaseReserverUnproven:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.leaseReserverUnproven',
+  OutsideLeaseWindow:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.outsideLeaseWindow',
+  RestrictionReleasedAfterIssue:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.restrictionReleasedAfterIssue',
+  SoldAtAtOrAfterCutoff:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.soldAtAtOrAfterCutoff',
+  CutoffUnknown: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.cutoffUnknown',
+  HistoricalCoverageUnproven:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.historicalCoverageUnproven',
+  HistoricalRestrictionConflict:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.historicalRestrictionConflict',
+  EvidenceMalformed: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.evidenceMalformed',
+  EvidenceVersionUnsupported:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.evidenceVersionUnsupported',
+  SnapshotIdInvalid: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.snapshotIdInvalid',
+  LeaseMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.leaseMismatch',
+  IssuerMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.issuerMismatch',
+  PermitNotMatched: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.permitNotMatched',
+  KeyMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.keyMismatch',
+  SignatureMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.signatureMismatch',
+  TillSessionMismatch:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.tillSessionMismatch',
+  ActorScopeMismatch:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.actorScopeMismatch',
+  GrantNotMatched: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.grantNotMatched',
+  AffiliationMismatch:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.affiliationMismatch',
+  GrantDigestMismatch:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.grantDigestMismatch',
+  SoldAtBeforePermit:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.soldAtBeforePermit',
+  SoldAtAtOrAfterPermitEnd:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.soldAtAtOrAfterPermitEnd',
+  FirstReceiptBeforePermit:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.firstReceiptBeforePermit',
+  SoldAtAfterFirstReceiptSkew:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.soldAtAfterFirstReceiptSkew',
+  VerificationKeyUnavailable:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.verificationKeyUnavailable',
+  SignatureInvalid: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.signatureInvalid',
+  ClaimMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.claimMismatch',
+  RestrictionReleasedAfterPermit:
+    'sales.offlineReconciliation.detail.licenceHistory.subreasons.restrictionReleasedAfterPermit',
+};
+
+const LICENCE_HISTORY_FIELD_KEYS: Readonly<Record<string, string>> = {
+  version: 'sales.offlineReconciliation.detail.licenceHistory.fields.version',
+  licenceEvidence: 'sales.offlineReconciliation.detail.licenceHistory.fields.licenceEvidence',
+  snapshotId: 'sales.offlineReconciliation.detail.licenceHistory.fields.snapshotId',
+  leaseId: 'sales.offlineReconciliation.detail.licenceHistory.fields.leaseId',
+  issuedByUserId: 'sales.offlineReconciliation.detail.licenceHistory.fields.issuedByUserId',
+  permitId: 'sales.offlineReconciliation.detail.licenceHistory.fields.permitId',
+  grantId: 'sales.offlineReconciliation.detail.licenceHistory.fields.grantId',
+  keyId: 'sales.offlineReconciliation.detail.licenceHistory.fields.keyId',
+  signedPermit: 'sales.offlineReconciliation.detail.licenceHistory.fields.signedPermit',
+  tillSessionId: 'sales.offlineReconciliation.detail.licenceHistory.fields.tillSessionId',
+  scope: 'sales.offlineReconciliation.detail.licenceHistory.fields.scope',
+  grantSha256: 'sales.offlineReconciliation.detail.licenceHistory.fields.grantSha256',
+  soldAt: 'sales.offlineReconciliation.detail.licenceHistory.fields.soldAt',
+  firstReceivedAt: 'sales.offlineReconciliation.detail.licenceHistory.fields.firstReceivedAt',
+  restriction: 'sales.offlineReconciliation.detail.licenceHistory.fields.restriction',
+  sourceCompletionCutoff:
+    'sales.offlineReconciliation.detail.licenceHistory.fields.sourceCompletionCutoff',
+  payloadHash: 'sales.offlineReconciliation.detail.licenceHistory.fields.payloadHash',
+  payloadJson: 'sales.offlineReconciliation.detail.licenceHistory.fields.payloadJson',
+};
+
+export const LICENCE_HISTORY_UNKNOWN_SUBREASON_KEY =
+  'sales.offlineReconciliation.detail.licenceHistory.subreasons.unknown';
+export const LICENCE_HISTORY_UNKNOWN_FIELD_KEY =
+  'sales.offlineReconciliation.detail.licenceHistory.fields.unknown';
 
 export const GENERIC_ERROR_KEY = 'sales.offlineReconciliation.errors.generic';
 export const NETWORK_ERROR_KEY = 'sales.offlineReconciliation.errors.network';
@@ -168,6 +274,21 @@ export function paymentMethodLabelKey(method: string): string {
 
 export function submissionSourceLabelKey(source: string): string {
   return SOURCE_LABEL_KEYS[source] ?? OTHER_KEY;
+}
+
+export function licenceHistoryReasonKey(reasonCode: string | null | undefined): string {
+  if (reasonCode === 'Licence.SecuritySuspended') {
+    return 'sales.offlineReconciliation.errors.licenceSecuritySuspended';
+  }
+  return offlineReviewReasonKey(reasonCode ?? null);
+}
+
+export function licenceHistorySubreasonKey(subreason: string | null | undefined): string {
+  return (subreason && LICENCE_HISTORY_SUBREASON_KEYS[subreason]) || LICENCE_HISTORY_UNKNOWN_SUBREASON_KEY;
+}
+
+export function licenceHistoryFieldKey(field: string | null | undefined): string {
+  return (field && LICENCE_HISTORY_FIELD_KEYS[field]) || LICENCE_HISTORY_UNKNOWN_FIELD_KEY;
 }
 
 /** A translated message for a server error code; unknown codes get the generic message. */
