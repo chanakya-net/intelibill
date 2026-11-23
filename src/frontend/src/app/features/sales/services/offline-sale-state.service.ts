@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { SellabilityDecision } from '../../expiry/services/expiry.models';
 import { evaluateExpiry, shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
 import { hasOfflineExpiryAuthority, isValidShopZone } from '../utils/offline-sales-snapshot.schema';
@@ -98,6 +99,7 @@ interface OfflineSalePreviewContext {
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSaleStateService {
+  private readonly context = inject(ShopContextService);
   private readonly tillContext = inject(TillContextService);
   private readonly authService = inject(AuthService);
   private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
@@ -139,6 +141,8 @@ export class OfflineSaleStateService {
       return;
     }
 
+    const { isCurrent } = this.captureCheckout(shopId);
+    if (!isCurrent()) return;
     const settings = this.deviceSettingsStorage.loadSettings(shopId);
     this.offlineDeviceSettings.set(settings);
     this.offlineCatalog.set(null);
@@ -162,6 +166,7 @@ export class OfflineSaleStateService {
           settings.deviceId,
           settings.lastReservedLease.fiscalYear,
         );
+        if (!isCurrent()) return;
         this.offlineLeaseNeedsRenewal.set(!!lease && !lease.sellerProfile);
       } catch {
         // non-fatal: finalization refuses such a lease on its own
@@ -169,10 +174,12 @@ export class OfflineSaleStateService {
     }
 
     const snapshotInfo = await this.snapshotDb.getUsableSnapshotInfo(shopId);
+    if (!isCurrent()) return;
     this.snapshotCompletedAt.set(snapshotInfo?.completedAt ?? null);
 
     try {
       const customers = await this.snapshotDb.getUsableCustomers(shopId);
+      if (!isCurrent()) return;
       this.offlineCustomers.set(customers);
     } catch {
       // non-fatal
@@ -180,6 +187,7 @@ export class OfflineSaleStateService {
 
     try {
       const visible = await this.queueSync.refreshActiveStatusCounts();
+      if (!isCurrent()) return;
       this.offlinePendingCount.set(visible.pending + visible.syncing);
       this.offlineNeedsReviewCount.set(visible.needsReview);
     } catch {
@@ -385,12 +393,15 @@ export class OfflineSaleStateService {
       return { ok: false, errorKey: 'sales.newSale.offline.blockDeviceNotEnabled' };
     }
 
+    const { expectedEpoch, expectedSessionId, isCurrent } = this.captureCheckout(shopId);
+    const detached = { ok: false, errorKey: 'sales.newSale.offline.blockPermitInvalid' } as const;
+    if (!isCurrent()) return detached;
+
     const settings = this.resolveOfflineSettings(shopId);
     if (!settings?.enabled || !settings.deviceId) {
       return { ok: false, errorKey: 'sales.newSale.offline.blockDeviceNotEnabled' };
     }
 
-    const issuerAtStart = this.authService.session()?.user?.id ?? null;
     let tillEvidence;
     try {
       tillEvidence = await this.tillContext.offlineEvidence(
@@ -400,7 +411,9 @@ export class OfflineSaleStateService {
     } catch {
       return { ok: false, errorKey: 'tills.sessionRequired' } as const;
     }
-    const snapshotCompletedAt = await this.resolveOfflineSnapshotCompletedAt(shopId);
+    if (!isCurrent()) return detached;
+    const snapshotCompletedAt = await this.resolveOfflineSnapshotCompletedAt(shopId, isCurrent);
+    if (!isCurrent()) return detached;
     if (!snapshotCompletedAt) {
       return { ok: false, errorKey: 'sales.newSale.offline.blockSnapshotStale' };
     }
@@ -419,6 +432,7 @@ export class OfflineSaleStateService {
     }
 
     const hasGrace = await this.authService.canUseOfflineSalesAuthGrace();
+    if (!isCurrent()) return detached;
     if (!hasGrace) {
       return { ok: false, errorKey: 'sales.newSale.offline.blockAuthGraceInvalid' };
     }
@@ -433,7 +447,8 @@ export class OfflineSaleStateService {
       return { ok: false, errorKey: 'sales.newSale.invalidPaymentSplit' };
     }
 
-    const offlineCustomer = await this.resolveOfflineCustomer(shopId, payload.selectedCustomerId);
+    const offlineCustomer = await this.resolveOfflineCustomer(shopId, payload.selectedCustomerId, isCurrent);
+    if (!isCurrent()) return detached;
     if ((payload.paymentMethod === 4 || payload.dueAmount > 0) && !offlineCustomer) {
       return { ok: false, errorKey: 'sales.newSale.offline.blockDueRequiresCustomer' };
     }
@@ -454,6 +469,8 @@ export class OfflineSaleStateService {
     };
 
     const request: OfflineFinalizeRequest = {
+      expectedEpoch,
+      expectedSessionId,
       shopId,
       deviceId: settings.deviceId,
       fiscalYear: lease.fiscalYear,
@@ -462,13 +479,9 @@ export class OfflineSaleStateService {
       maxSnapshotAgeMs: MAX_OFFLINE_AGE_MS,
     };
 
-    if (
-      this.authService.session()?.activeShopId !== shopId ||
-      (this.authService.session()?.user?.id ?? null) !== issuerAtStart
-    )
-      return { ok: false, errorKey: 'tills.capabilityUnknown' };
     const result = await this.offlineFinalization.finalizeAndQueue(request);
     if (!result.ok) {
+      if (!isCurrent()) return detached;
       const reasonKey: Record<typeof result.reason, string> = {
         OFFLINE_PERMIT_INVALID: 'sales.newSale.offline.blockPermitInvalid',
         OFFLINE_PERMIT_EXPIRED: 'sales.newSale.offline.blockPermitExpired',
@@ -499,8 +512,15 @@ export class OfflineSaleStateService {
       };
     }
 
-    this.offlineInvoiceRemaining.set(result.remainingInvoiceCount);
-    await this.updateOfflineInvoiceLeaseCount(settings.shopId, result.remainingInvoiceCount);
+    const issuedLeaseId = result.payload.licenceEvidence?.leaseId ?? lease.leaseId;
+    const updated = this.deviceSettingsStorage.updateSettings(settings.shopId, current =>
+      current.deviceId === settings.deviceId && current.lastReservedLease?.leaseId === issuedLeaseId
+        ? { ...current, lastReservedLease: { ...current.lastReservedLease, remainingCount: result.remainingInvoiceCount } }
+        : current,
+    );
+    if (!isCurrent()) return detached;
+    if (updated) this.offlineDeviceSettings.set(updated);
+    this.offlineInvoiceRemaining.set(updated?.lastReservedLease?.remainingCount ?? result.remainingInvoiceCount);
 
     return {
       ok: true,
@@ -531,28 +551,25 @@ export class OfflineSaleStateService {
     return this.authService.session()?.activeShopId ?? '';
   }
 
-  private async updateOfflineInvoiceLeaseCount(
-    shopId: string,
-    remainingCount: number,
-  ): Promise<void> {
-    const updated = this.deviceSettingsStorage.updateSettings(shopId, (current) => ({
-      ...current,
-      lastReservedLease: current.lastReservedLease
-        ? {
-            ...current.lastReservedLease,
-            remainingCount,
-          }
-        : null,
-    }));
-
-    if (updated) {
-      this.offlineDeviceSettings.set(updated);
-    }
-
-    this.offlineInvoiceRemaining.set(remainingCount);
+  private captureCheckout(shopId: string) {
+    const scope = this.context.scope();
+    const expectedEpoch = this.context.epoch();
+    const session = this.authService.session();
+    const userId = session?.user?.id;
+    const expectedSessionId = session?.sessionId ?? null;
+    const isCurrent = () => {
+      const active = this.authService.session();
+      return (
+        this.context.epoch() === expectedEpoch && this.context.scope() === scope &&
+        (!scope || (scope.shopId === shopId && scope.userId === userId)) &&
+        !this.context.dataRestricted() && active?.activeShopId === shopId &&
+        active.user?.id === userId && (active.sessionId ?? null) === expectedSessionId
+      );
+    };
+    return { expectedEpoch, expectedSessionId, isCurrent };
   }
 
-  private async resolveOfflineSnapshotCompletedAt(shopId: string): Promise<string | null> {
+  private async resolveOfflineSnapshotCompletedAt(shopId: string, isCurrent: () => boolean): Promise<string | null> {
     const current = this.snapshotCompletedAt();
     if (current) {
       return current;
@@ -560,7 +577,7 @@ export class OfflineSaleStateService {
 
     const snapshotInfo = await this.snapshotDb.getUsableSnapshotInfo(shopId);
     const completedAt = snapshotInfo?.completedAt ?? null;
-    this.snapshotCompletedAt.set(completedAt);
+    if (isCurrent()) this.snapshotCompletedAt.set(completedAt);
     return completedAt;
   }
 
@@ -578,6 +595,7 @@ export class OfflineSaleStateService {
   private async resolveOfflineCustomer(
     shopId: string,
     selectedCustomerId: string | null,
+    isCurrent: () => boolean,
   ): Promise<OfflineCustomerLiteSnapshot | null> {
     if (!selectedCustomerId) {
       return null;
@@ -586,7 +604,7 @@ export class OfflineSaleStateService {
     let customers = this.offlineCustomers();
     if (customers.length === 0) {
       customers = await this.snapshotDb.getUsableCustomers(shopId);
-      this.offlineCustomers.set(customers);
+      if (isCurrent()) this.offlineCustomers.set(customers);
     }
 
     return customers.find((customer) => customer.customerId === selectedCustomerId) ?? null;

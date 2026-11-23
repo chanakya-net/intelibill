@@ -69,7 +69,14 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
   async onOfflineSubmit(): Promise<void> {
     if (this.isOfflineSubmitting()) return;
 
-    this.isOfflineSubmitting.set(true);
+    const epoch = this.partyContext.epoch();
+    const scope = this.checkoutScope();
+    const shopScope = this.partyContext.scope();
+    const sessionId = this.authService.session()?.sessionId;
+    const isCurrent = () => this.partyContext.scope() === shopScope && this.partyContext.epoch() === epoch &&
+      this.checkoutScope().shopId === scope.shopId && this.checkoutScope().userId === scope.userId &&
+      this.authService.session()?.sessionId === sessionId;
+    this.offlineSubmission.set(isCurrent);
     this.paymentSplitError.set('');
     this.offlinePermitEndedAt.set('');
 
@@ -103,6 +110,7 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
         })),
       });
 
+      if (!isCurrent()) return;
       if (result.ok) {
         this.offlineConfirmation.set({
           invoiceNumber: result.confirmation.invoiceNumber,
@@ -120,7 +128,7 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
         );
       }
     } finally {
-      this.isOfflineSubmitting.set(false);
+      if (this.offlineSubmission() === isCurrent) this.offlineSubmission.set(null);
     }
   }
 

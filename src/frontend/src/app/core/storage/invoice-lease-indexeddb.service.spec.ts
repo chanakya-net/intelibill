@@ -1,4 +1,4 @@
-import { IDBFactory } from 'fake-indexeddb';
+import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -165,6 +165,42 @@ describe('InvoiceLeaseIndexedDbService', () => {
     expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toBeUndefined();
   });
 
+  describe('transaction completion', () => {
+    const key = ['shop-1', 'device-1', '2025-26'] as const;
+    const evidence = { version: 1, grantId: 'grant', grantSha256: 'digest', keyId: 'key' };
+    const lease = () => makeLease({ nextNumber: 2, licenceEvidence: evidence });
+
+    for (const operation of ['save', 'attach', 'rollback'] as const) {
+      it.each([false, true])(`${operation} settles at transaction end (abort=%s)`, async (abort) => {
+        vi.stubGlobal('indexedDB', new IDBFactory());
+        await service.saveLease(lease());
+        const events: string[] = [];
+        const put = IDBObjectStore.prototype.put;
+        vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, value) {
+          const request = put.call(this, value);
+          this.transaction.addEventListener('complete', () => events.push('commit'));
+          request.addEventListener('success', () => {
+            events.push('put');
+            if (abort) this.transaction.abort();
+          });
+          return request;
+        });
+        const writes = {
+          save: () => service.saveLease(lease()),
+          attach: () => service.attachPermit(...key, { ...evidence, leaseId: 'lease-1' } as never),
+          rollback: () => service.rollbackConsumedInvoiceNumber(...key, 2),
+        };
+        const result = writes[operation]();
+        if (abort) {
+          await expect(result).rejects.toBeDefined();
+        } else {
+          await result;
+          expect(events).toEqual(['put', 'commit']);
+        }
+      });
+    }
+  });
+
   describe('guarded allocation and number claims (IndexedDB transactions)', () => {
     const KEY = ['shop-1', 'device-1', '2025-26'] as const;
     const permit = { signedPermit: 'token-a' } as never;
@@ -262,59 +298,6 @@ describe('InvoiceLeaseIndexedDbService', () => {
   }
 
   function stubIndexedDb(): void {
-    const store = new Map<string, unknown>();
-
-    const database = {
-      objectStoreNames: {
-        contains: vi.fn(() => true),
-      },
-      createObjectStore: vi.fn(() => undefined),
-      transaction: vi.fn((_storeName: string, _mode: IDBTransactionMode) => ({
-        objectStore: () => ({
-          get: (key: string) => createRequest(() => store.get(key)),
-          put: (value: { key: string }) => createRequest(() => {
-            store.set(value.key, value);
-            return value;
-          }),
-        }),
-      })),
-    };
-
-    const openRequest = {
-      result: database as unknown as IDBDatabase,
-      error: null,
-      onupgradeneeded: null as null | (() => void),
-      onsuccess: null as null | (() => void),
-      onerror: null as null | (() => void),
-    };
-
-    vi.stubGlobal('indexedDB', {
-      open: vi.fn(() => {
-        queueMicrotask(() => openRequest.onupgradeneeded?.());
-        queueMicrotask(() => openRequest.onsuccess?.());
-        return openRequest;
-      }),
-    });
-  }
-
-  function createRequest<T>(resolveValue: () => T) {
-    const request = {
-      result: undefined as T | undefined,
-      error: null as unknown,
-      onsuccess: null as null | (() => void),
-      onerror: null as null | (() => void),
-    };
-
-    queueMicrotask(() => {
-      try {
-        request.result = resolveValue();
-        request.onsuccess?.();
-      } catch (error) {
-        request.error = error;
-        request.onerror?.();
-      }
-    });
-
-    return request;
+    vi.stubGlobal('indexedDB', new IDBFactory());
   }
 });

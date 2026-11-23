@@ -1,3 +1,4 @@
+import { TillContextService } from '../../tills/services/till-context.service';
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -53,6 +54,7 @@ export interface OfflineIssuanceGrant {
   readonly evidence: OfflineSaleLicenceEvidence;
   /** The signed deadline, as signed. */
   readonly validUntil: string;
+  readonly tillSessionId: string | null;
   readonly notBeforeNanos: bigint;
   readonly validUntilNanos: bigint;
 }
@@ -85,6 +87,7 @@ function storedMatchesSigned(stored: StoredOfflineLicencePermit, keyId: string, 
  */
 @Injectable({ providedIn: 'root' })
 export class OfflineIssuanceAuthorityService {
+  private readonly till = inject(TillContextService, { optional: true });
   private readonly auth = inject(AuthService);
   private readonly context = inject(ShopContextService);
   private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
@@ -115,13 +118,24 @@ export class OfflineIssuanceAuthorityService {
     );
   }
 
-  /** Synchronous last word before a durable write: owner unchanged and both instants still inside the window. */
-  stillAllowed(invocation: OfflineIssuanceInvocation, grant: OfflineIssuanceGrant, soldAt: string): boolean {
-    return this.isCurrent(invocation) && this.insideWindow(grant.notBeforeNanos, grant.validUntilNanos, soldAt);
+  private tillMatches(expected: string | null): boolean {
+    if (!this.till) return true;
+    if (!this.till.capability()) return false;
+    if (!this.till.enabled()) return expected === null;
+    return expected !== null && this.till.selected()?.id === expected;
+  }
+
+  /** Synchronous owner, till and time check immediately before allocation or queue insertion. */
+  refusalNow(invocation: OfflineIssuanceInvocation, grant: OfflineIssuanceGrant, soldAt: string) {
+    if (!this.isCurrent(invocation) || !this.tillMatches(grant.tillSessionId)) return INVALID;
+    if (!this.insideWindow(grant.notBeforeNanos, grant.validUntilNanos, soldAt)) {
+      return { ok: false, reason: 'OFFLINE_PERMIT_EXPIRED', validUntil: grant.validUntil } as const;
+    }
+    return null;
   }
 
   async authorize(invocation: OfflineIssuanceInvocation, question: OfflineIssuanceQuestion): Promise<OfflineIssuanceDecision> {
-    if (!this.isCurrent(invocation) || question.shopId !== invocation.shopId) return INVALID;
+    if (!this.isCurrent(invocation) || question.shopId !== invocation.shopId || !this.tillMatches(question.tillSessionId)) return INVALID;
 
     const lease = await this.leaseDb.loadLease(question.shopId, question.deviceId, question.fiscalYear);
     const stored = lease?.offlinePermit;
@@ -143,7 +157,7 @@ export class OfflineIssuanceAuthorityService {
     if ((await this.clock.evaluate(owner, signed.permitId)) !== 'consistent') {
       return { ok: false, reason: 'OFFLINE_CLOCK_INCONSISTENT' };
     }
-    if (!this.isCurrent(invocation)) return INVALID;
+    if (!this.isCurrent(invocation) || !this.tillMatches(question.tillSessionId)) return INVALID;
     if (!this.insideWindow(notBeforeNanos, validUntilNanos, question.soldAt)) {
       return { ok: false, reason: 'OFFLINE_PERMIT_EXPIRED', validUntil: signed.validUntil };
     }
@@ -153,6 +167,7 @@ export class OfflineIssuanceAuthorityService {
       lease,
       signedPermit: verified.signedPermit,
       validUntil: signed.validUntil,
+      tillSessionId: signed.tillSessionId,
       notBeforeNanos,
       validUntilNanos,
       evidence: {

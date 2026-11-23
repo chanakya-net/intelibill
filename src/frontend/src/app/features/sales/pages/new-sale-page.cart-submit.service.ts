@@ -128,6 +128,7 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     if (this.isSubmitting()) return;
     if (this.isOfflineSubmitting()) return;
     if (this.isPreparingCheckout) return;
+    this.offlinePermitEndedAt.set('');
     if (this.cart().length === 0 && this.serviceCart().length === 0) return;
 
     // This cart already left as a checkout whose outcome is unknown. It must be reconciled or
@@ -143,7 +144,6 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     }
 
     this.paymentSplitError.set('');
-    this.offlinePermitEndedAt.set('');
 
     // OFFLINE BRANCH
     if (this.isOfflineMode()) {

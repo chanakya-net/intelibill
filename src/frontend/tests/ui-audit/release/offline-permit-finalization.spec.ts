@@ -194,6 +194,11 @@ test('forged, untrusted, out-of-scope, edited and missing permits take no number
   await goOffline(context, page);
   await addToCart(page);
 
+  await storePermit(page, null);
+  const empty = await durableState(page);
+  expect(JSON.parse(empty.shadow)).toEqual([]);
+  await expectRefused(page, MSG_INVALID, empty);
+
   // A stock row and a pending row that predate every refusal: neither may change.
   await writeRecord(page, 'intelibill-offline-shadow-stock', 'shadow-stock', {
     key: `${SHOP_A}::${DEVICE_ID}::${BATCH_ID}`, shopId: SHOP_A, deviceId: DEVICE_ID, inventoryBatchId: BATCH_ID, quantity: 7,

@@ -1,6 +1,9 @@
+import { OfflineLicencePermitService } from './offline-licence-permit.service';
+import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
+import { TillContextService } from '../../tills/services/till-context.service';
 import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { OfflineIssuanceLock } from '../../../core/storage/offline-issuance-lock';
@@ -54,6 +57,8 @@ describe('OfflineSaleFinalizationService', () => {
   let signer: PermitSigner;
   let signedFields: PermitFields;
   let signedPermit: string;
+
+  afterEach(() => vi.restoreAllMocks());
 
   beforeAll(async () => {
     signer = await createPermitSigner();
@@ -116,6 +121,7 @@ describe('OfflineSaleFinalizationService', () => {
     const clock = { evaluate: vi.fn().mockResolvedValue('consistent') };
     const lockState = { available: true };
     const shadowDb = {
+      getQuantity: vi.fn().mockResolvedValue(null),
       ensureQuantity: vi.fn().mockResolvedValue(10),
       reduceQuantity: vi.fn().mockResolvedValue(9),
     };
@@ -183,6 +189,7 @@ describe('OfflineSaleFinalizationService', () => {
 
     const result = await service.finalizeAndQueue(makeRequest());
 
+    expect(shadowDb.ensureQuantity).not.toHaveBeenCalled();
     expect({
       result,
       numbersConsumed: leaseDb.consumeNextInvoiceNumber.mock.calls.length,
@@ -244,7 +251,7 @@ describe('OfflineSaleFinalizationService', () => {
   it('caps an older shadow balance at the captured unquarantined availability', async () => {
     const { service, snapshotDb, shadowDb, leaseDb } = setup();
     snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quarantinedQuantity: 3, availableQuantity: 7 }]);
-    shadowDb.ensureQuantity.mockResolvedValue(10);
+    shadowDb.getQuantity.mockResolvedValue(10);
     expect(await service.finalizeAndQueue(withQuantities(8))).toEqual({ ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' });
     expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
   });
@@ -553,7 +560,7 @@ describe('OfflineSaleFinalizationService', () => {
 
   it('blocks insufficient local shadow stock', async () => {
     const { service, shadowDb } = setup();
-    shadowDb.ensureQuantity.mockResolvedValue(0);
+    shadowDb.getQuantity.mockResolvedValue(0);
 
     const result = await service.finalizeAndQueue(makeRequest());
     expect(result).toEqual({ ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' });
@@ -561,7 +568,7 @@ describe('OfflineSaleFinalizationService', () => {
 
   it('blocks when combined quantity for same batch exceeds shadow stock', async () => {
     const { service, shadowDb } = setup();
-    shadowDb.ensureQuantity.mockResolvedValue(1);
+    shadowDb.getQuantity.mockResolvedValue(1);
 
     const baseRequest = makeRequest();
     const request: OfflineFinalizeRequest = {
@@ -580,7 +587,7 @@ describe('OfflineSaleFinalizationService', () => {
 
     const result = await service.finalizeAndQueue(request);
     expect(result).toEqual({ ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' });
-    expect(shadowDb.ensureQuantity).toHaveBeenCalledTimes(1);
+    expect(shadowDb.getQuantity).toHaveBeenCalledTimes(1);
   });
 
   it('sums 0.1 and 0.2 of one batch as exactly 0.3 of shadow stock', async () => {
@@ -588,12 +595,12 @@ describe('OfflineSaleFinalizationService', () => {
     snapshotDb.getUsableBatches.mockResolvedValue([
       { ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' },
     ]);
-    shadowDb.ensureQuantity.mockResolvedValue(0.3);
+    shadowDb.getQuantity.mockResolvedValue(0.3);
 
     const result = await service.finalizeAndQueue(withQuantities(0.1, 0.2));
 
     expect(result.ok).toBe(true);
-    expect(shadowDb.ensureQuantity).toHaveBeenCalledTimes(1);
+    expect(shadowDb.getQuantity).toHaveBeenCalledTimes(1);
     expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(
       1,
       PERMIT_SHOP_ID,
@@ -752,6 +759,7 @@ describe('OfflineSaleFinalizationService', () => {
         ctx.setLease(await leaseSigned(overrides));
 
         expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+        expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
         expect(zeroWrites(ctx)).toEqual(NONE);
       });
     }
@@ -762,6 +770,7 @@ describe('OfflineSaleFinalizationService', () => {
       ctx.setLease(await leaseSigned({}, stranger));
 
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
       expect(zeroWrites(ctx)).toEqual(NONE);
     });
 
@@ -771,6 +780,7 @@ describe('OfflineSaleFinalizationService', () => {
       ctx.setLease({ ...ctx.lease, offlinePermit: { ...ctx.lease.offlinePermit, validUntil: later } });
 
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
       expect(zeroWrites(ctx)).toEqual(NONE);
     });
 
@@ -780,6 +790,7 @@ describe('OfflineSaleFinalizationService', () => {
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
       ctx.setLease({ ...ctx.lease, licenceEvidence: null } as never);
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
       expect(zeroWrites(ctx)).toEqual(NONE);
     });
 
@@ -787,7 +798,130 @@ describe('OfflineSaleFinalizationService', () => {
       const ctx = setup();
       ctx.sessionState.sessionId = '';
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(ctx.snapshotDb.getUsableSnapshotInfo).not.toHaveBeenCalled();
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
       expect(zeroWrites(ctx)).toEqual(NONE);
+    });
+
+    it('refuses restricted shop data before opening the snapshot', async () => {
+      const ctx = setup();
+      const context = TestBed.inject(ShopContextService);
+      vi.spyOn(context, 'dataRestricted').mockReturnValue(true);
+      expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(ctx.snapshotDb.getUsableSnapshotInfo).not.toHaveBeenCalled();
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
+    });
+
+    it('finishes a contending checkout under the newly promoted snapshot, permit, and clock', async () => {
+      const ctx = setup();
+      const next = { ...signedFields, snapshotId: crypto.randomUUID(), permitId: crypto.randomUUID() };
+      const permit = storedPermit(next, await signer.sign(next));
+      const info = { ...await ctx.snapshotDb.getUsableSnapshotInfo(), snapshotId: next.snapshotId };
+      let checkout: ReturnType<OfflineSaleFinalizationService['finalizeAndQueue']> | undefined;
+      let checkpoint = signedFields.permitId;
+      let tail = Promise.resolve();
+      vi.stubGlobal('navigator', { locks: { request: (_name: string, _opts: unknown, work: () => Promise<void>) => {
+        const result = tail.then(work);
+        tail = result.catch(() => {});
+        return result;
+      } } });
+      const lock = new OfflineIssuanceLock();
+      vi.spyOn(TestBed.inject(OfflineIssuanceLock), 'runExclusive').mockImplementation(lock.runExclusive.bind(lock));
+      ctx.clock.evaluate.mockImplementation(async (_owner: unknown, permitId: string) => checkpoint === permitId ? 'consistent' : 'unverified');
+      Object.assign(ctx.clock, { rebase: async () => { checkpoint = next.permitId; } });
+      Object.assign(ctx.leaseDb, { attachPermitUnderLock: async () => {
+        ctx.setLease({ ...ctx.lease, offlinePermit: permit });
+        return permit;
+      } });
+      Object.assign(ctx.snapshotDb, {
+        beginAttempt: async () => {},
+        markComplete: async () => {
+          ctx.snapshotDb.getUsableSnapshotInfo.mockResolvedValue(info);
+          checkout = ctx.service.finalizeAndQueue(makeRequest());
+        },
+      });
+      const records = [
+        { type: 'metadata', metadata: { ...info, shopId: next.shopId, startedAt: next.issuedAt } },
+        { type: 'licencePermit', licencePermit: { ...permit, status: 'issued' } },
+        { type: 'complete', complete: { ...info, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 } },
+      ];
+      vi.stubGlobal('fetch', async () => new Response(records.map(record => JSON.stringify(record)).join('\n') + '\n'));
+      const sync = new OfflineSalesSnapshotSyncService(
+        Object.assign(TestBed.inject(AuthService), { getAccessToken: () => 'fixture' }),
+        TestBed.inject(OfflineSalesSnapshotIndexedDbService), TestBed.inject(ShopContextService), TestBed.inject(OfflineLicencePermitService),
+      );
+      try {
+        await sync.syncForShop(next.shopId, {
+          ...next, fiscalYear: ctx.lease.fiscalYear, leaseExpiresAt: ctx.lease.expiresAt,
+        });
+        expect(await checkout).toMatchObject({ ok: true, payload: { licenceEvidence: { permitId: next.permitId, signedPermit: permit.signedPermit } } });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('requires the calling epoch and session to still match before reading the snapshot', async () => {
+      const ctx = setup();
+      const epoch = TestBed.inject(ShopContextService).epoch();
+      for (const expected of [{ expectedEpoch: epoch - 1 }, { expectedSessionId: 'replaced' }]) {
+        expect(await ctx.service.finalizeAndQueue({ ...makeRequest(), ...expected })).toEqual({
+          ok: false, reason: 'OFFLINE_PERMIT_INVALID',
+        });
+      }
+      expect(ctx.snapshotDb.getUsableSnapshotInfo).not.toHaveBeenCalled();
+      expect(zeroWrites(ctx)).toEqual(NONE);
+    });
+
+    it('refuses malformed signature encoding before allocating', async () => {
+      const ctx = setup();
+      // Encoding alone must refuse this synthetic two-character segment, independently of crypto.
+      const verify = vi.spyOn(crypto.subtle, 'verify');
+      const [header, payload] = signedPermit.split('.');
+      ctx.setLease(makeLease(sellerA, signedFields, [header, payload, 'AB'].join('.')));
+      expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(verify).not.toHaveBeenCalled();
+      expect(zeroWrites(ctx)).toEqual(NONE);
+    });
+
+    it('requires a known till capability and the live till selection at the first guard', async () => {
+      const ctx = setup();
+      const till = TestBed.inject(TillContextService);
+      vi.spyOn(till, 'enabled').mockReturnValue(true);
+      till.selected.set({ id: 'open-till' } as never);
+      expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      vi.spyOn(till, 'enabled').mockReturnValue(false);
+      till.capability.set(null);
+      expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(zeroWrites(ctx)).toEqual(NONE);
+    });
+
+    it.each(['after allocation', 'inside queue write'])('restores the claim when the selected till clears %s', async (when) => {
+      const ctx = setup();
+      const till = TestBed.inject(TillContextService);
+      const sessionId = '7a7a7a7a-1111-4222-8333-444444444444';
+      vi.spyOn(till, 'enabled').mockReturnValue(true);
+      till.selected.set({ id: sessionId } as never);
+      ctx.setLease(await leaseSigned({ tillSessionId: sessionId }));
+      const request = { ...makeRequest(), tillEvidence: {
+        till: { sessionId }, tenderLines: [], tillBusinessDate: '2026-11-22', tillCashierId: PERMIT_USER_ID,
+      } };
+      if (when === 'after allocation') {
+        const consume = ctx.leaseDb.consumeNextInvoiceNumber.getMockImplementation()!;
+        ctx.leaseDb.consumeNextInvoiceNumber.mockImplementationOnce(async () => {
+          const result = await consume();
+          till.selected.set(null);
+          return result;
+        });
+      } else {
+        ctx.queueDb.savePendingSale.mockImplementationOnce(async (_input: unknown, guard: { stillAllowed: () => boolean }) => {
+          till.selected.set(null);
+          if (!guard.stillAllowed()) throw new OfflineQueueWriteRefusedError();
+        });
+      }
+      expect(await ctx.service.finalizeAndQueue(request)).toEqual({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' });
+      expect(ctx.leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledTimes(1);
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
+      expect(ctx.shadowDb.reduceQuantity).not.toHaveBeenCalled();
     });
 
     describe('signed window [notBefore, validUntil) at a fixed clock', () => {
@@ -805,6 +939,7 @@ describe('OfflineSaleFinalizationService', () => {
         const request = makeRequest();
         try {
           const result = await ctx.service.finalizeAndQueue({ ...request, pricingInput: { ...request.pricingInput, soldAt } });
+          if (!result.ok) expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
           return { result, writes: zeroWrites(ctx) };
         } finally {
           vi.useRealTimers();
@@ -848,6 +983,7 @@ describe('OfflineSaleFinalizationService', () => {
         ctx.clock.evaluate.mockResolvedValue(verdict);
 
         expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'OFFLINE_CLOCK_INCONSISTENT' });
+        expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
         expect(zeroWrites(ctx)).toEqual(NONE);
       });
     }
@@ -909,6 +1045,7 @@ describe('OfflineSaleFinalizationService', () => {
       ctx.lockState.available = false;
 
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'INVOICE_UNAVAILABLE' });
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
       expect(zeroWrites(ctx)).toEqual(NONE);
     });
 
@@ -929,6 +1066,7 @@ describe('OfflineSaleFinalizationService', () => {
 
       expect(await ctx.service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'INVOICE_UNAVAILABLE' });
       expect(ctx.leaseDb.settleClaim).not.toHaveBeenCalled();
+      expect(ctx.shadowDb.ensureQuantity).not.toHaveBeenCalled();
       expect(zeroWrites(ctx)).toEqual(NONE);
     });
 

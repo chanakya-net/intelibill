@@ -37,6 +37,8 @@ import { fitsQuantityScale, normalizeQuantity } from '../../../shared/quantity/q
 import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
 
 export interface OfflineFinalizeRequest {
+  readonly expectedEpoch?: number;
+  readonly expectedSessionId?: string | null;
   readonly tillEvidence?: Pick<
     OfflineQueuedSalePayload,
     'till' | 'tenderLines' | 'tillBusinessDate' | 'tillCashierId'
@@ -139,6 +141,14 @@ export class OfflineSaleFinalizationService {
         ownerShopId !== request.shopId)
     )
       return { ok: false, reason: 'TILL_CONTEXT_INVALID' };
+    if (!issuedByUserId || ownerShopId !== request.shopId) return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+    if (
+      !invocation || detached.aborted || !this.authority.isCurrent(invocation) ||
+      (request.expectedEpoch !== undefined && request.expectedEpoch !== invocation.epoch) ||
+      (request.expectedSessionId !== undefined && request.expectedSessionId !== invocation.sessionId)
+    ) {
+      return { ok: false, reason: 'OFFLINE_PERMIT_INVALID' };
+    }
     const snapshot = await this.snapshotDb.getUsableSnapshotInfo(request.shopId);
     if (!snapshot?.completedAt) return { ok: false, reason: 'SNAPSHOT_STALE' };
 
@@ -147,8 +157,22 @@ export class OfflineSaleFinalizationService {
       return { ok: false, reason: 'SNAPSHOT_STALE' };
     }
 
-    if (snapshot.schemaVersion !== 4 || !isValidShopZone(snapshot.businessTimeZoneId) || !snapshot.catalogVersion || !issuedByUserId || ownerShopId !== request.shopId)
+    if (snapshot.schemaVersion !== 4 || !isValidShopZone(snapshot.businessTimeZoneId) || !snapshot.catalogVersion)
       return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+    // First guard: the stored permit, its signature, this owner and the clocks, before any number is taken.
+    const question: OfflineIssuanceQuestion = {
+      shopId: request.shopId,
+      deviceId: request.deviceId,
+      fiscalYear: request.fiscalYear,
+      soldAt: request.pricingInput.soldAt,
+      snapshotId: snapshot.snapshotId,
+      snapshotCompletedAt: snapshot.completedAt,
+      tillSessionId: frozenTill.till?.sessionId ?? null,
+    };
+    if (!(await this.settleInterruptedClaim(request))) return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
+    const permission = await this.authority.authorize(invocation, question);
+    if (!permission.ok) return this.permissionRefusal(permission);
+
     const businessDate = shopBusinessDate(request.pricingInput.soldAt, snapshot.businessTimeZoneId);
     const expiryProofs = new Map<string, OfflineExpiryLineEvidence>();
     const batches = await this.snapshotDb.getUsableBatches(request.shopId);
@@ -194,13 +218,9 @@ export class OfflineSaleFinalizationService {
       const batch = byBatchId.get(inventoryBatchId);
       if (!batch) return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
 
-      const available = await this.shadowDb.ensureQuantity(
-        request.shopId,
-        request.deviceId,
-        inventoryBatchId,
-        batch.availableQuantity!,
-      );
-      if (Math.min(available, batch.availableQuantity!) < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
+      const captured = batch.availableQuantity!;
+      const available = await this.shadowDb.getQuantity(request.shopId, request.deviceId, inventoryBatchId);
+      if (Math.min(available ?? captured, captured) < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
     }
 
     for (const line of request.pricingInput.lines) {
@@ -251,20 +271,8 @@ export class OfflineSaleFinalizationService {
     const clientSaleId = crypto.randomUUID();
     const idempotencyKey = `offline-sale-${clientSaleId}`;
 
-    // First guard: the stored permit, its signature, this owner and the clocks, before any number is taken.
-    if (!invocation) return { ok: false, reason: 'OFFLINE_PERMIT_INVALID' };
-    const question: OfflineIssuanceQuestion = {
-      shopId: request.shopId,
-      deviceId: request.deviceId,
-      fiscalYear: request.fiscalYear,
-      soldAt: request.pricingInput.soldAt,
-      snapshotId: snapshot.snapshotId,
-      snapshotCompletedAt: snapshot.completedAt,
-      tillSessionId: frozenTill.till?.sessionId ?? null,
-    };
-    if (!(await this.settleInterruptedClaim(request))) return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
-    const permission = await this.authority.authorize(invocation, question);
-    if (!permission.ok) return this.permissionRefusal(permission);
+    const refusal = this.authority.refusalNow(invocation, permission, question.soldAt);
+    if (refusal) return this.permissionRefusal(refusal);
 
     let invoiceNumber: string;
     let consumedLeaseNextNumber: number;
@@ -359,6 +367,7 @@ export class OfflineSaleFinalizationService {
       return this.permissionRefusal(recheck);
     }
 
+    let queueRefusal: ReturnType<OfflineIssuanceAuthorityService['refusalNow']> = null;
     try {
       await this.queueDb.savePendingSale(
         {
@@ -372,16 +381,17 @@ export class OfflineSaleFinalizationService {
         },
         {
           // Synchronous, inside the queue write: owner, session and signed window, with no await before the insert.
-          stillAllowed: () => this.authority.stillAllowed(invocation, recheck, request.pricingInput.soldAt),
+          stillAllowed: () => {
+            queueRefusal = this.authority.refusalNow(invocation, recheck, question.soldAt);
+            return queueRefusal === null;
+          },
           signal: detached,
         },
       );
     } catch (error) {
       await this.releaseInvoiceNumber(request, consumedLeaseNextNumber, claim);
       if (error instanceof OfflineQueueWriteRefusedError) {
-        return this.authority.isCurrent(invocation)
-          ? { ok: false, reason: 'OFFLINE_PERMIT_EXPIRED', reconnectBy: recheck.validUntil }
-          : { ok: false, reason: 'OFFLINE_PERMIT_INVALID' };
+        return this.permissionRefusal(queueRefusal ?? { reason: 'OFFLINE_PERMIT_INVALID' });
       }
       throw error;
     }
@@ -390,6 +400,9 @@ export class OfflineSaleFinalizationService {
     // A claim that cannot be cleared now is settled, cursor untouched, before the next number is taken.
     await this.leaseDb.settleClaim(request.shopId, request.deviceId, request.fiscalYear, clientSaleId).catch(() => undefined);
 
+    for (const batchId of requestedByBatch.keys()) {
+      await this.shadowDb.ensureQuantity(request.shopId, request.deviceId, batchId, byBatchId.get(batchId)!.availableQuantity!);
+    }
     for (const line of request.pricingInput.lines) {
       if (line.lineType === 'service') continue;
       await this.shadowDb.reduceQuantity(

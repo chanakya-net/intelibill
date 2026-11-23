@@ -122,3 +122,18 @@ The PostgreSQL command is #901's unchanged suite on real PostgreSQL (Testcontain
 - Vitest uses #900's immutable vectors (`offline-permit-v1.json`) for the signature rules and throwaway keys for scope and window cases.
 - The two-tab and clock scenarios use Playwright's page clock and a barrier in front of the native verify call. They show ordering and refusal in a real browser; they are not a proof about physical time or about a browser whose storage or script was altered.
 - Production release builds must supply the public half of the configured `OfflineLicensePermit` signing key (and of any key still in rotation) through `IB_OFFLINE_PERMIT_PUBLIC_KEYS`. Until they do, offline issuance is refused in that build. Leases without grant evidence (legacy, or reserved while the server fell back) cannot issue offline either; they need a new online reservation. Nothing here enables production enforcement on the server.
+
+## Review regressions
+
+On reviewed commit `54df1bfab`, the regression run reported 41 failures and 158 passes before the fixes. The original #901 RED run above remains the baseline for issuance without a valid permit.
+
+| Review | Regression covered |
+|---|---|
+| R001 | Leave and return to the same shop while auth grace is pending. The finalizer receives no call. Detach after a durable issue and only the original shop's stored lease count changes. A stale page result preserves the active cart, error and deadline. Reset and early payment validation clear a previous deadline. |
+| R002 | WebCrypto verifies the canonical signed control. A signature with unused base64url bits set and signed noncanonical header and payload segments are refused. A malformed segment reaches neither allocation nor the queue. |
+| R003 | Start a competing finalization at snapshot promotion. Its queued invoice carries the newly attached permit and the clock accepts the new permit ID. |
+| R004 | Observe successful IDB puts during save, attach and rollback. All three operations settle on transaction completion. An abort after the put rejects each operation. |
+| R005 | Missing session or restricted scope refuses before the snapshot is read. Stock availability is read without seeding a row. In Chromium a refused first sale leaves an empty shadow store empty. |
+| R006 | A till-less request under an enabled till and an unknown capability both refuse before allocation. Clearing selection after allocation or inside the queue write restores the claim and leaves stock untouched. |
+
+After the fixes, the full merchant suite passed all 3,511 Vitest tests and 107 script tests. The production build completed with its nine existing budget warnings. All 11 Chromium release scenarios and all 17 selected PostgreSQL integration tests passed.

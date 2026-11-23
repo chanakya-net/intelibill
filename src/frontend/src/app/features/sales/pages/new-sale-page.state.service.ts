@@ -311,7 +311,8 @@ export abstract class NewSalePageStateService {
   readonly offlineLeaseNeedsRenewal = this.offlineSaleState.offlineLeaseNeedsRenewal;
   readonly offlineCatalog = this.offlineSaleState.offlineCatalog;
   readonly offlineCustomers = this.offlineSaleState.offlineCustomers;
-  readonly isOfflineSubmitting = signal(false);
+  protected readonly offlineSubmission = signal<(() => boolean) | null>(null);
+  readonly isOfflineSubmitting = computed(() => this.offlineSubmission()?.() ?? false);
   readonly offlineConfirmation = signal<{
     invoiceNumber: string;
     grandTotal: number;

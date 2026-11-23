@@ -3,6 +3,7 @@ import { InjectionToken } from '@angular/core';
 import {
   OFFLINE_PERMIT_MAX_TOKEN_LENGTH,
   decodeOfflineLicencePermitToken,
+  decodePermitSegment,
   type OfflineLicensePermitPayload,
 } from './offline-licence-permit';
 
@@ -89,13 +90,8 @@ function decodeBase64(value: string): Uint8Array<ArrayBuffer> | null {
   }
 }
 
-function decodeBase64Url(segment: string): Uint8Array<ArrayBuffer> | null {
-  const padded = segment.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (segment.length % 4)) % 4);
-  return decodeBase64(padded);
-}
-
 function isCanonical(payloadSegment: string, payload: OfflineLicensePermitPayload): boolean {
-  const bytes = decodeBase64Url(payloadSegment);
+  const bytes = decodePermitSegment(payloadSegment);
   if (!bytes) return false;
   let text: string;
   try {
@@ -150,7 +146,7 @@ export async function verifyOfflinePermitSignature(
   if (!isCanonical(payload, decoded.payload)) return null;
 
   const key = await pinnedKey(keys, decoded.keyId);
-  const signatureBytes = decodeBase64Url(signature);
+  const signatureBytes = decodePermitSegment(signature);
   if (!key || !signatureBytes) return null;
 
   try {

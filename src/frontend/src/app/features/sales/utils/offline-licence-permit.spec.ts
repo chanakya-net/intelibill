@@ -1,3 +1,4 @@
+import { generateKeyPairSync, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -158,6 +159,32 @@ describe('verifyOfflinePermitSignature (#900 vectors, WebCrypto)', () => {
     expect(verified?.keyId).toBe(fixture.key.keyId);
     expect(verified?.signedPermit).toBe(fixture.permit.token);
     expect(verified?.payload).toEqual(fixture.permit.fields);
+  });
+
+  it('rejects a noncanonical signature segment in the fixed RS256 vector', async () => {
+    const token = fixture.permit.token;
+    expect(token.endsWith('IA')).toBe(true);
+    expect(await verifyOfflinePermitSignature(token.slice(0, -1) + 'B', pins)).toBeNull();
+  });
+
+  it('rejects signed noncanonical header and payload encodings', async () => {
+    const [, payload] = fixture.permit.token.split('.');
+    const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const keys = { x: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64') };
+    const raw = '{"alg":"RS256","typ":"intelibill-offline-permit+v1","kid":"x"}';
+    const header = Buffer.from(raw).toString('base64url');
+    const compact = (head: string, body: string) => {
+      const input = head + '.' + body;
+      return input + '.' + sign('sha256', Buffer.from(input), pair.privateKey).toString('base64url');
+    };
+    expect(await verifyOfflinePermitSignature(compact(header, payload), keys)).not.toBeNull();
+    for (const token of [
+      compact(header.slice(0, -1) + '1', payload),
+      compact(header, payload.slice(0, -1) + 'R'),
+    ]) {
+      expect(decodeOfflineLicencePermitToken(token)).toBeNull();
+      expect(await verifyOfflinePermitSignature(token, keys)).toBeNull();
+    }
   });
 
   for (const vector of fixture.negative) {

@@ -54,7 +54,7 @@ describe('OfflineLicencePermitService', () => {
 
   const leaseDb = {
     loadLease: vi.fn(async () => storedLease),
-    attachPermit: vi.fn(async (_shop: string, _device: string, _fy: string, permit: any) => {
+    attachPermitUnderLock: vi.fn(async (_shop: string, _device: string, _fy: string, permit: any) => {
       if (!storedLease || storedLease.leaseId !== permit.leaseId) return null;
       storedLease = { ...storedLease, offlinePermit: permit };
       return permit;
@@ -179,7 +179,7 @@ describe('OfflineLicencePermitService', () => {
     const service = setup();
     const binding = (await service.resolveBinding(shopId))!;
 
-    const accepted = await service.acceptDeliveredPermit(
+    const accepted = await service.acceptDeliveredPermitUnderLock(
       binding,
       deliveryFixture.issuedRecord.licencePermit,
       fields['snapshotId'],
@@ -187,7 +187,7 @@ describe('OfflineLicencePermitService', () => {
     );
 
     expect(accepted).not.toBeNull();
-    expect(leaseDb.attachPermit).toHaveBeenCalledWith(shopId, deviceId, '2026-27', accepted);
+    expect(leaseDb.attachPermitUnderLock).toHaveBeenCalledWith(shopId, deviceId, '2026-27', accepted);
     expect(storedSettings?.lastOfflinePermit).toEqual({
       leaseId,
       grantId: deliveryFixture.leaseEvidence.grantId,
@@ -204,18 +204,18 @@ describe('OfflineLicencePermitService', () => {
     const service = setup();
     const binding = (await service.resolveBinding(shopId))!;
 
-    const refused = await service.acceptDeliveredPermit(
+    const refused = await service.acceptDeliveredPermitUnderLock(
       binding,
       deliveryFixture.refusedRecord.licencePermit,
       fields['snapshotId'],
       fields['snapshotCompletedAt'],
     );
     expect(refused).toBeNull();
-    expect(leaseDb.attachPermit).not.toHaveBeenCalled();
+    expect(leaseDb.attachPermitUnderLock).not.toHaveBeenCalled();
 
     // Another tab replaced the lease with a different leaseId.
     storedLease = { ...storedLease!, leaseId: 'newer-lease' };
-    const stale = await service.acceptDeliveredPermit(
+    const stale = await service.acceptDeliveredPermitUnderLock(
       binding,
       deliveryFixture.issuedRecord.licencePermit,
       fields['snapshotId'],
@@ -229,7 +229,7 @@ describe('OfflineLicencePermitService', () => {
     const service = setup({ [permitFixture.key.keyId]: permitFixture.key.publicKeySpki });
     const binding = (await service.resolveBinding(shopId))!;
 
-    const stored = await service.acceptDeliveredPermit(
+    const stored = await service.acceptDeliveredPermitUnderLock(
       binding,
       deliveryFixture.issuedRecord.licencePermit,
       fields['snapshotId'],
@@ -252,7 +252,7 @@ describe('OfflineLicencePermitService', () => {
     const service = setup({});
     const binding = (await service.resolveBinding(shopId))!;
 
-    const stored = await service.acceptDeliveredPermit(
+    const stored = await service.acceptDeliveredPermitUnderLock(
       binding,
       deliveryFixture.issuedRecord.licencePermit,
       fields['snapshotId'],
@@ -268,7 +268,7 @@ describe('OfflineLicencePermitService', () => {
     const service = setup({ [permitFixture.key.keyId]: permitFixture.key.publicKeySpki });
     const binding = (await service.resolveBinding(shopId))!;
 
-    const stored = await service.acceptDeliveredPermit(
+    const stored = await service.acceptDeliveredPermitUnderLock(
       binding,
       deliveryFixture.issuedRecord.licencePermit,
       fields['snapshotId'],

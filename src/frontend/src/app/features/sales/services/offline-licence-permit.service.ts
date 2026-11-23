@@ -73,7 +73,7 @@ export class OfflineLicencePermitService {
     };
   }
 
-  async acceptDeliveredPermit(
+  async acceptDeliveredPermitUnderLock(
     binding: OfflineLicencePermitBinding,
     record: unknown,
     snapshotId: string,
@@ -90,7 +90,7 @@ export class OfflineLicencePermitService {
     });
     if (!verified) return null;
 
-    const stored = await this.leaseDb.attachPermit(binding.shopId, binding.deviceId, binding.fiscalYear, verified);
+    const stored = await this.leaseDb.attachPermitUnderLock(binding.shopId, binding.deviceId, binding.fiscalYear, verified);
     if (!stored) return null;
 
     const summary = toOfflinePermitDisplaySummary(stored);

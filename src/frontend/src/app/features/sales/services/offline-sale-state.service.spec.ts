@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import 'fake-indexeddb/auto';
 import { signal } from '@angular/core';
 import { NewSalePageOfflineFlowService } from '../pages/new-sale-page.offline-flow.service';
@@ -512,6 +513,43 @@ describe('OfflineSaleStateService', () => {
     const result = await service.submitOfflineSale(buildSubmitPayload(null));
 
     expect(result).toEqual({ ok: false, errorKey: 'sales.newSale.offline.blockQuantityPrecision' });
+  });
+
+  it('discards checkout after leaving and returning to the same owner during auth verification', async () => {
+    const service = setup();
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'user-1', shopId: 'shop-1' };
+    authService.session.mockReturnValue({ ...activeSession, user: { id: owner.userId } } as AuthSession);
+    context.initialize(owner);
+    authService.canUseOfflineSalesAuthGrace.mockImplementationOnce(async () => {
+      context.transition(null, 'sign-out', () => {});
+      context.transition(owner, 'sign-in', () => {});
+      return true;
+    });
+    finalization.finalizeAndQueue.mockResolvedValue({ ok: false, reason: 'INVOICE_UNAVAILABLE' });
+    expect((await service.submitOfflineSale(buildSubmitPayload(null))).ok).toBe(false);
+    expect(finalization.finalizeAndQueue).not.toHaveBeenCalled();
+  });
+
+  it('persists a detached sale count only for its issuing shop', async () => {
+    const service = setup();
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'user-1', shopId: 'shop-1' };
+    context.initialize(owner);
+    authService.session.mockReturnValue({ ...activeSession, user: { id: owner.userId } } as AuthSession);
+    const next = { ...makeBaseSettings(), shopId: 'shop-2' };
+    finalization.finalizeAndQueue.mockImplementationOnce(async () => {
+      context.transition({ ...owner, shopId: next.shopId }, 'scope', () => {});
+      service.offlineDeviceSettings.set(next);
+      service.offlineInvoiceRemaining.set(82);
+      return { ok: true, payload: { pricing: { totals: { grandTotal: 10 } } } as never, remainingInvoiceCount: 4 };
+    });
+    const result = await service.submitOfflineSale(buildSubmitPayload(null));
+    expect(settingsStorage.updateSettings).toHaveBeenCalledWith(owner.shopId, expect.any(Function));
+    expect(settingsStorage.updateSettings.mock.results[0].value.lastReservedLease.remainingCount).toBe(4);
+    expect(service.offlineDeviceSettings()).toBe(next);
+    expect(service.offlineInvoiceRemaining()).toBe(82);
+    expect(result.ok).toBe(false);
   });
 
   it('submits a sale when payload is valid', async () => {

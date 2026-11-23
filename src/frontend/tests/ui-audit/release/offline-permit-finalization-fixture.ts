@@ -302,8 +302,9 @@ export async function readRecord<T = Record<string, unknown>>(page: Page, databa
 
 export async function readAll<T = Record<string, unknown>>(page: Page, database: string, store: string): Promise<T[]> {
   return page.evaluate(
-    ({ database, store }) =>
-      new Promise<unknown[]>((done, fail) => {
+    async ({ database, store }) => {
+      if (!(await indexedDB.databases()).some(db => db.name === database)) return [];
+      return new Promise<unknown[]>((done, fail) => {
         const open = indexedDB.open(database);
         open.onerror = () => fail(open.error);
         open.onsuccess = () => {
@@ -313,7 +314,8 @@ export async function readAll<T = Record<string, unknown>>(page: Page, database:
           request.onerror = () => fail(request.error);
           request.onsuccess = () => { db.close(); done(request.result); };
         };
-      }),
+      });
+    },
     { database, store },
   ) as Promise<T[]>;
 }
