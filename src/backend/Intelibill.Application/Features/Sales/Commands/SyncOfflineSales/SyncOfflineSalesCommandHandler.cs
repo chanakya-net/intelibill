@@ -159,7 +159,8 @@ public sealed class SyncOfflineSalesCommandHandler(
             var lease = await ResolveEffectiveLeaseAsync(command.ShopId, submission, incomingLease, cancellationToken);
 
             // Existing canonical history hold wins immediately after authorized receipt capture, including linked envelopes.
-            var existingHistory = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(command.ShopId, submission.Id, cancellationToken);
+            var existingHistory = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(
+                command.ShopId, submission.Id, includeResolvedTypedCase: false, cancellationToken);
             if (existingHistory is not null)
             {
                 var outcome = await HandleExistingHistoryCaseAsync(
@@ -450,7 +451,7 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             var request = new OfflineSalePostingRequest(
                 hold.ShopId, submission.DeviceId, submission.ClientSaleId, storedSale, submission.PayloadHash,
-                AttributedUserId: submission.AttributableUserId ?? hold.CallerUserId,
+                AttributedUserId: submission.AttributableUserId ?? Guid.Empty,
                 RecordedByUserId: hold.CallerUserId, submission.Id, now, activeDiscountRulesById, lease,
                 FirstReceivedAt: submission.ReceivedAt, ReceivedPermitId: submission.LicencePermitId,
                 ReceivedGrantId: submission.LicenceGrantId, IsExistingHistoryReview: true, ExistingLicence: entered.Value);

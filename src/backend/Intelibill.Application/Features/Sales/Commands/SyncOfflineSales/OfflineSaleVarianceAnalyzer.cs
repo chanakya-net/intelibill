@@ -30,7 +30,8 @@ internal sealed class OfflineSaleVarianceAnalyzer(
     {
         if (issueType == ReconciliationIssueType.LicenseHistoryReview && offlineSubmissionId is { } typedEnvelope)
         {
-            var canonical = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(shopId, typedEnvelope, cancellationToken);
+            var canonical = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(
+                shopId, typedEnvelope, includeResolvedTypedCase: true, cancellationToken);
             if (canonical is not null)
                 return canonical.Id;
         }
@@ -94,11 +95,12 @@ internal sealed class OfflineSaleVarianceAnalyzer(
         DateTimeOffset observedAt,
         CancellationToken cancellationToken)
     {
-        var existing = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(shopId, offlineSubmissionId, cancellationToken)
+        var existing = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(
+                shopId, offlineSubmissionId, includeResolvedTypedCase: true, cancellationToken)
             ?? await reconciliationIssueRepository.FindUnresolvedPrePostingByEnvelopeAsync(shopId, offlineSubmissionId, cancellationToken);
         if (existing is not null)
         {
-            if (observation is not null)
+            if (existing.Status != ReconciliationCaseStatus.Resolved && observation is not null)
                 await AttachLicenceObservationAsync(existing, offlineSubmissionId, observation, observedAt, advanceVersionOnNewObservation: true, cancellationToken);
             return existing;
         }

@@ -166,14 +166,13 @@ public sealed class LicenseHistoryReviewAssessment(
                     SourceCompletionCutoff: decision.SourceCompletionCutoff), null);
             }
 
-            var attributed = submission.AttributableUserId ?? submission.AssertedIssuerUserId ?? submission.SubmittedByUserId;
             var request = new OfflineSalePostingRequest(
                 issue.ShopId,
                 submission.DeviceId,
                 submission.ClientSaleId,
                 payload,
                 submission.PayloadHash,
-                AttributedUserId: attributed,
+                AttributedUserId: submission.AttributableUserId ?? Guid.Empty,
                 RecordedByUserId: submission.SubmittedByUserId,
                 submission.Id,
                 now,

@@ -118,8 +118,12 @@ internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOf
 
     public async Task<IReadOnlyList<LicenseGrantEvidence>> ReadGrantEvidenceAsync(Guid shopId, Guid accountId,
         Guid affiliationRequestId, CancellationToken ct) =>
-        await db.Set<LicenseGrantEvidence>().AsNoTracking()
-            .Where(row => row.ShopId == shopId && row.AccountId == accountId && row.AffiliationRequestId == affiliationRequestId)
+        await db.Set<LicenseGrantEvidence>().FromSql($"""
+            SELECT e.* FROM public.license_grant_evidence e
+            JOIN public.entitlement_snapshot_inbox i USING (event_id, account_id, shop_id, digest)
+            WHERE e.shop_id = {shopId} AND e.account_id = {accountId} AND e.affiliation_request_id = {affiliationRequestId}
+                AND convert_from(i.acknowledgement, 'UTF8')::jsonb ->> 'outcome' = 'Applied'
+            """).AsNoTracking()
             .OrderBy(row => row.AppliedAt)
             .ThenBy(row => row.EventId)
             .ToListAsync(ct);

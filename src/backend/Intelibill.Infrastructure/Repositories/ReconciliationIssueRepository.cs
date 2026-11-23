@@ -96,11 +96,13 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
     public async Task<ReconciliationIssue?> FindCanonicalHistoryCaseAsync(
         Guid shopId,
         Guid offlineSubmissionId,
+        bool includeResolvedTypedCase,
         CancellationToken cancellationToken = default) =>
         await DbSet
             .Where(issue => issue.ShopId == shopId
                 && issue.OfflineSubmissionId == offlineSubmissionId
-                && issue.Status != ReconciliationCaseStatus.Resolved
+                && (issue.Status != ReconciliationCaseStatus.Resolved
+                    || (includeResolvedTypedCase && issue.IssueType == ReconciliationIssueType.LicenseHistoryReview))
                 && (issue.IssueType == ReconciliationIssueType.LicenseHistoryReview
                     || (issue.IssueType == ReconciliationIssueType.ProvenanceReview
                         && issue.Code.StartsWith(LicenceHistoryCodePrefix))

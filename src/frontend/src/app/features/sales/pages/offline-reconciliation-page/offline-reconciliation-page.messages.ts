@@ -170,6 +170,8 @@ const LICENCE_HISTORY_SUBREASON_KEYS: Readonly<Record<string, string>> = {
     'sales.offlineReconciliation.detail.licenceHistory.subreasons.evidenceVersionUnsupported',
   SnapshotIdInvalid: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.snapshotIdInvalid',
   LeaseMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.leaseMismatch',
+  IssuerMissing: 'sales.history.offlineQueue.review.reasons.provenanceUnknown',
+  IssuerUnverified: 'sales.history.offlineQueue.review.reasons.issuerUnverified',
   IssuerMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.issuerMismatch',
   PermitNotMatched: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.permitNotMatched',
   KeyMismatch: 'sales.offlineReconciliation.detail.licenceHistory.subreasons.keyMismatch',

@@ -112,6 +112,16 @@ internal sealed class OfflineLicenceHistoryAuthority(IOfflineLicenceEvidenceStor
         }
 
         var evidence = request.Sale.LicenceEvidence;
+        if (evidence is { IsObject: false })
+            return Hold(Errors.OfflineLicenceHistory.EvidenceUnsupported, "EvidenceMalformed", "licenceEvidence", licence, decision);
+        if (evidence is { Version: not 1 })
+            return Hold(Errors.OfflineLicenceHistory.EvidenceUnsupported, "EvidenceVersionUnsupported", "version", licence, decision);
+        if (request.AttributedUserId == Guid.Empty)
+        {
+            var subreason = request.Sale.IssuedByUserId.HasValue ? "IssuerUnverified" : "IssuerMissing";
+            return Hold(Errors.OfflineLicenceHistory.EvidenceMissing, subreason, "issuedByUserId", licence, decision);
+        }
+
         if (evidence is null)
             return await CheckUnanchoredLeaseAsync(licence, decision, request, lease, existingHistoryHold, ct);
 
@@ -197,10 +207,6 @@ internal sealed class OfflineLicenceHistoryAuthority(IOfflineLicenceEvidenceStor
         InvoiceLease lease,
         CancellationToken ct)
     {
-        if (!evidence.IsObject)
-            return Hold(Errors.OfflineLicenceHistory.EvidenceUnsupported, "EvidenceMalformed", "licenceEvidence", licence, decision);
-        if (evidence.Version != 1)
-            return Hold(Errors.OfflineLicenceHistory.EvidenceUnsupported, "EvidenceVersionUnsupported", "version", licence, decision);
         if (evidence.Id("snapshotId") is not { } snapshot)
             return Hold(Errors.OfflineLicenceHistory.EvidenceInvalid, "SnapshotIdInvalid", "snapshotId", licence, decision);
         if (evidence.Id("leaseId") != lease.Id)
@@ -369,6 +375,7 @@ internal sealed class OfflineLicenceHistoryAuthority(IOfflineLicenceEvidenceStor
     private static bool CoversSaleInstant(EntitlementSnapshotV1 snapshot, DateTimeOffset issuedAt, DateTimeOffset soldAt) =>
         snapshot.Shop is { State: "Active" or "Grace", StartsAt: { } startsAt, AccessEndsAt: { } endsAt } shop
         && snapshot.Account is { Restriction: "Unrestricted" } account
+        && shop.IsValid() && EntitlementSnapshotsV1.ReadRestrictionError(account) is null
         && shop.UpstreamVerifiedAt <= issuedAt
         && account.UpstreamVerifiedAt <= issuedAt
         && startsAt <= soldAt

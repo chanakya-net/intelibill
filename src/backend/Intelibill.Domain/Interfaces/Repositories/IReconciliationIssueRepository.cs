@@ -55,11 +55,13 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
     /// <summary>
     /// The canonical unresolved licence history case for the envelope (tracked): type 15, a legacy
     /// provenance case with the <c>OfflineLicenceHistory.</c> prefix, or a pre-posting hold that
-    /// carries a saved licence history observation. Excludes post-sale variances.
+    /// carries a saved licence history observation. Case creation also includes resolved type 15
+    /// cases because their unique envelope identity survives resolution. Excludes post-sale variances.
     /// </summary>
     Task<ReconciliationIssue?> FindCanonicalHistoryCaseAsync(
         Guid shopId,
         Guid offlineSubmissionId,
+        bool includeResolvedTypedCase,
         CancellationToken cancellationToken = default);
 
     /// <summary>

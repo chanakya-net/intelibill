@@ -195,7 +195,8 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         var lease = await ResolveEffectiveLeaseAsync(context.ShopId, submission, incomingLease, cancellationToken);
 
         // Existing canonical history hold takes precedence immediately after receipt capture, including linked envelopes.
-        var existingHistory = await issueRepository.FindCanonicalHistoryCaseAsync(context.ShopId, submission.Id, cancellationToken);
+        var existingHistory = await issueRepository.FindCanonicalHistoryCaseAsync(
+                context.ShopId, submission.Id, includeResolvedTypedCase: false, cancellationToken);
         if (existingHistory is not null)
         {
             var assess = await AssessLicenceAsync(fencedLicence, submission, storedSale, lease, now, existingHistoryHold: true, cancellationToken);
@@ -295,7 +296,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             submission.ClientSaleId,
             storedSale,
             submission.PayloadHash,
-            AttributedUserId: submission.AttributableUserId ?? submission.AssertedIssuerUserId ?? submission.SubmittedByUserId,
+            AttributedUserId: submission.AttributableUserId ?? Guid.Empty,
             RecordedByUserId: submission.SubmittedByUserId,
             submission.Id,
             now,
