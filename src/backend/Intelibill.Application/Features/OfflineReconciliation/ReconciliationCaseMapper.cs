@@ -125,9 +125,8 @@ public sealed class ReconciliationCaseMapper(
         var expiryLinkVerified = false;
         if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
         {
-            OfflineSaleSyncCommand? payload;
-            try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); } catch (JsonException) { payload = null; }
-            expiryVerified = OfflineSubmissionPayload.HasValidHasherInputs(payload) && payload!.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
+            var payload = OfflineSubmissionPayload.TryReadValidated(issue.ShopId, submission);
+            expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
                 !(await expiryAuthority.ValidateFrozenAsync(issue.ShopId, payload, now, cancellationToken)).IsError;
             tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
                 await tillEligibility.CanReconcileAsync(issue.ShopId, payload!, issuer, now, cancellationToken);

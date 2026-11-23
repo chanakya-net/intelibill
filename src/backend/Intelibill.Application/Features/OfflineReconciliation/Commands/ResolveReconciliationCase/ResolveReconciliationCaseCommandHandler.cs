@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -210,7 +209,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         var expiryLinkVerified = false;
         if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
         {
-            var payload = ReadPayload(submission);
+            var payload = OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
             expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
                 !(await expiryAuthority.ValidateFrozenAsync(command.ShopId, payload, now, cancellationToken)).IsError;
             tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
@@ -417,13 +416,13 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (await saleRepository.GetByInvoiceNumberAsync(command.ShopId, submission.InvoiceNumber, cancellationToken) is not null)
             return Errors.Sale.InvoiceNumberAlreadyUsed;
 
-        var payload = ReadPayload(submission);
+        // Every replay that creates a sale re-proves the stored command against the hash saved at first receipt.
+        var payload = OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
         if (payload is null)
             return Errors.Reconciliation.ReplayRejected;
 
         if ((isHistoryCase || request.Action == ReconciliationAction.ReconcileTillSale)
-            && (!string.Equals(OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, submission.DeviceId, payload), submission.PayloadHash, StringComparison.Ordinal)
-                || payload.ClientSaleId.Trim() != submission.ClientSaleId
+            && (payload.ClientSaleId.Trim() != submission.ClientSaleId
                 || payload.InvoiceNumber.Trim() != submission.InvoiceNumber
                 || OfflinePermitContractV1.Instant(payload.SoldAt) != OfflinePermitContractV1.Instant(submission.ClaimedSoldAt)))
         {
@@ -512,12 +511,6 @@ public sealed class ResolveReconciliationCaseCommandHandler(
 
     private static bool IsVisibleTo(ReconciliationIssue issue, ShopRole role, Guid actorUserId) =>
         ReconciliationActor.VisibleCreator(role, actorUserId) is not { } creator || issue.CreatedBy == creator;
-
-    private static OfflineSaleSyncCommand? ReadPayload(OfflineSubmission submission)
-    {
-        try { return OfflineSubmissionPayload.Deserialize(submission.PayloadJson); }
-        catch (JsonException) { return null; }
-    }
 
     private sealed record ResolutionRequest(
         ResolveReconciliationCaseCommand Command,

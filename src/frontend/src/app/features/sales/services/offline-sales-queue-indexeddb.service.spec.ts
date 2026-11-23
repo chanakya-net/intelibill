@@ -365,6 +365,33 @@ describe('OfflineSalesQueueIndexedDbService', () => {
       expect('document' in (rawFinal7ff1?.['payload'] as Record<string, unknown>)).toBe(false);
       expect('licenceEvidence' in (rawFinal671d?.['payload'] as Record<string, unknown>)).toBe(false);
     });
+
+    it('prunes synced rows by stored delivery metadata, never by the soldAt read fallback (R009)', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const now = Date.parse('2027-01-30T12:00:00.000Z');
+      vi.spyOn(Date, 'now').mockReturnValue(now);
+      const compat = new OfflineSalesQueueIndexedDbService();
+      const { shopId, deviceId } = vectors.scope;
+      const recentAttempt = new Date(now).toISOString();
+      const synced = (clientSaleId: string): Record<string, unknown> => {
+        const row = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as Record<string, unknown>;
+        return {
+          ...row, key: `${shopId}::${deviceId}::${clientSaleId}`, clientSaleId, status: 'Synced',
+          syncAttemptCount: 1, lastSyncAttemptAt: recentAttempt, syncAttempts: [{ attemptedAt: recentAttempt, ok: true }],
+        };
+      };
+      const { updatedAt: _sparse, ...sparseRecent } = synced('legacy-671d-0002');
+      const documentedStale: Record<string, unknown> = { ...synced('stale-control'), updatedAt: '2027-01-21T12:00:00.000Z' };
+      await seedRawV1Rows([sparseRecent, documentedStale]);
+
+      expect(await compat.deleteOldSyncedRecords()).toBe(1);
+
+      const kept = await readRawV1Row(sparseRecent['key'] as string);
+      expect(JSON.stringify(kept?.['payload'])).toBe(vectors.v1FrozenDocument.payloadJson);
+      expect('updatedAt' in (kept ?? {})).toBe(false);
+      expect(await readRawV1Row(documentedStale['key'] as string)).toBeUndefined();
+      expect((await compat.getQueuedSale(shopId, deviceId, 'legacy-671d-0002'))?.status).toBe('Synced');
+    });
   });
 
   function makeInput(shopId: string, deviceId: string, clientSaleId: string, soldAt: string) {

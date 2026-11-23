@@ -174,11 +174,13 @@ export class OfflineSalesQueueIndexedDbService {
     }
 
     const database = await this.openDatabase();
-    const all = await this.getAll(database);
+    // Stored rows, not the read projection: a row whose last status update was never recorded is kept.
+    const all = await this.getAllStored(database);
     const now = Date.now();
 
     const stale = all.filter((record) => {
       if (!RESOLVED_STATUSES.includes(record.status)) return false;
+      if (typeof record.updatedAt !== 'string') return false;
       const updatedAtMs = Date.parse(record.updatedAt);
       return !Number.isNaN(updatedAtMs) && now - updatedAtMs > retainForMs;
     });
@@ -263,13 +265,15 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   private async getAll(database: IDBDatabase): Promise<readonly OfflineQueuedSaleRecord[]> {
+    return (await this.getAllStored(database)).map((row) => this.toCompatibleReadRecord(row));
+  }
+
+  /** Rows exactly as stored, so durable decisions never rest on values the read projection fills in. */
+  private async getAllStored(database: IDBDatabase): Promise<readonly OfflineQueuedSaleRecord[]> {
     return await new Promise((resolve, reject) => {
       const tx = database.transaction(this.storeName, 'readonly');
       const req = tx.objectStore(this.storeName).getAll();
-      req.onsuccess = () => {
-        const rows = (req.result as OfflineQueuedSaleRecord[] | undefined) ?? [];
-        resolve(rows.map((row) => this.toCompatibleReadRecord(row)));
-      };
+      req.onsuccess = () => resolve((req.result as OfflineQueuedSaleRecord[] | undefined) ?? []);
       req.onerror = () => reject(req.error);
     });
   }

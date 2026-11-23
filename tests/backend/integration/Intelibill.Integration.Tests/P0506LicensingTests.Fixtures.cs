@@ -91,7 +91,7 @@ public sealed partial class P0506LicensingTests
         var actor = new Actor(userId, shopId, session, email, binding);
 
         if (include671dLease)
-            await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-23T11:00:00Z"), 1, "A/2627/", withReserver: true);
+            await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-23T11:00:00Z"), 1, "A/2627/", withReserver: true, sellerProfile: ArchivedSellerProfile());
         if (include7ff1Lease)
             await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-23T11:00:00Z"), 1, "INV-2026-27-", withReserver: false);
         return actor;
@@ -239,7 +239,8 @@ public sealed partial class P0506LicensingTests
         DateTimeOffset expiresAt,
         int rangeStart,
         string prefix = "A/2627/",
-        bool withReserver = true)
+        bool withReserver = true,
+        InvoiceSellerProfile? sellerProfile = null)
     {
         await using var db = Open(Migrator);
         var year = FiscalYear.ForDate(reservedAt);
@@ -252,7 +253,7 @@ public sealed partial class P0506LicensingTests
         }
         var lease = InvoiceLease.Create(
             actor.Shop, sequence.Id, deviceId, year.StartYear, prefix, rangeStart, rangeStart + 24, 6,
-            reservedAt, expiresAt, withReserver ? actor.User : null, withReserver ? actor.Session : null);
+            reservedAt, expiresAt, withReserver ? actor.User : null, withReserver ? actor.Session : null, sellerProfile);
         db.InvoiceLeases.Add(lease);
         await db.SaveChangesAsync(Ct);
         return lease;

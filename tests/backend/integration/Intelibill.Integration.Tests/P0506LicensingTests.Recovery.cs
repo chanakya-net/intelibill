@@ -40,9 +40,11 @@ public sealed partial class P0506LicensingTests
         var detail = await GetCaseDetailAsync(owner, caseId);
         Assert.Equal("RecoveryReview", detail.GetProperty("issueType").GetString());
         var ver = detail.GetProperty("version").GetUInt32();
+        await ChangeLiveSellerDetailsAsync(actor.Shop);
 
         var resolved = await ResolveCaseAsync(owner, caseId, ver, "p0506-retry-1", "RetryHistoricalLease", "Contemporaneous coverage verified");
         Assert.Equal("Resolved", resolved.GetProperty("status").GetString());
+        await AssertPostedLiteralV1SaleAsync(actor.Shop, firstReceiptId, firstJson, importAt, pinnedHash, before, seqBefore, leaseCountBefore);
         Assert.Equal("Resolved", (await ResolveCaseAsync(owner, caseId, ver, "p0506-retry-1", "RetryHistoricalLease", "Contemporaneous coverage verified")).GetProperty("status").GetString());
         using (var mismatch = await owner.PostAsJsonAsync($"/api/offline-reconciliation/{caseId:D}/resolve", new { operationId = "p0506-retry-1", expectedVersion = ver, action = "RetryHistoricalLease", reason = "Changed intent" }, Ct))
             await AssertProblemAsync(mismatch, HttpStatusCode.Conflict, "Operation.PayloadMismatch");
@@ -261,7 +263,7 @@ public sealed partial class P0506LicensingTests
         var posted = await db.Sales.SingleAsync(x => x.ShopId == shopId, Ct);
         Assert.Equal(("A/2627/000002", pinnedHash, At("2027-01-20T11:50:00Z"), new DateOnly(2027, 1, 20), 100m, 18m, 118m),
             (posted.InvoiceNumber, posted.RequestHash, posted.SoldAt, posted.BusinessDate, posted.SubtotalBeforeDiscount, posted.TotalTaxAmount, posted.TotalAmount));
-        Assert.Equal("A/2627/000002", posted.InvoiceDocument!.Number);
+        AssertArchivedSellerAndNumbering(posted.InvoiceDocument!);
 
         var after = await ReadEconomicFactsAsync(shopId);
         Assert.Equal((before.Sales + 1, before.OutStockTransactions + 1, before.BatchQuantity - 1m), (after.Sales, after.OutStockTransactions, after.BatchQuantity));
