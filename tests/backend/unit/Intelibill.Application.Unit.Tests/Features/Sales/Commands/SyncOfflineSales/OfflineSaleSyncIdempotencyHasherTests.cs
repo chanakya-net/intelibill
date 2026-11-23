@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using System.Text.Json;
 using Intelibill.Application.Features.Tills;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -162,6 +163,33 @@ public class OfflineSaleSyncIdempotencyHasherTests
         var trimmed = sale with { Till = sale.Till with { OverrideReason = "assistance" }, TenderLines = [sale.TenderLines[0] with { ExternalReference = "ref" }] };
         Assert.Equal(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", trimmed));
         Assert.DoesNotContain("till", OfflineSubmissionPayload.Serialize(Sale(1)), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TryReadValidated_VerifiesHashShopAndJsonWithoutRewritingEnvelope()
+    {
+        var sale = Sale(calculationVersion: null, issuedByUserId: null);
+        var json = OfflineSubmissionPayload.Serialize(sale);
+        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", sale);
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, hash, json,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-1");
+
+        var read = OfflineSubmissionPayload.TryReadValidated(ShopId, submission);
+        Assert.NotNull(read);
+        Assert.Equal(LegacyHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", read!));
+        Assert.Equal(json, submission.PayloadJson);
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(Guid.NewGuid(), submission));
+        var badHash = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, new string('0', 64), json,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-2");
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, badHash));
+        var badJson = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, hash, "{not-json",
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-3");
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, badJson));
     }
 
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>

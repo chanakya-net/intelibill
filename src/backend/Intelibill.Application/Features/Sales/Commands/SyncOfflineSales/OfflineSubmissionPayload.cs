@@ -1,9 +1,10 @@
 using System.Text.Json;
+using Intelibill.Domain.Entities;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
 /// <summary>
-/// The frozen invoice stored on an <see cref="Domain.Entities.OfflineSubmission"/>: the sync command
+/// The frozen invoice stored on an <see cref="OfflineSubmission"/>: the sync command
 /// serialized with web defaults, so a replay deserializes to a payload with the same idempotency hash.
 /// </summary>
 internal static class OfflineSubmissionPayload
@@ -15,4 +16,26 @@ internal static class OfflineSubmissionPayload
 
     internal static OfflineSaleSyncCommand? Deserialize(string payloadJson) =>
         JsonSerializer.Deserialize<OfflineSaleSyncCommand>(payloadJson, SerializerOptions);
+
+    /// <summary>
+    /// Reads a retained receipt's frozen command using its original web JSON options and verifies its
+    /// canonical idempotency hash without modifying the first stored envelope.
+    /// </summary>
+    internal static OfflineSaleSyncCommand? TryReadValidated(Guid shopId, OfflineSubmission submission)
+    {
+        if (submission.ShopId != shopId)
+            return null;
+
+        try
+        {
+            var sale = Deserialize(submission.PayloadJson);
+            if (sale is null) return null;
+            var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale);
+            return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 }

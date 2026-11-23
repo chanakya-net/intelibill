@@ -378,6 +378,8 @@ internal sealed class OfflineLicenceHistoryAuthority(IOfflineLicenceEvidenceStor
         && shop.IsValid() && EntitlementSnapshotsV1.ReadRestrictionError(account) is null
         && shop.UpstreamVerifiedAt <= issuedAt
         && account.UpstreamVerifiedAt <= issuedAt
+        && shop.UpstreamVerifiedAt <= soldAt
+        && account.UpstreamVerifiedAt <= soldAt
         && startsAt <= soldAt
         && soldAt < endsAt;
 

@@ -108,13 +108,16 @@ export class OfflineSalesQueueIndexedDbService {
       return null;
     }
 
-    return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => ({
-      ...current,
-      status: 'Syncing',
-      syncAttemptCount: current.syncAttemptCount + 1,
-      lastSyncAttemptAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
+    return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => {
+      const now = new Date().toISOString();
+      return {
+        ...current,
+        status: 'Syncing',
+        syncAttemptCount: (current.syncAttemptCount ?? 0) + 1,
+        lastSyncAttemptAt: now,
+        updatedAt: now,
+      };
+    });
   }
 
   async applySyncResult(
@@ -127,26 +130,29 @@ export class OfflineSalesQueueIndexedDbService {
       return null;
     }
 
-    return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => ({
-      ...current,
-      status: result.status,
-      warnings: result.warnings ?? current.warnings,
-      errorCode: result.errorCode ?? null,
-      errorMessage: result.errorMessage ?? null,
-      serverSaleId: result.serverSaleId ?? current.serverSaleId,
-      reviewCaseId: result.reviewCaseId ?? null,
-      mismatches: result.mismatches ?? [],
-      updatedAt: new Date().toISOString(),
-      syncAttempts: [
-        ...current.syncAttempts,
-        {
-          attemptedAt: new Date().toISOString(),
-          ok: result.status === 'Synced' || result.status === 'SyncedWithWarnings',
-          errorCode: result.errorCode ?? undefined,
-          errorMessage: result.errorMessage ?? undefined,
-        },
-      ],
-    }));
+    return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => {
+      const now = new Date().toISOString();
+      return {
+        ...current,
+        status: result.status,
+        warnings: result.warnings ?? current.warnings ?? [],
+        errorCode: result.errorCode ?? null,
+        errorMessage: result.errorMessage ?? null,
+        serverSaleId: result.serverSaleId ?? current.serverSaleId ?? null,
+        reviewCaseId: result.reviewCaseId ?? null,
+        mismatches: result.mismatches ?? [],
+        updatedAt: now,
+        syncAttempts: [
+          ...(current.syncAttempts ?? []),
+          {
+            attemptedAt: now,
+            ok: result.status === 'Synced' || result.status === 'SyncedWithWarnings',
+            errorCode: result.errorCode ?? undefined,
+            errorMessage: result.errorMessage ?? undefined,
+          },
+        ],
+      };
+    });
   }
 
   async getStatusCounts(shopId: string, deviceId: string): Promise<Record<OfflineSaleQueueStatus, number>> {
@@ -195,12 +201,40 @@ export class OfflineSalesQueueIndexedDbService {
     clientSaleId: string,
     updater: (record: OfflineQueuedSaleRecord) => OfflineQueuedSaleRecord
   ): Promise<OfflineQueuedSaleRecord | null> {
-    const current = await this.getRecord(shopId, deviceId, clientSaleId);
-    if (!current) return null;
+    const database = await this.openDatabase();
+    const key = this.buildKey(shopId, deviceId, clientSaleId);
 
-    const updated = updater(current);
-    await this.putRecord(updated);
-    return updated;
+    return await new Promise((resolve, reject) => {
+      const tx = database.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const getReq = store.get(key);
+      let updated: OfflineQueuedSaleRecord | null = null;
+      let failed = false;
+
+      getReq.onsuccess = () => {
+        const raw = getReq.result as OfflineQueuedSaleRecord | undefined;
+        if (!raw) return;
+        updated = updater(raw);
+        const putReq = store.put(updated);
+        putReq.onerror = () => {
+          failed = true;
+          reject(putReq.error);
+        };
+      };
+      getReq.onerror = () => {
+        failed = true;
+        reject(getReq.error);
+      };
+      tx.oncomplete = () => {
+        if (!failed) resolve(updated ? this.toCompatibleReadRecord(updated) : null);
+      };
+      tx.onerror = () => {
+        if (!failed) reject(tx.error ?? getReq.error);
+      };
+      tx.onabort = () => {
+        if (!failed) reject(tx.error ?? getReq.error);
+      };
+    });
   }
 
   private async getRecord(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineQueuedSaleRecord | null> {
@@ -210,7 +244,10 @@ export class OfflineSalesQueueIndexedDbService {
     return await new Promise((resolve, reject) => {
       const tx = database.transaction(this.storeName, 'readonly');
       const req = tx.objectStore(this.storeName).get(key);
-      req.onsuccess = () => resolve((req.result as OfflineQueuedSaleRecord | undefined) ?? null);
+      req.onsuccess = () => {
+        const raw = req.result as OfflineQueuedSaleRecord | undefined;
+        resolve(raw ? this.toCompatibleReadRecord(raw) : null);
+      };
       req.onerror = () => reject(req.error);
     });
   }
@@ -229,9 +266,45 @@ export class OfflineSalesQueueIndexedDbService {
     return await new Promise((resolve, reject) => {
       const tx = database.transaction(this.storeName, 'readonly');
       const req = tx.objectStore(this.storeName).getAll();
-      req.onsuccess = () => resolve((req.result as OfflineQueuedSaleRecord[]) ?? []);
+      req.onsuccess = () => {
+        const rows = (req.result as OfflineQueuedSaleRecord[] | undefined) ?? [];
+        resolve(rows.map((row) => this.toCompatibleReadRecord(row)));
+      };
       req.onerror = () => reject(req.error);
     });
+  }
+
+  /**
+   * Projects a stored v1 row into the current read model without cloning or mutating its frozen `payload`
+   * and without writing anything back to IndexedDB.
+   */
+  private toCompatibleReadRecord(raw: OfflineQueuedSaleRecord): OfflineQueuedSaleRecord {
+    const hasAllMetadata =
+      Array.isArray(raw.warnings)
+      && raw.errorCode !== undefined
+      && raw.errorMessage !== undefined
+      && raw.serverSaleId !== undefined
+      && typeof raw.syncAttemptCount === 'number'
+      && raw.lastSyncAttemptAt !== undefined
+      && Array.isArray(raw.syncAttempts)
+      && typeof raw.createdAt === 'string'
+      && typeof raw.updatedAt === 'string';
+    if (hasAllMetadata) {
+      return raw;
+    }
+
+    return {
+      ...raw,
+      warnings: Array.isArray(raw.warnings) ? raw.warnings : [],
+      errorCode: raw.errorCode ?? null,
+      errorMessage: raw.errorMessage ?? null,
+      serverSaleId: raw.serverSaleId ?? null,
+      createdAt: raw.createdAt ?? raw.soldAt,
+      updatedAt: raw.updatedAt ?? raw.soldAt,
+      syncAttemptCount: typeof raw.syncAttemptCount === 'number' ? raw.syncAttemptCount : 0,
+      lastSyncAttemptAt: raw.lastSyncAttemptAt ?? null,
+      syncAttempts: Array.isArray(raw.syncAttempts) ? raw.syncAttempts : [],
+    };
   }
 
   private async putRecord(record: OfflineQueuedSaleRecord, guard?: PendingSaleWriteGuard): Promise<void> {

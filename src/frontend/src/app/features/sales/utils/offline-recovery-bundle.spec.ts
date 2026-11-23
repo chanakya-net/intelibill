@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
+import vectors from '../../../../../../../tests/contracts/licensing/p05-06-legacy-queue-vectors.json';
 import type { OfflineQueuedSalePayload, OfflineQueuedSaleRecord, OfflineSaleQueueStatus } from '../services/offline-sale-core.types';
 import { buildSyncRequestFromQueuedSale } from './offline-sale-sync.mapper';
 import { buildSupportBundle, type SupportBundle } from './offline-recovery-bundle';
@@ -162,5 +163,35 @@ describe('buildSupportBundle', () => {
       expect(part.clientSaleIds.length).toBeLessThanOrEqual(100);
       expect(new TextEncoder().encode(part.text).length).toBeLessThanOrEqual(1_900_000);
     }
+  });
+
+  it('exports byte-exact invoices and checksums for both historical producer vectors and preserves whitespace sensitivity (P05-06)', async () => {
+    const legacy7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
+    const legacy671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as OfflineQueuedSaleRecord;
+    const vectorCtx = {
+      shopId: vectors.scope.shopId,
+      deviceId: vectors.scope.deviceId,
+      exportedAt: vectors.scope.exportedAt,
+    };
+
+    const [part7ff1] = await buildSupportBundle([legacy7ff1], vectorCtx);
+    expect(part7ff1.checksum).toBe(vectors.unversionedPreDocument.expectedBundleChecksum);
+    expect(part7ff1.text).toContain('"invoices":' + vectors.unversionedPreDocument.expectedBundleInvoicesJson + '}');
+
+    const [part671d] = await buildSupportBundle([{ ...legacy671d, status: 'Syncing' }], vectorCtx);
+    expect(part671d.checksum).toBe(vectors.v1FrozenDocument.expectedBundleChecksum);
+    expect(part671d.text).toContain('"invoices":' + vectors.v1FrozenDocument.expectedBundleInvoicesJson + '}');
+
+    const [combined] = await buildSupportBundle([legacy7ff1, legacy671d], vectorCtx);
+    expect(combined.checksum).toBe(vectors.combinedExport.expectedBundleChecksum);
+    expect(combined.text).toContain('"invoices":' + vectors.combinedExport.expectedBundleInvoicesJson + '}');
+
+    // Previously exported whitespace-sensitive v1 file: raw array text determines the checksum.
+    const rawDigest = createHash('sha256').update(vectors.previouslyExportedV1Bundle.invoicesRawJson, 'utf8').digest('hex');
+    expect(rawDigest).toBe(vectors.previouslyExportedV1Bundle.checksum);
+    const alteredDigest = createHash('sha256')
+      .update(vectors.previouslyExportedV1Bundle.invoicesRawJson.replace('\n', '\n '), 'utf8')
+      .digest('hex');
+    expect(alteredDigest).not.toBe(vectors.previouslyExportedV1Bundle.checksum);
   });
 });

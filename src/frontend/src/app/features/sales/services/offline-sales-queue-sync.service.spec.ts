@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import vectors from '../../../../../../../tests/contracts/licensing/p05-06-legacy-queue-vectors.json';
+
 import { AuthService } from '../../../core/auth/auth.service';
 import type { AuthSession } from '../../../core/auth/auth.models';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
@@ -566,6 +568,80 @@ describe('OfflineSalesQueueSyncService', () => {
   function withIssuer(record: OfflineQueuedSaleRecord, issuedByUserId: string): OfflineQueuedSaleRecord {
     return { ...record, payload: { ...record.payload, issuedByUserId } };
   }
+
+  it('syncs both historical legacy queue vectors byte-identically without injecting live proof or altering issuer filters (P05-06)', async () => {
+    const { shopId, userId, deviceId } = vectors.scope;
+    const legacy7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
+    const legacy671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as OfflineQueuedSaleRecord;
+    const otherUserRow: OfflineQueuedSaleRecord = {
+      ...legacy671d,
+      key: `${shopId}::${deviceId}::other-issuer`,
+      clientSaleId: 'other-issuer',
+      payload: { ...legacy671d.payload, clientSaleId: 'other-issuer', issuedByUserId: '99999999-9999-4999-8999-999999999999' },
+    };
+
+    activeSession.set({
+      ...makeSession(shopId),
+      user: { ...makeSession(shopId).user, id: userId },
+    });
+    settingsStorage.loadSettings.mockReturnValue({
+      shopId,
+      deviceId,
+      label: 'Legacy Counter',
+      enabled: true,
+      enabledAt: '2027-01-20T00:00:00.000Z',
+      enabledByUserId: userId,
+      enabledByUserName: 'Owner',
+      lastCompleteSnapshotAt: '2027-01-20T00:00:00.000Z',
+      lastApiVerifiedAt: '2027-01-20T00:00:00.000Z',
+      lastSnapshotWarningMarker: null,
+      lastReservedLease: null,
+    });
+
+    const service = setup();
+    TestBed.inject(ShopContextService).initialize({ userId, shopId });
+
+    queueDb.getPendingSales.mockResolvedValue([legacy7ff1, legacy671d, otherUserRow]);
+    queueDb.markSyncInProgress.mockImplementation(async (_s, _d, clientSaleId) => {
+      const match = [legacy7ff1, legacy671d].find((r) => r.clientSaleId === clientSaleId);
+      return match ? { ...match, status: 'Syncing' } : null;
+    });
+    saleService.syncOfflineSales.mockReturnValue(of({
+      results: [
+        {
+          clientSaleId: legacy7ff1.clientSaleId,
+          status: 'NeedsReview',
+          saleId: null,
+          invoiceNumber: legacy7ff1.invoiceNumber,
+          warnings: [],
+          errors: [{ code: 'OfflineLicenceHistory.EvidenceMissing', message: 'Historical evidence required' }],
+          reviewCaseId: 'case-7ff1',
+        },
+        {
+          clientSaleId: legacy671d.clientSaleId,
+          status: 'NeedsReview',
+          saleId: null,
+          invoiceNumber: legacy671d.invoiceNumber,
+          warnings: [],
+          errors: [{ code: 'OfflineLicenceHistory.EvidenceMissing', message: 'Historical evidence required' }],
+          reviewCaseId: 'case-671d',
+        },
+      ],
+    }));
+
+    const result = await service.syncActiveShop();
+
+    expect(result.attemptedCount).toBe(2);
+    expect(result.needsReviewCount).toBe(2);
+    expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(1);
+    const [sentPayload, sentOwner] = saleService.syncOfflineSales.mock.calls[0];
+    expect(sentOwner).toEqual({ userId, shopId });
+    expect(sentPayload.deviceId).toBe(deviceId);
+    expect(sentPayload.sales.map((s) => JSON.stringify(s))).toEqual([
+      vectors.unversionedPreDocument.expectedSyncRequestJson,
+      vectors.v1FrozenDocument.expectedSyncRequestJson,
+    ]);
+  });
 
   function makeRecord(
     clientSaleId: string,

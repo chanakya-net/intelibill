@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Licensing;
@@ -146,7 +145,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                 command.ShopId, submission.ClientSaleId, submission.DeviceId, submission.InvoiceNumber,
                 submission.Id, submission.SubmittedByUserId, actorRole, command.ActorUserId);
 
-            var storedSale = ReadValidatedPayload(command.ShopId, submission);
+            var storedSale = OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
             if (storedSale is null)
             {
                 var corrupted = await HoldLicenceHistoryAsync(hold, Errors.OfflineLicenceHistory.EvidenceInvalid,
@@ -574,21 +573,6 @@ public sealed class SyncOfflineSalesCommandHandler(
             or ReconciliationIssueType.ExpiryReview
             or ReconciliationIssueType.LicenseHistoryReview
         || Errors.OfflineLicenceHistory.IsHistoryCode(pending.Code);
-
-    private static OfflineSaleSyncCommand? ReadValidatedPayload(Guid shopId, OfflineSubmission submission)
-    {
-        try
-        {
-            var sale = OfflineSubmissionPayload.Deserialize(submission.PayloadJson);
-            if (sale is null) return null;
-            var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale);
-            return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 
     private sealed record HeldCase(
         Guid ShopId,

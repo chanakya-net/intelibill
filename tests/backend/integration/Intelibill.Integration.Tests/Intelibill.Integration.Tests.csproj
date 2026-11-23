@@ -54,6 +54,8 @@
           Link="offline-permit-v1.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../../contracts/licensing/offline-permit-delivery-v1.json"
           Link="offline-permit-delivery-v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../contracts/licensing/p05-06-legacy-queue-vectors.json"
+          Link="p05-06-legacy-queue-vectors.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
