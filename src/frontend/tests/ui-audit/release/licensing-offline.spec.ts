@@ -15,11 +15,11 @@ import {
   readLeaseNextNumber,
   readQueueRowsRaw,
   seedLegacyBrowserState,
+  sha256Hex,
   startLegacyRecoveryServer,
   vectors,
 } from './legacy-queue-recovery-fixture';
 import {
-  MSG_CLOCK,
   MSG_EXPIRED,
   addBatchToCart,
   enableWithFixture,
@@ -31,13 +31,15 @@ import {
   verifyLegacyRecoveryRoundTrip,
   verifyLegacyWorkerUpgrade,
 } from './licensing-offline-fixtures';
+import { runLiveMissedSuspensionScenario, runLiveOrdinaryExpiryScenario } from './licensing-offline-live';
 import {
-  runLiveMissedSuspensionScenario,
-  runLiveOrdinaryExpiryScenario,
-  sha256Hex,
-} from './licensing-offline-live';
+  expectClockRefusal,
+  expectQueuePreservedWhenUploadBarred,
+  forceVerifiedRefresh,
+  routeAcceptedUploads,
+  routeStaleAuthority,
+} from './licensing-offline-scenarios';
 import {
-  DEVICE_ID,
   LEASE_ID,
   PINNED_BUILD,
   buildPinnedApp,
@@ -50,7 +52,7 @@ import {
   type FixtureSigner,
 } from './offline-permit-finalization-fixture';
 import { renewalRoutes, renewedLease } from './offline-permit-renewal-routes';
-import { SHOP_A, startPurchaseReceivingServer } from './purchase-receiving-server';
+import { startPurchaseReceivingServer } from './purchase-receiving-server';
 
 const liveScenario = process.env['P0509_LIVE_SCENARIO'];
 test.describe.configure({ timeout: 240_000 });
@@ -167,41 +169,24 @@ if (liveScenario === 'ordinary-expiry') {
     // Roll back 6 seconds (> 5000 ms tolerance) inside the still-valid 10-minute window.
     await page.clock.setSystemTime(fixed + 114_000);
     const before = await durableState(page);
-    await submit(page).click();
-    await expect(page.getByText(MSG_CLOCK, { exact: false }).first()).toBeVisible();
+    await expectClockRefusal(page, before);
     expect((await readClockRow(page))!.checkpoint['blocked']).toMatchObject({ reason: 'WallClockMovedBack' });
-    expect(await durableState(page)).toEqual(before);
 
     // Restoring wall time and reloading offline keep the refusal latched.
     await page.clock.setSystemTime(fixed + 180_000);
-    await submit(page).click();
-    await expect(page.getByText(MSG_CLOCK, { exact: false }).first()).toBeVisible();
-    expect(await durableState(page)).toEqual(before);
+    await expectClockRefusal(page, before);
 
     await page.reload();
     await page.locator('.shell-main').waitFor({ timeout: 30_000 });
     expect((await readClockRow(page))!.checkpoint['blocked']).toMatchObject({ reason: 'WallClockMovedBack' });
     await addBatchToCart(page);
-    await submit(page).click();
-    await expect(page.getByText(MSG_CLOCK, { exact: false }).first()).toBeVisible();
-    expect(await durableState(page)).toEqual(before);
+    await expectClockRefusal(page, before);
 
     // Strictly later signed observation clears the latch and allows the next sale.
     serverNow = fixed + 190_000;
     await page.clock.setSystemTime(serverNow);
     await context.setOffline(false);
-    await expect(async () => {
-      await page.evaluate(({ shopId, deviceId }) => {
-        const key = `intelibill.offlineSales.deviceSettings.v1:${shopId}:${deviceId}`;
-        const current = JSON.parse(localStorage.getItem(key) ?? 'null');
-        current.lastCompleteSnapshotAt = '2020-01-01T00:00:00.000Z';
-        localStorage.setItem(key, JSON.stringify(current));
-        localStorage.removeItem('intelibill.offlineSales.offlinePackCycle.v1');
-        window.dispatchEvent(new Event('online'));
-      }, { shopId: SHOP_A, deviceId: DEVICE_ID });
-      await page.waitForTimeout(1_500);
-      expect(fixture.delivered.length).toBeGreaterThanOrEqual(2);
-    }).toPass({ timeout: 60_000 });
+    await forceVerifiedRefresh(page, fixture);
 
     const refreshed = fixture.delivered.at(-1)!;
     await expect.poll(async () => (await readClockRow(page))?.checkpoint['permitId'], { timeout: 30_000 }).toBe(refreshed.fields.permitId);
@@ -244,36 +229,12 @@ if (liveScenario === 'ordinary-expiry') {
     expect((await readLeaseRow(page))?.lease.leaseId).toBe(LEASE_ID);
     expect(counts.reservations).toBe(0);
 
-    let stalePolls = 0;
-    const staleAuthorityHandler = (route: Parameters<Parameters<typeof page.route>[1]>[0]) => {
-      stalePolls += 1;
-      const staleAt = Date.parse(original.fields.authorityVerifiedAt) - 1_000;
-      return route.fulfill({
-        json: {
-          schemaVersion: 1, shopId: SHOP_A, enforced: true,
-          authorityVerifiedAt: canonicalInstant(staleAt),
-          validUntil: canonicalInstant(staleAt + 86_400_000),
-        },
-      });
-    };
-    await page.route('**/trading-authority*', staleAuthorityHandler);
-    const uploadedPayloads: Record<string, unknown>[] = [];
-    await page.route('**/api/sales/offline-sync', (route) => {
-      const body = route.request().postDataJSON() as { sales: Record<string, unknown>[] };
-      uploadedPayloads.push(...body.sales);
-      return route.fulfill({
-        json: {
-          results: body.sales.map((s) => ({
-            clientSaleId: s['clientSaleId'], status: 'created', saleId: '99999999-9999-4999-8999-999999999991',
-            invoiceNumber: s['invoiceNumber'], warnings: [], errors: [],
-          })),
-        },
-      });
-    });
+    const stale = await routeStaleAuthority(page, original.fields.authorityVerifiedAt);
+    const uploadedPayloads = await routeAcceptedUploads(page);
 
     await context.setOffline(false);
     await triggerReconnect(page);
-    await expect.poll(() => stalePolls, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => stale.state.polls, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
     await expect.poll(() => uploadedPayloads.length, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
     expect(counts.reservations).toBe(0);
     expect((await readLeaseRow(page))?.lease.leaseId).toBe(LEASE_ID);
@@ -281,7 +242,7 @@ if (liveScenario === 'ordinary-expiry') {
     expect((wireFirst['licenceEvidence'] as Record<string, unknown>)['signedPermit']).toBe(original.token);
 
     // Unroute only the stale override so renewalRoutes' fresh authority handler answers next reconnect.
-    await page.unroute('**/trading-authority*', staleAuthorityHandler);
+    await stale.remove();
     await triggerReconnect(page);
     await expect.poll(async () => (await readLeaseRow(page))?.lease.leaseId, { timeout: 25_000 }).toBe(renewedLease);
     expect(counts.reservations).toBe(1);
@@ -297,14 +258,23 @@ if (liveScenario === 'ordinary-expiry') {
     expect(second.payload['licenceEvidence']['signedPermit']).not.toBe(original.token);
 
     evidenceLog['renewal'] = {
-      originalPermitId: original.fields.permitId,
-      renewedLeaseId: renewedLease,
+      originalPermitId: original.fields.permitId, renewedLeaseId: renewedLease,
       renewedPermitId: second.payload['licenceEvidence']['permitId'],
-      firstPayloadSha256: firstSha,
-      firstWireSha256: sha256Hex(JSON.stringify(wireFirst)),
-      stalePolls,
-      reservations: counts.reservations,
+      firstPayloadSha256: firstSha, firstWireSha256: sha256Hex(JSON.stringify(wireFirst)),
+      stalePolls: stale.state.polls, reservations: counts.reservations,
     };
+  });
+
+  test('security-barred upload keeps the queued invoice on the device, unsent and byte-identical', async ({ page, context }) => {
+    server = await startPurchaseReceivingServer(PINNED_BUILD);
+    await enableWithFixture(page, signer, server.origin);
+    await goOfflineFromWorker(page, context, () => server!.assets.requests.length);
+    await addBatchToCart(page);
+    await submit(page).click();
+    await expect(queuedDialog(page)).toContainText('A/2627/000001');
+    await queuedDialog(page).getByRole('button').last().click();
+
+    evidenceLog['securityBarredUpload'] = await expectQueuePreservedWhenUploadBarred(page, server.origin);
   });
 
   test('upgraded queue preserves literal legacy and pre-upgrade signed evidence across print, sync and recovery', async ({ page, context }) => {

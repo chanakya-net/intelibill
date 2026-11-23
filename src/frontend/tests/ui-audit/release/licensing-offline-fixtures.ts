@@ -13,8 +13,8 @@ import {
   readBuiltFullManifest,
   readPackFlag,
   readWorkerState,
+  sha256Hex,
 } from './legacy-queue-recovery-fixture';
-import { sha256Hex } from './licensing-offline-live';
 import {
   BARCODE,
   ITEM_NAME,

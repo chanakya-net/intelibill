@@ -13,6 +13,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0509Tests
 {
+    private static readonly TimeSpan PinnedBuildTimeout = TimeSpan.FromMinutes(10);
     private static readonly object PinnedBuildGate = new();
     private static PinnedPermitMaterial? SharedPinnedBuild;
 
@@ -63,26 +64,40 @@ public sealed partial class P0509Tests
             var publicSpki = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
             var pinMap = JsonSerializer.Serialize(new Dictionary<string, string> { [BrowserPermitKeyId] = publicSpki });
 
-            var start = new ProcessStartInfo("bun")
-            {
-                WorkingDirectory = frontend, RedirectStandardOutput = true, RedirectStandardError = true,
-            };
-            start.ArgumentList.Add("-e");
-            start.ArgumentList.Add(
-                "import { buildPinnedApp } from './tests/ui-audit/release/offline-permit-finalization-fixture.ts';" +
-                "buildPinnedApp(JSON.parse(process.env.P0509_PIN_MAP!));");
-            start.Environment["P0509_PIN_MAP"] = pinMap;
-            using var proc = Process.Start(start) ?? throw new InvalidOperationException("Failed to start pinned build.");
-            var stdout = proc.StandardOutput.ReadToEnd();
-            var stderr = proc.StandardError.ReadToEnd();
-            proc.WaitForExit();
-            Assert.True(proc.ExitCode == 0, $"Pinned merchant build failed:\n{stdout}\n{stderr}");
+            RunPinnedBuild(frontend, pinMap);
 
             var browserRoot = Path.Combine(frontend, ".ui-audit", "offline-permit-build", "browser");
             Assert.True(File.Exists(Path.Combine(browserRoot, "ngsw-worker.js")), "Pinned browser build missing ngsw-worker.js.");
             SharedPinnedBuild = new(BrowserPermitKeyId, privatePem, publicSpki, browserRoot);
             return SharedPinnedBuild;
         }
+    }
+
+    /// <summary>
+    /// Builds the pinned merchant bundle in a child process. Both pipes drain concurrently so a failing build that
+    /// fills stderr cannot block the child, and the wait is bounded so a hung build fails the test instead of hanging.
+    /// </summary>
+    private static void RunPinnedBuild(string frontend, string pinMap)
+    {
+        var start = new ProcessStartInfo("bun")
+        {
+            WorkingDirectory = frontend, RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        start.ArgumentList.Add("-e");
+        start.ArgumentList.Add(
+            "import { buildPinnedApp } from './tests/ui-audit/release/offline-permit-finalization-fixture.ts';" +
+            "buildPinnedApp(JSON.parse(process.env.P0509_PIN_MAP!));");
+        start.Environment["P0509_PIN_MAP"] = pinMap;
+        using var proc = Process.Start(start) ?? throw new InvalidOperationException("Failed to start pinned build.");
+        var stdout = proc.StandardOutput.ReadToEndAsync();
+        var stderr = proc.StandardError.ReadToEndAsync();
+        if (!proc.WaitForExit(PinnedBuildTimeout))
+        {
+            proc.Kill(entireProcessTree: true);
+            Assert.Fail($"Pinned merchant build did not finish within {PinnedBuildTimeout}.");
+        }
+        Assert.True(Task.WaitAll([stdout, stderr], TimeSpan.FromSeconds(30)), "Pinned merchant build output did not close.");
+        Assert.True(proc.ExitCode == 0, $"Pinned merchant build failed:\n{stdout.Result}\n{stderr.Result}");
     }
 
     private static MerchantWebBuild StagePinnedMerchantWeb(string frontend, PinnedPermitMaterial pinned)

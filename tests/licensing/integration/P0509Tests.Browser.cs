@@ -1,8 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using Intelibill.Domain.Enums;
 using Intelibill.Shared.Contracts.V1;
 using static Intelibill.Licensing.Integration.Tests.BillingBrowserHarness;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
@@ -36,43 +34,35 @@ public sealed partial class P0509Tests
         await using var browser = StartReleaseBrowser(frontend, evidence, web.Origin, shop.Email, barcode, "ordinary-expiry", pinned);
         var browserReport = CaptureBrowserAsync(browser.Process, evidence, ct);
 
-        var queued = await WaitForPhaseWithLiveClockAsync(fixture, evidence, "queued", browser.Process, browserReport, ct);
-        var clientSaleId = queued.GetProperty("clientSaleId").GetString()!;
-        var invoiceNumber = queued.GetProperty("invoiceNumber").GetString()!;
-        var deviceId = queued.GetProperty("deviceId").GetString()!;
-        var permitId = queued.GetProperty("permitId").GetGuid();
-        var grantId = queued.GetProperty("grantId").GetGuid();
-        var soldAt = ParseInstant(queued.GetProperty("soldAt").GetString()!);
-        Assert.Equal((termEnd, "LicenceEnd"), (ParseInstant(queued.GetProperty("validUntil").GetString()!), queued.GetProperty("limitingReason").GetString()));
+        var queuedJson = await WaitForPhaseWithLiveClockAsync(fixture, evidence, "queued", browser.Process, browserReport, ct);
+        var permit = HeldPermit.From(queuedJson);
+        var queued = QueuedSale.From(queuedJson);
+        Assert.Equal((termEnd, "LicenceEnd"), (permit.ValidUntil, queuedJson.GetProperty("limitingReason").GetString()));
         Assert.Equal(0L, await CountMerchantAsync(fixture, "sales", $"shop_id = '{shop.ShopId:D}'"));
         Assert.Equal(0L, await CountMerchantAsync(fixture, "offline_submissions", $"shop_id = '{shop.ShopId:D}'"));
 
         var syncAt = termEnd.AddMinutes(1);
-        fixture.Hosts.Fixture.Clock.Now = syncAt;
-        fixture.Hosts.StatusClock.Now = syncAt;
-        using (var refusedReserve = await client.PostAsJsonAsync("/api/sales/invoice-leases/reserve", new { deviceId, blockSize = 25 }, ct))
-        {
-            Assert.Equal(HttpStatusCode.Forbidden, refusedReserve.StatusCode);
-            Assert.Equal("Licence.Expired", await P0206Fixture.CodeAsync(refusedReserve));
-        }
-
+        await AssertNewLeaseRefusedAfterExpiryAsync(fixture, client, permit.DeviceId, syncAt, ct);
         await WriteSignalAsync(evidence, "expired.ready", syncAt.ToString("O"), ct);
         var synced = await WaitForPhaseJsonAsync(evidence, "synced", browser.Process, browserReport, ct);
         await AssertSingleBrowserPassAsync(browser.Process, browserReport);
 
-        var (submission, sale, replayStatus) = await AssertPostedOnceAndReplayAsync(
-            fixture, shop, client, deviceId, clientSaleId, invoiceNumber, permitId, grantId, soldAt, syncAt, synced.GetProperty("wireSale").Clone(), ct);
-        var deviceRef = await AssertOrdinaryExpiryProviderViewAsync(fixture, account, shop.ShopId, deviceId, termEnd, syncAt);
+        var wireSale = AssertWireCarriesQueuedPermit(synced, queued);
+        var (submission, sale, replayStatus, replayAt) = await AssertPostedOnceAndReplayAsync(fixture, shop, client, permit, queued, syncAt, wireSale, ct);
+        AssertBrowserSawCreatedSale(synced, sale.Id);
+        var deviceRef = await AssertOrdinaryExpiryProviderViewAsync(fixture, account, shop.ShopId, permit.DeviceId, termEnd, replayAt);
 
         await WriteCorrelatedEvidenceAsync(evidence, "postgres-ordinary-expiry.json", new
         {
-            scenario = "ordinary-expiry", shopId = shop.ShopId, accountId = account, deviceId, deviceRef,
-            clientSaleId, invoiceNumber, permitId, grantId, soldAt, termEnd, syncAt,
-            saleId = sale.Id, submissionId = submission.Id,
-            rawPayloadSha256 = queued.GetProperty("rawPayloadSha256").GetString(),
+            scenario = "ordinary-expiry", shopId = shop.ShopId, accountId = account, deviceId = permit.DeviceId, deviceRef,
+            clientSaleId = queued.ClientSaleId, invoiceNumber = queued.InvoiceNumber, permitId = permit.PermitId, grantId = permit.GrantId,
+            permitNotBefore = permit.NotBefore, soldAt = queued.SoldAt, termEnd, syncAt, replayAt,
+            saleId = sale.Id, submissionId = submission.Id, receivedAt = submission.ReceivedAt,
+            rawPayloadSha256 = queued.RawPayloadSha256,
             wireSaleSha256 = synced.GetProperty("wireSaleSha256").GetString(),
             serverPayloadHash = submission.PayloadHash,
-            signedPermitSha256 = queued.GetProperty("signedPermitSha256").GetString(),
+            signedPermitSha256 = queued.SignedPermitSha256,
+            wireSignedPermitSha256 = SignedPermitSha256(wireSale),
             replayStatus,
         }, ct);
     }
@@ -94,113 +84,119 @@ public sealed partial class P0509Tests
         fixture.Hosts.Fixture.Clock.Now = start;
 
         var (shop, account, barcode) = await PreparePaidShopAsync(fixture, start);
-        var (otherShop, _, _) = await PreparePaidShopAsync(fixture, start);
-        var manager = await SignInAsync(fixture.Hosts, ShopRole.Manager, existingShop: shop.ShopId);
-        var staff = await SignInAsync(fixture.Hosts, ShopRole.Staff, existingShop: shop.ShopId);
-        using var ownerClient = shop.Client;
-        using var ownerClient2 = await CreateSecondSessionClientAsync(fixture, shop.Email);
-        using var otherClient = otherShop.Client;
-        using var managerClient = manager.Client;
-        using var staffClient = staff.Client;
-        using var securityAdmin = await P0403Tests.SignInSecurityAsync(fixture);
+        using var actors = await ReviewActors.CreateAsync(fixture, shop, start);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
         var ct = timeout.Token;
 
-        await using var web = await StartMerchantWebAsync(staged.Root, ownerClient.BaseAddress!, ct);
+        await using var web = await StartMerchantWebAsync(staged.Root, actors.Owner.BaseAddress!, ct);
         await using var browser = StartReleaseBrowser(frontend, evidence, web.Origin, shop.Email, barcode, "missed-suspension", pinned);
         var browserReport = CaptureBrowserAsync(browser.Process, evidence, ct);
 
-        var offline = await WaitForPhaseWithLiveClockAsync(fixture, evidence, "offline", browser.Process, browserReport, ct);
-        var deviceId = offline.GetProperty("deviceId").GetString()!;
-        var permitId = offline.GetProperty("permitId").GetGuid();
-        var grantId = offline.GetProperty("grantId").GetGuid();
-        var permitValidUntil = ParseInstant(offline.GetProperty("validUntil").GetString()!);
-        var stockBefore = await ReadShopStockQuantityAsync(fixture, shop.ShopId);
-        var seqBefore = await ReadInvoiceSequenceSumAsync(fixture, shop.ShopId);
+        var permit = HeldPermit.From(await WaitForPhaseWithLiveClockAsync(fixture, evidence, "offline", browser.Process, browserReport, ct));
+        var baseline = (Stock: await ReadShopStockQuantityAsync(fixture, shop.ShopId), Sequence: await ReadInvoiceSequenceSumAsync(fixture, shop.ShopId));
 
-        var effectiveAt = await ApplyAcknowledgedTradingSuspensionAsync(fixture, businessClock, securityAdmin, account, shop.ShopId);
+        var effectiveAt = await ApplyAcknowledgedTradingSuspensionAsync(fixture, businessClock, actors.SecurityAdmin, account, shop.ShopId);
         await WriteSignalAsync(evidence, "suspended.ready", effectiveAt.ToString("O"), ct);
+        var queued = QueuedSale.From(await WaitForPhaseJsonAsync(evidence, "queued", browser.Process, browserReport, ct));
+        Assert.True(
+            permit.NotBefore < effectiveAt && effectiveAt <= queued.SoldAt && queued.SoldAt < permit.ValidUntil,
+            $"Expected {permit.NotBefore:O} < {effectiveAt:O} <= {queued.SoldAt:O} < {permit.ValidUntil:O}.");
 
-        var queued = await WaitForPhaseJsonAsync(evidence, "queued", browser.Process, browserReport, ct);
-        var clientSaleId = queued.GetProperty("clientSaleId").GetString()!;
-        var invoiceNumber = queued.GetProperty("invoiceNumber").GetString()!;
-        var soldAt = ParseInstant(queued.GetProperty("soldAt").GetString()!);
-        Assert.True(soldAt >= effectiveAt && soldAt < permitValidUntil, $"Expected {effectiveAt:O} <= {soldAt:O} < {permitValidUntil:O}.");
-
-        var syncAt = soldAt.AddSeconds(5);
-        fixture.Hosts.Fixture.Clock.Now = syncAt;
-        businessClock.Now = syncAt;
+        var syncAt = queued.SoldAt.AddSeconds(5);
+        SetMerchantAndBusinessClocks(fixture, businessClock, syncAt);
         await WriteSignalAsync(evidence, "reconnect.ready", syncAt.ToString("O"), ct);
-
         var synced = await WaitForPhaseJsonAsync(evidence, "synced", browser.Process, browserReport, ct);
         await AssertSingleBrowserPassAsync(browser.Process, browserReport);
 
-        Assert.Equal(("NeedsReview", "OfflineLicenceHistory.RestrictionConflict"),
-            (synced.GetProperty("queueStatusAfter").GetString(), synced.GetProperty("errorCode").GetString()));
-        var caseId = synced.GetProperty("reviewCaseId").GetGuid();
-        if (synced.TryGetProperty("responseBody", out var body) && body.ValueKind == JsonValueKind.Object)
-        {
-            var browserResult = Assert.Single(body.GetProperty("results").EnumerateArray());
-            Assert.Equal(("NeedsReview", "OfflineLicenceHistory.RestrictionConflict", caseId), (
-                browserResult.GetProperty("status").GetString(),
-                browserResult.GetProperty("errors")[0].GetProperty("code").GetString(),
-                browserResult.GetProperty("reviewCaseId").GetGuid()));
-        }
-        var wireSale = synced.GetProperty("wireSale").Clone();
-
-        await RaceDuplicateSuspensionSyncAsync(ownerClient, ownerClient2, deviceId, wireSale, caseId, ct);
-        var submission = await AssertHeldReviewDatabaseStateAsync(fixture, shop.ShopId, clientSaleId, invoiceNumber, soldAt, syncAt, permitId, grantId, stockBefore, seqBefore);
-        await VerifyReviewAccessAndActionsAsync(ownerClient, managerClient, otherClient, staffClient, staff.UserId, deviceId, caseId, wireSale, effectiveAt, ct);
-        var deviceRef = await AssertMissedSuspensionProviderViewAsync(fixture, account, shop.ShopId, invoiceNumber, permitValidUntil, syncAt);
+        var wireSale = AssertWireCarriesQueuedPermit(synced, queued);
+        var held = new HeldCase(shop.ShopId, AssertBrowserHeldForReview(synced), queued, permit, syncAt, baseline.Stock, baseline.Sequence);
+        var (submission, replayAt) = await AssertReceiptSurvivesReplayRaceAsync(fixture, businessClock, actors, held, wireSale, ct);
+        await VerifyReviewAccessAndActionsAsync(fixture, actors, held, wireSale, effectiveAt, ct);
+        var deviceRef = await AssertMissedSuspensionProviderViewAsync(fixture, account, shop.ShopId, queued.InvoiceNumber, permit.ValidUntil, replayAt);
 
         await WriteCorrelatedEvidenceAsync(evidence, "postgres-missed-suspension.json", new
         {
-            scenario = "missed-suspension", shopId = shop.ShopId, accountId = account, deviceId, deviceRef,
-            clientSaleId, invoiceNumber, permitId, grantId, effectiveAt, soldAt, permitValidUntil, syncAt,
-            submissionId = submission.Id, reviewCaseId = caseId,
-            rawPayloadSha256 = queued.GetProperty("rawPayloadSha256").GetString(),
+            scenario = "missed-suspension", shopId = shop.ShopId, accountId = account, deviceId = permit.DeviceId, deviceRef,
+            clientSaleId = queued.ClientSaleId, invoiceNumber = queued.InvoiceNumber, permitId = permit.PermitId, grantId = permit.GrantId,
+            permitNotBefore = permit.NotBefore, effectiveAt, soldAt = queued.SoldAt, permitValidUntil = permit.ValidUntil, syncAt, replayAt,
+            submissionId = submission.Id, receivedAt = submission.ReceivedAt, reviewCaseId = held.CaseId,
+            rawPayloadSha256 = queued.RawPayloadSha256,
             wireSaleSha256 = synced.GetProperty("wireSaleSha256").GetString(),
             serverPayloadHash = submission.PayloadHash,
-            signedPermitSha256 = queued.GetProperty("signedPermitSha256").GetString(),
+            signedPermitSha256 = queued.SignedPermitSha256,
+            wireSignedPermitSha256 = SignedPermitSha256(wireSale),
             salesCount = 0,
         }, ct);
     }
 
-    private static async Task<(SubmissionEvidence Submission, SaleEvidence Sale, string ReplayStatus)> AssertPostedOnceAndReplayAsync(
-        P0213Fixture fixture, Merchant shop, HttpClient client, string deviceId, string clientSaleId, string invoiceNumber,
-        Guid permitId, Guid grantId, DateTimeOffset soldAt, DateTimeOffset syncAt, JsonElement wireSale, CancellationToken ct)
+    private static async Task AssertNewLeaseRefusedAfterExpiryAsync(
+        P0213Fixture fixture, HttpClient client, string deviceId, DateTimeOffset syncAt, CancellationToken ct)
     {
-        Assert.Equal(1L, await CountMerchantAsync(fixture, "sales", $"shop_id = '{shop.ShopId:D}' AND client_sale_id = '{clientSaleId}'"));
-        var submission = await ReadSubmissionAsync(fixture, shop.ShopId, clientSaleId);
-        var sale = await ReadSaleAsync(fixture, shop.ShopId, clientSaleId);
+        fixture.Hosts.Fixture.Clock.Now = syncAt;
+        fixture.Hosts.StatusClock.Now = syncAt;
+        using var refusedReserve = await client.PostAsJsonAsync("/api/sales/invoice-leases/reserve", new { deviceId, blockSize = 25 }, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, refusedReserve.StatusCode);
+        Assert.Equal("Licence.Expired", await P0206Fixture.CodeAsync(refusedReserve));
+    }
+
+    /// <summary>The upload carries the same signed permit token the browser froze into the queued invoice.</summary>
+    private static JsonElement AssertWireCarriesQueuedPermit(JsonElement synced, QueuedSale queued)
+    {
+        var wireSale = synced.GetProperty("wireSale").Clone();
+        Assert.Equal(queued.SignedPermitSha256, SignedPermitSha256(wireSale));
+        Assert.Equal(queued.RawPayloadSha256, synced.GetProperty("rawPayloadSha256After").GetString());
+        return wireSale;
+    }
+
+    /// <summary>The verdict the app stored in IndexedDB from the real upload answer names the posted sale.</summary>
+    private static void AssertBrowserSawCreatedSale(JsonElement synced, Guid saleId)
+    {
+        Assert.Equal((200, "Synced", saleId), (
+            synced.GetProperty("httpStatus").GetInt32(),
+            synced.GetProperty("queueStatusAfter").GetString(),
+            synced.GetProperty("serverSaleId").GetGuid()));
+    }
+
+    private static async Task<(SubmissionEvidence Submission, SaleEvidence Sale, string ReplayStatus, DateTimeOffset ReplayAt)> AssertPostedOnceAndReplayAsync(
+        P0213Fixture fixture, Merchant shop, HttpClient client, HeldPermit permit, QueuedSale queued,
+        DateTimeOffset syncAt, JsonElement wireSale, CancellationToken ct)
+    {
+        Assert.Equal(1L, await CountMerchantAsync(fixture, "sales", $"shop_id = '{shop.ShopId:D}' AND client_sale_id = '{queued.ClientSaleId}'"));
+        var submission = await ReadSubmissionAsync(fixture, shop.ShopId, queued.ClientSaleId);
+        var sale = await ReadSaleAsync(fixture, shop.ShopId, queued.ClientSaleId);
         Assert.NotNull(submission);
         Assert.NotNull(sale);
-        Assert.Equal((sale!.Id, invoiceNumber, soldAt, syncAt, permitId, grantId, sale.RequestHash),
+        Assert.Equal((sale!.Id, queued.InvoiceNumber, queued.SoldAt, syncAt, permit.PermitId, permit.GrantId, sale.RequestHash),
             (submission!.SaleId, submission.InvoiceNumber, submission.ClaimedSoldAt, submission.ReceivedAt,
              submission.LicencePermitId, submission.LicenceGrantId, submission.PayloadHash));
-        Assert.Equal((invoiceNumber, soldAt, 50m, shop.UserId), (sale.InvoiceNumber, sale.SoldAt, sale.TotalAmount, sale.ActorUserId));
+        Assert.Equal((queued.InvoiceNumber, queued.SoldAt, 50m, shop.UserId), (sale.InvoiceNumber, sale.SoldAt, sale.TotalAmount, sale.ActorUserId));
         Assert.False(string.IsNullOrWhiteSpace(sale.InvoiceDocumentJson));
 
-        var replay = await SyncSingleAsync(client, deviceId, wireSale, ct);
+        // The replay arrives later than the first receipt, so a rewritten receipt would carry a different received_at.
+        var replayAt = syncAt.AddSeconds(ReplayDelaySeconds);
+        fixture.Hosts.Fixture.Clock.Now = replayAt;
+        fixture.Hosts.StatusClock.Now = replayAt;
+        var replay = await SyncSingleAsync(client, permit.DeviceId, wireSale, ct);
         var replayStatus = replay.GetProperty("status").GetString()!;
         Assert.Equal(("duplicate", sale.Id), (replayStatus, replay.GetProperty("saleId").GetGuid()));
         Assert.Equal(1L, await CountMerchantAsync(fixture, "sales", $"shop_id = '{shop.ShopId:D}'"));
         Assert.Equal(1L, await CountMerchantAsync(fixture, "offline_submissions", $"shop_id = '{shop.ShopId:D}'"));
-        var afterReplay = await ReadSubmissionAsync(fixture, shop.ShopId, clientSaleId);
-        Assert.Equal((submission.Id, submission.ReceivedAt, submission.PayloadHash, submission.PayloadJson),
+        var afterReplay = await ReadSubmissionAsync(fixture, shop.ShopId, queued.ClientSaleId);
+        Assert.Equal((submission.Id, syncAt, submission.PayloadHash, submission.PayloadJson),
             (afterReplay!.Id, afterReplay.ReceivedAt, afterReplay.PayloadHash, afterReplay.PayloadJson));
-        return (submission, sale, replayStatus);
+        return (submission, sale, replayStatus, replayAt);
     }
 
     private static async Task<string> AssertOrdinaryExpiryProviderViewAsync(
-        P0213Fixture fixture, Guid account, Guid shopId, string deviceId, DateTimeOffset termEnd, DateTimeOffset syncAt)
+        P0213Fixture fixture, Guid account, Guid shopId, string deviceId, DateTimeOffset termEnd, DateTimeOffset replayAt)
     {
         await DrainBothAsync(fixture);
         using var support = await P0417Tests.SignInAsync(fixture, "support");
         fixture.Hosts.StatusClock.Now = termEnd.AddMicroseconds(-1);
         var beforeEnd = await ReadProviderDevicePermitsAsync(support, account, shopId);
         var deviceBefore = Assert.Single(beforeEnd.GetProperty("devices").EnumerateArray());
-        Assert.Equal((OfflineDeviceObservationsV1.DeviceRef(shopId, deviceId), termEnd, syncAt, true, "Unknown"), (
+        // The provider sees contact times only: the later replay is the device's last contact, not a new receipt.
+        Assert.Equal((OfflineDeviceObservationsV1.DeviceRef(shopId, deviceId), termEnd, replayAt, true, "Unknown"), (
             deviceBefore.GetProperty("deviceRef").GetString(),
             deviceBefore.GetProperty("knownPermitEnd").GetDateTimeOffset(),
             deviceBefore.GetProperty("lastSynchronizedAt").GetDateTimeOffset(),
@@ -210,129 +206,5 @@ public sealed partial class P0509Tests
         var deviceAt = Assert.Single((await ReadProviderDevicePermitsAsync(support, account, shopId)).GetProperty("devices").EnumerateArray());
         Assert.Equal((false, 0), (deviceAt.GetProperty("outstanding").GetBoolean(), deviceAt.GetProperty("outstandingPermits").GetInt32()));
         return deviceBefore.GetProperty("deviceRef").GetString()!;
-    }
-
-    private static async Task<DateTimeOffset> ApplyAcknowledgedTradingSuspensionAsync(
-        P0213Fixture fixture, P0201Clock businessClock, P0110CookieBrowser securityAdmin, Guid account, Guid shopId)
-    {
-        var path = $"/api/admin/accounts/{account:D}/restrictions";
-        businessClock.Now = P0202Fixture.WholeSecondNow();
-        fixture.Hosts.Fixture.Clock.Now = businessClock.Now;
-        var restrictionId = await P0404Tests.SuspendAsync(securityAdmin, path, "Shop", shopId, "Trading");
-        await P0403Tests.AssertPropagationAsync(securityAdmin, path, restrictionId, "Pending");
-        await DrainBothAsync(fixture);
-        await P0403Tests.AssertPropagationAsync(securityAdmin, path, restrictionId, "Acknowledged");
-        var cutoff = (DateTime)(await fixture.MerchantScalarAsync(
-            $"SELECT suspension_effective_at FROM public.shop_license_states WHERE shop_id = '{shopId:D}'"))!;
-        return new DateTimeOffset(DateTime.SpecifyKind(cutoff, DateTimeKind.Utc));
-    }
-
-    private static async Task RaceDuplicateSuspensionSyncAsync(
-        HttpClient ownerClient, HttpClient ownerClient2, string deviceId, JsonElement wireSale, Guid caseId, CancellationToken ct)
-    {
-        var raced = await RunBarrierRaceAsync(
-            () => SyncSingleAsync(ownerClient, deviceId, wireSale, ct),
-            () => SyncSingleAsync(ownerClient2, deviceId, wireSale, ct));
-        Assert.All(raced, row => Assert.Equal(("NeedsReview", "OfflineLicenceHistory.RestrictionConflict", caseId), (
-            row.GetProperty("status").GetString(),
-            row.GetProperty("errors")[0].GetProperty("code").GetString(),
-            row.GetProperty("reviewCaseId").GetGuid())));
-    }
-
-    private static async Task<SubmissionEvidence> AssertHeldReviewDatabaseStateAsync(
-        P0213Fixture fixture, Guid shopId, string clientSaleId, string invoiceNumber, DateTimeOffset soldAt,
-        DateTimeOffset syncAt, Guid permitId, Guid grantId, decimal stockBefore, long seqBefore)
-    {
-        Assert.Equal(0L, await CountMerchantAsync(fixture, "sales", $"shop_id = '{shopId:D}'"));
-        Assert.Equal(1L, await CountMerchantAsync(fixture, "offline_submissions", $"shop_id = '{shopId:D}'"));
-        Assert.Equal(1L, await CountMerchantAsync(fixture, "reconciliation_issues", $"shop_id = '{shopId:D}'"));
-        Assert.Equal(stockBefore, await ReadShopStockQuantityAsync(fixture, shopId));
-        Assert.Equal(seqBefore, await ReadInvoiceSequenceSumAsync(fixture, shopId));
-        var submission = await ReadSubmissionAsync(fixture, shopId, clientSaleId);
-        Assert.NotNull(submission);
-        Assert.Null(submission!.SaleId);
-        Assert.Equal((invoiceNumber, soldAt, syncAt, permitId, grantId),
-            (submission.InvoiceNumber, submission.ClaimedSoldAt, submission.ReceivedAt, submission.LicencePermitId, submission.LicenceGrantId));
-        return submission;
-    }
-
-    private static async Task<string> AssertMissedSuspensionProviderViewAsync(
-        P0213Fixture fixture, Guid account, Guid shopId, string invoiceNumber, DateTimeOffset permitValidUntil, DateTimeOffset syncAt)
-    {
-        await DrainBothAsync(fixture);
-        using var support = await P0417Tests.SignInAsync(fixture, "support");
-        fixture.Hosts.StatusClock.Now = syncAt.AddMinutes(1);
-        var provider = await ReadProviderDevicePermitsAsync(support, account, shopId);
-        var deviceRow = Assert.Single(provider.GetProperty("devices").EnumerateArray());
-        Assert.Equal((permitValidUntil, syncAt, true, "Unknown"), (
-            deviceRow.GetProperty("knownPermitEnd").GetDateTimeOffset(),
-            deviceRow.GetProperty("lastSynchronizedAt").GetDateTimeOffset(),
-            deviceRow.GetProperty("outstanding").GetBoolean(),
-            provider.GetProperty("disconnectedQueues").GetString()));
-        Assert.DoesNotContain(invoiceNumber, provider.GetRawText(), StringComparison.Ordinal);
-        return deviceRow.GetProperty("deviceRef").GetString()!;
-    }
-
-    private static async Task VerifyReviewAccessAndActionsAsync(
-        HttpClient owner, HttpClient manager, HttpClient otherTenant, HttpClient staff, Guid staffUserId,
-        string deviceId, Guid caseId, JsonElement wireSale, DateTimeOffset effectiveAt, CancellationToken ct)
-    {
-        uint version = 0;
-        foreach (var viewer in new[] { owner, manager })
-        {
-            using var get = await viewer.GetAsync($"/api/offline-reconciliation/{caseId:D}", ct);
-            var detail = await P0418Tests.ReadAsync(get, HttpStatusCode.OK);
-            Assert.Equal("LicenseHistoryReview", detail.GetProperty("issueType").GetString());
-            Assert.Contains("OfflineLicenceHistory.RestrictionConflict",
-                detail.GetProperty("reasonCodes").EnumerateArray().Select(x => x.GetString()));
-            Assert.Equal(["Escalate"], detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
-            var history = detail.GetProperty("licenceHistory");
-            Assert.Equal((false, false), (history.GetProperty("retryEligible").GetBoolean(), history.GetProperty("linkEligible").GetBoolean()));
-            Assert.Equal(effectiveAt, history.GetProperty("observations")[0].GetProperty("sourceCompletionCutoff").GetDateTimeOffset());
-            Assert.DoesNotContain("signedPermit", detail.GetRawText(), StringComparison.OrdinalIgnoreCase);
-            version = detail.GetProperty("version").GetUInt32();
-        }
-
-        foreach (var forbidden in new[] { "RetryHistoricalLease", "LinkExistingSale", "PostAnyway", "Redate", "Renumber", "Delete" })
-        {
-            using var bad = await owner.PostAsJsonAsync($"/api/offline-reconciliation/{caseId:D}/resolve", new
-            {
-                operationId = Guid.NewGuid().ToString("N"), expectedVersion = version, action = forbidden,
-                reason = "Disallowed review action", linkedOperationId = Guid.NewGuid(),
-            }, ct);
-            Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
-        }
-
-        using (var crossGet = await otherTenant.GetAsync($"/api/offline-reconciliation/{caseId:D}", ct))
-            Assert.Equal(HttpStatusCode.NotFound, crossGet.StatusCode);
-        using (var crossPost = await otherTenant.PostAsJsonAsync($"/api/offline-reconciliation/{caseId:D}/resolve", new
-        {
-            operationId = Guid.NewGuid().ToString("N"), expectedVersion = version, action = "Escalate", reason = "Cross tenant",
-        }, ct))
-            Assert.Equal(HttpStatusCode.NotFound, crossPost.StatusCode);
-        using (var staffForeign = await staff.GetAsync($"/api/offline-reconciliation/{caseId:D}", ct))
-            Assert.Equal(HttpStatusCode.NotFound, staffForeign.StatusCode);
-
-        var staffNode = JsonNode.Parse(wireSale.GetRawText())!.AsObject();
-        staffNode["clientSaleId"] = Guid.NewGuid().ToString("N");
-        staffNode["invoiceNumber"] = "A/2627/000002";
-        staffNode["issuedByUserId"] = staffUserId.ToString("D");
-        var staffSync = await SyncSingleAsync(staff, deviceId, JsonSerializer.SerializeToElement(staffNode), ct);
-        Assert.Equal("NeedsReview", staffSync.GetProperty("status").GetString());
-        var staffCaseId = staffSync.GetProperty("reviewCaseId").GetGuid();
-        using var staffDetailResp = await staff.GetAsync($"/api/offline-reconciliation/{staffCaseId:D}", ct);
-        var staffDetail = await P0418Tests.ReadAsync(staffDetailResp, HttpStatusCode.OK);
-        var staffVersion = staffDetail.GetProperty("version").GetUInt32();
-        Assert.Equal(["Escalate"], staffDetail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
-        using (var staffRetry = await staff.PostAsJsonAsync($"/api/offline-reconciliation/{staffCaseId:D}/resolve", new
-        {
-            operationId = Guid.NewGuid().ToString("N"), expectedVersion = staffVersion, action = "RetryHistoricalLease", reason = "Staff retry",
-        }, ct))
-            Assert.Equal(HttpStatusCode.Forbidden, staffRetry.StatusCode);
-        using (var staffEscalate = await staff.PostAsJsonAsync($"/api/offline-reconciliation/{staffCaseId:D}/resolve", new
-        {
-            operationId = Guid.NewGuid().ToString("N"), expectedVersion = staffVersion, action = "Escalate", reason = "Staff escalates own held case",
-        }, ct))
-            Assert.Equal("Escalated", (await P0418Tests.ReadAsync(staffEscalate, HttpStatusCode.OK)).GetProperty("status").GetString());
     }
 }

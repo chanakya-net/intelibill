@@ -1,19 +1,17 @@
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { expect, type BrowserContext, type Page } from '@playwright/test';
+import { expect, type BrowserContext, type Page, type Response } from '@playwright/test';
 
 import {
   controlledByProtectedWorker,
   missingFromCurrentPack,
   readPackFlag,
   readWorkerState,
+  sha256Hex,
   type BuiltManifest,
 } from './legacy-queue-recovery-fixture';
 import { readAll, readRecord, type LeaseRow } from './offline-permit-finalization-fixture';
-
-export const sha256Hex = (value: string): string => createHash('sha256').update(value, 'utf8').digest('hex');
 
 interface LiveConfig {
   readonly origin: string;
@@ -162,6 +160,11 @@ async function disconnectAndProveOffline(page: Page, context: BrowserContext): P
   expect(probe).toBe('network-error');
 }
 
+/**
+ * Reconnects and records the first real upload. The server's verdict is read from the IndexedDB row the app wrote
+ * from that response, never from the response body: the app may navigate once it applies the result, and a body
+ * read after navigation is unavailable.
+ */
 async function reconnectAndCaptureSync(
   page: Page,
   context: BrowserContext,
@@ -171,48 +174,37 @@ async function reconnectAndCaptureSync(
   rawPayloadSha256: string,
   expectedQueueStatus: 'Synced' | 'NeedsReview',
 ) {
-  let wireBody: { deviceId: string; sales: Record<string, unknown>[] } | null = null;
-  let httpStatus = 0;
-  let responseBodyPromise: Promise<{ results: Record<string, unknown>[] } | null> | null = null;
-  const onResponse = (res: import('@playwright/test').Response) => {
-    if (new URL(res.url()).pathname !== '/api/sales/offline-sync' || res.request().method() !== 'POST') return;
-    if (wireBody) return;
-    wireBody = res.request().postDataJSON() as { deviceId: string; sales: Record<string, unknown>[] };
-    httpStatus = res.status();
-    responseBodyPromise = res.json().catch(() => null) as Promise<{ results: Record<string, unknown>[] } | null>;
+  const isSyncUpload = (res: Response) =>
+    new URL(res.url()).pathname === '/api/sales/offline-sync' && res.request().method() === 'POST';
+  const firstUpload = page.waitForResponse(isSyncUpload, { timeout: 60_000 });
+
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const response = await firstUpload;
+  const httpStatus = response.status();
+  expect(httpStatus).toBe(200);
+  const wireBody = response.request().postDataJSON() as { deviceId: string; sales: Record<string, unknown>[] };
+  const wireSale = wireBody.sales.find((s) => s['clientSaleId'] === clientSaleId)!;
+  expect(wireSale).toBeTruthy();
+
+  await expect
+    .poll(async () => (await readScopedQueue(page, scope.shopId, deviceId)).find((r) => r.clientSaleId === clientSaleId)?.status, {
+      timeout: 30_000,
+    })
+    .toBe(expectedQueueStatus);
+  const afterSyncRow = (await readScopedQueue(page, scope.shopId, deviceId)).find((r) => r.clientSaleId === clientSaleId)!;
+  expect(sha256Hex(JSON.stringify(afterSyncRow.payload))).toBe(rawPayloadSha256);
+
+  return {
+    httpStatus,
+    wireSale,
+    wireSaleSha256: sha256Hex(JSON.stringify(wireSale)),
+    queueStatusAfter: afterSyncRow.status,
+    reviewCaseId: afterSyncRow.reviewCaseId ?? null,
+    errorCode: afterSyncRow.errorCode ?? null,
+    serverSaleId: afterSyncRow.serverSaleId ?? null,
+    rawPayloadSha256After: sha256Hex(JSON.stringify(afterSyncRow.payload)),
   };
-  page.on('response', onResponse);
-
-  try {
-    await context.setOffline(false);
-    await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect.poll(() => httpStatus, { timeout: 60_000 }).toBe(200);
-    const responseBody = responseBodyPromise ? await responseBodyPromise : null;
-    const wireSale = wireBody!.sales.find((s) => s['clientSaleId'] === clientSaleId)!;
-    expect(wireSale).toBeTruthy();
-
-    await expect
-      .poll(async () => (await readScopedQueue(page, scope.shopId, deviceId)).find((r) => r.clientSaleId === clientSaleId)?.status, {
-        timeout: 30_000,
-      })
-      .toBe(expectedQueueStatus);
-    const afterSyncRow = (await readScopedQueue(page, scope.shopId, deviceId)).find((r) => r.clientSaleId === clientSaleId)!;
-    expect(sha256Hex(JSON.stringify(afterSyncRow.payload))).toBe(rawPayloadSha256);
-
-    return {
-      httpStatus,
-      responseBody,
-      wireSale,
-      wireSaleSha256: sha256Hex(JSON.stringify(wireSale)),
-      queueStatusAfter: afterSyncRow.status,
-      reviewCaseId: afterSyncRow.reviewCaseId ?? null,
-      errorCode: afterSyncRow.errorCode ?? null,
-      serverSaleId: afterSyncRow.serverSaleId ?? null,
-      rawPayloadSha256After: sha256Hex(JSON.stringify(afterSyncRow.payload)),
-    };
-  } finally {
-    page.off('response', onResponse);
-  }
 }
 
 export async function runLiveOrdinaryExpiryScenario(page: Page, context: BrowserContext): Promise<void> {
