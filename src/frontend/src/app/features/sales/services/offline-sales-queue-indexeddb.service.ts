@@ -13,6 +13,21 @@ interface SavePendingInput {
   readonly warnings?: readonly string[];
 }
 
+/** Last owner-side word on an issued invoice, asked inside the queue transaction just before the row is written. */
+export interface PendingSaleWriteGuard {
+  /** Synchronous: false refuses the write, and nothing is stored. */
+  readonly stillAllowed: () => boolean;
+  /** Aborting while the transaction can still abort leaves no row behind. */
+  readonly signal?: AbortSignal;
+}
+
+export class OfflineQueueWriteRefusedError extends Error {
+  constructor() {
+    super('Offline queue write was refused before persistence.');
+    this.name = 'OfflineQueueWriteRefusedError';
+  }
+}
+
 const RESOLVED_STATUSES: readonly OfflineSaleQueueStatus[] = ['Synced'];
 const EMPTY_STATUS_COUNTS: Record<OfflineSaleQueueStatus, number> = {
   Pending: 0,
@@ -29,7 +44,7 @@ export class OfflineSalesQueueIndexedDbService {
   private readonly databaseVersion = 1;
   private readonly storeName = 'queued-sales';
 
-  async savePendingSale(input: SavePendingInput): Promise<OfflineQueuedSaleRecord> {
+  async savePendingSale(input: SavePendingInput, guard?: PendingSaleWriteGuard): Promise<OfflineQueuedSaleRecord> {
     const now = new Date().toISOString();
     const record: OfflineQueuedSaleRecord = {
       key: this.buildKey(input.shopId, input.deviceId, input.clientSaleId),
@@ -54,7 +69,7 @@ export class OfflineSalesQueueIndexedDbService {
 
     this.ensureIndexedDbAvailable();
 
-    await this.putRecord(record);
+    await this.putRecord(record, guard);
     return record;
   }
 
@@ -219,15 +234,42 @@ export class OfflineSalesQueueIndexedDbService {
     });
   }
 
-  private async putRecord(record: OfflineQueuedSaleRecord): Promise<void> {
+  private async putRecord(record: OfflineQueuedSaleRecord, guard?: PendingSaleWriteGuard): Promise<void> {
     const database = await this.openDatabase();
     await new Promise<void>((resolve, reject) => {
+      // Asked after the database opened and in the same task as the write, so no await separates check from insert.
+      if (guard && (guard.signal?.aborted || !guard.stillAllowed())) {
+        reject(new OfflineQueueWriteRefusedError());
+        return;
+      }
       const tx = database.transaction(this.storeName, 'readwrite');
       const req = tx.objectStore(this.storeName).put(record);
-      req.onerror = () => reject(req.error);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? req.error);
-      tx.onabort = () => reject(tx.error ?? req.error);
+      let refused = false;
+      const abort = () => {
+        refused = true;
+        try {
+          tx.abort();
+        } catch {
+          // Already committing: the row is durable and the caller settles it as issued.
+          refused = false;
+        }
+      };
+      guard?.signal?.addEventListener('abort', abort, { once: true });
+      const done = () => guard?.signal?.removeEventListener('abort', abort);
+      req.onerror = () => reject(refused ? new OfflineQueueWriteRefusedError() : req.error);
+      // Resolves only once the row is durable; confirmation and stock reduction wait for this.
+      tx.oncomplete = () => {
+        done();
+        resolve();
+      };
+      tx.onerror = () => {
+        done();
+        reject(tx.error ?? req.error);
+      };
+      tx.onabort = () => {
+        done();
+        reject(refused ? new OfflineQueueWriteRefusedError() : (tx.error ?? req.error));
+      };
     });
   }
 

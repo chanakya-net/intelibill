@@ -1,3 +1,4 @@
+import { generateKeyPairSync, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -8,6 +9,8 @@ import {
   verifyDeliveredOfflineLicencePermit,
   type OfflineLicencePermitBinding,
 } from './offline-licence-permit';
+import { readOfflinePermitPublicKeys, verifyOfflinePermitSignature } from './offline-permit-signature';
+import { createPermitSigner, permitFields } from '../../../../tests/sales/offline-permit-signing.fixture';
 
 const PERMIT_FIXTURE_PATH = resolve(process.cwd(), '../../tests/contracts/licensing/offline-permit-v1.json');
 const DELIVERY_FIXTURE_PATH = resolve(process.cwd(), '../../tests/contracts/licensing/offline-permit-delivery-v1.json');
@@ -138,5 +141,88 @@ describe('offline-licence-permit utils', () => {
         baseExpected,
       ),
     ).toBeNull();
+  });
+});
+
+describe('verifyOfflinePermitSignature (#900 vectors, WebCrypto)', () => {
+  interface SignedFixture {
+    readonly key: { readonly keyId: string; readonly publicKeySpki: string };
+    readonly permit: { readonly token: string; readonly fields: Record<string, unknown> };
+    readonly negative: readonly { readonly name: string; readonly token: string; readonly error: string }[];
+  }
+  const fixture = JSON.parse(readFileSync(PERMIT_FIXTURE_PATH, 'utf8')) as SignedFixture;
+  const pins = { [fixture.key.keyId]: fixture.key.publicKeySpki };
+
+  it('verifies the signed permit vector against its pinned public key and returns the original bytes', async () => {
+    const verified = await verifyOfflinePermitSignature(fixture.permit.token, pins);
+
+    expect(verified?.keyId).toBe(fixture.key.keyId);
+    expect(verified?.signedPermit).toBe(fixture.permit.token);
+    expect(verified?.payload).toEqual(fixture.permit.fields);
+  });
+
+  it('rejects a noncanonical signature segment in the fixed RS256 vector', async () => {
+    const token = fixture.permit.token;
+    expect(token.endsWith('IA')).toBe(true);
+    expect(await verifyOfflinePermitSignature(token.slice(0, -1) + 'B', pins)).toBeNull();
+  });
+
+  it('rejects signed noncanonical header and payload encodings', async () => {
+    const [, payload] = fixture.permit.token.split('.');
+    const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const keys = { x: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64') };
+    const raw = '{"alg":"RS256","typ":"intelibill-offline-permit+v1","kid":"x"}';
+    const header = Buffer.from(raw).toString('base64url');
+    const compact = (head: string, body: string) => {
+      const input = head + '.' + body;
+      return input + '.' + sign('sha256', Buffer.from(input), pair.privateKey).toString('base64url');
+    };
+    expect(await verifyOfflinePermitSignature(compact(header, payload), keys)).not.toBeNull();
+    for (const token of [
+      compact(header.slice(0, -1) + '1', payload),
+      compact(header, payload.slice(0, -1) + 'R'),
+    ]) {
+      expect(decodeOfflineLicencePermitToken(token)).toBeNull();
+      expect(await verifyOfflinePermitSignature(token, keys)).toBeNull();
+    }
+  });
+
+  for (const vector of fixture.negative) {
+    it(`rejects ${vector.name} (${vector.error})`, async () => {
+      expect(await verifyOfflinePermitSignature(vector.token, pins)).toBeNull();
+    });
+  }
+
+  it('trusts nothing without a pin: empty map, another key id, an inherited property', async () => {
+    expect(await verifyOfflinePermitSignature(fixture.permit.token, {})).toBeNull();
+    expect(await verifyOfflinePermitSignature(fixture.permit.token, { 'other-key': fixture.key.publicKeySpki })).toBeNull();
+    const inherited = Object.create({ [fixture.key.keyId]: fixture.key.publicKeySpki }) as Record<string, string>;
+    expect(await verifyOfflinePermitSignature(fixture.permit.token, inherited)).toBeNull();
+  });
+
+  it('selects the key by the permit header, so overlapping pins verify during rotation', async () => {
+    const next = await createPermitSigner('rotated-key-2');
+    const fields = permitFields(Date.now());
+    const token = await next.sign(fields);
+    const overlapping = { ...pins, [next.keyId]: next.publicKeySpki };
+
+    expect((await verifyOfflinePermitSignature(token, overlapping))?.keyId).toBe('rotated-key-2');
+    expect((await verifyOfflinePermitSignature(fixture.permit.token, overlapping))?.keyId).toBe(fixture.key.keyId);
+    // The same bytes under the other pinned key do not verify.
+    expect(await verifyOfflinePermitSignature(token, { 'rotated-key-2': fixture.key.publicKeySpki })).toBeNull();
+  });
+
+  it('rejects a genuine signature from a key shorter than 2048 bits', async () => {
+    const weak = await createPermitSigner('weak-key-1', 1024);
+    const token = await weak.sign(permitFields(Date.now()));
+
+    expect(await verifyOfflinePermitSignature(token, { [weak.keyId]: weak.publicKeySpki })).toBeNull();
+  });
+
+  it('rejects an unusable pin and keeps only well-formed build pins', async () => {
+    expect(await verifyOfflinePermitSignature(fixture.permit.token, { [fixture.key.keyId]: 'AAAA' })).toBeNull();
+    expect(readOfflinePermitPublicKeys(null)).toEqual({});
+    expect(readOfflinePermitPublicKeys(['x'])).toEqual({});
+    expect(readOfflinePermitPublicKeys({ good: 'QUJD', 'bad id!': 'QUJD', n: 5, alsoBad: 'not base64 ***' })).toEqual({ good: 'QUJD' });
   });
 });

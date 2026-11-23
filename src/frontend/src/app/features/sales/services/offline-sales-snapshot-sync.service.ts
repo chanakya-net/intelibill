@@ -1,3 +1,4 @@
+import { underOfflineAuthorityLock } from '../../../core/storage/offline-issuance-lock';
 import { observeShopDataRefusal } from '../../../core/context/shop-data-response';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { isOfflineSalesSnapshotMetadata, hasOfflineExpiryAuthority } from '../utils/offline-sales-snapshot.schema';
@@ -74,9 +75,9 @@ export class OfflineSalesSnapshotSyncService {
     let pendingPermitRecord: OfflineSnapshotLicencePermitRecord | null = null;
     const invocation = this.context.scope();
     if (!invocation || invocation.shopId !== shopId || this.context.dataRestricted()) return;
+    const epoch = this.context.epoch();
     const binding =
       explicitBinding === undefined ? ((await this.licencePermit?.resolveBinding(shopId)) ?? null) : explicitBinding;
-    const epoch = this.context.epoch();
     const abort = new AbortController();
     const unregister = this.context.onDetach(() => abort.abort());
     const ensureScope = () => {
@@ -88,15 +89,17 @@ export class OfflineSalesSnapshotSyncService {
     const promote = async (value: Extract<OfflineSnapshotStreamRecord, { type: 'complete' }>['complete']) => {
       ensureScope();
       if (!authority || value.snapshotId !== snapshotId || Object.entries(received).some(([key, count]) => value[key as keyof typeof received] !== count)) throw new Error('Incomplete snapshot record counts.');
-      await this.snapshotDb.markComplete(snapshotId!, shopId, value.completedAt, abort.signal);
-      if (binding && pendingPermitRecord && this.licencePermit) {
+      await underOfflineAuthorityLock(shopId, async () => {
+        ensureScope();
+        await this.snapshotDb.markComplete(value.snapshotId, shopId, value.completedAt, abort.signal);
+        if (!binding || !pendingPermitRecord || !this.licencePermit) return;
         try {
           ensureScope();
-          await this.licencePermit.acceptDeliveredPermit(binding, pendingPermitRecord, snapshotId!, value.completedAt);
+          await this.licencePermit.acceptDeliveredPermitUnderLock(binding, pendingPermitRecord, value.snapshotId, value.completedAt);
         } catch {
-          // A failure to verify or persist the permit never revokes the already-promoted snapshot.
+          // The snapshot remains usable if permit storage or verification fails.
         }
-      }
+      });
     };
 
     try {

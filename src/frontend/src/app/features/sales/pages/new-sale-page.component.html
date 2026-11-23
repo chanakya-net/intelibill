@@ -409,6 +409,11 @@
           (submitRequested)="onPaymentSubmitRequested()"
         />
       </section>
+      @if (vm.offlinePermitEndedAt()) {
+        <p class="offline-permit-ended" role="status" data-testid="offline-permit-ended">
+          {{ 'sales.newSale.offline.permitEndedAt' | transloco: { deadline: vm.offlinePermitEndedAt() } }}
+        </p>
+      }
     </aside>
   </div>
 </section>

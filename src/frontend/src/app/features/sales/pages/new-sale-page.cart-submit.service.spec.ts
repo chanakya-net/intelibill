@@ -1,3 +1,5 @@
+import { NewSalePageOfflineFlowService } from './new-sale-page.offline-flow.service';
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import '@angular/compiler';
 import { Injectable, signal } from '@angular/core';
@@ -309,12 +311,34 @@ function buildService() {
 }
 
 describe('NewSalePageCartSubmitService', () => {
+  it.each([true, false])('ignores the old offline checkout result after scope changes (success=%s)', async (ok) => {
+    const { service } = buildService();
+    const offline = TestBed.inject(OfflineSaleStateService);
+    const context = TestBed.inject(ShopContextService);
+    vi.mocked(offline.submitOfflineSale).mockImplementation(async () => {
+      context.transition({ shopId: 'other', userId: 'other' }, 'scope', () => {});
+      service.paymentSplitError.set('new scope error');
+      service.offlinePermitEndedAt.set('new scope deadline');
+      return ok ? { ok: true, confirmation: { invoiceNumber: 'old', grandTotal: 10, clientSaleId: 'old' } }
+        : { ok: false, errorKey: 'old scope error' };
+    });
+    const reset = vi.spyOn(service, 'resetTransientState');
+    await NewSalePageOfflineFlowService.prototype.onOfflineSubmit.call(service);
+    expect(reset).not.toHaveBeenCalled();
+    expect(offline.refreshSnapshot).not.toHaveBeenCalled();
+    expect(service.showOfflineConfirmation()).toBe(false);
+    expect(service.paymentSplitError()).toBe('new scope error');
+    expect(service.offlinePermitEndedAt()).toBe('new scope deadline');
+  });
+
   it('blocks submission when customer details are invalid', async () => {
     const { service, recordSale } = buildService();
+    service.offlinePermitEndedAt.set('old deadline');
     service.customerForm.controls.customerPhone.setValue('invalid-phone');
 
     await service.onSubmit();
 
+    expect(service.offlinePermitEndedAt()).toBe('');
     expect(service.customerForm.controls.customerPhone.touched).toBe(true);
     expect(recordSale).not.toHaveBeenCalled();
   });

@@ -235,7 +235,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
     });
     const permitService = {
       resolveBinding: vi.fn(async () => binding),
-      acceptDeliveredPermit: vi.fn(async () => {
+      acceptDeliveredPermitUnderLock: vi.fn(async () => {
         events.push('acceptPermit');
         return null;
       }),
@@ -277,7 +277,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
     expect(requestedUrl).toContain('tillSessionId=till-1');
     expect(requestedUrl).toContain('ngsw-bypass=true');
     expect(markCompleteSpy).toHaveBeenCalledTimes(1);
-    expect(permitService.acceptDeliveredPermit).toHaveBeenCalledWith(binding, permitPayload, 'attempt-permit', completedAt);
+    expect(permitService.acceptDeliveredPermitUnderLock).toHaveBeenCalledWith(binding, permitPayload, 'attempt-permit', completedAt);
     expect(events).toEqual(['markComplete', 'acceptPermit']);
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-permit');
   });
@@ -295,7 +295,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
     };
     const permitService = {
       resolveBinding: vi.fn(async () => binding),
-      acceptDeliveredPermit: vi.fn(async () => {
+      acceptDeliveredPermitUnderLock: vi.fn(async () => {
         throw new Error('idb busy');
       }),
     };

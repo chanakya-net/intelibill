@@ -1,6 +1,7 @@
+import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
+import { OfflineQueueWriteRefusedError, OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 
 describe('OfflineSalesQueueIndexedDbService', () => {
   let service: OfflineSalesQueueIndexedDbService;
@@ -159,6 +160,68 @@ describe('OfflineSalesQueueIndexedDbService', () => {
       SyncedWithWarnings: 0,
       NeedsReview: 0,
       Failed: 0,
+    });
+  });
+
+  describe('write guard (IndexedDB transactions)', () => {
+    const input = () => makeInput('shop-1', 'device-1', 'sale-guarded', new Date().toISOString());
+
+    it('asks after the database opened and stores nothing when refused', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const guarded = new OfflineSalesQueueIndexedDbService();
+      const stillAllowed = vi.fn(() => false);
+
+      await expect(guarded.savePendingSale(input(), { stillAllowed })).rejects.toBeInstanceOf(OfflineQueueWriteRefusedError);
+
+      expect(stillAllowed).toHaveBeenCalledTimes(1);
+      expect(await guarded.getQueuedSale('shop-1', 'device-1', 'sale-guarded')).toBeNull();
+    });
+
+    it('stores the row when allowed and resolves only once it is durable', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const guarded = new OfflineSalesQueueIndexedDbService();
+
+      const record = await guarded.savePendingSale(input(), { stillAllowed: () => true });
+
+      expect(record.status).toBe('Pending');
+      expect((await guarded.getQueuedSale('shop-1', 'device-1', 'sale-guarded'))?.status).toBe('Pending');
+    });
+
+    it('stores nothing when the scope was already detached', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const guarded = new OfflineSalesQueueIndexedDbService();
+      const detached = new AbortController();
+      detached.abort();
+
+      await expect(
+        guarded.savePendingSale(input(), { stillAllowed: () => true, signal: detached.signal }),
+      ).rejects.toBeInstanceOf(OfflineQueueWriteRefusedError);
+      expect(await guarded.getQueuedSale('shop-1', 'device-1', 'sale-guarded')).toBeNull();
+    });
+
+    it('aborts the open transaction on detach and leaves no row', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const guarded = new OfflineSalesQueueIndexedDbService();
+      const detached = new AbortController();
+
+      const saving = guarded.savePendingSale(input(), {
+        // Detach lands in the same task as the insert, while the transaction can still abort.
+        stillAllowed: () => { queueMicrotask(() => detached.abort()); return true; },
+        signal: detached.signal,
+      });
+
+      await expect(saving).rejects.toBeInstanceOf(OfflineQueueWriteRefusedError);
+      expect(await guarded.getQueuedSale('shop-1', 'device-1', 'sale-guarded')).toBeNull();
+    });
+
+    it('leaves an existing row of any status byte-identical when a new write is refused', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const guarded = new OfflineSalesQueueIndexedDbService();
+      const kept = await guarded.savePendingSale(makeInput('shop-1', 'device-1', 'sale-kept', new Date().toISOString()));
+
+      await expect(guarded.savePendingSale(input(), { stillAllowed: () => false })).rejects.toBeInstanceOf(OfflineQueueWriteRefusedError);
+
+      expect(await guarded.getQueuedSale('shop-1', 'device-1', 'sale-kept')).toEqual(kept);
     });
   });
 

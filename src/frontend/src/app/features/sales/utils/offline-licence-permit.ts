@@ -154,13 +154,23 @@ export function parseInstantNanos(value: unknown): bigint | null {
   return utcSeconds * 1_000_000_000n + fracNanos;
 }
 
-function decodeBase64UrlToUtf8(segment: string): string | null {
-  if (!segment || !BASE64URL_SEGMENT.test(segment)) return null;
-  const padded = segment.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (segment.length % 4)) % 4);
+/** Compact permit segments must have a single, unpadded base64url representation. */
+export function decodePermitSegment(segment: string): Uint8Array<ArrayBuffer> | null {
+  if (!BASE64URL_SEGMENT.test(segment) || segment.length % 4 === 1) return null;
   try {
-    const binary = atob(padded);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const binary = atob(segment.replace(/-/g, '+').replace(/_/g, '/'));
+    const canonical = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    if (canonical !== segment) return null;
+    return Uint8Array.from(binary, char => char.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
+function decodeBase64UrlToUtf8(segment: string): string | null {
+  const bytes = decodePermitSegment(segment);
+  if (!bytes) return null;
+  try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
     return null;
@@ -236,8 +246,7 @@ export function isValidLeaseLicenceEvidence(value: unknown): value is InvoiceLea
 }
 
 /**
- * Structural decode of the compact RS256 permit token. The browser carries no signing trust anchor
- * beyond the authenticated TLS channel that delivered the stream; cryptographic proof stays on the server.
+ * Structural decode for delivery. Offline issuance additionally verifies the signature against its build pins.
  */
 export function decodeOfflineLicencePermitToken(
   token: string,

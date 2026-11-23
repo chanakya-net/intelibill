@@ -227,6 +227,7 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
     this.selectedCustomerName.set(null);
     this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
     this.paymentSplitError.set('');
+    this.offlinePermitEndedAt.set('');
     this.salePreview.clearPreviewState();
   }
 

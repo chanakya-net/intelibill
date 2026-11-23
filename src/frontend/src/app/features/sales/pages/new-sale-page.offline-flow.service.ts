@@ -1,4 +1,5 @@
 import { NewSalePagePaymentFlowService } from './new-sale-page.payment-flow.service';
+import { LocaleFormattingService } from '../../../core/i18n/locale-formatting.service';
 import { CartItem } from '../services/sale-cart-state.service';
 import { openPrintWindow } from '../utils/print-window';
 
@@ -68,8 +69,16 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
   async onOfflineSubmit(): Promise<void> {
     if (this.isOfflineSubmitting()) return;
 
-    this.isOfflineSubmitting.set(true);
+    const epoch = this.partyContext.epoch();
+    const scope = this.checkoutScope();
+    const shopScope = this.partyContext.scope();
+    const sessionId = this.authService.session()?.sessionId;
+    const isCurrent = () => this.partyContext.scope() === shopScope && this.partyContext.epoch() === epoch &&
+      this.checkoutScope().shopId === scope.shopId && this.checkoutScope().userId === scope.userId &&
+      this.authService.session()?.sessionId === sessionId;
+    this.offlineSubmission.set(isCurrent);
     this.paymentSplitError.set('');
+    this.offlinePermitEndedAt.set('');
 
     try {
       const result = await this.offlineSaleState.submitOfflineSale({
@@ -101,6 +110,7 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
         })),
       });
 
+      if (!isCurrent()) return;
       if (result.ok) {
         this.offlineConfirmation.set({
           invoiceNumber: result.confirmation.invoiceNumber,
@@ -113,9 +123,12 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
         await this.offlineSaleState.refreshSnapshot();
       } else {
         this.paymentSplitError.set(result.errorKey);
+        this.offlinePermitEndedAt.set(
+          result.reconnectBy ? this.injector.get(LocaleFormattingService).formatExactInstant(result.reconnectBy) : '',
+        );
       }
     } finally {
-      this.isOfflineSubmitting.set(false);
+      if (this.offlineSubmission() === isCurrent) this.offlineSubmission.set(null);
     }
   }
 

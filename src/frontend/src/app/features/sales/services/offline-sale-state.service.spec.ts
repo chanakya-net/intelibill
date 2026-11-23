@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import 'fake-indexeddb/auto';
 import { signal } from '@angular/core';
 import { NewSalePageOfflineFlowService } from '../pages/new-sale-page.offline-flow.service';
@@ -514,6 +515,43 @@ describe('OfflineSaleStateService', () => {
     expect(result).toEqual({ ok: false, errorKey: 'sales.newSale.offline.blockQuantityPrecision' });
   });
 
+  it('discards checkout after leaving and returning to the same owner during auth verification', async () => {
+    const service = setup();
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'user-1', shopId: 'shop-1' };
+    authService.session.mockReturnValue({ ...activeSession, user: { id: owner.userId } } as AuthSession);
+    context.initialize(owner);
+    authService.canUseOfflineSalesAuthGrace.mockImplementationOnce(async () => {
+      context.transition(null, 'sign-out', () => {});
+      context.transition(owner, 'sign-in', () => {});
+      return true;
+    });
+    finalization.finalizeAndQueue.mockResolvedValue({ ok: false, reason: 'INVOICE_UNAVAILABLE' });
+    expect((await service.submitOfflineSale(buildSubmitPayload(null))).ok).toBe(false);
+    expect(finalization.finalizeAndQueue).not.toHaveBeenCalled();
+  });
+
+  it('persists a detached sale count only for its issuing shop', async () => {
+    const service = setup();
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'user-1', shopId: 'shop-1' };
+    context.initialize(owner);
+    authService.session.mockReturnValue({ ...activeSession, user: { id: owner.userId } } as AuthSession);
+    const next = { ...makeBaseSettings(), shopId: 'shop-2' };
+    finalization.finalizeAndQueue.mockImplementationOnce(async () => {
+      context.transition({ ...owner, shopId: next.shopId }, 'scope', () => {});
+      service.offlineDeviceSettings.set(next);
+      service.offlineInvoiceRemaining.set(82);
+      return { ok: true, payload: { pricing: { totals: { grandTotal: 10 } } } as never, remainingInvoiceCount: 4 };
+    });
+    const result = await service.submitOfflineSale(buildSubmitPayload(null));
+    expect(settingsStorage.updateSettings).toHaveBeenCalledWith(owner.shopId, expect.any(Function));
+    expect(settingsStorage.updateSettings.mock.results[0].value.lastReservedLease.remainingCount).toBe(4);
+    expect(service.offlineDeviceSettings()).toBe(next);
+    expect(service.offlineInvoiceRemaining()).toBe(82);
+    expect(result.ok).toBe(false);
+  });
+
   it('submits a sale when payload is valid', async () => {
     snapshotDb.getUsableCustomers.mockResolvedValue([
       { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },
@@ -564,6 +602,25 @@ describe('OfflineSaleStateService', () => {
     expect(result.ok).toBe(false);
     expect(result).toEqual({ ok: false, errorKey: 'sales.newSale.offline.blockAuthGraceInvalid' });
     expect(finalization.finalizeAndQueue).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ ok: false, reason: 'OFFLINE_PERMIT_INVALID' }, { errorKey: 'sales.newSale.offline.blockPermitInvalid' }],
+    [{ ok: false, reason: 'OFFLINE_CLOCK_INCONSISTENT' }, { errorKey: 'sales.newSale.offline.blockClockInconsistent' }],
+    [
+      { ok: false, reason: 'OFFLINE_PERMIT_EXPIRED', reconnectBy: '2026-11-22T12:00:00.000000Z' },
+      { errorKey: 'sales.newSale.offline.blockPermitExpired', reconnectBy: '2026-11-22T12:00:00.000000Z' },
+    ],
+  ])('explains a refused offline permission and keeps the verified deadline (%o)', async (refusal, expected) => {
+    snapshotDb.getUsableCustomers.mockResolvedValue([
+      { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },
+    ]);
+    finalization.finalizeAndQueue.mockResolvedValue(refusal as never);
+
+    const service = setup();
+    const result = await service.submitOfflineSale(buildSubmitPayload('customer-1'));
+
+    expect(result).toEqual({ ok: false, ...expected });
   });
 
   it.each([
