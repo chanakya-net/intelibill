@@ -59,6 +59,19 @@ describe('OfflineSalesDeviceSettingsStorage', () => {
     }
   });
 
+  it('discards malformed persisted reconnect metadata', () => {
+    const device = storage.getOrCreateDeviceId('shop-1');
+    localStorage.setItem(`intelibill.offlineSales.deviceSettings.v1:shop-1:${device}`, JSON.stringify({
+      enabled: 'false', permitRefreshNotice: 'unknown', permitAuthorityVerifiedAt: 'tomorrow',
+      permitRetry: { leaseId: ' ', failures: '5', after: null },
+    }));
+    const settings = storage.loadSettings('shop-1');
+    expect(settings?.enabled).toBe(false);
+    expect(settings?.permitRefreshNotice).toBeUndefined();
+    expect(settings?.permitAuthorityVerifiedAt).toBeUndefined();
+    expect(settings?.permitRetry).toBeUndefined();
+  });
+
   it('returns a stable device id per shop across repeated calls', () => {
     const first = storage.getOrCreateDeviceId('shop-1');
     const second = storage.getOrCreateDeviceId('shop-1');

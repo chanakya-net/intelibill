@@ -1,6 +1,6 @@
 # P05-08 · Refreshing offline permission on reconnect
 
-A disconnected till keeps the deadline signed into its current permit. The merchant trading-authority read can justify a reservation or explain why renewal is unavailable. Only a pin-verified permit from the candidate lease's completed snapshot can change future issuance. A ping is a reachability signal.
+A disconnected till keeps the deadline signed into its current permit. The merchant trading-authority read can justify a reservation or explain why renewal is unavailable. Only a pin-verified permit from the candidate lease's completed snapshot can apply a commercial extension to future issuance. A ping is a reachability signal.
 
 ## Observable reconnect
 
@@ -26,7 +26,9 @@ During implementation, removing the test's repeated synthetic online events expo
 | Missing pin, invalid held evidence, disabled device, wrong owner, unavailable Web Locks, ineligible role or known suspension | No refresh reservation |
 | Stale, malformed or unavailable trading authority | Keep the issued permit and its signed deadline |
 | Fresh, scoped commercial denial | Show the refusal. Security release remains with the existing trading-authority interceptor |
-| Later authority and a potentially useful end | Request a candidate. A one-microsecond gain qualifies. An equal end can carry a capacity revision. An otherwise usable range stays in place for a strictly shorter preview |
+| Later verified authority while the range is usable | Keep the range at an equal or shorter achievable end. A fixed commercial extension can refresh immediately. A sliding 48-hour horizon must gain at least 24 hours before reserving |
+| Local limits | Cap the preview at the current fiscal boundary (April 1 at midnight IST), refresh credential expiry, device freshness and the held till-day end for the same till. A till switch on a usable grant requests a bound snapshot on its existing range |
+| Server-only stock cap | If the signed candidate cannot advance a usable permit, keep the current snapshot and lease. The persisted reservation delay covers the spent request |
 | Missing, refused, wrongly bound, untrusted or reordered candidate | Discard the candidate. The previous permit, clock and usable snapshot remain available inside their own bounds |
 | Verified replacement | Promote the completed snapshot, compare and swap the lease and permit in IndexedDB, publish the signed times and rebase the issuance clock |
 
@@ -41,6 +43,15 @@ The candidate must match the active shop, device, user, authentication session, 
 - Reload during a held stream keeps the prior lease and retry delay. Two reconnecting tabs spend one block. The other till can issue against the old lease while the stream is held. Its pending payload survives the eventual replacement.
 - The snapshot and lease belong to separate IndexedDB databases. The test aborts the lease write after the snapshot commit. After reboot the snapshot ID differs from the old permit's signed snapshot ID. Checkout refuses, the cursor stays put, and the queue is empty. A complete snapshot alone cannot authorize a sale.
 - A persisted security suspension survives a reload and an unenforced 200 from the trading-authority endpoint. The confirmation marker stays absent, checkout stays unavailable, and there are no reservation or candidate-stream requests.
+
+## Review regressions and recovery
+
+On reviewed commit `a463a036cf6d5ef4fc95589b93544ff62993ee07`, the new regressions produced six failures and 80 passes. Equal-end authority and a sub-day freshness gain both requested another block. Rollover into an occupied fiscal key raised an IndexedDB constraint error. A rejected permit check skipped stale-stock upkeep. Malformed settings and a disabled, restricted device both exposed an invalid notice. A settings test also reproduced a stored string `"false"` enabling the device. A separate interrupted-rollover test reproduced a refused swap where the destination already held the candidate and had advanced its cursor.
+
+- Repeated Chromium polls at an equal end, the same till-day end, the March fiscal boundary, the refresh credential end and a sub-day sliding gain spend zero blocks. A changed till receives a bound permit on the existing range. Healthy contact clears an earlier transient warning while the signed contact and deadline remain authoritative.
+- The stock-cap scenario spends one reservation, receives a candidate with the old end, and retains the usable snapshot and retry delay. Exhaustion, expiry or a changed auth session can require a new range even when the old end cannot improve. A usable candidate still requires later signed authority.
+- After aborting the candidate lease write, the next online cycle repairs the snapshot/permit mismatch with a bound stream on the held lease. Checkout works again on `A/2627/000001` inside the original deadline, including during the reservation retry delay. After an interrupted settings write, reload recovers the signed replacement from IndexedDB and issues `A/2627/000101`. A missing clock checkpoint requires a fresh bound stream. Reboot alone never rebases the clock.
+- Fiscal rollover retires the old permit and writes the destination in one transaction. Competing calls produce one winner. An outstanding claim prevents replacement, and recovery preserves numbers consumed in an existing destination range.
 
 ## Server boundary
 
@@ -57,7 +68,7 @@ The unchanged P0502 and P0402 integration classes ran against Testcontainers Pos
 
 Browser routes simulate the merchant API and use a throwaway RSA key. The server suite exercises real persistence with synthetic verified projections. Neither suite contacts a live licensing or payment provider. Browser clock evidence detects inconsistencies within its supported model.
 
-## Verification from the issue worktree root
+## Original implementation verification from the issue worktree root
 
 All six commands were applicable and exited 0. Build output includes Angular bundle and stylesheet budget warnings.
 
@@ -96,3 +107,9 @@ dotnet test tests/backend/integration/Intelibill.Integration.Tests --filter 'Ful
 ```
 
 41 PostgreSQL integration cases passed, zero skipped.
+
+## Modifier verification
+
+The focused frontend contract suite passed 213 tests in 11 files. The checkout and recovery regressions passed 194 tests in 9 files. The full merchant suite passed 3,562 Angular tests and 107 script tests. The merchant production build completed with budget warnings. The five release specs passed 35 Chromium scenarios, including 22 reconnect cases. The P0502 and P0402 PostgreSQL suites passed all 41 cases with zero skips.
+
+The review-specific Vitest filters passed 32 tests for permit refresh, 58 with Manage Shop and device settings, 76 with IndexedDB lease replacement and pack upkeep, and 50 with pack upkeep and permit refresh.

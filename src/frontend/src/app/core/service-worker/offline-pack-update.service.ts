@@ -273,8 +273,12 @@ export class OfflinePackUpdateService {
     }
 
     if (settings.lastReservedLease?.licenceGrantId) {
-      const { OfflinePermitRefreshService } = await import('../../features/sales/services/offline-permit-refresh.service');
-      if (await this.injector.get(OfflinePermitRefreshService).refresh(shopId)) return;
+      try {
+        const { OfflinePermitRefreshService } = await import('../../features/sales/services/offline-permit-refresh.service');
+        if (await this.injector.get(OfflinePermitRefreshService).refresh(shopId)) return;
+      } catch {
+        // A permit check can fail independently of ordinary snapshot upkeep.
+      }
     }
 
     const now = this.schedule.now();

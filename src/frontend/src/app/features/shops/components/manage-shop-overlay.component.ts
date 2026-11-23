@@ -122,10 +122,12 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly offlineEnablementProgressKey = computed(() => offlineEnablementProgressKey(this.offlineDeviceEnablement.step()));
   readonly offlinePermitDisplay = computed(() => getOfflinePermitDisplayState(this.offlineDeviceSettings()));
   readonly offlinePermitNotice = computed(() => {
+    if (!this.offlineDeviceSettings()?.enabled) return undefined;
     if (this.shopContext.scope()?.shopId === this.selectedShopId() && this.shopContext.dataRestricted()) return 'suspended';
     return this.offlineDeviceSettings()?.permitRefreshNotice;
   });
   readonly permitLastVerifiedLabel = computed(() => {
+    if (!this.offlineDeviceSettings()?.enabled) return '';
     const verified = this.offlineDeviceSettings()?.permitAuthorityVerifiedAt;
     return verified ? this.localeFormatting.formatExactInstant(verified) : '';
   });

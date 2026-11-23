@@ -58,6 +58,7 @@ interface InvoiceLeaseRecord {
   readonly fiscalYear: string;
   readonly lease: InvoiceLeaseSnapshot;
   readonly updatedAt: string;
+  readonly replacementFiscalYear?: string;
   /** Present from allocation until the sale's queue row is durable or the number is given back. */
   readonly claim?: InvoiceNumberClaim | null;
 }
@@ -124,7 +125,8 @@ export class InvoiceLeaseIndexedDbService {
     });
   }
 
-  async loadLease(shopId: string, deviceId: string, fiscalYear: string): Promise<InvoiceLeaseSnapshot | null> {
+  /** Refresh alone follows a retired fiscal row when settings still name the lease replaced there. */
+  async loadLease(shopId: string, deviceId: string, fiscalYear: string, followReplacementOf?: string): Promise<InvoiceLeaseSnapshot | null> {
     if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') {
       return null;
     }
@@ -138,6 +140,9 @@ export class InvoiceLeaseIndexedDbService {
       request.onerror = () => reject(request.error);
     });
 
+    if (record?.replacementFiscalYear && record.lease.leaseId === followReplacementOf) {
+      return this.loadLease(shopId, deviceId, record.replacementFiscalYear);
+    }
     return record ? this.normalizeLease(record.lease) : null;
   }
 
@@ -174,7 +179,7 @@ export class InvoiceLeaseIndexedDbService {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const record = request.result as InvoiceLeaseRecord | undefined;
-        if (!record) {
+        if (!record || record.replacementFiscalYear) {
           return;
         }
 
@@ -226,11 +231,33 @@ export class InvoiceLeaseIndexedDbService {
             row.lease.offlinePermit?.signedPermit !== previous.offlinePermit.signedPermit || !isCurrent()) return;
         const updated: InvoiceLeaseRecord = { key: nextKey, shopId: next.shopId, deviceId: next.deviceId,
           fiscalYear: next.fiscalYear, lease: this.normalizeLease(next), updatedAt: new Date().toISOString() };
-        if (key === nextKey) store.put(updated);
-        else store.add(updated);
-        swapped = true;
+        if (key === nextKey) {
+          store.put(updated);
+          swapped = true;
+          return;
+        }
+        const destination = store.get(nextKey);
+        destination.onsuccess = () => {
+          const existing = destination.result as InvoiceLeaseRecord | undefined;
+          if (!isCurrent() || existing?.claim || existing?.replacementFiscalYear) return;
+          const lease = this.rolloverDestination(existing?.lease, next);
+          if (!lease) return;
+          store.put({ ...row, replacementFiscalYear: next.fiscalYear, lease: { ...row.lease, offlinePermit: null } });
+          store.put({ ...updated, lease });
+          swapped = true;
+        };
       };
     });
+  }
+
+  private rolloverDestination(existing: InvoiceLeaseSnapshot | undefined, next: InvoiceLeaseSnapshot): InvoiceLeaseSnapshot | null {
+    if (!existing) return this.normalizeLease(next);
+    if (existing.leaseId !== next.leaseId) {
+      return existing.prefix === next.prefix && existing.rangeEnd >= next.rangeStart ? null : this.normalizeLease(next);
+    }
+    if (existing.prefix !== next.prefix || existing.rangeStart !== next.rangeStart || existing.rangeEnd !== next.rangeEnd ||
+        (existing.offlinePermit && existing.offlinePermit.signedPermit !== next.offlinePermit?.signedPermit)) return null;
+    return this.normalizeLease({ ...next, nextNumber: Math.max(existing.nextNumber, next.nextNumber) });
   }
 
   /**

@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { of } from 'rxjs';
 import { ShopTillSettingsService } from '../services/shop-till-settings.service';
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
@@ -491,6 +492,12 @@ describe('ManageShopOverlayComponent', () => {
       expect(fixture.nativeElement.textContent).toContain('offlineSalesDevice.permit.' + notice);
       expect(fixture.nativeElement.querySelector('.offline-authority-row')?.textContent).toContain('IST');
     }
+    const context = TestBed.inject(ShopContextService);
+    vi.spyOn(context, 'scope').mockReturnValue({ shopId: 'shop-1', userId: 'user-1', epoch: 1 });
+    vi.spyOn(context, 'dataRestricted').mockReturnValue(true);
+    component.offlineDeviceSettings.update(current => ({ ...current!, enabled: false }));
+    expect(component.offlinePermitNotice()).toBeUndefined();
+    expect(component.permitLastVerifiedLabel()).toBe('');
   });
 
 });

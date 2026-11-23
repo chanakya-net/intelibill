@@ -1,15 +1,18 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { underOfflineAuthorityLock } from '../../../core/storage/offline-issuance-lock';
+import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import { OfflinePermitClockIndexedDbService } from '../../../core/storage/offline-permit-clock-indexeddb.service';
 import { readRestriction } from '../../../core/context/shop-context.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseIndexedDbService, INVOICE_LEASE_RENEWAL_THRESHOLD, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesDeviceSettingsStorage, type OfflineSalesDeviceSettings, type PermitRefreshNotice } from '../../../core/storage/offline-sales-device-settings.storage';
-import { isShopTradingAuthority, type ShopTradingAuthority } from '../../billing/status/subscription-status.models';
+import type { ShopTradingAuthority } from '../../billing/status/subscription-status.models';
 import { SubscriptionStatusService, TradingAuthorityReadError } from '../../billing/status/subscription-status.service';
 import { TillContextService } from '../../tills/services/till-context.service';
-import { isValidLeaseLicenceEvidence, parseInstantNanos, toOfflinePermitDisplaySummary, verifyDeliveredOfflineLicencePermit, type OfflineLicencePermitBinding } from '../utils/offline-licence-permit';
-import { isFreshCandidate, isNewReservation, shouldReserveForRefresh } from '../utils/offline-permit-refresh';
+import { isValidLeaseLicenceEvidence, parseInstantNanos, toOfflinePermitDisplaySummary, verifyDeliveredOfflineLicencePermit, type OfflineLicencePermitBinding, type StoredOfflineLicencePermit } from '../utils/offline-licence-permit';
+import { decidePermitRefresh, isFreshCandidate, isNewReservation } from '../utils/offline-permit-refresh';
 import { OFFLINE_PERMIT_PUBLIC_KEYS, verifyOfflinePermitSignature, type VerifiedOfflinePermit } from '../utils/offline-permit-signature';
 import { OfflineIssuanceAuthorityService, storedMatchesSigned, type OfflineIssuanceInvocation } from './offline-issuance-authority.service';
 import { OfflineLicencePermitService } from './offline-licence-permit.service';
@@ -28,6 +31,8 @@ export class OfflinePermitRefreshService {
   private readonly authority = inject(OfflineIssuanceAuthorityService);
   private readonly leases = inject(InvoiceLeaseIndexedDbService);
   private readonly settings = inject(OfflineSalesDeviceSettingsStorage);
+  private readonly snapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
+  private readonly clock = inject(OfflinePermitClockIndexedDbService);
   private readonly status = inject(SubscriptionStatusService);
   private readonly sales = inject(SaleService);
   private readonly permits = inject(OfflineLicencePermitService);
@@ -37,7 +42,7 @@ export class OfflinePermitRefreshService {
 
   /** True when this cycle handled the snapshot or must preserve the previous usable one. */
   async refresh(shopId: string): Promise<boolean> {
-    const attempt = await this.capture(shopId);
+    const attempt = await underOfflineAuthorityLock(shopId, () => this.capture(shopId));
     if (!attempt || !this.current(attempt)) return false;
     let preview: ShopTradingAuthority;
     try {
@@ -48,25 +53,37 @@ export class OfflinePermitRefreshService {
     }
     if (!this.current(attempt)) return true;
     const { payload } = attempt.held;
-    const tillSession = this.till.enabled() ? this.till.selected()?.id : null;
-    const needsRange = !attempt.previous.remainingCount || payload.sessionId !== attempt.invocation.sessionId ||
-      payload.tillSessionId !== tillSession;
-    if (!shouldReserveForRefresh(payload, preview, shopId, Date.now(), needsRange)) {
-      if (!isShopTradingAuthority(preview, shopId) ||
-          parseInstantNanos(preview.authorityVerifiedAt) !== parseInstantNanos(attempt.held.payload.authorityVerifiedAt)) {
-        this.notice(attempt, 'unverified');
-      }
+    const now = Date.now();
+    const instant = BigInt(now) * 1_000_000n;
+    const tillSessionId = this.till.enabled() ? this.till.selected()?.id ?? null : null;
+    const needsLease = attempt.previous.remainingCount <= 0 || payload.sessionId !== attempt.invocation.sessionId ||
+      instant >= parseInstantNanos(payload.validUntil)! || instant >= (parseInstantNanos(attempt.previous.expiresAt) ?? 0n);
+    const decision = decidePermitRefresh(payload, preview, shopId, now, {
+      needsLease, tillSessionId, authDeadline: this.auth.session()?.refreshTokenExpiresAt,
+    });
+    if (decision !== 'unverified' && !needsLease && (payload.tillSessionId !== tillSessionId ||
+        await this.needsBoundSnapshot(attempt))) {
+      if (this.current(attempt)) await this.snapshots.syncForShop(shopId);
+      return true;
+    }
+    if (decision !== 'reserve') {
+      this.notice(attempt, decision === 'unverified' ? 'unverified' : undefined);
       return false;
     }
     const { deviceId, fiscalYear } = attempt.previous;
     if (await this.leases.loadPendingClaim(shopId, deviceId, fiscalYear)) return true;
     if (!this.current(attempt) || !this.beginReservation(attempt)) return true;
     try {
-      await this.reserveAndSync(attempt, preview.authorityVerifiedAt);
+      await this.reserveAndSync(attempt, preview.authorityVerifiedAt, needsLease);
     } catch (error) {
       this.notice(attempt, refreshFailure(error));
     }
     return true;
+  }
+
+  private async needsBoundSnapshot({ previous, held }: RefreshAttempt): Promise<boolean> {
+    if (await this.snapshotDb.getUsableSnapshotId(previous.shopId) !== held.payload.snapshotId) return true;
+    return !await this.clock.hasCheckpoint(held.payload, held.payload.permitId);
   }
 
   private async capture(shopId: string): Promise<RefreshAttempt | null> {
@@ -74,15 +91,22 @@ export class OfflinePermitRefreshService {
     const settings = this.settings.loadSettings(shopId);
     if (!invocation || !settings?.enabled || settings.enabledByUserId !== invocation.userId ||
         !settings.lastReservedLease || !this.canReserve(shopId) || !globalThis.navigator?.locks?.request) return null;
-    const previous = await this.leases.loadLease(shopId, settings.deviceId, settings.lastReservedLease.fiscalYear);
+    const previous = await this.leases.loadLease(shopId, settings.deviceId, settings.lastReservedLease.fiscalYear, settings.lastReservedLease.leaseId);
     const stored = previous?.offlinePermit;
     if (!previous || !stored || previous.shopId !== shopId || previous.deviceId !== settings.deviceId ||
-        previous.fiscalYear !== settings.lastReservedLease.fiscalYear || !isValidLeaseLicenceEvidence(previous.licenceEvidence) ||
+        !isValidLeaseLicenceEvidence(previous.licenceEvidence) ||
         previous.leaseId !== stored.leaseId || previous.licenceEvidence.grantId !== stored.grantId ||
         previous.licenceEvidence.grantSha256 !== stored.grantSha256 || previous.deviceId !== stored.deviceId ||
         stored.shopId !== shopId || stored.userId !== invocation.userId) return null;
     const held = await verifyOfflinePermitSignature(stored.signedPermit, this.pins);
-    return held && storedMatchesSigned(stored, held.keyId, held.payload) ? { previous, invocation, held } : null;
+    if (!held || !storedMatchesSigned(stored, held.keyId, held.payload)) return null;
+    if (previous.leaseId !== settings.lastReservedLease.leaseId) {
+      // IndexedDB committed the replacement before the previous tab could publish its settings.
+      if (!this.current({ previous, invocation, held }, settings.lastReservedLease.leaseId) ||
+          (settings.lastOfflinePermit && stored.issuedAt <= settings.lastOfflinePermit.issuedAt)) return null;
+      this.publishLease(previous, stored);
+    }
+    return { previous, invocation, held };
   }
 
   private canReserve(shopId: string): boolean {
@@ -90,17 +114,20 @@ export class OfflinePermitRefreshService {
     return !!this.till.capability() && (role === 'Owner' || role === 'Manager') && (!this.till.enabled() || !!this.till.selected()?.id);
   }
 
-  private current(attempt: RefreshAttempt): boolean {
+  private current(attempt: RefreshAttempt, expectedLeaseId = attempt.previous.leaseId): boolean {
     const { previous, invocation } = attempt;
     const settings = this.settings.loadSettings(invocation.shopId);
     return this.authority.isCurrent(invocation) && readRestriction(invocation.scope) === null && this.canReserve(invocation.shopId) &&
       settings?.enabled === true && settings.deviceId === previous.deviceId &&
-      settings.enabledByUserId === invocation.userId && settings.lastReservedLease?.leaseId === previous.leaseId;
+      settings.enabledByUserId === invocation.userId && settings.lastReservedLease?.leaseId === expectedLeaseId;
   }
 
-  private notice(attempt: RefreshAttempt, notice: PermitRefreshNotice): void {
-    if (this.current(attempt)) this.settings.updateSettings(attempt.invocation.shopId,
-      current => ({ ...current, permitRefreshNotice: notice }));
+  private notice(attempt: RefreshAttempt, notice: PermitRefreshNotice | undefined): void {
+    if (!this.current(attempt)) return;
+    const shopId = attempt.invocation.shopId;
+    const saved = this.settings.loadSettings(shopId)?.permitRefreshNotice;
+    if (saved === notice || (notice === undefined && saved === 'verified')) return;
+    this.settings.updateSettings(shopId, current => ({ ...current, permitRefreshNotice: notice }));
   }
 
   /** Persist the retry before sending the POST. A lost response or tab reload may already have spent numbers. */
@@ -116,18 +143,18 @@ export class OfflinePermitRefreshService {
     return true;
   }
 
-  private async reserveAndSync(attempt: RefreshAttempt, verifiedAt: string): Promise<void> {
+  private async reserveAndSync(attempt: RefreshAttempt, verifiedAt: string, needsLease: boolean): Promise<void> {
     const { previous, invocation } = attempt;
     const blockSize = Math.min(200, Math.max(INVOICE_LEASE_RENEWAL_THRESHOLD, previous.remainingCount));
     const next = await firstValueFrom(this.sales.reserveInvoiceLease({ deviceId: previous.deviceId, blockSize }, invocation.scope));
     if (!this.current(attempt) || !isNewReservation(previous, next)) return;
     const binding = this.permits.bindingForLease(next, previous.shopId, invocation.userId, previous.deviceId);
     if (!binding) return;
-    await this.snapshots.syncForShop(previous.shopId, binding, this.promote(attempt, next, binding, verifiedAt));
+    await this.snapshots.syncForShop(previous.shopId, binding, this.promote(attempt, next, binding, verifiedAt, needsLease));
   }
 
   private promote(attempt: RefreshAttempt, next: InvoiceLeaseSnapshot, binding: OfflineLicencePermitBinding,
-    verifiedAt: string): PromotePermitCandidate {
+    verifiedAt: string, needsLease: boolean): PromotePermitCandidate {
     const { previous, invocation } = attempt;
     const sameTill = () => (this.till.enabled() ? this.till.selected()?.id : null) === (binding.tillSessionId ?? null);
     return async (record, snapshotId, completedAt, complete) => {
@@ -135,6 +162,7 @@ export class OfflinePermitRefreshService {
         sessionId: invocation.sessionId });
       const verified = stored && await verifyOfflinePermitSignature(stored.signedPermit, this.pins);
       if (!verified || !stored || !isFreshCandidate(attempt.held.payload, verified.payload, verifiedAt) ||
+          (!needsLease && parseInstantNanos(stored.validUntil)! <= parseInstantNanos(attempt.held.payload.validUntil)!) ||
           parseInstantNanos(next.reservedAt)! > parseInstantNanos(stored.issuedAt)!) {
         if (record?.status === 'refused') this.notice(attempt, refusalNotice(record.refusalCode));
         throw new Error('Candidate permit was not freshly verified.');
@@ -153,14 +181,19 @@ export class OfflinePermitRefreshService {
       await complete();
       const swapped = await this.leases.replaceVerifiedLeaseUnderLock(previous, { ...next, offlinePermit: stored }, current);
       if (!swapped || !current()) throw new Error('Candidate lease was not adopted.');
-      this.settings.updateSettings(next.shopId, settings => ({ ...settings, permitRetry: undefined,
-        permitRefreshNotice: 'verified', permitAuthorityVerifiedAt: stored.authorityVerifiedAt,
-        lastCompleteSnapshotAt: completedAt, lastOfflinePermit: toOfflinePermitDisplaySummary(stored),
-        lastApiVerifiedAt: laterContact(settings, stored.deviceVerifiedAt),
-        lastReservedLease: { leaseId: next.leaseId, fiscalYear: next.fiscalYear, expiresAt: next.expiresAt,
-          remainingCount: next.remainingCount, licenceGrantId: stored.grantId } }));
       await this.permits.establishClockEvidence(stored, invocation.sessionId);
+      const adopted = await this.leases.loadLease(next.shopId, next.deviceId, next.fiscalYear);
+      if (adopted?.offlinePermit?.signedPermit === stored.signedPermit && this.current(attempt)) this.publishLease(adopted, stored);
     };
+  }
+
+  private publishLease(lease: InvoiceLeaseSnapshot, stored: StoredOfflineLicencePermit): void {
+    this.settings.updateSettings(lease.shopId, settings => ({ ...settings, permitRetry: undefined,
+      permitRefreshNotice: 'verified', permitAuthorityVerifiedAt: stored.authorityVerifiedAt,
+      lastCompleteSnapshotAt: stored.snapshotCompletedAt, lastOfflinePermit: toOfflinePermitDisplaySummary(stored),
+      lastApiVerifiedAt: laterContact(settings, stored.deviceVerifiedAt),
+      lastReservedLease: { leaseId: lease.leaseId, fiscalYear: lease.fiscalYear, expiresAt: lease.expiresAt,
+        remainingCount: lease.remainingCount, licenceGrantId: stored.grantId } }));
   }
 }
 

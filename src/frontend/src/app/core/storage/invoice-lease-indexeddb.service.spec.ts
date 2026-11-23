@@ -232,6 +232,33 @@ describe('InvoiceLeaseIndexedDbService', () => {
       expect(await sibling.loadLease(...KEY)).toEqual(next);
     });
 
+    it('retires the old year and protects claims and cursors in the destination year', async () => {
+      const previous = (await service.loadLease(...KEY))!;
+      const nextKey = [KEY[0], KEY[1], '2026-27'] as const;
+      const prior = { ...previous, fiscalYear: nextKey[2] };
+      await service.saveLease(prior);
+      await service.consumeNextInvoiceNumber(...nextKey, guard());
+      const next = { ...prior, leaseId: 'renewed', rangeStart: 10, nextNumber: 10, rangeEnd: 11 };
+      const swap = () => service.replaceVerifiedLeaseUnderLock(previous, next, () => true);
+      expect(await swap()).toBe(false);
+      await service.settleClaim(...nextKey, 'sale-1');
+      expect((await Promise.all([swap(), swap()])).sort()).toEqual([false, true]);
+      expect((await service.loadLease(...KEY))?.offlinePermit).toBeFalsy();
+      expect(await service.loadLease(...nextKey)).toEqual(next);
+    });
+
+    it('completes an interrupted rollover without rewinding the destination cursor', async () => {
+      const previous = (await service.loadLease(...KEY))!;
+      const next = { ...previous, leaseId: 'renewed', fiscalYear: '2026-27' };
+      const nextKey = [KEY[0], KEY[1], next.fiscalYear] as const;
+      await service.saveLease(next);
+      await service.consumeNextInvoiceNumber(...nextKey);
+      expect(await service.replaceVerifiedLeaseUnderLock(previous, next, () => true)).toBe(true);
+      expect((await service.loadLease(...nextKey))?.nextNumber).toBe(2);
+      expect((await service.loadLease(...KEY, previous.leaseId))?.leaseId).toBe('renewed');
+      expect(await service.replaceVerifiedLeaseUnderLock(previous, next, () => true)).toBe(false);
+    });
+
     it('takes the number and records its claim in one durable transaction', async () => {
       const consumed = await service.consumeNextInvoiceNumber(...KEY, guard());
 

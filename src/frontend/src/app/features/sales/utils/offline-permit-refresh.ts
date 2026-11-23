@@ -2,18 +2,45 @@ import type { InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-i
 import { isShopTradingAuthority } from '../../billing/status/subscription-status.models';
 import { parseInstantNanos, type OfflineLicensePermitPayload } from './offline-licence-permit';
 
-type HeldWindow = Pick<OfflineLicensePermitPayload, 'authorityVerifiedAt' | 'validUntil'>;
+const DAY = 86_400_000n * 1_000_000n;
+const FRESHNESS = 2n * DAY;
 
-/** The unsigned read can justify requesting a grant. Only the signed candidate can authorize a sale. */
-export function shouldReserveForRefresh(held: HeldWindow, preview: unknown, shopId: string, now: number, needsRange = false): boolean {
-  if (!isShopTradingAuthority(preview, shopId)) return false;
+type HeldWindow = Pick<OfflineLicensePermitPayload, 'authorityVerifiedAt' | 'validUntil' | 'limitingReason' | 'tillSessionId'>;
+
+interface RefreshBounds {
+  needsLease: boolean;
+  tillSessionId: string | null;
+  authDeadline?: string;
+}
+
+function fiscalEnd(now: number): bigint {
+  // The merchant fiscal year ends at midnight on April 1 in India.
+  const year = new Date(now).getUTCFullYear();
+  const boundary = (y: number) => Date.UTC(y, 2, 31, 18, 30);
+  return BigInt(boundary(now < boundary(year) ? year : year + 1)) * 1_000_000n;
+}
+
+/** The preview schedules work. Only the completed, signed candidate changes issuing authority. */
+export function decidePermitRefresh(held: HeldWindow, preview: unknown, shopId: string, now: number,
+  bounds: RefreshBounds): 'reserve' | 'healthy' | 'unverified' {
+  if (!isShopTradingAuthority(preview, shopId)) return 'unverified';
   const verified = parseInstantNanos(preview.authorityVerifiedAt);
   const end = parseInstantNanos(preview.validUntil);
-  // The preview has no capacity revision. An equal horizon can still justify new signed authority.
-  // A shorter advertised window alone cannot improve an otherwise usable range.
-  return verified !== null && end !== null && (needsRange || end >= parseInstantNanos(held.validUntil)!) &&
-    verified > parseInstantNanos(held.authorityVerifiedAt)! &&
-    verified <= BigInt(now) * 1_000_000n && end > BigInt(now) * 1_000_000n;
+  if (verified === null || end === null) return 'unverified';
+  const heldEnd = parseInstantNanos(held.validUntil)!;
+  const heldVerified = parseInstantNanos(held.authorityVerifiedAt)!;
+  const instant = BigInt(now) * 1_000_000n;
+  const caps = [end, instant + FRESHNESS, fiscalEnd(now)];
+  if (bounds.authDeadline !== undefined) caps.push(parseInstantNanos(bounds.authDeadline) ?? instant);
+  if (held.limitingReason === 'TillDayEnd' && held.tillSessionId === bounds.tillSessionId) caps.push(heldEnd);
+  const achievable = caps.reduce((a, b) => a < b ? a : b);
+  if (verified > instant || verified < heldVerified || achievable <= instant) return 'unverified';
+  if (bounds.needsLease) return verified > heldVerified ? 'reserve' : 'unverified';
+  if (end < heldEnd) return 'unverified';
+  if (verified === heldVerified || achievable <= heldEnd) return 'healthy';
+  const commercial = held.limitingReason === 'LicenceEnd' || held.limitingReason === 'CurrentLicenceEnd' ||
+    end < verified + FRESHNESS;
+  return commercial || achievable - heldEnd >= DAY ? 'reserve' : 'healthy';
 }
 
 export function isNewReservation(previous: InvoiceLeaseSnapshot, next: InvoiceLeaseSnapshot): boolean {
@@ -29,10 +56,9 @@ export function isNewReservation(previous: InvoiceLeaseSnapshot, next: InvoiceLe
 }
 
 export function isFreshCandidate(held: OfflineLicensePermitPayload, next: OfflineLicensePermitPayload, previewAt: string): boolean {
-  const freshness = 48n * 60n * 60n * 1_000_000_000n;
   const end = parseInstantNanos(next.validUntil)!;
   return [next.authorityVerifiedAt, next.deviceVerifiedAt, next.snapshotCompletedAt].every(
-    observation => end <= parseInstantNanos(observation)! + freshness) &&
+    observation => end <= parseInstantNanos(observation)! + FRESHNESS) &&
     next.currentShopRevision >= next.shopRevision && next.currentAccountRevision >= next.accountRevision &&
     next.authorityVerifiedAt > held.authorityVerifiedAt &&
     parseInstantNanos(next.authorityVerifiedAt)! >= parseInstantNanos(previewAt)! &&

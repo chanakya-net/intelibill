@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { BARCODE, DEVICE_ID, FISCAL_YEAR, GRANT_SHA256, LEASE_ID, PINNED_BUILD, SELLER_PROFILE,
-  batchRecord, buildPinnedApp, canonicalInstant, createFixtureSigner, installOfflineSaleFixture,
-  permitFieldsFor, readClockRow, readRecord, readLeaseRow, readQueueRows } from './offline-permit-finalization-fixture';
+import { BARCODE, DEVICE_ID, LEASE_ID, PINNED_BUILD,
+  writeLeaseRow, writeRecord, storedPermitFor, buildPinnedApp, canonicalInstant, createFixtureSigner, installOfflineSaleFixture,
+  readClockRow, readRecord, readLeaseRow, readQueueRows } from './offline-permit-finalization-fixture';
 import { SHOP_A, USER, startPurchaseReceivingServer } from './purchase-receiving-server';
 
-const renewedLease = '11111111-1111-4111-8111-111111111112';
-const renewedGrant = '22222222-2222-4222-8222-222222222223';
+import { renewalRoutes, renewedLease } from './offline-permit-renewal-routes';
 const signer = createFixtureSigner('p0508-browser');
 let server: Awaited<ReturnType<typeof startPurchaseReceivingServer>>;
 
@@ -16,11 +15,11 @@ test.beforeAll(() => { buildPinnedApp({ [signer.keyId]: signer.publicKeySpki });
 test.beforeEach(async () => { server = await startPurchaseReceivingServer(PINNED_BUILD); });
 test.afterEach(async () => { await server?.close(); });
 
-async function enable(page: Page) {
-  const fixture = await installOfflineSaleFixture(page, signer);
+async function enable(page: Page, options?: Parameters<typeof installOfflineSaleFixture>[2]) {
+  const fixture = await installOfflineSaleFixture(page, signer, options);
   // The initial merchant projection predates the held permit. Opening a second tab must not
   // consume a mock lease before the test installs its renewal.
-  const initial = Date.now() - 120_000;
+  const initial = (options?.now?.() ?? Date.now()) - 120_000;
   await page.context().route('**/trading-authority*', route => route.fulfill({ json: {
     schemaVersion: 1, enforced: false, shopId: SHOP_A, authorityVerifiedAt: canonicalInstant(initial),
     validUntil: canonicalInstant(initial + 86_400_000),
@@ -49,49 +48,6 @@ async function reconnect(page: Page) {
   });
 }
 
-type CandidateMode = 'valid' | 'stale' | 'untrusted' | 'wrong-session' | 'reordered-revision' | 'refused';
-async function renewalRoutes(page: Page, verified: number, mode: CandidateMode = 'valid', barrier?: Promise<void>, onStream?: (tab: Page) => void) {
-  const routes = onStream ? page.context() : page;
-  const counts = { reservations: 0, streams: 0 };
-  await routes.route('**/trading-authority*', route => route.fulfill({ json: {
-    schemaVersion: 1, shopId: SHOP_A, enforced: true, authorityVerifiedAt: canonicalInstant(verified),
-    validUntil: canonicalInstant(verified + 60 * 60_000),
-  } }));
-  await routes.route('**/invoice-leases/reserve*', route => {
-    counts.reservations++;
-    return route.fulfill({ json: {
-      leaseId: renewedLease, shopId: SHOP_A, deviceId: DEVICE_ID, fiscalYear: FISCAL_YEAR,
-      prefix: 'A/2627/', numberPadding: 6, rangeStart: 101, rangeEnd: 200, nextNumber: 101, remainingCount: 100,
-      reservedAt: canonicalInstant(verified), expiresAt: canonicalInstant(verified + 86_400_000),
-      sellerProfile: SELLER_PROFILE, licenceEvidence: { version: 1, grantId: renewedGrant, grantSha256: GRANT_SHA256, keyId: signer.keyId },
-    } });
-  });
-  await routes.route('**/offline-snapshot/stream*', async route => {
-    if (new URL(route.request().url()).searchParams.get('leaseId') !== renewedLease) return route.fallback();
-    counts.streams++;
-    onStream?.(route.request().frame().page());
-    if (barrier) await barrier;
-    const signingKey = mode === 'untrusted' ? createFixtureSigner('other') : signer;
-    const snapshotId = randomUUID();
-    const issuedAt = Math.max(verified, Date.now());
-    const completedAt = canonicalInstant(issuedAt);
-    const fields = permitFieldsFor(snapshotId, issuedAt, { leaseId: renewedLease, grantId: renewedGrant,
-      authorityVerifiedAt: canonicalInstant(mode === 'stale' ? verified - 120_000 : verified), deviceVerifiedAt: canonicalInstant(verified),
-      ...(mode === 'wrong-session' ? { sessionId: randomUUID() } : {}),
-      shopRevision: mode === 'reordered-revision' ? 0 : 2, currentShopRevision: mode === 'reordered-revision' ? 0 : 2 });
-    const records = [
-      { type: 'metadata', metadata: { snapshotId, shopId: SHOP_A, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: completedAt } },
-      { type: 'batch', batch: batchRecord(verified) },
-      { type: 'licencePermit', licencePermit: mode === 'refused' ?
-        { version: 1, status: 'refused', refusalCode: 'OfflinePermit.AuthorityChanged', leaseId: renewedLease, grantId: renewedGrant, snapshotId } :
-        { version: 1, status: 'issued', ...fields, keyId: signingKey.keyId, signedPermit: signingKey.sign(fields) } },
-      { type: 'complete', complete: { snapshotId, completedAt, batchCount: 1, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 } },
-    ];
-    return route.fulfill({ contentType: 'application/x-ndjson', body: records.map(r => JSON.stringify(r)).join('\n') + '\n' });
-  });
-  return counts;
-}
-
 test('unseen renewal extends nothing; a verified reconnect updates future issuance', async ({ page, context }) => {
   await page.clock.install();
   const original = await enable(page);
@@ -103,7 +59,7 @@ test('unseen renewal extends nothing; a verified reconnect updates future issuan
   await expect(page.getByRole('dialog', { name: 'Sale Queued' })).toContainText('A/2627/000001');
   const [earlier] = await readQueueRows(page);
   const verified = Date.parse(original.fields.validUntil) + 1000;
-  const requests = await renewalRoutes(page, verified);
+  const requests = await renewalRoutes(page, signer, verified);
   await page.clock.setSystemTime(verified + 1000);
   await page.reload();
   await cart(page);
@@ -149,7 +105,7 @@ for (const mode of ['stale', 'untrusted', 'wrong-session', 'reordered-revision',
     const lease = await readLeaseRow(page);
     const clock = await readClockRow(page);
     const settings = await deviceSettings(page);
-    const counts = await renewalRoutes(page, Date.now(), mode);
+    const counts = await renewalRoutes(page, signer, Date.now(), mode);
     await reconnect(page);
     await expect.poll(async () => (await pointer(page))?.['lastAttemptStatus']).toBe('failed');
     expect((await pointer(page))?.['usableSnapshotId']).toBe(original.fields.snapshotId);
@@ -182,7 +138,7 @@ test('aborting the lease write after the snapshot commit fails closed on the nex
       return request;
     };
   }, renewedLease);
-  await renewalRoutes(page, Date.now());
+  const counts = await renewalRoutes(page, signer, Date.now());
   await reconnect(page);
   await expect.poll(async () => (await pointer(page))?.['usableSnapshotId']).not.toBe(original.fields.snapshotId);
   expect((await pointer(page))?.['lastAttemptStatus']).toBe('complete');
@@ -195,12 +151,54 @@ test('aborting the lease write after the snapshot commit fails closed on the nex
   await expect(page.getByText('This device has no valid offline permission', { exact: false }).first()).toBeVisible();
   expect(await readLeaseRow(page)).toEqual(lease);
   expect(await readQueueRows(page)).toEqual([]);
+  await context.setOffline(false);
+  await expect.poll(async () => {
+    const held = (await readLeaseRow(page))?.lease.offlinePermit;
+    const usable = (await pointer(page))?.['usableSnapshotId'];
+    return held?.['snapshotId'] !== original.fields.snapshotId && held?.['snapshotId'] === usable;
+  }).toBe(true);
+  expect(counts.reservations).toBe(1);
+  const repaired = (await readLeaseRow(page))!.lease.offlinePermit!;
+  expect(repaired['authorityVerifiedAt']).toBe(original.fields.authorityVerifiedAt);
+  expect(repaired['validUntil']).toBe(original.fields.validUntil);
+  await expect.poll(async () => (await readClockRow(page))?.checkpoint['permitId']).toBe(repaired['permitId']);
+  await context.setOffline(true);
+  await page.locator('app-cart-checkout-summary button').last().click();
+  await expect(page.getByRole('dialog', { name: 'Sale Queued' })).toContainText('A/2627/000001');
+});
+
+test('reload repairs settings after IndexedDB committed the new range', async ({ page, context }) => {
+  await enable(page);
+  await page.evaluate(id => {
+    const save = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key.startsWith('intelibill.offlineSales.deviceSettings.') && JSON.parse(value).lastReservedLease?.leaseId === id)
+        throw new DOMException('Interrupted settings write', 'QuotaExceededError');
+      save.call(this, key, value);
+    };
+  }, renewedLease);
+  const counts = await renewalRoutes(page, signer, Date.now());
+  await reconnect(page);
+  await expect.poll(async () => (await readLeaseRow(page))?.lease.leaseId).toBe(renewedLease);
+  expect((await deviceSettings(page)).lastReservedLease.leaseId).toBe(LEASE_ID);
+  await page.reload();
+  await page.locator('.shell-main').waitFor();
+  await reconnect(page);
+  await expect.poll(async () => (await deviceSettings(page)).lastReservedLease.leaseId).toBe(renewedLease);
+  const permit = (await readLeaseRow(page))!.lease.offlinePermit!;
+  expect((await deviceSettings(page)).lastOfflinePermit.permitId).toBe(permit['permitId']);
+  await expect.poll(async () => (await readClockRow(page))?.checkpoint['permitId']).toBe(permit['permitId']);
+  expect(counts.reservations).toBe(1);
+  await context.setOffline(true);
+  await cart(page);
+  await page.locator('app-cart-checkout-summary button').last().click();
+  await expect(page.getByRole('dialog', { name: 'Sale Queued' })).toContainText('A/2627/000101');
 });
 
 test('a known suspension survives reload and an unenforced authority response', async ({ page }) => {
   await enable(page);
   const held = await readLeaseRow(page);
-  const counts = await renewalRoutes(page, Date.now());
+  const counts = await renewalRoutes(page, signer, Date.now());
   const marker = `intelibill.shopDataRestricted.v1:${USER}|${SHOP_A}`;
   await page.evaluate(key => localStorage.setItem(key, 'suspension'), marker);
   let reads = 0;
@@ -225,7 +223,7 @@ for (const failure of ['earlier preview', 'verification unavailable', 'trading r
     const lease = await readLeaseRow(page);
     const clock = await readClockRow(page);
     const before = await deviceSettings(page);
-    const counts = await renewalRoutes(page, Date.now());
+    const counts = await renewalRoutes(page, signer, Date.now());
     let refusedReservations = 0;
     if (failure === 'reservation refused') {
       await page.route('**/invoice-leases/reserve*', route => {
@@ -257,7 +255,7 @@ test('reloading during a candidate stream preserves the old lease and the reserv
   await enable(page);
   const old = await readLeaseRow(page);
   let release!: () => void;
-  const counts = await renewalRoutes(page, Date.now(), 'valid', new Promise<void>(resolve => { release = resolve; }));
+  const counts = await renewalRoutes(page, signer, Date.now(), 'valid', new Promise<void>(resolve => { release = resolve; }));
   try {
     await reconnect(page);
     await expect.poll(() => counts.streams).toBe(1);
@@ -280,7 +278,7 @@ test('two reconnecting tabs spend one block and a sale during the stream keeps t
   let release!: () => void;
   const barrier = new Promise<void>(resolve => { release = resolve; });
   let streamOwner: Page | undefined;
-  const counts = await renewalRoutes(page, Date.now(), 'valid', barrier, tab => { streamOwner = tab; });
+  const counts = await renewalRoutes(page, signer, Date.now(), 'valid', barrier, tab => { streamOwner = tab; });
   try {
     await Promise.all([reconnect(page), reconnect(sibling)]);
     await expect.poll(() => counts.streams).toBe(1);
@@ -305,4 +303,84 @@ test('two reconnecting tabs spend one block and a sale during the stream keeps t
     release();
     await sibling.close();
   }
+});
+
+for (const cap of ['equal end', 'AuthorityFreshness', 'FiscalYearEnd', 'AuthDeadline', 'TillDayEnd'] as const) {
+  test(`repeated verified polls spend zero blocks at ${cap}`, async ({ page }) => {
+    const start = Date.parse('2027-03-31T18:00:00Z');
+    // Use the fiscal boundary only in its own case so it cannot mask the other caps.
+    const fixed = cap === 'FiscalYearEnd' ? start : Date.parse('2026-11-23T18:00:00Z');
+    const hour = 3_600_000;
+    const authEnd = fixed + (cap === 'AuthDeadline' ? 1 : 72) * hour;
+    const heldEnd = cap === 'FiscalYearEnd' || cap === 'TillDayEnd' ? fixed + hour / 2 :
+      cap === 'AuthDeadline' ? authEnd : cap === 'AuthorityFreshness' ? fixed + 48 * hour - 60_000 : fixed + hour;
+    await page.clock.install({ time: fixed });
+    const original = await enable(page, { now: () => fixed, authEnd, fields: {
+      validUntil: canonicalInstant(heldEnd), limitingReason: cap === 'equal end' ? 'LicenceEnd' : cap,
+    } });
+    if (cap === 'TillDayEnd') await selectFixtureTill(page, original, fixed);
+    const counts = await renewalRoutes(page, signer, fixed);
+    let polls = 0;
+    await page.route('**/trading-authority*', route => {
+      polls++;
+      return route.fulfill({ json: { schemaVersion: 1, enforced: true, shopId: SHOP_A,
+        authorityVerifiedAt: canonicalInstant(fixed), validUntil: canonicalInstant(cap === 'equal end' ? heldEnd : fixed + 48 * hour) } });
+    });
+    for (let i = 0; i < 2; i++) {
+      await page.evaluate(key => {
+        const settings = JSON.parse(localStorage.getItem(key)!);
+        localStorage.setItem(key, JSON.stringify({ ...settings, permitRefreshNotice: 'restricted' }));
+      }, `intelibill.offlineSales.deviceSettings.v1:${SHOP_A}:${DEVICE_ID}`);
+      await reconnect(page);
+      await expect.poll(async () => (await deviceSettings(page)).permitRefreshNotice).toBeUndefined();
+    }
+    expect(polls).toBeGreaterThanOrEqual(2);
+    expect(counts).toEqual({ reservations: 0, streams: 0 });
+    expect((await readLeaseRow(page))?.lease.offlinePermit?.['snapshotId']).toBe(original.fields.snapshotId);
+  });
+}
+
+async function selectFixtureTill(page: Page, original: Awaited<ReturnType<typeof enable>>, fixed: number) {
+  const till = { id: randomUUID(), state: 'Open', cashierId: USER, businessDate: '2026-11-23', businessTimeZoneId: 'Asia/Kolkata' };
+  const capability = { enabled: true, businessDate: till.businessDate };
+  await page.route('**/tills/capabilities*', route => route.fulfill({ json: capability }));
+  await page.route('**/tills/sessions*', route => route.fulfill({ json: { items: [till], totalCount: 1 } }));
+  await writeRecord(page, 'intelibill-till-verification', 'verified', { shopId: SHOP_A, userId: USER,
+    capability, session: till, verifiedAt: canonicalInstant(fixed) });
+  const fields = { ...original.fields, tillSessionId: till.id };
+  const row = (await readLeaseRow(page))!;
+  row.lease.offlinePermit = storedPermitFor(fields, signer.sign(fields), signer.keyId);
+  await writeLeaseRow(page, row);
+  const loaded = page.waitForResponse('**/tills/sessions*');
+  await page.reload();
+  await loaded;
+  return till.id;
+}
+
+test('a server-only stock cap keeps the earlier range and its retry delay', async ({ page }) => {
+  const original = await enable(page);
+  const counts = await renewalRoutes(page, signer, Date.now(), 'stock-cap', undefined, undefined, original.fields.validUntil);
+  await reconnect(page);
+  await expect.poll(async () => (await pointer(page))?.['lastAttemptStatus']).toBe('failed');
+  expect((await pointer(page))?.['usableSnapshotId']).toBe(original.fields.snapshotId);
+  expect((await deviceSettings(page)).permitRetry.failures).toBe(1);
+  const read = page.waitForRequest('**/trading-authority*');
+  await reconnect(page);
+  await read;
+  await page.evaluate(() => navigator.locks.request('intelibill.tab-task:offline-pack-update', () => undefined));
+  expect(counts).toEqual({ reservations: 1, streams: 1 });
+});
+
+test('a new selected till receives a same-lease permit', async ({ page }) => {
+  const original = await enable(page);
+  const selected = await selectFixtureTill(page, original, Date.now());
+  const row = (await readLeaseRow(page))!;
+  const old = { ...original.fields, tillSessionId: randomUUID() };
+  row.lease.offlinePermit = storedPermitFor(old, signer.sign(old), signer.keyId);
+  await writeLeaseRow(page, row);
+  const counts = await renewalRoutes(page, signer, Date.now());
+  await reconnect(page);
+  await expect.poll(async () => (await readLeaseRow(page))?.lease.offlinePermit?.['tillSessionId']).toBe(selected);
+  expect((await readLeaseRow(page))?.lease.leaseId).toBe(LEASE_ID);
+  expect(counts.reservations).toBe(0);
 });

@@ -1,3 +1,4 @@
+import { parseInstantNanos } from '../../features/sales/utils/offline-licence-permit';
 import { Injectable, signal } from '@angular/core';
 
 export interface OfflinePermitDisplaySummary {
@@ -107,11 +108,14 @@ export class OfflineSalesDeviceSettingsStorage {
     return {
       shopId,
       deviceId,
-      permitRefreshNotice: raw.permitRefreshNotice,
-      permitAuthorityVerifiedAt: raw.permitAuthorityVerifiedAt,
-      permitRetry: raw.permitRetry,
+      permitRefreshNotice: ['verified', 'unverified', 'restricted', 'suspended'].includes(raw.permitRefreshNotice ?? '')
+        ? raw.permitRefreshNotice : undefined,
+      permitAuthorityVerifiedAt: parseInstantNanos(raw.permitAuthorityVerifiedAt) !== null ? raw.permitAuthorityVerifiedAt : undefined,
+      permitRetry: typeof raw.permitRetry?.leaseId === 'string' && raw.permitRetry.leaseId.trim() &&
+        Number.isSafeInteger(raw.permitRetry.failures) && raw.permitRetry.failures > 0 && Number.isFinite(raw.permitRetry.after)
+        ? raw.permitRetry : undefined,
       label: raw.label ?? '',
-      enabled: !!raw.enabled,
+      enabled: raw.enabled === true,
       enabledAt: raw.enabledAt ?? null,
       enabledByUserId: raw.enabledByUserId ?? null,
       enabledByUserName: raw.enabledByUserName ?? null,
