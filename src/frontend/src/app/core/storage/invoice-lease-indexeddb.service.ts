@@ -189,7 +189,9 @@ export class InvoiceLeaseIndexedDbService {
         }
 
         // Canonical UTC microsecond strings sort identically to chronological order.
-        if (lease.offlinePermit && permit.issuedAt < lease.offlinePermit.issuedAt) {
+        if (lease.offlinePermit && (permit.issuedAt < lease.offlinePermit.issuedAt ||
+            permit.authorityVerifiedAt < lease.offlinePermit.authorityVerifiedAt ||
+            (permit.issuedAt === lease.offlinePermit.issuedAt && permit.signedPermit !== lease.offlinePermit.signedPermit))) {
           return;
         }
 
@@ -200,6 +202,33 @@ export class InvoiceLeaseIndexedDbService {
         };
         store.put(updatedRecord);
         result = permit;
+      };
+    });
+  }
+
+  /** Under the issuance lock. A consumed number is fine, an unsettled claim or replaced permit is not. */
+  async replaceVerifiedLeaseUnderLock(
+    previous: InvoiceLeaseSnapshot, next: InvoiceLeaseSnapshot, isCurrent: () => boolean,
+  ): Promise<boolean> {
+    const database = await this.openDatabase();
+    const key = this.buildKey(previous.shopId, previous.deviceId, previous.fiscalYear);
+    const nextKey = this.buildKey(next.shopId, next.deviceId, next.fiscalYear);
+    return new Promise<boolean>((resolve, reject) => {
+      const tx = database.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      let swapped = false;
+      tx.oncomplete = () => resolve(swapped);
+      tx.onabort = () => reject(tx.error ?? new Error('Lease replacement aborted.'));
+      const read = store.get(key);
+      read.onsuccess = () => {
+        const row = read.result as InvoiceLeaseRecord | undefined;
+        if (!row || row.claim || row.lease.leaseId !== previous.leaseId || !previous.offlinePermit ||
+            row.lease.offlinePermit?.signedPermit !== previous.offlinePermit.signedPermit || !isCurrent()) return;
+        const updated: InvoiceLeaseRecord = { key: nextKey, shopId: next.shopId, deviceId: next.deviceId,
+          fiscalYear: next.fiscalYear, lease: this.normalizeLease(next), updatedAt: new Date().toISOString() };
+        if (key === nextKey) store.put(updated);
+        else store.add(updated);
+        swapped = true;
       };
     });
   }

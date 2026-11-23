@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 
 export interface OfflinePermitDisplaySummary {
   readonly leaseId: string;
@@ -11,7 +11,13 @@ export interface OfflinePermitDisplaySummary {
   readonly limitingReason: string;
 }
 
+export type PermitRefreshNotice = 'verified' | 'unverified' | 'restricted' | 'suspended';
+
 export interface OfflineSalesDeviceSettings {
+  /** Display and request scheduling only. Issuance always verifies the IndexedDB permit. */
+  readonly permitRefreshNotice?: PermitRefreshNotice;
+  readonly permitAuthorityVerifiedAt?: string;
+  readonly permitRetry?: { readonly leaseId: string; readonly failures: number; readonly after: number };
   readonly shopId: string;
   readonly deviceId: string;
   readonly label: string;
@@ -55,6 +61,9 @@ function createDeviceId(): string {
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesDeviceSettingsStorage {
+  private readonly savedSignal = signal<OfflineSalesDeviceSettings | null>(null);
+  readonly saved = this.savedSignal.asReadonly();
+
   getOrCreateDeviceId(shopId: string): string {
     if (!shopId || typeof localStorage === 'undefined') {
       return '';
@@ -98,6 +107,9 @@ export class OfflineSalesDeviceSettingsStorage {
     return {
       shopId,
       deviceId,
+      permitRefreshNotice: raw.permitRefreshNotice,
+      permitAuthorityVerifiedAt: raw.permitAuthorityVerifiedAt,
+      permitRetry: raw.permitRetry,
       label: raw.label ?? '',
       enabled: !!raw.enabled,
       enabledAt: raw.enabledAt ?? null,
@@ -117,6 +129,7 @@ export class OfflineSalesDeviceSettingsStorage {
     }
 
     localStorage.setItem(this.buildSettingsKey(settings.shopId, settings.deviceId), JSON.stringify(settings));
+    this.savedSignal.set(settings);
   }
 
   updateSettings(shopId: string, update: (current: OfflineSalesDeviceSettings) => OfflineSalesDeviceSettings): OfflineSalesDeviceSettings | null {

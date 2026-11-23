@@ -73,6 +73,21 @@ describe('OfflineSalesSnapshotSyncService', () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('previous');
   });
 
+  it('discards an ordinary snapshot which completes after a new lease took over', async () => {
+    const complete = vi.spyOn(snapshotDb, 'markComplete');
+    const permits = { activeLeaseId: vi.fn().mockReturnValueOnce('previous').mockReturnValue('renewed') };
+    const streamed = new OfflineSalesSnapshotSyncService({ getAccessToken: () => 'token' } as never, snapshotDb,
+      { scope: () => ({ shopId }), epoch: () => 1, isCurrent: () => true, dataRestricted: () => false,
+        onDetach: () => () => undefined } as never, permits as never);
+    const at = '2026-11-23T00:00:00.000000Z';
+    stubFetch([
+      { type: 'metadata', metadata: { snapshotId: 'late', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: at } },
+      { type: 'complete', complete: { snapshotId: 'late', completedAt: at, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n');
+    await streamed.syncForShop(shopId, null);
+    expect(complete).not.toHaveBeenCalled();
+  });
+
   it('promotes usable snapshot only after persisting complete record', async () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBeNull();
 
@@ -234,6 +249,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
       return OfflineSalesSnapshotIndexedDbService.prototype.markComplete.apply(snapshotDb, args);
     });
     const permitService = {
+      activeLeaseId: () => 'lease-1',
       resolveBinding: vi.fn(async () => binding),
       acceptDeliveredPermitUnderLock: vi.fn(async () => {
         events.push('acceptPermit');
@@ -294,6 +310,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
       grantSha256: 'a'.repeat(64),
     };
     const permitService = {
+      activeLeaseId: () => 'lease-1',
       resolveBinding: vi.fn(async () => binding),
       acceptDeliveredPermitUnderLock: vi.fn(async () => {
         throw new Error('idb busy');

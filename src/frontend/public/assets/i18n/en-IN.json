@@ -2760,6 +2760,11 @@
       "appPackStorageLow": "Not enough free storage on this device for the offline files. Free some space and retry."
     },
     "permit": {
+      "lastVerified": "Authority last verified",
+      "verified": "Offline permission renewed for future invoices.",
+      "unverified": "Permission could not be renewed. The previous deadline still applies.",
+      "restricted": "Trading is restricted. Offline permission was not renewed.",
+      "suspended": "Security suspension is active. Offline permission was not renewed.",
       "reconnectBy": "Reconnect by",
       "notReceived": "Not received yet — refresh while online"
     }

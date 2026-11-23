@@ -43,6 +43,7 @@ describe('ManageShopOverlayComponent', () => {
 
   let storedSettings: OfflineSalesDeviceSettings | null = null;
   const offlineDeviceStorage = {
+    saved: signal(null),
     getOrCreateDeviceId: vi.fn(() => 'device-1'),
     loadSettings: vi.fn((shopId: string) => {
       storedSettings ??= {
@@ -482,6 +483,14 @@ describe('ManageShopOverlayComponent', () => {
     const deadlineRow = fixture.nativeElement.querySelector('.offline-permit-row') as HTMLElement | null;
     expect(deadlineRow?.textContent).toContain('IST');
     expect(deadlineRow?.textContent).not.toContain('AuthorityFreshness');
+
+    for (const notice of ['verified', 'unverified', 'restricted', 'suspended'] as const) {
+      component.offlineDeviceSettings.update(current => ({ ...current!, permitRefreshNotice: notice,
+        permitAuthorityVerifiedAt: '2026-11-22T11:58:20.000000Z' }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('offlineSalesDevice.permit.' + notice);
+      expect(fixture.nativeElement.querySelector('.offline-authority-row')?.textContent).toContain('IST');
+    }
   });
 
 });

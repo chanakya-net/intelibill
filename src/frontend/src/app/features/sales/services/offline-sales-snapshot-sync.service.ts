@@ -16,7 +16,7 @@ import {
   type OfflineSellableBatchSnapshot,
   type OfflineSellableServiceSnapshot,
 } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
-import type { OfflineLicencePermitBinding, OfflineSnapshotLicencePermitRecord } from '../utils/offline-licence-permit';
+import { parseInstantNanos, type OfflineLicencePermitBinding, type OfflineSnapshotLicencePermitRecord } from '../utils/offline-licence-permit';
 import { OfflineLicencePermitService } from './offline-licence-permit.service';
 
 type OfflineSnapshotStreamRecord =
@@ -45,6 +45,12 @@ type OfflineSnapshotStreamRecord =
       };
     };
 
+/** Candidate verification and the lease swap run under the same issuance lock as snapshot promotion. */
+export type PromotePermitCandidate = (
+  record: OfflineSnapshotLicencePermitRecord | null, snapshotId: string, completedAt: string,
+  completeSnapshot: () => Promise<void>,
+) => Promise<void>;
+
 function buildSnapshotStreamUrl(binding: OfflineLicencePermitBinding | null): string {
   if (!binding) return withServiceWorkerBypassQuery(SALE_ENDPOINTS.offlineSnapshotStream);
   const params = new URLSearchParams({
@@ -65,17 +71,19 @@ export class OfflineSalesSnapshotSyncService {
     @Optional() private readonly licencePermit?: OfflineLicencePermitService,
   ) {}
 
-  async syncForShop(shopId: string, explicitBinding?: OfflineLicencePermitBinding | null): Promise<void> {
+  async syncForShop(shopId: string, explicitBinding?: OfflineLicencePermitBinding | null, candidate?: PromotePermitCandidate): Promise<void> {
     const token = this.authService.getAccessToken();
     if (!token || !shopId) return;
 
     let snapshotId: string | null = null;
+    let snapshotCommitted = false;
     let authority = false;
     let catalogVersion = 0;
     let pendingPermitRecord: OfflineSnapshotLicencePermitRecord | null = null;
     const invocation = this.context.scope();
     if (!invocation || invocation.shopId !== shopId || this.context.dataRestricted()) return;
     const epoch = this.context.epoch();
+    const originalLease = this.licencePermit?.activeLeaseId(shopId);
     const binding =
       explicitBinding === undefined ? ((await this.licencePermit?.resolveBinding(shopId)) ?? null) : explicitBinding;
     const abort = new AbortController();
@@ -91,7 +99,18 @@ export class OfflineSalesSnapshotSyncService {
       if (!authority || value.snapshotId !== snapshotId || Object.entries(received).some(([key, count]) => value[key as keyof typeof received] !== count)) throw new Error('Incomplete snapshot record counts.');
       await underOfflineAuthorityLock(shopId, async () => {
         ensureScope();
-        await this.snapshotDb.markComplete(value.snapshotId, shopId, value.completedAt, abort.signal);
+        const usable = await this.snapshotDb.getUsableSnapshotInfo(shopId);
+        const prior = parseInstantNanos(usable?.completedAt);
+        const completed = parseInstantNanos(value.completedAt);
+        if (completed === null || (prior !== null && completed < prior)) throw new Error('Reordered snapshot completion.');
+        const complete = async () => {
+          ensureScope();
+          await this.snapshotDb.markComplete(value.snapshotId, shopId, value.completedAt, abort.signal);
+          snapshotCommitted = true;
+        };
+        if (originalLease !== this.licencePermit?.activeLeaseId(shopId)) throw new Error('Snapshot lease changed.');
+        if (candidate) return candidate(pendingPermitRecord, value.snapshotId, value.completedAt, complete);
+        await complete();
         if (!binding || !pendingPermitRecord || !this.licencePermit) return;
         try {
           ensureScope();
@@ -146,10 +165,11 @@ export class OfflineSalesSnapshotSyncService {
 
           if (record.type === 'metadata') {
             if (snapshotId) throw new Error('Duplicate snapshot metadata.');
-            snapshotId = record.metadata.snapshotId;
+            if (candidate && record.metadata.shopId !== shopId) throw new Error('Wrong candidate shop.');
             catalogVersion = record.metadata.catalogVersion ?? 0;
             authority = record.metadata.shopId === shopId && record.metadata.schemaVersion === 4 && isOfflineSalesSnapshotMetadata(record.metadata);
-            await this.snapshotDb.beginAttempt(record.metadata);
+            await this.snapshotDb.beginAttempt(record.metadata, !!candidate);
+            snapshotId = record.metadata.snapshotId;
             if (!authority) {
               await this.snapshotDb.markFailed(snapshotId, shopId, 'Expiry.RefreshRequired', 'Refresh the expiry catalog online.');
               return;
@@ -187,6 +207,7 @@ export class OfflineSalesSnapshotSyncService {
               await this.snapshotDb.writeService(snapshotId, shopId, record.service);
               break;
             case 'licencePermit':
+              if (candidate && pendingPermitRecord) throw new Error('Duplicate candidate permit.');
               pendingPermitRecord = record.licencePermit;
               break;
             case 'complete':
@@ -228,7 +249,7 @@ export class OfflineSalesSnapshotSyncService {
         }
       }
 
-      if (snapshotId && !sawComplete) {
+      if (snapshotId && !sawComplete && !snapshotCommitted) {
         await this.snapshotDb.markFailed(
           snapshotId,
           shopId,
@@ -237,7 +258,9 @@ export class OfflineSalesSnapshotSyncService {
         );
       }
     } catch {
-      if (snapshotId) {
+      // A committed snapshot stays complete even if the separate lease transaction aborts.
+      // Its ID differs from the old permit, so offline checkout fails closed.
+      if (snapshotId && !snapshotCommitted) {
         const message = 'Snapshot stream could not be verified. Refresh online.';
         await this.snapshotDb.markFailed(snapshotId, shopId, 'OfflineSnapshot.StreamFailed', message);
       }

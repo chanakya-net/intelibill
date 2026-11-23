@@ -397,7 +397,9 @@ export class OfflineSaleStateService {
     const detached = { ok: false, errorKey: 'sales.newSale.offline.blockPermitInvalid' } as const;
     if (!isCurrent()) return detached;
 
-    const settings = this.resolveOfflineSettings(shopId);
+    // Another tab or the reconnect cycle may have adopted a new fiscal lease since this till opened.
+    const settings = this.deviceSettingsStorage.loadSettings(shopId);
+    this.offlineDeviceSettings.set(settings);
     if (!settings?.enabled || !settings.deviceId) {
       return { ok: false, errorKey: 'sales.newSale.offline.blockDeviceNotEnabled' };
     }
@@ -570,26 +572,10 @@ export class OfflineSaleStateService {
   }
 
   private async resolveOfflineSnapshotCompletedAt(shopId: string, isCurrent: () => boolean): Promise<string | null> {
-    const current = this.snapshotCompletedAt();
-    if (current) {
-      return current;
-    }
-
     const snapshotInfo = await this.snapshotDb.getUsableSnapshotInfo(shopId);
     const completedAt = snapshotInfo?.completedAt ?? null;
     if (isCurrent()) this.snapshotCompletedAt.set(completedAt);
     return completedAt;
-  }
-
-  private resolveOfflineSettings(shopId: string): OfflineSalesDeviceSettings | null {
-    const current = this.offlineDeviceSettings();
-    if (current?.shopId === shopId) {
-      return current;
-    }
-
-    const loaded = this.deviceSettingsStorage.loadSettings(shopId);
-    this.offlineDeviceSettings.set(loaded);
-    return loaded;
   }
 
   private async resolveOfflineCustomer(

@@ -48,8 +48,9 @@ export class SaleService {
     );
   }
 
-  reserveInvoiceLease(request: ReserveInvoiceLeaseRequest): Observable<InvoiceLeaseDto> {
-    return this.http.post<InvoiceLeaseDto>(SALE_ENDPOINTS.reserveInvoiceLease, request);
+  reserveInvoiceLease(request: ReserveInvoiceLeaseRequest, owner?: ScopeOwner): Observable<InvoiceLeaseDto> {
+    return this.http.post<InvoiceLeaseDto>(SALE_ENDPOINTS.reserveInvoiceLease, request,
+      owner ? { context: scopedRequestContext(owner) } : undefined);
   }
 
   /** With an `owner`, the batch is only ever sent as that user and shop (see `REQUEST_SCOPE`). */

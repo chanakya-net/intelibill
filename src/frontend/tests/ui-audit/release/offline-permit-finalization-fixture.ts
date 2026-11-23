@@ -170,7 +170,7 @@ export interface OfflineSaleFixture {
   readonly streamRequests: { bound: boolean }[];
 }
 
-function batchRecord(nowMs: number) {
+export function batchRecord(nowMs: number) {
   return {
     batchId: BATCH_ID,
     itemId: '61000000-0000-4000-8000-000000000001',
@@ -201,7 +201,7 @@ function batchRecord(nowMs: number) {
   };
 }
 
-const SELLER_PROFILE = {
+export const SELLER_PROFILE = {
   seller: {
     legalName: 'Permit Proof Stores',
     tradeName: 'Permit Proof Stores',

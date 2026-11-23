@@ -72,7 +72,7 @@ const NANOS_PER_MS = 1_000_000n;
 const INVALID = { ok: false, reason: 'OFFLINE_PERMIT_INVALID' } as const;
 
 /** Every stored display field must repeat what the signature covers; an edited record is refused, never trusted. */
-function storedMatchesSigned(stored: StoredOfflineLicencePermit, keyId: string, signed: OfflineLicensePermitPayload): boolean {
+export function storedMatchesSigned(stored: StoredOfflineLicencePermit, keyId: string, signed: OfflineLicensePermitPayload): boolean {
   const members = [
     'permitId', 'grantId', 'grantSha256', 'leaseId', 'snapshotId', 'shopId', 'userId', 'sessionId', 'deviceId',
     'authorityVerifiedAt', 'deviceVerifiedAt', 'snapshotCompletedAt', 'issuedAt', 'notBefore', 'validUntil',

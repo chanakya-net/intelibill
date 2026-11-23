@@ -24,6 +24,10 @@ export class OfflineLicencePermitService {
   private readonly clock = inject(OfflinePermitClockIndexedDbService);
   private readonly publicKeys = inject(OFFLINE_PERMIT_PUBLIC_KEYS);
 
+  activeLeaseId(shopId: string): string | null {
+    return this.settingsStorage.loadSettings(shopId)?.lastReservedLease?.leaseId ?? null;
+  }
+
   async resolveBinding(shopId: string): Promise<OfflineLicencePermitBinding | null> {
     const session = this.auth.session();
     if (!session || session.activeShopId !== shopId || !session.user?.id) return null;
@@ -106,7 +110,7 @@ export class OfflineLicencePermitService {
    * signature verifies against this build's pins, for this very session, does that time become the clock checkpoint
    * offline issuance is judged against. A failure here never undoes the stored permit; issuance simply stays refused.
    */
-  private async establishClockEvidence(stored: StoredOfflineLicencePermit, sessionId: string | null): Promise<void> {
+  async establishClockEvidence(stored: StoredOfflineLicencePermit, sessionId: string | null): Promise<void> {
     try {
       const verified = await verifyOfflinePermitSignature(stored.signedPermit, this.publicKeys);
       const issuedAt = verified ? parseInstantNanos(verified.payload.issuedAt) : null;

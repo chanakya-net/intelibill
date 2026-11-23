@@ -160,6 +160,11 @@ describe('InvoiceLeaseIndexedDbService', () => {
     expect(await service.attachPermit('shop-1', 'device-1', '2025-26', newerPermit)).toEqual(newerPermit);
     expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toEqual(newerPermit);
 
+    const reordered = { ...newerPermit, issuedAt: '2026-11-22T12:00:00.000000Z',
+      authorityVerifiedAt: '2026-11-20T11:59:59.999999Z' };
+    expect(await service.attachPermit('shop-1', 'device-1', '2025-26', reordered)).toBeNull();
+    expect((await new InvoiceLeaseIndexedDbService().loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toEqual(newerPermit);
+
     // Saving a fresh lease drops the previous lease's permit in the same write.
     await service.saveLease(makeLease({ leaseId: 'lease-2' }));
     expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toBeUndefined();
@@ -211,6 +216,20 @@ describe('InvoiceLeaseIndexedDbService', () => {
     beforeEach(async () => {
       vi.stubGlobal('indexedDB', new IDBFactory());
       await service.saveLease(makeLease({ offlinePermit: permit }));
+    });
+
+    it('refuses a refresh during an unsettled claim and admits only one competing replacement after settlement', async () => {
+      const previous = (await service.loadLease(...KEY))!;
+      await service.consumeNextInvoiceNumber(...KEY, guard());
+      const next = { ...previous, leaseId: 'lease-2', offlinePermit: { ...previous.offlinePermit!, signedPermit: 'new' } };
+      expect(await service.replaceVerifiedLeaseUnderLock(previous, next, () => true)).toBe(false);
+      expect(await service.loadPendingClaim(...KEY)).toMatchObject({ clientSaleId: 'sale-1' });
+      await service.settleClaim(...KEY, 'sale-1');
+      const sibling = new InvoiceLeaseIndexedDbService();
+      const decisions = await Promise.all([service, sibling].map(db =>
+        db.replaceVerifiedLeaseUnderLock(previous, next, () => true)));
+      expect(decisions.sort()).toEqual([false, true]);
+      expect(await sibling.loadLease(...KEY)).toEqual(next);
     });
 
     it('takes the number and records its claim in one durable transaction', async () => {
