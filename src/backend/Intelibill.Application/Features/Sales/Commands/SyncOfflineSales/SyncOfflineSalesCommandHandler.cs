@@ -84,7 +84,7 @@ public sealed class SyncOfflineSalesCommandHandler(
             return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, recorded.FirstError);
 
         return await ProcessCommittedReceiptAsync(
-            command, actorRole, recorded.Value, incomingLease, now, activeDiscountRulesById, cancellationToken);
+            command, actorRole, recorded.Value, candidate, incomingLease, now, activeDiscountRulesById, cancellationToken);
     }
 
     private async Task<ErrorOr<OfflineSubmission>> CommitReceiptAsync(
@@ -122,6 +122,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         SyncOfflineSalesCommand command,
         ShopRole actorRole,
         OfflineSubmission initialReceipt,
+        OfflineSubmission freshCandidate,
         InvoiceLease? incomingLease,
         DateTimeOffset now,
         IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById,
@@ -145,7 +146,9 @@ public sealed class SyncOfflineSalesCommandHandler(
                 command.ShopId, submission.ClientSaleId, submission.DeviceId, submission.InvoiceNumber,
                 submission.Id, submission.SubmittedByUserId, actorRole, command.ActorUserId);
 
-            var storedSale = OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
+            var storedSale = ReferenceEquals(submission, freshCandidate)
+                ? OfflineSubmissionPayload.TryReadFreshCommand(command.ShopId, submission)
+                : OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
             if (storedSale is null)
             {
                 var corrupted = await HoldLicenceHistoryAsync(hold, Errors.OfflineLicenceHistory.EvidenceInvalid,

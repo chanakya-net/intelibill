@@ -2503,4 +2503,31 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(Errors.OfflineReconciliation.RecoveryReviewRequired.Code, Assert.Single(row.Errors).Code);
         await AssertNothingPostedAsync();
     }
+
+    [Fact]
+    public async Task HandleAsync_RetainedEnvelopeWithMutatedServiceSemantics_HoldsAsEvidenceInvalid()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var sale = CreateSale("offline-retained-service-tamper", items: [CreateLine(batch.Id)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, CreateInventory(shopId, item.Id));
+
+        var mutated = sale with { Items = [sale.Items[0] with { LineType = "Service", ServiceId = Guid.NewGuid() }] };
+        StubRecordedEnvelope(candidate => OfflineSubmission.Record(
+            candidate.ShopId, candidate.DeviceId, candidate.ClientSaleId, candidate.InvoiceNumber,
+            candidate.PayloadHash, OfflineSubmissionPayload.Serialize(mutated),
+            candidate.ClaimedSoldAt, candidate.ReceivedAt.AddMinutes(-5), candidate.Source,
+            candidate.SubmittedByUserId, candidate.AssertedIssuerUserId, candidate.OriginalIssuerUserId,
+            candidate.OriginalLeaseId, candidate.RecoveryOperationId));
+
+        var response = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(response.IsError);
+        var row = Assert.Single(response.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, Assert.Single(row.Errors).Code);
+        await AssertNothingPostedAsync();
+    }
 }

@@ -206,6 +206,64 @@ public class OfflineSaleSyncIdempotencyHasherTests
         Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, submission));
     }
 
+    [Theory]
+    [InlineData(null, LegacyHash)]
+    [InlineData(1, Version1WithoutIssuerHash)]
+    public void TryReadValidated_AcceptsOmittedHistoricalLineServiceFieldsWithGoodsDefaults(int? calculationVersion, string expectedHash)
+    {
+        var sale = Sale(calculationVersion, issuedByUserId: null);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(OfflineSubmissionPayload.Serialize(sale))!.AsObject();
+        var line = root["items"]![0]!.AsObject();
+        line.Remove("lineType");
+        line.Remove("serviceId");
+        var strippedJson = root.ToJsonString();
+
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, expectedHash, strippedJson,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-omitted");
+
+        var read = OfflineSubmissionPayload.TryReadValidated(ShopId, submission);
+        Assert.NotNull(read);
+        Assert.Equal("Goods", read!.Items[0].LineType);
+        Assert.Null(read.Items[0].ServiceId);
+        Assert.False(read.Items[0].IsServiceLine);
+        Assert.Equal(expectedHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", read));
+        Assert.Equal(strippedJson, submission.PayloadJson);
+    }
+
+    [Theory]
+    [InlineData("Service", null)]
+    [InlineData("service", null)]
+    [InlineData("Other", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    [InlineData("Goods", "11111111-1111-4111-8111-111111111111")]
+    [InlineData("Goods", "00000000-0000-0000-0000-000000000000")]
+    [InlineData("Service", "11111111-1111-4111-8111-111111111111")]
+    public void TryReadValidated_RejectsIncompatibleLineServiceSemanticsEvenWithMatchingHash(string? lineType, string? serviceId)
+    {
+        var sale = Sale(calculationVersion: null, issuedByUserId: null);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(OfflineSubmissionPayload.Serialize(sale))!.AsObject();
+        var line = root["items"]![0]!.AsObject();
+        line["lineType"] = lineType is null ? null : System.Text.Json.Nodes.JsonValue.Create(lineType);
+        line["serviceId"] = serviceId is null ? null : System.Text.Json.Nodes.JsonValue.Create(serviceId);
+        var mutatedJson = root.ToJsonString();
+
+        // Confirm the canonical v1 hash is unchanged by the two omitted properties.
+        var deserialized = OfflineSubmissionPayload.Deserialize(mutatedJson)!;
+        Assert.Equal(LegacyHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", deserialized));
+
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, LegacyHash, mutatedJson,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-service-tamper");
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, submission));
+        Assert.Equal(mutatedJson, submission.PayloadJson);
+        Assert.Equal(LegacyHash, submission.PayloadHash);
+    }
+
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>
         new(
             "client-sale-1",

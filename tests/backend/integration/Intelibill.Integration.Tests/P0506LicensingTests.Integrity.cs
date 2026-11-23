@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -55,6 +56,102 @@ public sealed partial class P0506LicensingTests
         Assert.False(await check.Sales.AnyAsync(x => x.ShopId == actor.Shop, Ct));
         var receipt = await check.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == actor.Shop, Ct);
         Assert.Equal((pinnedHash, (Guid?)null), (receipt.PayloadHash, receipt.SaleId));
+    }
+
+    [Theory]
+    [InlineData("Service", true)]
+    [InlineData("Goods", true)]
+    [InlineData("Service", false)]
+    public async Task Incompatible_retained_line_service_semantics_cannot_be_approved_into_a_sale(string mutatedLineType, bool setServiceId)
+    {
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var owner = CreateClient(host);
+        var (actor, caseId, version, savedHash, serviceId) = await OpenLegacyGoodsRecoveryCaseAsync(host, owner);
+
+        var serviceJson = setServiceId ? $"\"{serviceId:D}\"" : "null";
+        await using (var db = Open(Migrator))
+            Assert.Equal(1, await db.Database.ExecuteSqlRawAsync(
+                "UPDATE offline_submissions SET payload_json = jsonb_set(jsonb_set(payload_json, '{{items,0,lineType}}', {1}::jsonb), '{{items,0,serviceId}}', {2}::jsonb) WHERE shop_id = {0}",
+                [actor.Shop, JsonSerializer.Serialize(mutatedLineType), serviceJson], Ct));
+        var before = await ReadEconomicFactsAsync(actor.Shop);
+
+        await AssertProblemAsync(
+            await owner.PostAsJsonAsync($"/api/offline-reconciliation/{caseId:D}/resolve", new
+            {
+                operationId = $"p0506-line-sem-{mutatedLineType}-{setServiceId}", expectedVersion = version,
+                action = "RetryHistoricalLease", reason = "Approve envelope with mutated omitted line fields",
+            }, Ct),
+            HttpStatusCode.Conflict, "Reconciliation.ReplayRejected");
+
+        Assert.Equal(before, await ReadEconomicFactsAsync(actor.Shop));
+        Assert.Equal("Open", (await GetCaseDetailAsync(owner, caseId)).GetProperty("status").GetString());
+        await using var check = Open(Migrator);
+        Assert.False(await check.Sales.AnyAsync(x => x.ShopId == actor.Shop, Ct));
+        var receipt = await check.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == actor.Shop, Ct);
+        Assert.Equal((savedHash, (Guid?)null), (receipt.PayloadHash, receipt.SaleId));
+    }
+
+    [Fact]
+    public async Task Retained_legacy_goods_envelope_with_omitted_service_fields_approves_as_goods()
+    {
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var owner = CreateClient(host);
+        var (actor, caseId, version, savedHash, _) = await OpenLegacyGoodsRecoveryCaseAsync(host, owner);
+
+        await using (var db = Open(Migrator))
+            Assert.Equal(1, await db.Database.ExecuteSqlRawAsync(
+                "UPDATE offline_submissions SET payload_json = (payload_json #- '{{items,0,lineType}}') #- '{{items,0,serviceId}}' WHERE shop_id = {0}",
+                [actor.Shop], Ct));
+        var before = await ReadEconomicFactsAsync(actor.Shop);
+
+        var resolved = await ResolveCaseAsync(owner, caseId, version,
+            "p0506-omitted-fields-approve", "RetryHistoricalLease", "Historical envelope omitted service fields");
+        Assert.Equal("Resolved", resolved.GetProperty("status").GetString());
+
+        var after = await ReadEconomicFactsAsync(actor.Shop);
+        Assert.Equal((before.Sales + 1, before.OutStockTransactions + 1, before.BatchQuantity - 2m),
+            (after.Sales, after.OutStockTransactions, after.BatchQuantity));
+        await using var check = Open(Migrator);
+        var sale = await check.Sales.Include(s => s.Items).SingleAsync(s => s.ShopId == actor.Shop, Ct);
+        var line = Assert.Single(sale.Items);
+        Assert.Equal((savedHash, SaleLineType.Goods, (Guid?)null), (sale.RequestHash, line.LineType, line.ServiceId));
+    }
+
+    private async Task<(Actor Actor, Guid CaseId, uint Version, string SavedHash, Guid ServiceId)> OpenLegacyGoodsRecoveryCaseAsync(
+        ApiWebApplicationFactory host, HttpClient owner)
+    {
+        var vectors = LoadLegacyVectors();
+        var verifiedAt = At("2027-01-20T11:20:00Z");
+        var actor = await OpenPinnedVectorShopAsync(
+            host, owner, vectors, verifiedAt, verifiedAt.AddDays(-1), At("2027-01-20T12:20:00Z"),
+            verifiedAt, verifiedAt, include671dLease: false, include7ff1Lease: false);
+        await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-23T11:00:00Z"),
+            1, "INV-2026-27-", withReserver: true);
+
+        Guid serviceId;
+        await using (var db = Open(Migrator))
+        {
+            var service = Service.Create(actor.Shop, "LEG-7FF1", "Legacy Rice 1kg", null, 100m, "1006", 0m, false, true, actor.User);
+            db.Services.Add(service);
+            await db.SaveChangesAsync(Ct);
+            serviceId = service.Id;
+        }
+
+        _clock.Now = At("2027-01-20T13:00:00Z");
+        var legacyNode = JsonNode.Parse(vectors.GetProperty("unversionedPreDocument").GetProperty("expectedSyncRequestJson").GetString()!)!.AsObject();
+        legacyNode["issuedByUserId"] = actor.User.ToString("D");
+        var imported = await SubmitRawRecoveryBundleAsync(owner, "p0506-legacy-goods-import",
+            BuildCompactBundle(actor.Shop, LegacyDevice, _clock.Now, legacyNode));
+        var caseId = Assert.Single(imported.GetProperty("results").EnumerateArray()).GetProperty("caseId").GetGuid();
+        var opened = await GetCaseDetailAsync(owner, caseId);
+        Assert.Equal("RecoveryReview", opened.GetProperty("issueType").GetString());
+        Assert.Contains("RetryHistoricalLease", opened.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!));
+
+        await using var check = Open(Migrator);
+        var savedHash = (await check.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == actor.Shop, Ct)).PayloadHash;
+        return (actor, caseId, opened.GetProperty("version").GetUInt32(), savedHash, serviceId);
     }
 
     [Theory]
