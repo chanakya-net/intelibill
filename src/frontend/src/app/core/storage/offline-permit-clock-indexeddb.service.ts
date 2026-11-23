@@ -33,6 +33,13 @@ export class OfflinePermitClockIndexedDbService {
   private readonly storeName = 'invoice-leases';
   private readonly baselines = new Map<string, OfflineClockSample>();
 
+  /** A missing checkpoint after an interrupted write needs a fresh bound stream on reconnect. */
+  async hasCheckpoint(owner: OfflineClockOwner, permitId: string): Promise<boolean> {
+    return this.readModifyWrite(this.buildKey(owner), stored => ({
+      result: stored?.sessionId === owner.sessionId && stored?.permitId === permitId, checkpoint: null,
+    }));
+  }
+
   /** Judges the clocks now. A detected discrepancy is stored before this answers, whatever the caller does next. */
   async evaluate(owner: OfflineClockOwner, permitId: string): Promise<OfflineClockVerdict> {
     if (typeof indexedDB === 'undefined') return 'unverified';

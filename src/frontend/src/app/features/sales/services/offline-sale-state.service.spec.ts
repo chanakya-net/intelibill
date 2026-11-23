@@ -552,6 +552,21 @@ describe('OfflineSaleStateService', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('uses the adopted lease after reconnect even when the open till cached an exhausted lease', async () => {
+    const service = setup();
+    const old = makeBaseSettings();
+    old.lastReservedLease.remainingCount = 0;
+    service.offlineDeviceSettings.set(old);
+    service.snapshotCompletedAt.set('2020-01-01T00:00:00.000Z');
+    const refreshed = makeBaseSettings();
+    refreshed.lastReservedLease.leaseId = 'renewed';
+    refreshed.lastReservedLease.fiscalYear = '2027-28';
+    settingsStorage.loadSettings.mockReturnValue(refreshed);
+    finalization.finalizeAndQueue.mockResolvedValue({ ok: false, reason: 'TILL_CONTEXT_INVALID' });
+    await service.submitOfflineSale(buildSubmitPayload(null));
+    expect(finalization.finalizeAndQueue).toHaveBeenCalledWith(expect.objectContaining({ fiscalYear: '2027-28' }));
+  });
+
   it('submits a sale when payload is valid', async () => {
     snapshotDb.getUsableCustomers.mockResolvedValue([
       { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },

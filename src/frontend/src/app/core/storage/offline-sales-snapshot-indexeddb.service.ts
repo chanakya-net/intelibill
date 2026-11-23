@@ -40,7 +40,7 @@ export type {
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesSnapshotIndexedDbService {
-  async beginAttempt(metadata: OfflineSalesSnapshotMetadata): Promise<void> {
+  async beginAttempt(metadata: OfflineSalesSnapshotMetadata, requireNew = false): Promise<void> {
     if (!metadata?.snapshotId || !metadata?.shopId || typeof indexedDB === 'undefined') {
       return;
     }
@@ -62,7 +62,7 @@ export class OfflineSalesSnapshotIndexedDbService {
       const attempts = transaction.objectStore(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE);
       const pointers = transaction.objectStore(OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE);
 
-      const putAttempt = attempts.put(attempt);
+      const putAttempt = requireNew ? attempts.add(attempt) : attempts.put(attempt);
       putAttempt.onerror = () => reject(putAttempt.error);
 
       const getPointer = pointers.get(metadata.shopId);

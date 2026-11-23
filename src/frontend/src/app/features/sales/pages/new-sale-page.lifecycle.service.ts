@@ -233,6 +233,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       // Load device settings and snapshot info reactively
       effect(() => {
         this.activeShopId();
+        this.isOfflineMode();
         void this.offlineSaleState.refreshSnapshot();
       });
 

@@ -22,8 +22,7 @@ export const shops = [SHOP_A, SHOP_B].map((shopId, i) => ({
   isDefault: !i,
   lastUsedAt: null,
 }));
-export function session(shopId = SHOP_A) {
-  const now = Date.now();
+export function session(shopId = SHOP_A, now = Date.now()) {
   // Stay within Chromium's setTimeout range for the proactive refresh timer.
   const expiry = now + 60 * 60 * 1000;
   const jwt = `e30.${Buffer.from(JSON.stringify({ sub: USER, active_shop_id: shopId, exp: Math.floor(expiry / 1000) })).toString('base64url')}.fixture`;

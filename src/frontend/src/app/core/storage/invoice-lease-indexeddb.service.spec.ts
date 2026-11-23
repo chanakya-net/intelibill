@@ -160,6 +160,11 @@ describe('InvoiceLeaseIndexedDbService', () => {
     expect(await service.attachPermit('shop-1', 'device-1', '2025-26', newerPermit)).toEqual(newerPermit);
     expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toEqual(newerPermit);
 
+    const reordered = { ...newerPermit, issuedAt: '2026-11-22T12:00:00.000000Z',
+      authorityVerifiedAt: '2026-11-20T11:59:59.999999Z' };
+    expect(await service.attachPermit('shop-1', 'device-1', '2025-26', reordered)).toBeNull();
+    expect((await new InvoiceLeaseIndexedDbService().loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toEqual(newerPermit);
+
     // Saving a fresh lease drops the previous lease's permit in the same write.
     await service.saveLease(makeLease({ leaseId: 'lease-2' }));
     expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toBeUndefined();
@@ -211,6 +216,47 @@ describe('InvoiceLeaseIndexedDbService', () => {
     beforeEach(async () => {
       vi.stubGlobal('indexedDB', new IDBFactory());
       await service.saveLease(makeLease({ offlinePermit: permit }));
+    });
+
+    it('refuses a refresh during an unsettled claim and admits only one competing replacement after settlement', async () => {
+      const previous = (await service.loadLease(...KEY))!;
+      await service.consumeNextInvoiceNumber(...KEY, guard());
+      const next = { ...previous, leaseId: 'lease-2', offlinePermit: { ...previous.offlinePermit!, signedPermit: 'new' } };
+      expect(await service.replaceVerifiedLeaseUnderLock(previous, next, () => true)).toBe(false);
+      expect(await service.loadPendingClaim(...KEY)).toMatchObject({ clientSaleId: 'sale-1' });
+      await service.settleClaim(...KEY, 'sale-1');
+      const sibling = new InvoiceLeaseIndexedDbService();
+      const decisions = await Promise.all([service, sibling].map(db =>
+        db.replaceVerifiedLeaseUnderLock(previous, next, () => true)));
+      expect(decisions.sort()).toEqual([false, true]);
+      expect(await sibling.loadLease(...KEY)).toEqual(next);
+    });
+
+    it('retires the old year and protects claims and cursors in the destination year', async () => {
+      const previous = (await service.loadLease(...KEY))!;
+      const nextKey = [KEY[0], KEY[1], '2026-27'] as const;
+      const prior = { ...previous, fiscalYear: nextKey[2] };
+      await service.saveLease(prior);
+      await service.consumeNextInvoiceNumber(...nextKey, guard());
+      const next = { ...prior, leaseId: 'renewed', rangeStart: 10, nextNumber: 10, rangeEnd: 11 };
+      const swap = () => service.replaceVerifiedLeaseUnderLock(previous, next, () => true);
+      expect(await swap()).toBe(false);
+      await service.settleClaim(...nextKey, 'sale-1');
+      expect((await Promise.all([swap(), swap()])).sort()).toEqual([false, true]);
+      expect((await service.loadLease(...KEY))?.offlinePermit).toBeFalsy();
+      expect(await service.loadLease(...nextKey)).toEqual(next);
+    });
+
+    it('completes an interrupted rollover without rewinding the destination cursor', async () => {
+      const previous = (await service.loadLease(...KEY))!;
+      const next = { ...previous, leaseId: 'renewed', fiscalYear: '2026-27' };
+      const nextKey = [KEY[0], KEY[1], next.fiscalYear] as const;
+      await service.saveLease(next);
+      await service.consumeNextInvoiceNumber(...nextKey);
+      expect(await service.replaceVerifiedLeaseUnderLock(previous, next, () => true)).toBe(true);
+      expect((await service.loadLease(...nextKey))?.nextNumber).toBe(2);
+      expect((await service.loadLease(...KEY, previous.leaseId))?.leaseId).toBe('renewed');
+      expect(await service.replaceVerifiedLeaseUnderLock(previous, next, () => true)).toBe(false);
     });
 
     it('takes the number and records its claim in one durable transaction', async () => {

@@ -173,6 +173,9 @@ export class OfflineSalesDeviceEnablementService {
         ...(lease.licenceEvidence ? { licenceGrantId: lease.licenceEvidence.grantId } : {}),
       },
       lastOfflinePermit: null,
+      permitRefreshNotice: undefined,
+      permitAuthorityVerifiedAt: undefined,
+      permitRetry: undefined,
     }));
 
     if (!initialSettings) {

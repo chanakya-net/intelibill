@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { parseInstantNanos } from '../../features/sales/utils/offline-licence-permit';
+import { Injectable, signal } from '@angular/core';
 
 export interface OfflinePermitDisplaySummary {
   readonly leaseId: string;
@@ -11,7 +12,13 @@ export interface OfflinePermitDisplaySummary {
   readonly limitingReason: string;
 }
 
+export type PermitRefreshNotice = 'verified' | 'unverified' | 'restricted' | 'suspended';
+
 export interface OfflineSalesDeviceSettings {
+  /** Display and request scheduling only. Issuance always verifies the IndexedDB permit. */
+  readonly permitRefreshNotice?: PermitRefreshNotice;
+  readonly permitAuthorityVerifiedAt?: string;
+  readonly permitRetry?: { readonly leaseId: string; readonly failures: number; readonly after: number };
   readonly shopId: string;
   readonly deviceId: string;
   readonly label: string;
@@ -55,6 +62,9 @@ function createDeviceId(): string {
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesDeviceSettingsStorage {
+  private readonly savedSignal = signal<OfflineSalesDeviceSettings | null>(null);
+  readonly saved = this.savedSignal.asReadonly();
+
   getOrCreateDeviceId(shopId: string): string {
     if (!shopId || typeof localStorage === 'undefined') {
       return '';
@@ -98,8 +108,14 @@ export class OfflineSalesDeviceSettingsStorage {
     return {
       shopId,
       deviceId,
+      permitRefreshNotice: ['verified', 'unverified', 'restricted', 'suspended'].includes(raw.permitRefreshNotice ?? '')
+        ? raw.permitRefreshNotice : undefined,
+      permitAuthorityVerifiedAt: parseInstantNanos(raw.permitAuthorityVerifiedAt) !== null ? raw.permitAuthorityVerifiedAt : undefined,
+      permitRetry: typeof raw.permitRetry?.leaseId === 'string' && raw.permitRetry.leaseId.trim() &&
+        Number.isSafeInteger(raw.permitRetry.failures) && raw.permitRetry.failures > 0 && Number.isFinite(raw.permitRetry.after)
+        ? raw.permitRetry : undefined,
       label: raw.label ?? '',
-      enabled: !!raw.enabled,
+      enabled: raw.enabled === true,
       enabledAt: raw.enabledAt ?? null,
       enabledByUserId: raw.enabledByUserId ?? null,
       enabledByUserName: raw.enabledByUserName ?? null,
@@ -117,6 +133,7 @@ export class OfflineSalesDeviceSettingsStorage {
     }
 
     localStorage.setItem(this.buildSettingsKey(settings.shopId, settings.deviceId), JSON.stringify(settings));
+    this.savedSignal.set(settings);
   }
 
   updateSettings(shopId: string, update: (current: OfflineSalesDeviceSettings) => OfflineSalesDeviceSettings): OfflineSalesDeviceSettings | null {

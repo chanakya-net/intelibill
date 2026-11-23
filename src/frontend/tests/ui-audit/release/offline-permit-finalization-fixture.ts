@@ -121,7 +121,7 @@ export function buildPinnedApp(pins: Readonly<Record<string, string>>): void {
   if (finalize.status !== 0) throw new Error(`Worker finalization failed:\n${finalize.stdout}\n${finalize.stderr}`);
 }
 
-export const authSession = () => ({ ...session(), sessionId: SESSION_ID });
+export const authSession = (now?: number) => ({ ...session(SHOP_A, now), sessionId: SESSION_ID });
 
 export function permitFieldsFor(snapshotId: string, completedAtMs: number, overrides: Partial<PermitFields> = {}): PermitFields {
   const completedAt = canonicalInstant(completedAtMs);
@@ -170,7 +170,7 @@ export interface OfflineSaleFixture {
   readonly streamRequests: { bound: boolean }[];
 }
 
-function batchRecord(nowMs: number) {
+export function batchRecord(nowMs: number) {
   return {
     batchId: BATCH_ID,
     itemId: '61000000-0000-4000-8000-000000000001',
@@ -201,7 +201,7 @@ function batchRecord(nowMs: number) {
   };
 }
 
-const SELLER_PROFILE = {
+export const SELLER_PROFILE = {
   seller: {
     legalName: 'Permit Proof Stores',
     tradeName: 'Permit Proof Stores',
@@ -216,7 +216,11 @@ const SELLER_PROFILE = {
 };
 
 /** Installs the signed-in session and the fixture API: a sellable snapshot, an anchored lease, a signed permit. */
-export async function installOfflineSaleFixture(page: Page, signer: FixtureSigner): Promise<OfflineSaleFixture> {
+export async function installOfflineSaleFixture(page: Page, signer: FixtureSigner,
+  options: { now?: () => number; authEnd?: number; fields?: Partial<PermitFields> } = {}): Promise<OfflineSaleFixture> {
+  const time = options.now ?? Date.now;
+  const auth = authSession(time());
+  if (options.authEnd) auth.refreshTokenExpiresAt = new Date(options.authEnd).toISOString();
   const fixture: OfflineSaleFixture = { delivered: [], streamRequests: [] };
 
   await page.context().addInitScript(
@@ -225,7 +229,7 @@ export async function installOfflineSaleFixture(page: Page, signer: FixtureSigne
       localStorage.setItem('inventory.preferences.language', 'en-IN');
       localStorage.setItem(`intelibill.offlineSales.deviceId.v1:${shopId}`, deviceId);
     },
-    { authValue: authSession(), shopId: SHOP_A, deviceId: DEVICE_ID },
+    { authValue: auth, shopId: SHOP_A, deviceId: DEVICE_ID },
   );
   await accessibilityFixtures(page);
   await page.route('**/api/expiry-policies/readiness**', (route) =>
@@ -239,7 +243,7 @@ export async function installOfflineSaleFixture(page: Page, signer: FixtureSigne
     const url = new URL(route.request().url());
     const bound = !!(url.searchParams.get('leaseId') && url.searchParams.get('grantId') && url.searchParams.get('deviceId'));
     fixture.streamRequests.push({ bound });
-    const now = Date.now();
+    const now = time();
     const snapshotId = randomUUID();
     const completedAt = canonicalInstant(now);
     const lines: unknown[] = [
@@ -247,7 +251,11 @@ export async function installOfflineSaleFixture(page: Page, signer: FixtureSigne
       { type: 'batch', batch: batchRecord(now) },
     ];
     if (bound) {
-      const fields = permitFieldsFor(snapshotId, now);
+      const frozen = fixture.delivered[0]?.fields;
+      const fields = permitFieldsFor(snapshotId, now, { ...options.fields,
+        ...(frozen && { authorityVerifiedAt: frozen.authorityVerifiedAt, deviceVerifiedAt: frozen.deviceVerifiedAt,
+          validUntil: frozen.validUntil }),
+        tillSessionId: url.searchParams.get('tillSessionId') });
       const token = signer.sign(fields);
       fixture.delivered.push({ fields, token });
       lines.push({
@@ -265,7 +273,7 @@ export async function installOfflineSaleFixture(page: Page, signer: FixtureSigne
 
   await page.context().route('**/api/sales/invoice-leases/reserve**', (route) => {
     const { deviceId } = route.request().postDataJSON() as { deviceId: string };
-    const now = Date.now();
+    const now = time();
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { of } from 'rxjs';
 import { ShopTillSettingsService } from '../services/shop-till-settings.service';
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
@@ -43,6 +44,7 @@ describe('ManageShopOverlayComponent', () => {
 
   let storedSettings: OfflineSalesDeviceSettings | null = null;
   const offlineDeviceStorage = {
+    saved: signal(null),
     getOrCreateDeviceId: vi.fn(() => 'device-1'),
     loadSettings: vi.fn((shopId: string) => {
       storedSettings ??= {
@@ -482,6 +484,20 @@ describe('ManageShopOverlayComponent', () => {
     const deadlineRow = fixture.nativeElement.querySelector('.offline-permit-row') as HTMLElement | null;
     expect(deadlineRow?.textContent).toContain('IST');
     expect(deadlineRow?.textContent).not.toContain('AuthorityFreshness');
+
+    for (const notice of ['verified', 'unverified', 'restricted', 'suspended'] as const) {
+      component.offlineDeviceSettings.update(current => ({ ...current!, permitRefreshNotice: notice,
+        permitAuthorityVerifiedAt: '2026-11-22T11:58:20.000000Z' }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('offlineSalesDevice.permit.' + notice);
+      expect(fixture.nativeElement.querySelector('.offline-authority-row')?.textContent).toContain('IST');
+    }
+    const context = TestBed.inject(ShopContextService);
+    vi.spyOn(context, 'scope').mockReturnValue({ shopId: 'shop-1', userId: 'user-1', epoch: 1 });
+    vi.spyOn(context, 'dataRestricted').mockReturnValue(true);
+    component.offlineDeviceSettings.update(current => ({ ...current!, enabled: false }));
+    expect(component.offlinePermitNotice()).toBeUndefined();
+    expect(component.permitLastVerifiedLabel()).toBe('');
   });
 
 });

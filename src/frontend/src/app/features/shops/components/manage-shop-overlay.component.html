@@ -139,6 +139,12 @@
                     } @else if (offlinePermitDisplay().kind === 'notReceived') {
                       <div class="status-row offline-permit-row"><span class="status-label">{{ 'offlineSalesDevice.permit.reconnectBy' | transloco }}</span><span class="status-value">{{ 'offlineSalesDevice.permit.notReceived' | transloco }}</span></div>
                     }
+                    @if (permitLastVerifiedLabel(); as verified) {
+                      <div class="status-row offline-authority-row"><span class="status-label">{{ 'offlineSalesDevice.permit.lastVerified' | transloco }}</span><span class="status-value">{{ verified }}</span></div>
+                    }
+                    @if (offlinePermitNotice(); as notice) {
+                      <p class="owner-hint" role="status">{{ ('offlineSalesDevice.permit.' + notice) | transloco }}</p>
+                    }
                     @if (offlinePackStatus(); as pack) {
                       <div class="status-row offline-pack-row"><span class="status-label">{{ 'offlineSalesDevice.pack.title' | transloco }}</span><span class="status-value">{{ (pack.state === 'ready' ? 'offlineSalesDevice.pack.ready' : 'offlineSalesDevice.pack.incomplete') | transloco }}</span></div>
                       @if (offlinePackVersion()) {
