@@ -124,28 +124,12 @@ public sealed partial class P0506LicensingTests
     [Fact]
     public async Task Direct_handler_service_and_mixed_commands_preserve_outcomes_with_materialized_receipts()
     {
-        var vectors = LoadLegacyVectors();
-        var verifiedAt = At("2027-01-20T11:20:00Z");
         using var host = CreateHost();
         await host.InitializeAsync();
         using var owner = CreateClient(host);
-        var actor = await OpenPinnedVectorShopAsync(
-            host, owner, vectors, verifiedAt, verifiedAt.AddDays(-1), At("2027-01-20T12:20:00Z"),
-            verifiedAt, verifiedAt, include671dLease: false, include7ff1Lease: false);
-        await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-20T13:00:00Z"),
-            1, "INV-2026-27-", withReserver: true);
-
-        Guid serviceId;
-        await using (var db = Open(Migrator))
-        {
-            var service = Service.Create(actor.Shop, "SVC-001", "Repair Service", null, 500m, "9987", 0m, false, true, actor.User);
-            db.Services.Add(service);
-            await db.SaveChangesAsync(Ct);
-            serviceId = service.Id;
-        }
+        var (actor, serviceId, batchId) = await SeedDirectSyncShopAsync(host, owner);
 
         _clock.Now = At("2027-01-20T12:00:00Z");
-        var batchId = vectors.GetProperty("unversionedPreDocument").GetProperty("inventoryBatchId").GetGuid();
         var before = await ReadEconomicFactsAsync(actor.Shop);
         var sales = new[]
         {
@@ -155,18 +139,52 @@ public sealed partial class P0506LicensingTests
         };
 
         using var _ = AmbientSessionContext.Enter(actor.User, actor.Shop);
-        using var scope = host.Services.CreateScope();
-        var handler = scope.ServiceProvider.GetRequiredService<SyncOfflineSalesCommandHandler>();
-        var response = await handler.HandleAsync(new SyncOfflineSalesCommand(actor.User, actor.Shop, LegacyDevice, sales), Ct);
-
-        Assert.False(response.IsError);
-        var results = response.Value.Results;
+        var results = await InvokeDirectSyncAsync(host, actor, sales);
         Assert.Equal(["created", "created", "failed"], results.Select(r => r.Status).ToArray());
         Assert.Contains(results[2].Errors, e => e.Code == "Sale.ServiceIdRequired");
+        var originalSaleIds = new[] { Assert.NotNull(results[0].SaleId), Assert.NotNull(results[1].SaleId) };
 
         var after = await ReadEconomicFactsAsync(actor.Shop);
         Assert.Equal((before.Sales + 2, before.OutStockTransactions + 1, before.BatchQuantity - 2m),
             (after.Sales, after.OutStockTransactions, after.BatchQuantity));
+
+        var redelivered = await InvokeDirectSyncAsync(host, actor, [sales[0], sales[1]]);
+        Assert.Equal(["duplicate", "duplicate"], redelivered.Select(r => r.Status).ToArray());
+        Assert.Equal(originalSaleIds, redelivered.Select(r => Assert.NotNull(r.SaleId)).ToArray());
+        Assert.All(redelivered, r => { Assert.Null(r.ReviewCaseId); Assert.Empty(r.Errors); });
+        Assert.Equal(after, await ReadEconomicFactsAsync(actor.Shop));
+        await using var db = Open(Migrator);
+        Assert.Equal(0, await db.ReconciliationIssues.CountAsync(x => x.ShopId == actor.Shop, Ct));
+        Assert.Equal(3, await db.OfflineSubmissions.CountAsync(x => x.ShopId == actor.Shop, Ct));
+    }
+
+    private async Task<(Actor Actor, Guid ServiceId, Guid BatchId)> SeedDirectSyncShopAsync(
+        ApiWebApplicationFactory host, HttpClient owner)
+    {
+        var vectors = LoadLegacyVectors();
+        var verifiedAt = At("2027-01-20T11:20:00Z");
+        var actor = await OpenPinnedVectorShopAsync(
+            host, owner, vectors, verifiedAt, verifiedAt.AddDays(-1), At("2027-01-20T12:20:00Z"),
+            verifiedAt, verifiedAt, include671dLease: false, include7ff1Lease: false);
+        await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-20T13:00:00Z"),
+            1, "INV-2026-27-", withReserver: true);
+
+        await using var db = Open(Migrator);
+        var service = Service.Create(actor.Shop, "SVC-001", "Repair Service", null, 500m, "9987", 0m, false, true, actor.User);
+        db.Services.Add(service);
+        await db.SaveChangesAsync(Ct);
+        var batchId = vectors.GetProperty("unversionedPreDocument").GetProperty("inventoryBatchId").GetGuid();
+        return (actor, service.Id, batchId);
+    }
+
+    private static async Task<IReadOnlyList<OfflineSaleSyncResultDto>> InvokeDirectSyncAsync(
+        ApiWebApplicationFactory host, Actor actor, IReadOnlyList<OfflineSaleSyncCommand> sales)
+    {
+        using var scope = host.Services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<SyncOfflineSalesCommandHandler>();
+        var response = await handler.HandleAsync(new SyncOfflineSalesCommand(actor.User, actor.Shop, LegacyDevice, sales), Ct);
+        Assert.False(response.IsError);
+        return response.Value.Results;
     }
 
     private static OfflineSaleSyncCommand BuildDirectCommand(

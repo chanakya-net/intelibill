@@ -24,24 +24,31 @@ internal static class OfflineSubmissionPayload
     /// canonical idempotency hash without modifying the first stored envelope.
     /// </summary>
     internal static OfflineSaleSyncCommand? TryReadValidated(Guid shopId, OfflineSubmission submission) =>
-        TryReadCore(shopId, submission, expectedPayloadHash: null, expectedFreshCommand: null);
+        TryReadCore(shopId, submission, expectedPayloadHash: null, submittedCommand: null, requireV1GoodsLines: true);
 
     /// <summary>
-    /// Reads a newly inserted sync receipt and verifies both its canonical idempotency hash and that
-    /// the line properties omitted from the v1 digest still match the original in-process command.
+    /// Reads a receipt during sync delivery (first insert or idempotent redelivery), verifying its
+    /// shop, canonical idempotency hash, and unhashed line semantics against the submitted command.
+    /// Recovery-originated receipts additionally retain strict v1 goods-line validation.
     /// </summary>
-    internal static OfflineSaleSyncCommand? TryReadValidatedFresh(
+    internal static OfflineSaleSyncCommand? TryReadValidatedSync(
         Guid shopId,
         OfflineSubmission submission,
         string expectedPayloadHash,
-        OfflineSaleSyncCommand expectedCommand) =>
-        TryReadCore(shopId, submission, expectedPayloadHash, expectedCommand);
+        OfflineSaleSyncCommand submittedCommand) =>
+        TryReadCore(
+            shopId,
+            submission,
+            expectedPayloadHash,
+            submittedCommand,
+            requireV1GoodsLines: submission.Source != OfflineSubmissionSource.Sync);
 
     private static OfflineSaleSyncCommand? TryReadCore(
         Guid shopId,
         OfflineSubmission submission,
         string? expectedPayloadHash,
-        OfflineSaleSyncCommand? expectedFreshCommand)
+        OfflineSaleSyncCommand? submittedCommand,
+        bool requireV1GoodsLines)
     {
         if (submission.ShopId != shopId)
             return null;
@@ -56,10 +63,8 @@ internal static class OfflineSubmissionPayload
         {
             var sale = Deserialize(submission.PayloadJson);
             if (!HasValidHasherInputs(sale)) return null;
-            var lineSemanticsValid = expectedFreshCommand is not null
-                ? MatchesUnhashedLineSemantics(sale!, expectedFreshCommand)
-                : HasCompatibleV1GoodsLines(sale!);
-            if (!lineSemanticsValid) return null;
+            if (requireV1GoodsLines && !HasCompatibleV1GoodsLines(sale!)) return null;
+            if (submittedCommand is not null && !MatchesUnhashedLineSemantics(sale!, submittedCommand)) return null;
             var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale!);
             return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
         }
@@ -73,19 +78,26 @@ internal static class OfflineSubmissionPayload
         sale is not null && sale.Items is not null && !sale.Items.Any(item => item is null);
 
     private static bool HasCompatibleV1GoodsLines(OfflineSaleSyncCommand sale) =>
-        sale.Items.All(line =>
-            string.Equals(line.LineType, nameof(SaleLineType.Goods), StringComparison.OrdinalIgnoreCase)
-            && line.ServiceId is null);
+        sale.Items.All(IsCompatibleV1GoodsLine);
 
-    private static bool MatchesUnhashedLineSemantics(OfflineSaleSyncCommand stored, OfflineSaleSyncCommand original)
+    private static bool IsCompatibleV1GoodsLine(OfflineSaleSyncLineCommand line) =>
+        string.Equals(line.LineType, nameof(SaleLineType.Goods), StringComparison.OrdinalIgnoreCase)
+        && line.ServiceId is null;
+
+    private static bool HasValidSyncLineSemantics(OfflineSaleSyncLineCommand line) =>
+        IsCompatibleV1GoodsLine(line)
+        || string.Equals(line.LineType, nameof(SaleLineType.Service), StringComparison.OrdinalIgnoreCase);
+
+    private static bool MatchesUnhashedLineSemantics(OfflineSaleSyncCommand stored, OfflineSaleSyncCommand submitted)
     {
-        if (!HasValidHasherInputs(original) || stored.Items.Count != original.Items.Count)
+        if (!HasValidHasherInputs(submitted) || stored.Items.Count != submitted.Items.Count)
             return false;
 
         for (var i = 0; i < stored.Items.Count; i++)
         {
-            if (!string.Equals(stored.Items[i].LineType, original.Items[i].LineType, StringComparison.Ordinal)
-                || stored.Items[i].ServiceId != original.Items[i].ServiceId)
+            if (!HasValidSyncLineSemantics(stored.Items[i])
+                || !string.Equals(stored.Items[i].LineType, submitted.Items[i].LineType, StringComparison.OrdinalIgnoreCase)
+                || stored.Items[i].ServiceId != submitted.Items[i].ServiceId)
             {
                 return false;
             }

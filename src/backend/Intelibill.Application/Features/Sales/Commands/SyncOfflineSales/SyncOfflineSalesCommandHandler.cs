@@ -84,7 +84,7 @@ public sealed class SyncOfflineSalesCommandHandler(
             return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, recorded.FirstError);
 
         return await ProcessCommittedReceiptAsync(
-            command, actorRole, recorded.Value, new FreshReceipt(candidate.Id, candidate.PayloadHash, sale),
+            command, actorRole, recorded.Value, new SubmittedReceipt(candidate.PayloadHash, sale),
             incomingLease, now, activeDiscountRulesById, cancellationToken);
     }
 
@@ -123,7 +123,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         SyncOfflineSalesCommand command,
         ShopRole actorRole,
         OfflineSubmission initialReceipt,
-        FreshReceipt freshReceipt,
+        SubmittedReceipt submittedReceipt,
         InvoiceLease? incomingLease,
         DateTimeOffset now,
         IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById,
@@ -147,9 +147,8 @@ public sealed class SyncOfflineSalesCommandHandler(
                 command.ShopId, submission.ClientSaleId, submission.DeviceId, submission.InvoiceNumber,
                 submission.Id, submission.SubmittedByUserId, actorRole, command.ActorUserId);
 
-            var storedSale = submission.Id == freshReceipt.Id
-                ? OfflineSubmissionPayload.TryReadValidatedFresh(command.ShopId, submission, freshReceipt.PayloadHash, freshReceipt.Command)
-                : OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
+            var storedSale = OfflineSubmissionPayload.TryReadValidatedSync(
+                command.ShopId, submission, submittedReceipt.PayloadHash, submittedReceipt.Command);
             if (storedSale is null)
             {
                 var corrupted = await HoldLicenceHistoryAsync(hold, Errors.OfflineLicenceHistory.EvidenceInvalid,
@@ -579,7 +578,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         || (licenceEnforced && pending.IssueType == ReconciliationIssueType.RecoveryReview)
         || Errors.OfflineLicenceHistory.IsHistoryCode(pending.Code);
 
-    private readonly record struct FreshReceipt(Guid Id, string PayloadHash, OfflineSaleSyncCommand Command);
+    private readonly record struct SubmittedReceipt(string PayloadHash, OfflineSaleSyncCommand Command);
 
     private sealed record HeldCase(
         Guid ShopId,

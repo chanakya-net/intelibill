@@ -265,35 +265,38 @@ public class OfflineSaleSyncIdempotencyHasherTests
     }
 
     [Fact]
-    public void TryReadValidatedFresh_RequiresMatchingHashAndUnhashedLineSemantics()
+    public void TryReadValidatedSync_ValidatesHashSourceAndUnhashedLineSemantics()
     {
         var serviceId = Guid.NewGuid();
-        var original = Sale(calculationVersion: null, issuedByUserId: null) with
+        var goods = Sale(calculationVersion: null, issuedByUserId: null);
+        var service = goods with
         {
-            Items = [Sale(null).Items[0] with { LineType = "Service", ServiceId = serviceId }],
+            Items = [goods.Items[0] with { LineType = "Service", ServiceId = serviceId }],
         };
-        var json = OfflineSubmissionPayload.Serialize(original);
         var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
-        var fresh = OfflineSubmission.Record(
-            ShopId, "device-1", original.ClientSaleId, original.InvoiceNumber, LegacyHash, json,
-            original.SoldAt, now, OfflineSubmissionSource.Sync, IssuerId, null, null, null, null);
+        OfflineSubmission Make(OfflineSubmissionSource source, OfflineSaleSyncCommand stored) =>
+            OfflineSubmission.Record(ShopId, "device-1", stored.ClientSaleId, stored.InvoiceNumber, LegacyHash,
+                OfflineSubmissionPayload.Serialize(stored), stored.SoldAt, now, source, IssuerId, null, null, null, null);
 
-        var read = OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, fresh, LegacyHash, original);
+        var syncService = Make(OfflineSubmissionSource.Sync, service);
+        var read = OfflineSubmissionPayload.TryReadValidatedSync(ShopId, syncService, LegacyHash, service);
         Assert.NotNull(read);
         Assert.Equal(("Service", serviceId), (read!.Items[0].LineType, read.Items[0].ServiceId));
 
-        var differentService = OfflineSubmission.Record(
-            ShopId, "device-1", original.ClientSaleId, original.InvoiceNumber, LegacyHash,
-            OfflineSubmissionPayload.Serialize(original with { Items = [original.Items[0] with { ServiceId = Guid.NewGuid() }] }),
-            original.SoldAt, now, OfflineSubmissionSource.Sync, IssuerId, null, null, null, null);
-        Assert.Null(OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, differentService, LegacyHash, original));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Sync,
+            service with { Items = [service.Items[0] with { ServiceId = Guid.NewGuid() }] }), LegacyHash, service));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Sync, goods), LegacyHash, service));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, syncService, new string('F', 64), service));
 
-        var flippedToGoods = OfflineSubmission.Record(
-            ShopId, "device-1", original.ClientSaleId, original.InvoiceNumber, LegacyHash,
-            OfflineSubmissionPayload.Serialize(original with { Items = [original.Items[0] with { LineType = "Goods", ServiceId = null }] }),
-            original.SoldAt, now, OfflineSubmissionSource.Sync, IssuerId, null, null, null, null);
-        Assert.Null(OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, flippedToGoods, LegacyHash, original));
-        Assert.Null(OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, fresh, new string('F', 64), original));
+        var invalidGoodsWithService = goods with { Items = [goods.Items[0] with { ServiceId = serviceId }] };
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Sync, invalidGoodsWithService), LegacyHash, invalidGoodsWithService));
+
+        // Recovery-originated receipts stay strictly v1 goods-only even when a direct sync command carries matching service lines.
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Recovery, service), LegacyHash, service));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Recovery, goods), LegacyHash, service));
+
+        var lowercaseGoods = Make(OfflineSubmissionSource.Recovery, goods with { Items = [goods.Items[0] with { LineType = "goods" }] });
+        Assert.NotNull(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, lowercaseGoods, LegacyHash, goods));
     }
 
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>
