@@ -16,8 +16,8 @@ public interface IOfflineSalePoster
     /// <summary>
     /// Adds the sale and everything it posts to the unit of work without saving. Lease, timing,
     /// issuer and invoice-number checks are the caller's. A rejected or held outcome adds nothing.
-    /// The caller must have a transaction open: the first statement is the posting period fence, whose
-    /// shared lock holds until that transaction ends, followed by the shared expiry fence before till/party locks.
+    /// The caller must have a transaction open: the licence fence precedes the posting period and expiry fences.
+    /// Their locks hold until the transaction ends, including while acquiring till and party locks.
     /// Trusted historical expiry failures hold an ExpiryReview without staging a posting; infrastructure remains retryable. A closed month is held as
     /// <see cref="ReconciliationIssueType.ClosedPeriodReview"/>; a busy one is rejected (retryable).
     /// </summary>
@@ -49,7 +49,9 @@ public sealed record OfflineSalePostingRequest(
     IReadOnlyDictionary<Guid, DiscountRule> ActiveDiscountRulesById,
     InvoiceLease? Lease = null,
     bool CreditReviewed = false,
-    ReviewedTillContext? ReviewedTill = null);
+    ReviewedTillContext? ReviewedTill = null,
+    DateTimeOffset? FirstReceivedAt = null,
+    Guid? ReceivedPermitId = null);
 
 /// <summary>Created only by the authorized reconciliation handler, never mapped from an invoice request.</summary>
 public sealed class ReviewedTillContext

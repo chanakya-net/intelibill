@@ -79,6 +79,16 @@ describe('buildSupportBundle', () => {
     expect(bundle.text).not.toMatch(/token|session|refresh|password/i);
   });
 
+  it('covers the queued licence evidence with the recovery checksum', async () => {
+    const original = rec('permit-sale', 'NeedsReview', 'issuer');
+    const licenceEvidence = { version: 1 as const, permitId: 'permit', grantId: 'grant', grantSha256: 'digest',
+      leaseId: 'lease', snapshotId: 'snapshot', keyId: 'key', signedPermit: 'local.fixture.signature' };
+    const [bundle] = await buildSupportBundle([{ ...original, payload: { ...original.payload, licenceEvidence } }], context);
+    expect(JSON.parse(bundle.text).invoices[0].licenceEvidence).toEqual(licenceEvidence);
+    expect(checksumOf(bundle)).toBe(bundle.checksum);
+    expect(JSON.parse((await single()).text).invoices[0]).not.toHaveProperty('licenceEvidence');
+  });
+
   it('names a single file after the device and export minute', async () => {
     const bundle = await single();
     expect(bundle.fileName).toBe('offline-recovery-dev-1-202611030905.json');

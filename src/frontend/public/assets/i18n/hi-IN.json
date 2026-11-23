@@ -1392,6 +1392,7 @@
             "invoiceNumberAlreadyUsed": "इनवॉइस नंबर पहले से किसी अन्य बिक्री में उपयोग हो चुका है",
             "idempotencyConflict": "इस ID से पहले ही एक अलग बिल सिंक हो चुका है",
             "unknown": "समीक्षा के लिए रोका गया",
+            "licenceHistory": "मूल ऑफ़लाइन लाइसेंस प्रमाण की समीक्षा आवश्यक है",
             "historicalLeaseReviewRequired": "इनवॉइस रेंज की अवधि खत्म होने के बाद सर्वर तक पहुँचा",
             "issuedAfterLeaseExpiry": "इनवॉइस रेंज की अवधि खत्म होने के बाद बिल बना",
             "issueTimeBeforeLease": "इनवॉइस रेंज आरक्षित होने से पहले बिल बना",

@@ -77,7 +77,7 @@ internal static class OfflineSaleSyncIdempotencyHasher
             sale.IssuedByUserId,
             sale.Till is null ? null : sale.Till with { OverrideReason = Normalize(sale.Till.OverrideReason) },
             sale.TenderLines?.Select(line => line is null ? null! : line with { ExternalReference = Normalize(line.ExternalReference) }).ToArray(),
-            sale.TillBusinessDate, sale.TillCashierId);
+            sale.TillBusinessDate, sale.TillCashierId, sale.LicenceEvidence);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
@@ -119,7 +119,8 @@ internal sealed record OfflineSaleSyncIdempotencyPayload(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateOnly? TillBusinessDate = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? TillCashierId = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? TillCashierId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FrozenLicenceEvidence? LicenceEvidence = null);
 
 internal sealed record OfflineSaleSyncLineIdempotencyPayload(
     string? Barcode,

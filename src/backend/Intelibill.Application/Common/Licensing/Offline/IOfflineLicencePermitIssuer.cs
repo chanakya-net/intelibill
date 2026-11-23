@@ -104,6 +104,10 @@ public interface IOfflineLicenceEvidenceStore
     /// <summary>Runs side effects inside a savepoint of the caller's transaction, rolling back on error.</summary>
     Task<ErrorOr<T>> ExecuteInSavepointAsync<T>(string name, Func<Task<ErrorOr<T>>> action, CancellationToken ct);
 
+    Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+        string payloadHash, CancellationToken ct);
+    Task<bool> HasGrantForLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct);
+
     void StageGrant(OfflineLicenseGrant grant);
     Task<OfflineLicenseGrant?> FindGrantAsync(Guid shopId, Guid grantId, CancellationToken ct);
     Task<InvoiceLease?> FindLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct);

@@ -798,6 +798,7 @@ export interface OfflineSalesSyncLineRequest {
 }
 
 export interface OfflineSaleSyncRequest extends TillSourceFields {
+  readonly licenceEvidence?: import('./offline-sale-core.types').OfflineSaleLicenceEvidence;
   readonly tillBusinessDate?: string;
   readonly tillCashierId?: string;
   readonly clientSaleId: string;

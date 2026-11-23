@@ -60,6 +60,11 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         {
             Reevaluate = () => policy.Decide(action, shop, account, proofs, clock.GetUtcNow()),
             EffectiveSuspension = LicenseProjectionPolicy.EffectiveSuspension(shop, account, now),
+            ReleasedAccountRestriction = account?.ReleasedRevision ?? account?.PreviousReleaseRevision,
+            ReleasedShopRestriction = Math.Max(shop?.ReleasedRevision ?? 0, shop?.ReopenedRevision ?? 0),
+            UndatedTradingRestriction = shop?.State == "Closed" ||
+                (shop?.State == "Suspended" && shop.SuspensionEffectiveAt is null) ||
+                (account?.Restriction == "Trading" && account.SuspensionEffectiveAt is null),
             MemberAllowance = shop?.MemberAllowance,
             AffiliationRequestId = shop?.AffiliationRequestId,
             AccountEvidenceId = account?.EvidenceId,

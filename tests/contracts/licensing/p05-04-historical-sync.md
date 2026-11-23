@@ -1,0 +1,9 @@
+# Historical offline sync
+
+Apply the merchant migration `AddOfflineSubmissionLicenceEvidence` before the API and web build. The shop and device remain on the existing sync route. The optional invoice property `licenceEvidence` carries version 1, permitId, grantId, grantSha256, leaseId, snapshotId, keyId and the original signedPermit string. Missing evidence keeps the existing payload and hash format.
+
+The receipt insert keeps the entire evidence value, including unsupported versions. It records tenant-scoped references when the stored permit and grant match. An identical submission keeps the first receipt time. A changed payload produces a distinct envelope. Sync and manager replay verify the retained signature for the attributed issuer, original session, device, shop, lease and issue instant. The licence fence precedes the period, expiry, till and trading checks. A security-suspended caller needs the existing reviewed recovery process.
+
+The permit interval includes its start and excludes its end. An ordinary expiry after issuance allows recovery. A missing permit on an anchored lease, an unknown restriction interval, conflicting receipts and an issue time outside the proven window hold the invoice for review. An unanchored historical lease can still use established recovery with a proven issuer and commercial cutoff. Licence holds use the existing provenance case and preserve the original invoice.
+
+The PostgreSQL scenarios run in P0504LicensingTests with a fixed clock, real merchant endpoints and a locally generated signing key. The release scenario in offline-permit-finalization.spec.ts compares the permit stored in Chromium IndexedDB with the permit sent to the fixture HTTP endpoint on reconnect.

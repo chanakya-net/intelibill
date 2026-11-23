@@ -91,6 +91,14 @@ describe('offline-sale-sync.mapper', () => {
     syncAttempts: [],
   };
 
+  it('sends the original queued permit on reconnect and preserves legacy requests', () => {
+    const licenceEvidence = { version: 1 as const, permitId: 'permit', grantId: 'grant', grantSha256: 'digest',
+      leaseId: 'lease', snapshotId: 'snapshot', keyId: 'key', signedPermit: 'local.fixture.signature' };
+    const queued = { ...record, payload: { ...record.payload, licenceEvidence } };
+    expect(buildSyncRequestFromQueuedSale(queued)).toHaveProperty('licenceEvidence', licenceEvidence);
+    expect(buildSyncRequestFromQueuedSale(record)).not.toHaveProperty('licenceEvidence');
+  });
+
   it('retains exact expiry evidence, including explicit null, while absent legacy lines stay absent', () => {
     const proof = { evidenceId: 'original-proof', catalogVersion: 3, policyVersion: 2, businessDate: '2026-05-24', expiryDate: null, decisionCode: 'Allowed' };
     const withProof = { ...record, payload: { ...record.payload, pricing: { ...record.payload.pricing,

@@ -14,6 +14,14 @@ namespace Intelibill.Infrastructure.Licensing;
 /// </summary>
 internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOfflineLicenceEvidenceStore
 {
+    public Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+        string payloadHash, CancellationToken ct) =>
+        db.OfflineSubmissions.AnyAsync(s => s.ShopId == shopId && s.DeviceId == deviceId && s.PayloadHash != payloadHash &&
+            (s.ClientSaleId == clientSaleId || s.InvoiceNumber == invoiceNumber), ct);
+
+    public Task<bool> HasGrantForLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct) =>
+        db.Set<OfflineLicenseGrant>().AnyAsync(g => g.ShopId == shopId && g.LeaseId == leaseId, ct);
+
     public bool IsBeingReserved(InvoiceLease lease) =>
         db.Database.CurrentTransaction is not null && db.Entry(lease).State == EntityState.Added;
 

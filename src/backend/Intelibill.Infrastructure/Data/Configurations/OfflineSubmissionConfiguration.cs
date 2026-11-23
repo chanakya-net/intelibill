@@ -52,6 +52,13 @@ internal sealed class OfflineSubmissionConfiguration : IEntityTypeConfiguration<
             .HasForeignKey(s => s.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne<OfflineLicenseGrant>().WithMany()
+            .HasForeignKey(s => new { s.LicenceGrantId, s.ShopId })
+            .HasPrincipalKey(g => new { g.Id, g.ShopId }).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<OfflineLicensePermit>().WithMany()
+            .HasForeignKey(s => new { s.LicencePermitId, s.ShopId })
+            .HasPrincipalKey(p => new { p.Id, p.ShopId }).OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne<Sale>()
             .WithMany()
             .HasForeignKey(s => s.SaleId)
