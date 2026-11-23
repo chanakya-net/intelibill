@@ -110,7 +110,7 @@ public sealed partial class P0504LicensingTests(PostgreSqlTestFixture fixture, I
         await AssertProblemAsync(denied, System.Net.HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
     }
 
-    private static async Task<JsonNode> IssuedInvoiceAsync(HttpClient client, Actor actor, DateTimeOffset start, DateTimeOffset end, string scenario)
+    private static async Task<JsonNode> IssuedInvoiceAsync(HttpClient client, Actor actor, DateTimeOffset start, DateTimeOffset end, string scenario, DateTimeOffset? soldAtOverride = null)
     {
         var lease = await ReserveHttpAsync(client);
         var grant = RequireLicenceEvidence(lease);
@@ -125,7 +125,7 @@ public sealed partial class P0504LicensingTests(PostgreSqlTestFixture fixture, I
             snapshotId = stream.Metadata.GetProperty("snapshotId"), keyId = delivery.GetProperty("keyId"),
             signedPermit = delivery.GetProperty("signedPermit"),
         })!;
-        var soldAt = scenario switch { "start" => start, "before" => start.AddMicroseconds(-1), "deadline" => end, _ => end.AddMicroseconds(-1) };
+        var soldAt = soldAtOverride ?? scenario switch { "start" => start, "before" => start.AddMicroseconds(-1), "deadline" => end, _ => end.AddMicroseconds(-1) };
         var number = lease.GetProperty("prefix").GetString() + lease.GetProperty("rangeStart").GetInt32().ToString("D6", CultureInfo.InvariantCulture);
         var sale = Invoice(number, actor.User, soldAt, stream);
         switch (scenario)

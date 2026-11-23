@@ -127,7 +127,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         // month does not let a device resend post it past the open case.
         if (await reconciliationIssueRepository.FindUnresolvedByEnvelopeAsync(command.ShopId, submission.Id, cancellationToken) is
             {} pending && (pending.IssueType is ReconciliationIssueType.ClosedPeriodReview or ReconciliationIssueType.TillReview or ReconciliationIssueType.ExpiryReview
-                || pending.Code.StartsWith("OfflineLicenceHistory.", StringComparison.Ordinal)))
+                || pending.Code.StartsWith(Errors.OfflineLicenceHistory.CodePrefix, StringComparison.Ordinal)))
             return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Error.Conflict(pending.Code, pending.Message), pending.Id);
 
         // The fence inside StageAsync holds its shared lock on the period until this transaction ends,

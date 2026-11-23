@@ -1,6 +1,9 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Licensing;
@@ -12,6 +15,37 @@ namespace Intelibill.Integration.Tests;
 
 public sealed partial class P0504LicensingTests
 {
+    [Fact]
+    public async Task Another_member_cannot_post_with_the_original_issuers_genuine_permit()
+    {
+        var start = At("2027-01-20T12:00:00Z");
+        var end = start.AddHours(1);
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var owner = CreateClient(host);
+        var actor = await OpenHistoricalShopAsync(owner, start, end);
+        var sale = await IssuedInvoiceAsync(owner, actor, start, end, "valid");
+        using var staff = await CreateStaffClientAsync(host, actor.Shop, end.AddDays(1));
+        var staffUserId = Guid.Parse(new JwtSecurityToken(staff.DefaultRequestHeaders.Authorization!.Parameter!).Claims
+            .Single(x => x.Type == "sub").Value);
+        Assert.NotEqual(actor.User, staffUserId);
+
+        sale["issuedByUserId"] = staffUserId;
+        _clock.Now = end.AddMinutes(5);
+        var result = await SyncAsync(staff, sale);
+        Assert.Equal("NeedsReview", result.GetProperty("status").GetString());
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, result.GetProperty("errors")[0].GetProperty("code").GetString());
+
+        await using var db = Open(Migrator);
+        Assert.False(await db.Sales.AnyAsync(x => x.ShopId == actor.Shop, Ct));
+        var envelope = await db.OfflineSubmissions.SingleAsync(x => x.ShopId == actor.Shop, Ct);
+        Assert.Equal((staffUserId, staffUserId), (envelope.SubmittedByUserId, envelope.OriginalIssuerUserId));
+        Assert.NotNull(envelope.LicencePermitId);
+        Assert.NotNull(envelope.LicenceGrantId);
+        var persistedEvidence = JsonNode.Parse(envelope.PayloadJson)!["licenceEvidence"];
+        Assert.True(JsonNode.DeepEquals(sale["licenceEvidence"], persistedEvidence), "Persisted envelope dropped submitted evidence.");
+    }
+
     [Fact]
     public async Task Suspension_committed_between_first_receipt_and_posting_prevents_the_sale()
     {
