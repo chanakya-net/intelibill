@@ -11,6 +11,7 @@ internal sealed class OfflineSubmissionConfiguration : IEntityTypeConfiguration<
         builder.ToTable("offline_submissions");
 
         builder.HasKey(s => s.Id);
+        builder.HasAlternateKey(s => new { s.Id, s.ShopId });
 
         builder.Property(s => s.ShopId).IsRequired();
 

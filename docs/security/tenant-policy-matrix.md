@@ -48,6 +48,7 @@ CREATE POLICY <t>_shop_isolation ON <t>
 | `invoice_sequences` | `invoice_sequences_shop_isolation` | `shop_id` | `shop_id` leading |
 | `item_barcode_sequences` | `item_barcode_sequences_shop_isolation` | `shop_id` | `shop_id` leading |
 | `items` | `items_shop_isolation` | `shop_id` | `shop_id` leading |
+| `license_history_review_observations` | `license_history_review_observations_shop_isolation` | `shop_id` | `shop_id` leading |
 | `offline_expiry_evidence` | `offline_expiry_evidence_shop_isolation` | `shop_id` | `shop_id` leading |
 | `offline_license_grants` | `offline_license_grants_shop_isolation` | `shop_id` | `shop_id` leading |
 | `offline_license_permits` | `offline_license_permits_shop_isolation` | `shop_id` | `shop_id` leading |

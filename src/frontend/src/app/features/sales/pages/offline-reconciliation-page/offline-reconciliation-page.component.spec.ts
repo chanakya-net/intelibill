@@ -1085,6 +1085,117 @@ describe('OfflineReconciliationPageComponent', () => {
       el().querySelector<HTMLButtonElement>('.export-bundle-btn button, button.export-bundle-btn'),
     ).toBeTruthy();
   });
+
+  it('renders licence history evidence, reloads after proof changes, and handles missing observations safely', async () => {
+    const heldEvidence = {
+      version: 1,
+      currentReasonCode: 'OfflineLicenceHistory.EvidenceInvalid',
+      currentSubreason: 'VerificationKeyUnavailable',
+      retryEligible: false,
+      linkEligible: false,
+      hasStoredObservations: true,
+      firstReceivedAt: '2027-02-01T12:00:00.000Z',
+      claimedPermitId: 'permit-1',
+      retainedPermitId: 'permit-1',
+      claimedGrantId: 'grant-1',
+      retainedGrantId: 'grant-1',
+      claimedLeaseId: 'lease-1',
+      originalLeaseId: 'lease-1',
+      claimedSnapshotId: 'snapshot-1',
+      claimedKeyId: 'key-1',
+      retainedKeyId: 'key-1',
+      permitNotBefore: '2027-01-31T12:00:00.000Z',
+      permitValidUntil: '2027-01-31T13:00:00.000Z',
+      sourceCompletionCutoff: '2027-01-31T13:00:00.000Z',
+      observations: [
+        {
+          reasonCode: 'OfflineLicenceHistory.EvidenceInvalid',
+          subreason: 'VerificationKeyUnavailable',
+          observedAt: '2027-02-01T12:00:00.000Z',
+          comparedField: 'keyId',
+          windowStart: '2027-01-31T12:00:00.000Z',
+          windowEnd: '2027-01-31T13:00:00.000Z',
+          observedAccountRevision: 2,
+          observedShopRevision: 3,
+          sourceCompletionCutoff: '2027-01-31T13:00:00.000Z',
+          competingSubmissionId: null,
+        },
+      ],
+    };
+    const readyEvidence = {
+      ...heldEvidence,
+      currentReasonCode: 'OfflineLicenceHistory.Supported',
+      currentSubreason: 'Supported',
+      retryEligible: true,
+    };
+
+    reconciliation.getCase
+      .mockReturnValueOnce(
+        of(
+          caseDetail({
+            issueType: 'LicenseHistoryReview',
+            reasonCodes: ['OfflineLicenceHistory.EvidenceInvalid'],
+            availableActions: ['Escalate'],
+            licenceHistory: heldEvidence,
+          }),
+        ),
+      )
+      .mockReturnValueOnce(
+        of(
+          caseDetail({
+            issueType: 'LicenseHistoryReview',
+            reasonCodes: ['OfflineLicenceHistory.EvidenceInvalid'],
+            availableActions: ['RetryHistoricalLease', 'Escalate'],
+            licenceHistory: readyEvidence,
+          }),
+        ),
+      )
+      .mockReturnValueOnce(
+        of(
+          caseDetail({
+            caseId: 'case-legacy-history',
+            issueType: 'ProvenanceReview',
+            reasonCodes: ['OfflineLicenceHistory.EvidenceUnsupported'],
+            availableActions: ['Escalate'],
+            licenceHistory: {
+              ...heldEvidence,
+              currentReasonCode: 'OfflineLicenceHistory.EvidenceUnsupported',
+              currentSubreason: 'EvidenceVersionUnsupported',
+              hasStoredObservations: false,
+              observations: [],
+            },
+          }),
+        ),
+      );
+
+    await render();
+    await openCase('case-1');
+
+    const section = el().querySelector('.licence-history');
+    expect(section).toBeTruthy();
+    expect(section!.textContent).toContain('Licence history evidence');
+    expect(section!.textContent).toContain('Offline licence evidence could not be verified');
+    expect(section!.textContent).toContain(
+      'The archived signing key is currently unavailable for verification.',
+    );
+    expect(section!.textContent).toContain('permit-1');
+    expect(section!.textContent).not.toContain('VerificationKeyUnavailable');
+    expect(el().querySelectorAll('.observation-item')).toHaveLength(1);
+    expect(component.actionOptions().map((o) => o.value)).toEqual(['Escalate']);
+
+    el().querySelector<HTMLButtonElement>('.reload-licence-history-btn')!.click();
+    await settle();
+    expect(section!.textContent).toContain('Original offline licence evidence is verified');
+    expect(component.actionOptions().map((o) => o.value)).toEqual([
+      'RetryHistoricalLease',
+      'Escalate',
+    ]);
+
+    await openCase('case-legacy-history');
+    expect(el().querySelector('.observations-unknown')?.textContent).toContain(
+      'Detailed conflict observations were not recorded when this earlier case was opened.',
+    );
+  });
 });
 
 class MemoryStorage implements Storage {

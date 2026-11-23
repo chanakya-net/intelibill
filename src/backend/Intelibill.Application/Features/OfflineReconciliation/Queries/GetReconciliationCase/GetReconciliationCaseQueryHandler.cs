@@ -39,6 +39,6 @@ public sealed class GetReconciliationCaseQueryHandler(
         if (submission is not null && submission.ShopId != query.ShopId)
             submission = null;
 
-        return await mapper.ToDetailAsync(issue, submission, role.Value, query.ActorUserId, cancellationToken);
+        return await mapper.ToDetailOrErrorAsync(issue, submission, role.Value, query.ActorUserId, cancellationToken);
     }
 }

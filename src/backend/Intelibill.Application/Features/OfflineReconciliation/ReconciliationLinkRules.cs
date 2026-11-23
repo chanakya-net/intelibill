@@ -1,5 +1,8 @@
+using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Licensing.Offline;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -73,6 +76,72 @@ internal static class ReconciliationLinkRules
             return Errors.Reconciliation.SaleIdentityMismatch;
 
         return submission.SaleId is null || submission.SaleId == sale.Id ? null : Errors.Reconciliation.SaleIdentityMismatch;
+    }
+
+    /// <summary>
+    /// Strict exact-transaction linkage check for licence history review cases: requires a retained
+    /// envelope, offline posted sale in the same shop, matching device/client sale id, recomputed and
+    /// posted payload hash, invoice number, original soldAt (PostgreSQL microsecond precision),
+    /// consistent recorded issuer, and compatible envelope link.
+    /// </summary>
+    public static async Task<Error?> CheckHistorySaleAsync(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        Sale sale,
+        IOfflineSubmissionRepository submissionRepository,
+        CancellationToken cancellationToken)
+    {
+        if (submission is null || submission.ShopId != issue.ShopId || submission.Id != issue.OfflineSubmissionId)
+            return Errors.Reconciliation.EnvelopeMissing;
+
+        if (sale.ShopId != issue.ShopId || sale.Source != SaleSource.Offline)
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        if (!SameIdentity(sale, submission.DeviceId, submission.ClientSaleId))
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        OfflineSaleSyncCommand? payload;
+        try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); }
+        catch (JsonException) { return Errors.Reconciliation.SaleIdentityMismatch; }
+        if (payload is null)
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        var recomputedHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(issue.ShopId, submission.DeviceId, payload);
+        if (!string.Equals(recomputedHash, submission.PayloadHash, StringComparison.Ordinal)
+            || !string.Equals(sale.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        if (!string.Equals(sale.InvoiceNumber, submission.InvoiceNumber, StringComparison.Ordinal)
+            || !string.Equals(payload.InvoiceNumber.Trim(), submission.InvoiceNumber, StringComparison.Ordinal))
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        var expectedSoldAt = OfflinePermitContractV1.Instant(submission.ClaimedSoldAt);
+        if (OfflinePermitContractV1.Instant(sale.SoldAt) != expectedSoldAt
+            || OfflinePermitContractV1.Instant(payload.SoldAt) != expectedSoldAt)
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        if (!MatchesRecordedIssuer(sale, submission, payload))
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        if (submission.SaleId is not null && submission.SaleId != sale.Id)
+            return Errors.Reconciliation.SaleIdentityMismatch;
+
+        return await CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken);
+    }
+
+    private static bool MatchesRecordedIssuer(Sale sale, OfflineSubmission submission, OfflineSaleSyncCommand payload)
+    {
+        if (sale.ActorUserId == Guid.Empty)
+            return false;
+        if (submission.OriginalIssuerUserId is { } original && sale.ActorUserId != original)
+            return false;
+        if (submission.AttributableUserId is { } attributable && sale.ActorUserId != attributable)
+            return false;
+        if (submission.AssertedIssuerUserId is { } asserted && sale.ActorUserId != asserted)
+            return false;
+        if (payload.IssuedByUserId is { } claimed && sale.ActorUserId != claimed)
+            return false;
+        return true;
     }
 
     /// <summary>The conflicting envelope of an idempotency conflict is evidence and is never linked.</summary>

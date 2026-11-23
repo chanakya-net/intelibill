@@ -1,8 +1,11 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
@@ -222,6 +225,131 @@ public abstract class OfflinePermitHttpFixture(PostgreSqlTestFixture fixture, IT
         Assert.Equal(1, await db.Database.ExecuteSqlAsync(
             $"UPDATE public.shop_license_states SET enforcement_activated_at = {_clock.Now} WHERE shop_id = {shop}", Ct));
     }
+
+    private protected async Task<Actor> OpenHistoricalShopAsync(HttpClient client, DateTimeOffset start, DateTimeOffset end, bool enforce = true)
+    {
+        var actor = await OpenShopAsync(client, start, end);
+        await using var db = Open(Migrator);
+        await LegacyOfflineExpiryHistory.SeedAsync(db, actor.Shop);
+        if (enforce) await EnforceAsync(actor.Shop);
+        return actor;
+    }
+
+    private protected static async Task<JsonElement> SyncInvoiceAsync(HttpClient client, JsonNode sale, string device = Device)
+    {
+        using var response = await client.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = device, sales = new[] { sale } }, Ct);
+        return (await ReadSuccessAsync(response)).GetProperty("results")[0];
+    }
+
+    private protected static async Task<JsonElement> SubmitRecoveryBundleAsync(
+        HttpClient client, Guid shopId, DateTimeOffset exportedAt, string operationId, JsonNode[] sales, string device = Device)
+    {
+        var invoices = new JsonArray(sales.Select(s => s.DeepClone()).ToArray());
+        var checksum = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(invoices.ToJsonString())));
+        using var response = await client.PostAsJsonAsync("/api/offline-reconciliation/recovery-submissions", new
+        {
+            operationId,
+            bundle = new
+            {
+                format = "intelibill.offline-recovery",
+                version = 1,
+                shopId,
+                deviceId = device,
+                exportedAt,
+                checksum,
+                invoices,
+            },
+        }, Ct);
+        return await ReadSuccessAsync(response);
+    }
+
+    private protected static async Task<JsonElement> GetCaseDetailAsync(HttpClient client, Guid caseId)
+    {
+        using var response = await client.GetAsync($"/api/offline-reconciliation/{caseId:D}", Ct);
+        return await ReadSuccessAsync(response);
+    }
+
+    private protected static async Task<JsonNode> BuildIssuedInvoiceAsync(
+        HttpClient client, Actor actor, DateTimeOffset start, DateTimeOffset end, string scenario,
+        DateTimeOffset? soldAtOverride = null, string device = Device, Guid? tillSessionId = null)
+    {
+        var lease = await ReserveHttpAsync(client, device);
+        var grant = RequireLicenceEvidence(lease);
+        var stream = await StreamSnapshotHttpAsync(client, BoundStreamUrl(
+            lease.GetProperty("leaseId").GetGuid(), grant.GetProperty("grantId").GetGuid(), device, tillSessionId));
+        var delivery = stream.RequirePermitImmediatelyBeforeComplete();
+        var evidence = JsonSerializer.SerializeToNode(new
+        {
+            version = 1, permitId = delivery.GetProperty("permitId"), grantId = grant.GetProperty("grantId"),
+            grantSha256 = grant.GetProperty("grantSha256"), leaseId = lease.GetProperty("leaseId"),
+            snapshotId = stream.Metadata.GetProperty("snapshotId"), keyId = delivery.GetProperty("keyId"),
+            signedPermit = delivery.GetProperty("signedPermit"),
+        })!;
+        var soldAt = soldAtOverride ?? scenario switch
+        {
+            "start" => start,
+            "before" => start.AddMicroseconds(-1),
+            "deadline" => end,
+            _ => end.AddMicroseconds(-1),
+        };
+        var number = lease.GetProperty("prefix").GetString() +
+            lease.GetProperty("rangeStart").GetInt32().ToString("D6", CultureInfo.InvariantCulture);
+        var sale = BuildInvoiceJson(number, actor.User, soldAt, stream);
+        switch (scenario)
+        {
+            case "digest": evidence["grantSha256"] = new string('0', 64); break;
+            case "signature": evidence["signedPermit"] = "invalid-local-fixture"; break;
+            case "key": evidence["keyId"] = "unknown"; break;
+            case "lease": evidence["leaseId"] = Guid.NewGuid(); break;
+            case "unsupported": evidence["version"] = 2; break;
+            case "issuer": sale["issuedByUserId"] = Guid.NewGuid(); break;
+            case "expiry": sale["items"]![0]!["expiryEvidence"]!["policyVersion"] = 77; break;
+            case "arithmetic": sale["items"]![0]!["taxableAmount"] = 100; break;
+        }
+        if (scenario != "missing") sale["licenceEvidence"] = scenario == "shape" ? new JsonArray(1) : evidence;
+        return sale;
+    }
+
+    private protected static JsonNode BuildInvoiceJson(string number, Guid user, DateTimeOffset soldAt, SnapshotStreamResponse stream)
+    {
+        var batch = stream.Records.Single(x => x.GetProperty("type").GetString() == "batch").GetProperty("batch");
+        return JsonSerializer.SerializeToNode(new
+        {
+            clientSaleId = Guid.NewGuid().ToString("N"), invoiceNumber = number, soldAt, issuedByUserId = user,
+            paymentMethod = (int)PaymentMethod.Cash, paidAmount = 2, subtotalBeforeDiscount = 2,
+            totalBeforeDiscount = 2, totalAmount = 2,
+            items = new[]
+            {
+                new
+                {
+                    barcode = batch.GetProperty("barcode"), batchNumber = "LOT", itemName = "Fixture stock", quantity = 1,
+                    costPrice = 1, salesPrice = 2, mrp = 2, inventoryBatchId = batch.GetProperty("batchId"),
+                    preTaxAmountBeforeDiscount = 2, taxableAmount = 2, totalAmount = 2,
+                    expiryEvidence = new
+                    {
+                        evidenceId = batch.GetProperty("expiryEvidenceId"),
+                        catalogVersion = stream.Metadata.GetProperty("catalogVersion"),
+                        policyVersion = batch.GetProperty("effectivePolicy").GetProperty("version"),
+                        businessDate = soldAt.ToOffset(TimeSpan.FromMinutes(330)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                        decisionCode = "Allowed",
+                    },
+                },
+            },
+        })!;
+    }
+
+    private protected async Task<ShopEconomicFacts> ReadEconomicFactsAsync(Guid shopId)
+    {
+        await using var db = Open(Migrator);
+        return new(
+            await db.Sales.CountAsync(x => x.ShopId == shopId, Ct),
+            await db.StockTransactions.CountAsync(x => x.ShopId == shopId && x.TransactionType == StockTransactionType.Out, Ct),
+            await db.CustomerLedgerEntries.CountAsync(x => x.ShopId == shopId, Ct),
+            await db.Set<TillSourceRecord>().CountAsync(x => x.ShopId == shopId, Ct),
+            await db.InventoryBatches.Where(x => x.ShopId == shopId).SumAsync(x => x.Quantity, Ct));
+    }
+
+    private protected sealed record ShopEconomicFacts(int Sales, int OutStockTransactions, int LedgerEntries, int TillRecords, decimal BatchQuantity);
 
     private protected async Task<Guid> OpenTillAsync(ApiWebApplicationFactory host, Actor actor)
     {

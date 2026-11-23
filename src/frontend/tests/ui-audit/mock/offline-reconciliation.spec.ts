@@ -301,6 +301,401 @@ test.describe('offline-reconciliation', () => {
       collector.dispose();
     }
   });
+
+  test('P05-05 holds uncertain licence history, reloads after authority change, and resolves safely', async ({
+    page,
+  }, testInfo) => {
+    const collector = collectBrowserFailures(page, {
+      ignoreConsole: (message) => message.includes('409') && message.includes('Failed to load resource'),
+      ignoreResponse: (response) => response.url().includes('/resolve') && response.status() === 409,
+    });
+    const resolveBodies: Record<string, unknown>[] = [];
+    const screenshotDir = process.env['P0505_SCREENSHOT_DIR'];
+    let keyRestored = false;
+    let retryResolveAttempts = 0;
+
+    try {
+      await mockExternalRequests(page, {
+        authenticated: true,
+        locale: 'en-IN',
+        localStorageEntries: { [`intelibill.offlineSales.deviceId.v1:${SHOP_ID}`]: DEVICE_ID },
+      });
+
+      const historyCases: ReconciliationCaseSummary[] = [
+        summary('case-p0505-retry', 'A/2627/000904', 'LicenseHistoryReview', 'OfflineLicenceHistory.EvidenceInvalid', {
+          version: 3,
+          message: 'The original offline licence evidence could not be verified.',
+        }),
+        summary('case-p0505-link', 'A/2627/000905', 'LicenseHistoryReview', 'OfflineLicenceHistory.EvidenceMissing', {
+          version: 4,
+          message: 'The original offline licence evidence is missing.',
+        }),
+        summary('case-p0505-legacy', 'A/2627/000903', 'ProvenanceReview', 'OfflineLicenceHistory.EvidenceUnsupported', {
+          version: 2,
+          message: 'The original offline licence evidence version is unsupported.',
+        }),
+      ];
+
+      await page.route('**/api/offline-reconciliation**', async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+
+        if (request.method() === 'GET' && url.pathname === '/api/offline-reconciliation') {
+          await fulfillJson(route, {
+            items: historyCases,
+            page: 1,
+            pageSize: 20,
+            totalCount: historyCases.length,
+            unresolvedCount: historyCases.length,
+          });
+          return;
+        }
+
+        const resolveMatch = url.pathname.match(/^\/api\/offline-reconciliation\/([^/]+)\/resolve$/);
+        if (request.method() === 'POST' && resolveMatch) {
+          const body = request.postDataJSON() as Record<string, unknown>;
+          resolveBodies.push(body);
+          if (resolveMatch[1] === 'case-p0505-retry') {
+            retryResolveAttempts += 1;
+            if (retryResolveAttempts === 1) {
+              await fulfillJson(route, { title: 'Reconciliation.CaseVersionConflict', status: 409 }, 409);
+              return;
+            }
+            await fulfillJson(
+              route,
+              p0505CaseDetail('case-p0505-retry', {
+                version: 6,
+                status: 'Resolved',
+                saleId: 'sale-retried-904',
+                resolution: 'RetryHistoricalLease',
+                resolutionReason: String(body['reason'] ?? ''),
+                resolvedAt: '2027-02-01T12:15:00.000Z',
+                resolvedBy: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+                availableActions: [],
+                events: [
+                  {
+                    action: 'RetryHistoricalLease',
+                    fromStatus: 'Open',
+                    toStatus: 'Resolved',
+                    actor: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+                    reason: String(body['reason'] ?? ''),
+                    linkedOperationId: null,
+                    occurredAt: '2027-02-01T12:15:00.000Z',
+                  },
+                ],
+                licenceHistory: {
+                  ...p0505HistoryEvidence(true, false, true),
+                  retryEligible: false,
+                },
+              }),
+            );
+            return;
+          }
+          if (resolveMatch[1] === 'case-p0505-link') {
+            await fulfillJson(
+              route,
+              p0505CaseDetail('case-p0505-link', {
+                version: 5,
+                status: 'Resolved',
+                saleId: LINKED_SALE_ID,
+                linkedOperationId: LINKED_SALE_ID,
+                resolution: 'LinkExistingSale',
+                resolutionReason: String(body['reason'] ?? ''),
+                resolvedAt: '2027-02-01T12:20:00.000Z',
+                resolvedBy: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+                availableActions: [],
+                linkCandidates: [],
+                events: [
+                  {
+                    action: 'LinkExistingSale',
+                    fromStatus: 'Open',
+                    toStatus: 'Resolved',
+                    actor: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+                    reason: String(body['reason'] ?? ''),
+                    linkedOperationId: LINKED_SALE_ID,
+                    occurredAt: '2027-02-01T12:20:00.000Z',
+                  },
+                ],
+                licenceHistory: {
+                  ...p0505HistoryEvidence(false, false, true),
+                  currentReasonCode: 'OfflineLicenceHistory.EvidenceMissing',
+                  currentSubreason: 'EvidenceMissingOnAnchoredLease',
+                  linkEligible: false,
+                },
+              }),
+            );
+            return;
+          }
+        }
+
+        const detailMatch = url.pathname.match(/^\/api\/offline-reconciliation\/([^/]+)$/);
+        if (request.method() === 'GET' && detailMatch) {
+          const id = detailMatch[1];
+          if (id === 'case-p0505-retry') {
+            const ver = retryResolveAttempts > 0 ? 5 : keyRestored ? 4 : 3;
+            await fulfillJson(
+              route,
+              p0505CaseDetail(id, {
+                version: ver,
+                availableActions: keyRestored ? ['RetryHistoricalLease', 'Escalate'] : ['Escalate'],
+                licenceHistory: p0505HistoryEvidence(keyRestored, false, true),
+              }),
+            );
+            return;
+          }
+          if (id === 'case-p0505-link') {
+            await fulfillJson(
+              route,
+              p0505CaseDetail(id, {
+                version: 4,
+                invoiceNumber: 'A/2627/000905',
+                reasonCodes: ['OfflineLicenceHistory.EvidenceMissing'],
+                availableActions: ['LinkExistingSale', 'Escalate'],
+                linkCandidates: [
+                  {
+                    operationId: LINKED_SALE_ID,
+                    kind: 'Sale',
+                    label: 'A/2627/000905',
+                    quantity: null,
+                    occurredAt: '2027-01-31T12:15:00.000Z',
+                  },
+                ],
+                licenceHistory: {
+                  ...p0505HistoryEvidence(false, true, true),
+                  currentReasonCode: 'OfflineLicenceHistory.EvidenceMissing',
+                  currentSubreason: 'EvidenceMissingOnAnchoredLease',
+                },
+              }),
+            );
+            return;
+          }
+          if (id === 'case-p0505-legacy') {
+            await fulfillJson(
+              route,
+              p0505CaseDetail(id, {
+                version: 2,
+                issueType: 'ProvenanceReview',
+                invoiceNumber: 'A/2627/000903',
+                reasonCodes: ['OfflineLicenceHistory.EvidenceUnsupported'],
+                availableActions: ['Escalate'],
+                licenceHistory: {
+                  ...p0505HistoryEvidence(false, false, false),
+                  currentReasonCode: 'OfflineLicenceHistory.EvidenceUnsupported',
+                  currentSubreason: 'EvidenceVersionUnsupported',
+                  observations: [],
+                },
+              }),
+            );
+            return;
+          }
+        }
+
+        await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      });
+
+      await visitConsole(page);
+      await expect(page.locator('.case-row')).toHaveCount(3);
+      await expect(page.locator('.cases-table')).toContainText('Licence history review');
+      await expect(page.locator('.cases-table')).toContainText('Offline licence evidence could not be verified');
+
+      // 1. Open held LicenseHistoryReview case: original conflict shown, only Escalate offered, no raw tokens/codes.
+      await page.locator('.case-row', { hasText: 'A/2627/000904' }).locator('.case-open-btn').click();
+      const detail = page.locator('.case-detail');
+      await expect(detail.locator('.licence-history')).toBeVisible();
+      await expect(detail.locator('.licence-history-current-reason')).toContainText(
+        'Offline licence evidence could not be verified',
+      );
+      await expect(detail.locator('.licence-history-current-subreason')).toContainText(
+        'The archived signing key is currently unavailable for verification.',
+      );
+      await expect(detail.locator('.observation-item')).toHaveCount(1);
+      await expect(detail.locator('.licence-history')).toContainText('permit-904-claimed');
+      await expect(detail.locator('.licence-history')).toContainText('key-2027-01');
+      await expect(detail).not.toContainText('OfflineLicenceHistory.');
+      await expect(detail).not.toContainText('VerificationKeyUnavailable');
+      await expect(detail).not.toContainText('signedPermit');
+      await expect(detail.locator('input[name="invoiceNumber"], input[name="soldAt"]')).toHaveCount(0);
+
+      await detail.locator('.resolve-action-select').click();
+      await expect(page.getByRole('option')).toHaveCount(1);
+      await expect(page.getByRole('option', { name: 'Escalate' })).toBeVisible();
+      await page.keyboard.press('Escape');
+
+      if (screenshotDir) {
+        await page.screenshot({
+          path: `${screenshotDir}/p0505-${testInfo.project.name}-held.png`,
+          fullPage: true,
+        });
+      }
+
+      // 2. Authority proof restored on server -> reload reveals RetryHistoricalLease -> 409 conflict reloads -> retry succeeds.
+      keyRestored = true;
+      await detail.locator('.reload-licence-history-btn').click();
+      await expect(detail.locator('.licence-history-current-reason')).toContainText(
+        'Original offline licence evidence is verified',
+      );
+      await expect(detail.locator('.licence-history-outcome')).toContainText(
+        'Original historical proof verified; posting under the original number is available',
+      );
+
+      await detail.locator('.resolve-action-select').click();
+      await page.getByRole('option', { name: 'Post under the original invoice number' }).click();
+      await detail.locator('.resolve-reason').fill('Archived signing key restored; original proof verified.');
+
+      const conflict = page.waitForResponse((r) => r.url().endsWith('/case-p0505-retry/resolve'));
+      await detail.locator('.resolve-submit-btn').click();
+      await conflict;
+      await expect(detail.locator('.resolve-message.error')).toContainText('This case changed while you were looking at it.');
+      await expect(detail.locator('.case-status')).toContainText('Open');
+
+      const okRetry = page.waitForResponse((r) => r.url().endsWith('/case-p0505-retry/resolve'));
+      await detail.locator('.resolve-submit-btn').click();
+      await okRetry;
+      await expect(detail.locator('.case-status')).toContainText('Resolved');
+      await expect(detail.locator('.event-list')).toContainText('Archived signing key restored; original proof verified.');
+      await expect(detail.locator('.detail-invoice')).toContainText('A/2627/000904');
+      expect(resolveBodies[0]).toMatchObject({ action: 'RetryHistoricalLease', expectedVersion: 4 });
+      expect(resolveBodies[1]).toMatchObject({ action: 'RetryHistoricalLease', expectedVersion: 5 });
+      expect(resolveBodies[1]['operationId']).not.toBe(resolveBodies[0]['operationId']);
+
+      if (screenshotDir) {
+        await page.screenshot({
+          path: `${screenshotDir}/p0505-${testInfo.project.name}-resolved.png`,
+          fullPage: true,
+        });
+      }
+
+      // 3. Exact posted sale match case -> select server candidate and resolve via LinkExistingSale.
+      await page.locator('.case-row', { hasText: 'A/2627/000905' }).locator('.case-open-btn').click();
+      await expect(detail.locator('.licence-history-outcome')).toContainText(
+        'Matching posted sale found; linking is available',
+      );
+      await detail.locator('.resolve-action-select').click();
+      await page.getByRole('option', { name: 'Link to an existing sale' }).click();
+      await detail.locator('.linked-operation-select').click();
+      await page.getByRole('option', { name: /Invoice A\/2627\/000905/ }).click();
+      await detail.locator('.resolve-reason').fill('Matched exact posted offline sale.');
+      const okLink = page.waitForResponse((r) => r.url().endsWith('/case-p0505-link/resolve'));
+      await detail.locator('.resolve-submit-btn').click();
+      await okLink;
+      await expect(detail.locator('.case-status')).toContainText('Resolved');
+      expect(resolveBodies[2]).toMatchObject({
+        action: 'LinkExistingSale',
+        expectedVersion: 4,
+        linkedOperationId: LINKED_SALE_ID,
+      });
+
+      // 4. Legacy #903 ProvenanceReview case without stored observations renders translated unknown note safely.
+      await page.locator('.case-row', { hasText: 'A/2627/000903' }).locator('.case-open-btn').click();
+      await expect(detail.locator('.observations-unknown')).toContainText(
+        'Detailed conflict observations were not recorded when this earlier case was opened.',
+      );
+
+      await assertNoPageOverflow(page);
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('P05-05 enforces staff visibility and renders licence history cleanly in all 9 locales', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const collector = collectBrowserFailures(page);
+    try {
+      // Staff viewer sees no recovery import box and only Escalate on own open licence history case.
+      await installConsoleScenario(page, { role: 'Staff' });
+      await page.route('**/api/offline-reconciliation**', async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        if (request.method() === 'GET' && url.pathname === '/api/offline-reconciliation') {
+          await fulfillJson(route, {
+            items: [
+              summary('case-p0505-staff', 'A/2627/000910', 'LicenseHistoryReview', 'OfflineLicenceHistory.OutsidePermitWindow'),
+            ],
+            page: 1,
+            pageSize: 20,
+            totalCount: 1,
+            unresolvedCount: 1,
+          });
+          return;
+        }
+        if (request.method() === 'GET' && url.pathname === '/api/offline-reconciliation/case-p0505-staff') {
+          await fulfillJson(
+            route,
+            p0505CaseDetail('case-p0505-staff', {
+              invoiceNumber: 'A/2627/000910',
+              reasonCodes: ['OfflineLicenceHistory.OutsidePermitWindow'],
+              availableActions: ['Escalate'],
+              licenceHistory: {
+                ...p0505HistoryEvidence(false, false, true),
+                currentReasonCode: 'OfflineLicenceHistory.OutsidePermitWindow',
+                currentSubreason: 'SoldAtAtOrAfterPermitEnd',
+              },
+            }),
+          );
+          return;
+        }
+        await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      });
+
+      await visitConsole(page);
+      await expect(page.locator('.import-box')).toHaveCount(0);
+      await page.locator('.case-row').first().locator('.case-open-btn').click();
+      await expect(page.locator('.case-detail .licence-history')).toBeVisible();
+      await page.locator('.case-detail .resolve-action-select').click();
+      await expect(page.getByRole('option')).toHaveCount(1);
+      await expect(page.getByRole('option', { name: 'Escalate' })).toBeVisible();
+      await page.keyboard.press('Escape');
+
+      // All 9 locales render translated licence history evidence without raw keys, raw codes, or overflow.
+      for (const locale of SUPPORTED_LANGUAGES) {
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+        await mockExternalRequests(page, {
+          authenticated: true,
+          locale,
+          localStorageEntries: { [`intelibill.offlineSales.deviceId.v1:${SHOP_ID}`]: DEVICE_ID },
+        });
+        await page.route('**/api/offline-reconciliation**', async (route) => {
+          const url = new URL(route.request().url());
+          if (url.pathname === '/api/offline-reconciliation') {
+            await fulfillJson(route, {
+              items: [
+                summary('case-p0505-loc', 'A/2627/000904', 'LicenseHistoryReview', 'OfflineLicenceHistory.EvidenceInvalid'),
+              ],
+              page: 1,
+              pageSize: 20,
+              totalCount: 1,
+              unresolvedCount: 1,
+            });
+            return;
+          }
+          await fulfillJson(
+            route,
+            p0505CaseDetail('case-p0505-loc', {
+              availableActions: ['Escalate'],
+              licenceHistory: p0505HistoryEvidence(false, false, true),
+            }),
+          );
+        });
+
+        await visitConsole(page);
+        await page.locator('.case-row').first().locator('.case-open-btn').click();
+        await expect(page.locator('.case-detail .licence-history')).toBeVisible();
+        await expect(page.locator('.case-detail .observation-item')).toHaveCount(1);
+        await expect(page.locator('.reconciliation-page')).not.toContainText('sales.offlineReconciliation.');
+        await expect(page.locator('.reconciliation-page')).not.toContainText('sales.history.');
+        await expect(page.locator('.reconciliation-page')).not.toContainText('OfflineLicenceHistory.');
+        await expect(page.locator('.reconciliation-page')).not.toContainText('VerificationKeyUnavailable');
+        await assertNoPageOverflow(page);
+      }
+
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
 });
 
 interface ConsoleScenarioOptions {
@@ -626,6 +1021,105 @@ function queuedRecord(
     lastSyncAttemptAt: status === 'Failed' ? soldAt : null,
     syncAttempts: [],
   };
+}
+
+function p0505HistoryEvidence(
+  retryEligible: boolean,
+  linkEligible: boolean,
+  hasStoredObservations: boolean,
+): NonNullable<ReconciliationCase['licenceHistory']> {
+  return {
+    version: 1,
+    currentReasonCode: retryEligible ? 'OfflineLicenceHistory.Supported' : 'OfflineLicenceHistory.EvidenceInvalid',
+    currentSubreason: retryEligible ? 'Supported' : 'VerificationKeyUnavailable',
+    retryEligible,
+    linkEligible,
+    hasStoredObservations,
+    firstReceivedAt: '2027-02-01T12:00:00.000Z',
+    claimedPermitId: 'permit-904-claimed',
+    retainedPermitId: 'permit-904-claimed',
+    claimedGrantId: 'grant-904-claimed',
+    retainedGrantId: 'grant-904-claimed',
+    claimedLeaseId: 'lease-904',
+    originalLeaseId: 'lease-904',
+    claimedSnapshotId: 'snapshot-904',
+    claimedKeyId: 'key-2027-01',
+    retainedKeyId: 'key-2027-01',
+    permitNotBefore: '2027-01-31T12:00:00.000Z',
+    permitValidUntil: '2027-01-31T13:00:00.000Z',
+    sourceCompletionCutoff: '2027-01-31T13:00:00.000Z',
+    observations: hasStoredObservations
+      ? [
+          {
+            reasonCode: 'OfflineLicenceHistory.EvidenceInvalid',
+            subreason: 'VerificationKeyUnavailable',
+            observedAt: '2027-02-01T12:00:00.000Z',
+            comparedField: 'keyId',
+            windowStart: '2027-01-31T12:00:00.000Z',
+            windowEnd: '2027-01-31T13:00:00.000Z',
+            observedAccountRevision: 3,
+            observedShopRevision: 4,
+            sourceCompletionCutoff: '2027-01-31T13:00:00.000Z',
+            competingSubmissionId: null,
+          },
+        ]
+      : [],
+  };
+}
+
+function p0505CaseDetail(
+  caseId: string,
+  overrides: Partial<ReconciliationCase> = {},
+): ReconciliationCase {
+  return caseDetail(caseId, {
+    invoiceNumber: 'A/2627/000904',
+    issueType: 'LicenseHistoryReview',
+    reasonCodes: ['OfflineLicenceHistory.EvidenceInvalid'],
+    message: 'The original offline licence evidence could not be verified.',
+    saleId: null,
+    linkCandidates: [],
+    events: [],
+    submission: {
+      submissionId: `sub-${caseId}`,
+      source: 'Sync',
+      claimedSoldAt: '2027-01-31T12:15:00.000Z',
+      receivedAt: '2027-02-01T12:00:00.000Z',
+      payloadHash: 'b'.repeat(64),
+      originalLeaseId: 'lease-904',
+      leaseReservedAt: '2027-01-31T12:00:00.000Z',
+      leaseExpiresAt: '2027-02-07T12:00:00.000Z',
+      submittedBy: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+      assertedIssuer: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+      originalIssuer: { userId: OWNER_ID, displayName: 'UI Audit Owner' },
+      recoveryOperationId: null,
+      invoice: {
+        invoiceNumber: overrides.invoiceNumber ?? 'A/2627/000904',
+        soldAt: '2027-01-31T12:15:00.000Z',
+        customerName: 'Walk-in customer',
+        customerPhone: null,
+        paymentMethod: 'Cash',
+        subtotalBeforeDiscount: 200,
+        totalDiscountAmount: 0,
+        totalTaxAmount: 0,
+        totalAmount: 200,
+        paidAmount: 200,
+        dueAmount: 0,
+        lines: [
+          {
+            itemName: 'Historical Item',
+            barcode: 'HIST-904',
+            batchNumber: 'LOT-904',
+            quantity: 1,
+            salesPrice: 200,
+            taxRatePercent: 0,
+            taxAmount: 0,
+            totalAmount: 200,
+          },
+        ],
+      },
+    },
+    ...overrides,
+  });
 }
 
 async function assertNoPageOverflow(page: Page): Promise<void> {

@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 
@@ -51,7 +52,10 @@ public sealed record OfflineSalePostingRequest(
     bool CreditReviewed = false,
     ReviewedTillContext? ReviewedTill = null,
     DateTimeOffset? FirstReceivedAt = null,
-    Guid? ReceivedPermitId = null);
+    Guid? ReceivedPermitId = null,
+    Guid? ReceivedGrantId = null,
+    bool IsExistingHistoryReview = false,
+    ShopLicenceLease? ExistingLicence = null);
 
 /// <summary>Created only by the authorized reconciliation handler, never mapped from an invoice request.</summary>
 public sealed class ReviewedTillContext
@@ -84,5 +88,6 @@ public abstract record OfflineSalePostingOutcome
         ReconciliationIssueType IssueType,
         Error Error,
         string Message,
-        IReadOnlyList<OfflineArithmeticMismatch> Mismatches) : OfflineSalePostingOutcome;
+        IReadOnlyList<OfflineArithmeticMismatch> Mismatches,
+        OfflineLicenceObservationFact? LicenceObservation = null) : OfflineSalePostingOutcome;
 }

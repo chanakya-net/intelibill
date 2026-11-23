@@ -1,9 +1,11 @@
-using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
-using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Entities;
@@ -18,20 +20,6 @@ namespace Intelibill.Application.Features.OfflineReconciliation.Commands.Resolve
 /// Takes one allowlisted action on a reconciliation case, exactly once per operation id and only
 /// against the case version the reviewer was shown.
 /// </summary>
-/// <remarks>
-/// <para>
-/// The action runs inside <see cref="IFinancialOperationExecutor"/>: a resend with the same operation
-/// id replays the committed answer, and any refusal rolls back the reservation with everything else.
-/// The case's effect (a catch-up movement, a link, a replayed sale), its transition and one
-/// <see cref="ReconciliationCaseEvent"/> commit in a single save.
-/// </para>
-/// <para>
-/// Two reviewers holding the same version cannot both win: resolutions of one case queue on its row
-/// lock, so the later one reads the committed case and answers <c>Reconciliation.CaseAlreadyResolved</c>
-/// or <c>Reconciliation.CaseVersionConflict</c>; PostgreSQL's <c>xmin</c> check at save remains the
-/// backstop for any other writer, answered with the same version conflict and no effect.
-/// </para>
-/// </remarks>
 public sealed class ResolveReconciliationCaseCommandHandler(
     IUserRepository userRepository,
     IReconciliationIssueRepository issueRepository,
@@ -50,7 +38,10 @@ public sealed class ResolveReconciliationCaseCommandHandler(
     IFinancialOperationExecutor operationExecutor,
     TimeProvider timeProvider,
     IOfflineExpiryAuthority expiryAuthority,
-    OfflineTillReconciliationEligibility tillEligibility)
+    OfflineTillReconciliationEligibility tillEligibility,
+    IShopLicenceFence? licenceFence = null,
+    LicenseHistoryReviewAssessment? historyAssessment = null,
+    ILiveSessionAuthority? liveSessionAuthority = null)
 {
     private const string LinkedOperationIndex = "ix_reconciliation_issues_shop_id_linked_operation_id";
     private const string SaleInvoiceNumberIndex = "ix_sales_shop_id_invoice_number";
@@ -72,56 +63,121 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 .ToList();
         }
 
+        if (liveSessionAuthority is not null
+            && await liveSessionAuthority.SessionDenialAsync(command.Session, command.ActorUserId, command.ShopId, cancellationToken) is { } sessionDenied)
+        {
+            return sessionDenied;
+        }
+
         var role = await ReconciliationActor.ResolveRoleAsync(userRepository, command.ActorUserId, command.ShopId, cancellationToken);
         if (role.IsError)
             return role.Errors;
 
-        // Authorize the target before the executor, so a replayed answer never reaches someone who may not see the case.
+        // Authorize target visibility before the executor so a replayed answer never reaches an unauthorized viewer.
         var visible = await issueRepository.GetAsync(command.ShopId, command.CaseId, cancellationToken);
         if (visible is null || !IsVisibleTo(visible, role.Value, command.ActorUserId))
             return Errors.Reconciliation.CaseNotFound;
 
+        var action = ResolveReconciliationCaseCommandValidator.ParseAction(command.Action)!.Value;
+        if (action != ReconciliationAction.Escalate && role.Value is not (ShopRole.Owner or ShopRole.Manager))
+            return Errors.Reconciliation.ActionForbidden;
+
         var request = new ResolutionRequest(
             command,
-            ResolveReconciliationCaseCommandValidator.ParseAction(command.Action)!.Value,
+            action,
             role.Value,
             command.Reason.Trim(),
-            FinancialOperationHasher.NormalizeKey(command.OperationId)!);
-
-        // Staff may only escalate their own case, including receipt replay. Target visibility
-        // alone must not let a saved manager resolution bypass this action authorization.
-        if (request.Action != ReconciliationAction.Escalate && role.Value is not (ShopRole.Owner or ShopRole.Manager))
-            return Errors.Reconciliation.ActionForbidden;
+            FinancialOperationHasher.NormalizeKey(command.OperationId)!,
+            visible.DeviceId);
 
         var requestHash = FinancialOperationHasher.Compute(new ResolutionPayload(
             command.CaseId,
             command.ExpectedVersion,
             request.Action.ToString(),
             request.Reason,
-            command.LinkedOperationId, command.TillReconciliationEvidence));
+            command.LinkedOperationId,
+            command.TillReconciliationEvidence));
+
+        ShopLicenceLease? activeLicence = null;
+        var scope = new FinancialOperationScope(command.ShopId, FinancialOperationType.ReconciliationResolution, request.OperationKey)
+        {
+            SuspensionAction = LicenceAction.Recovery,
+            RecheckReplayAuthority = ct => AuthorizeLiveActorAsync(command, request.Action, ct),
+            RecheckBeforeCommit = async ct =>
+            {
+                if (await AuthorizeLiveActorAsync(command, request.Action, ct) is { } actorDenied)
+                    return actorDenied;
+                return activeLicence?.CurrentDecision().EnforcedDenial();
+            },
+        };
 
         return await operationExecutor.ExecuteAsync(
-            new FinancialOperationScope(command.ShopId, FinancialOperationType.ReconciliationResolution, request.OperationKey),
+            scope,
             command.ActorUserId,
             command.CaseId,
             requestHash,
-            ct => ResolveAsync(request, ct),
+            ct => ResolveAsync(request, lease => activeLicence = lease, ct),
             cancellationToken);
     }
 
-    private async Task<ErrorOr<ReconciliationCaseDto>> ResolveAsync(ResolutionRequest request, CancellationToken cancellationToken)
+    private async Task<Error?> AuthorizeLiveActorAsync(
+        ResolveReconciliationCaseCommand command,
+        ReconciliationAction action,
+        CancellationToken cancellationToken)
+    {
+        if (liveSessionAuthority is not null
+            && await liveSessionAuthority.SessionDenialAsync(command.Session, command.ActorUserId, command.ShopId, cancellationToken) is { } sessionDenied)
+        {
+            return sessionDenied;
+        }
+
+        var role = await ReconciliationActor.ResolveRoleAsync(userRepository, command.ActorUserId, command.ShopId, cancellationToken);
+        if (role.IsError)
+            return role.FirstError;
+
+        var visible = await issueRepository.GetAsync(command.ShopId, command.CaseId, cancellationToken);
+        if (visible is null || !IsVisibleTo(visible, role.Value, command.ActorUserId))
+            return Errors.Reconciliation.CaseNotFound;
+
+        if (action != ReconciliationAction.Escalate && role.Value is not (ShopRole.Owner or ShopRole.Manager))
+            return Errors.Reconciliation.ActionForbidden;
+
+        return null;
+    }
+
+    private async Task<ErrorOr<ReconciliationCaseDto>> ResolveAsync(
+        ResolutionRequest request,
+        Action<ShopLicenceLease?> captureLicence,
+        CancellationToken cancellationToken)
     {
         var command = request.Command;
 
-        // Queue behind any resolution of this case already in flight, then read it as that one committed it.
+        // Lock order across all writers: operation receipt -> device lock -> case lock -> licence fence -> period/expiry/till/business.
+        if (!string.IsNullOrWhiteSpace(request.DeviceId)
+            && await submissionRepository.LockDeviceIntakeAsync(command.ShopId, request.DeviceId, cancellationToken) == RowLockOutcome.TimedOut)
+        {
+            return Errors.Reconciliation.ConcurrentChange;
+        }
+
         var locked = await issueRepository.LockForResolutionAsync(command.ShopId, command.CaseId, cancellationToken);
         if (locked == RowLockOutcome.TimedOut)
             return Errors.Reconciliation.ConcurrentChange;
         if (locked != RowLockOutcome.Acquired)
             return Errors.Reconciliation.CaseNotFound;
 
+        if (liveSessionAuthority is not null
+            && await liveSessionAuthority.SessionDenialAsync(command.Session, command.ActorUserId, command.ShopId, cancellationToken) is { } sessionDenied)
+        {
+            return sessionDenied;
+        }
+
+        var liveRoleResult = await ReconciliationActor.ResolveRoleAsync(userRepository, command.ActorUserId, command.ShopId, cancellationToken);
+        if (liveRoleResult.IsError)
+            return liveRoleResult.Errors;
+        var liveRole = liveRoleResult.Value;
+
         var issue = await issueRepository.GetTrackedAsync(command.ShopId, command.CaseId, cancellationToken);
-        if (issue is null || !IsVisibleTo(issue, request.Role, command.ActorUserId))
+        if (issue is null || !IsVisibleTo(issue, liveRole, command.ActorUserId))
             return Errors.Reconciliation.CaseNotFound;
 
         if (issue.Status == ReconciliationCaseStatus.Resolved)
@@ -130,13 +186,25 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (issue.Version != command.ExpectedVersion)
             return Errors.Reconciliation.CaseVersionConflict;
 
+        ShopLicenceLease? fencedLicence = null;
+        if (licenceFence is not null)
+        {
+            var entered = await licenceFence.EnterAsync(command.ShopId, LicenceAction.Recovery, cancellationToken);
+            if (entered.IsError) return entered.Errors;
+            if (entered.Value.CurrentDecision().EnforcedDenial() is { } licenceDenial) return licenceDenial;
+            fencedLicence = entered.Value;
+            captureLicence(fencedLicence);
+        }
+
         var submission = issue.OfflineSubmissionId is { } submissionId
             ? await submissionRepository.GetByIdAsync(submissionId, cancellationToken)
             : null;
         if (submission is not null && submission.ShopId != command.ShopId)
             submission = null;
 
+        var lease = await ResolveLeaseAsync(command.ShopId, submission, cancellationToken);
         var now = timeProvider.GetUtcNow();
+
         var tillEligible = false;
         var expiryVerified = false;
         var expiryLinkVerified = false;
@@ -152,9 +220,24 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 : await saleRepository.GetByClientSaleIdAsync(command.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
             expiryLinkVerified = posted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, posted, cancellationToken);
         }
-        if (!ReconciliationActionPolicy.AvailableActions(issue, submission, request.Role, command.ActorUserId, expiryVerified, expiryLinkVerified, tillEligible).Contains(request.Action))
+
+        LicenseHistoryCaseEvaluation? historyEval = historyAssessment is null
+            ? null
+            : await historyAssessment.EvaluateAsync(issue, submission, lease, now, fencedLicence, command.LinkedOperationId, cancellationToken);
+        if (historyEval?.Denial is { } historyDenial)
+            return historyDenial;
+
+        var isHistoryCase = ReconciliationActionPolicy.IsLicenceHistoryCase(issue, historyEval?.HasSavedObservations ?? false);
+        var availableActions = ReconciliationActionPolicy.AvailableActions(
+            issue, submission, liveRole, command.ActorUserId,
+            expiryVerified, expiryLinkVerified, tillEligible,
+            historyEval?.HasSavedObservations ?? false,
+            historyEval?.RetryEligible ?? false,
+            historyEval?.LinkEligible ?? false);
+
+        if (!availableActions.Contains(request.Action))
         {
-            return request.Role is ShopRole.Owner or ShopRole.Manager
+            return liveRole is ShopRole.Owner or ShopRole.Manager
                 ? Errors.Reconciliation.ActionNotAllowed
                 : Errors.Reconciliation.ActionForbidden;
         }
@@ -165,9 +248,9 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             ReconciliationAction.Escalate => Escalate(issue, request, now),
             ReconciliationAction.AcknowledgeVariance => Close(issue, request, now, linkedOperationId: null, stockTransactionId: null),
             ReconciliationAction.LinkStockCorrection => await LinkStockCorrectionAsync(issue, request, now, cancellationToken),
-            ReconciliationAction.LinkExistingSale => await LinkExistingSaleAsync(issue, submission, request, now, cancellationToken),
-            ReconciliationAction.ReconcileTillSale => await RetryHistoricalLeaseAsync(issue, submission, request, now, cancellationToken),
-            ReconciliationAction.RetryHistoricalLease => await RetryHistoricalLeaseAsync(issue, submission, request, now, cancellationToken),
+            ReconciliationAction.LinkExistingSale => await LinkExistingSaleAsync(issue, submission, isHistoryCase, request, now, cancellationToken),
+            ReconciliationAction.ReconcileTillSale => await RetryHistoricalLeaseAsync(issue, submission, lease, isHistoryCase, fencedLicence, request, now, cancellationToken),
+            ReconciliationAction.RetryHistoricalLease => await RetryHistoricalLeaseAsync(issue, submission, lease, isHistoryCase, fencedLicence, request, now, cancellationToken),
             _ => Errors.Reconciliation.UnknownAction,
         };
         if (effect.IsError)
@@ -175,23 +258,26 @@ public sealed class ResolveReconciliationCaseCommandHandler(
 
         await caseEventRepository.AddAsync(
             ReconciliationCaseEvent.Record(
-                command.ShopId,
-                issue.Id,
-                request.Action,
-                fromStatus,
-                issue.Status,
-                command.ActorUserId,
-                request.Reason,
-                effect.Value.LinkedOperationId,
-                request.OperationKey,
-                now),
+                command.ShopId, issue.Id, request.Action, fromStatus, issue.Status,
+                command.ActorUserId, request.Reason, effect.Value.LinkedOperationId, request.OperationKey, now),
             cancellationToken);
 
         var saved = await SaveAsync(cancellationToken);
         if (saved.IsError)
             return saved.Errors;
 
-        return await mapper.ToDetailAsync(issue, submission, request.Role, command.ActorUserId, cancellationToken);
+        return await mapper.ToDetailAsync(issue, submission, liveRole, command.ActorUserId, cancellationToken, fencedLicence);
+    }
+
+    private async Task<InvoiceLease?> ResolveLeaseAsync(Guid shopId, OfflineSubmission? submission, CancellationToken ct)
+    {
+        if (submission is null) return null;
+        if (submission.OriginalLeaseId is { } leaseId)
+        {
+            var byId = await invoiceLeaseRepository.GetByIdAsync(leaseId, ct);
+            if (byId is not null && byId.ShopId == shopId) return byId;
+        }
+        return await invoiceLeaseRepository.FindReservedRangeAsync(shopId, submission.DeviceId, submission.InvoiceNumber, ct);
     }
 
     private static ErrorOr<Effect> Escalate(ReconciliationIssue issue, ResolutionRequest request, DateTimeOffset now)
@@ -211,11 +297,6 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         return closed.IsError ? Errors.Reconciliation.CaseAlreadyResolved : new Effect(linkedOperationId);
     }
 
-    /// <summary>
-    /// Posts the stock the device printed but the server could not consume, once procurement evidence
-    /// (a found-stock or other-gain adjustment of at least that quantity) exists for the same batch.
-    /// The original sale and its movements are never touched.
-    /// </summary>
     private async Task<ErrorOr<Effect>> LinkStockCorrectionAsync(
         ReconciliationIssue issue,
         ResolutionRequest request,
@@ -225,7 +306,6 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         var command = request.Command;
         if (command.LinkedOperationId is not { } adjustmentId)
             return Errors.Reconciliation.LinkedOperationRequired;
-
         if (issue.UnresolvedQuantity is not > 0m || issue.ItemId is not { } itemId || issue.InventoryBatchId is not { } batchId)
             return Errors.Reconciliation.ActionNotAllowed;
 
@@ -233,58 +313,38 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         var adjustment = await adjustmentRepository.GetByIdAsync(adjustmentId, cancellationToken);
         if (adjustment is null || !ReconciliationLinkRules.CoversShortage(adjustment, command.ShopId, itemId, batchId, unresolved))
             return Errors.Reconciliation.LinkedAdjustmentInvalid;
-
         if (await issueRepository.IsOperationLinkedAsync(command.ShopId, adjustmentId, cancellationToken))
             return Errors.Reconciliation.OperationAlreadyLinked;
 
         var batch = await batchRepository.GetByIdAsync(batchId, cancellationToken);
-        if (batch is null || batch.ShopId != command.ShopId)
-            return Errors.Inventory.BatchNotFound;
-        if (batch.IsVoided)
-            return Errors.Inventory.BatchAlreadyVoided;
+        if (batch is null || batch.ShopId != command.ShopId) return Errors.Inventory.BatchNotFound;
+        if (batch.IsVoided) return Errors.Inventory.BatchAlreadyVoided;
 
         var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
-        if (inventory is null)
-            return Errors.Inventory.InventoryAggregateNotFound;
+        if (inventory is null) return Errors.Inventory.InventoryAggregateNotFound;
 
         var batchUpdate = batch.SubtractQuantity(unresolved, command.ActorUserId);
-        if (batchUpdate.IsError)
-            return batchUpdate.Errors;
-
+        if (batchUpdate.IsError) return batchUpdate.Errors;
         var inventoryUpdate = inventory.SubtractQuantity(unresolved, command.ActorUserId);
-        if (inventoryUpdate.IsError)
-            return inventoryUpdate.Errors;
+        if (inventoryUpdate.IsError) return inventoryUpdate.Errors;
 
         var reference = issue.InvoiceNumber;
         if (reference is null && issue.SaleId is { } saleId)
             reference = (await saleRepository.GetByIdAsync(saleId, command.ShopId, cancellationToken))?.InvoiceNumber;
 
         var movement = StockTransaction.Create(
-            command.ShopId,
-            itemId,
-            batchId,
-            StockTransactionType.Out,
-            -unresolved,
-            reference,
-            $"Offline shortage catch-up: {request.Reason}",
-            now,
-            command.ActorUserId,
-            command.ActorUserId);
-        if (movement.IsError)
-            return movement.Errors;
+            command.ShopId, itemId, batchId, StockTransactionType.Out, -unresolved, reference,
+            $"Offline shortage catch-up: {request.Reason}", now, command.ActorUserId, command.ActorUserId);
+        if (movement.IsError) return movement.Errors;
 
         await stockTransactionRepository.AddAsync(movement.Value, cancellationToken);
         return Close(issue, request, now, adjustmentId, movement.Value.Id);
     }
 
-    /// <summary>
-    /// Links the case to a sale that already carries its invoice (<see cref="ReconciliationLinkRules.CheckSaleAsync"/>).
-    /// The envelope is linked too, except the conflicting envelope of an idempotency conflict, which
-    /// stays unlinked as evidence. A legacy case without an envelope is matched on its identity alone.
-    /// </summary>
     private async Task<ErrorOr<Effect>> LinkExistingSaleAsync(
         ReconciliationIssue issue,
         OfflineSubmission? submission,
+        bool isHistoryCase,
         ResolutionRequest request,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -297,11 +357,17 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (sale is null)
             return Errors.Reconciliation.SaleIdentityMismatch;
 
-        if (await ReconciliationLinkRules.CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken) is { } refused)
-            return refused;
+        var linkError = isHistoryCase
+            ? await ReconciliationLinkRules.CheckHistorySaleAsync(issue, submission, sale, submissionRepository, cancellationToken)
+            : await ReconciliationLinkRules.CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken);
+        if (linkError is { } refusedLink)
+            return refusedLink;
 
-        if (issue.IssueType == ReconciliationIssueType.ExpiryReview && (submission is null || !await expiryAuthority.VerifiesPostedSaleAsync(submission, sale, cancellationToken)))
+        if (issue.IssueType == ReconciliationIssueType.ExpiryReview
+            && (submission is null || !await expiryAuthority.VerifiesPostedSaleAsync(submission, sale, cancellationToken)))
+        {
             return Errors.Reconciliation.ReplayRejected;
+        }
 
         if (submission is not null && !ReconciliationLinkRules.IsIdempotencyConflict(issue) && submission.LinkSale(sale.Id).IsError)
             return Errors.Reconciliation.SaleIdentityMismatch;
@@ -310,13 +376,12 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         return Close(issue, request, now, sale.Id, stockTransactionId: null);
     }
 
-    /// <summary>
-    /// Posts the stored envelope as it was frozen, under its original invoice number, attributed to
-    /// its verified issuer — or links the sale when that exact invoice has posted since.
-    /// </summary>
     private async Task<ErrorOr<Effect>> RetryHistoricalLeaseAsync(
         ReconciliationIssue issue,
         OfflineSubmission? submission,
+        InvoiceLease? resolvedLease,
+        bool isHistoryCase,
+        ShopLicenceLease? fencedLicence,
         ResolutionRequest request,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -324,20 +389,25 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         var command = request.Command;
         if (submission is null)
             return Errors.Reconciliation.EnvelopeMissing;
-
-        // The policy offers the action only with an attributable issuer; this guards the action itself.
         if (submission.AttributableUserId is not { } issuer)
             return Errors.Reconciliation.ProvenanceUnverified;
 
-        var lease = await invoiceLeaseRepository.FindReservedRangeAsync(command.ShopId, submission.DeviceId, submission.InvoiceNumber, cancellationToken);
+        var lease = resolvedLease ?? await invoiceLeaseRepository.FindReservedRangeAsync(command.ShopId, submission.DeviceId, submission.InvoiceNumber, cancellationToken);
         if (lease is null)
             return Errors.Sale.InvoiceLeaseNotFound;
 
         var existing = await saleRepository.GetByClientSaleIdAsync(command.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
         if (existing is not null)
         {
-            if (!string.Equals(existing.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
+            if (isHistoryCase)
+            {
+                if (await ReconciliationLinkRules.CheckHistorySaleAsync(issue, submission, existing, submissionRepository, cancellationToken) is { } mismatch)
+                    return mismatch;
+            }
+            else if (!string.Equals(existing.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
+            {
                 return Errors.Sale.IdempotencyConflict;
+            }
 
             if (issue.IssueType == ReconciliationIssueType.ExpiryReview && !await expiryAuthority.VerifiesPostedSaleAsync(submission, existing, cancellationToken))
                 return Errors.Reconciliation.ReplayRejected;
@@ -351,13 +421,19 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (payload is null)
             return Errors.Reconciliation.ReplayRejected;
 
+        if ((isHistoryCase || request.Action == ReconciliationAction.ReconcileTillSale)
+            && (!string.Equals(OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, submission.DeviceId, payload), submission.PayloadHash, StringComparison.Ordinal)
+                || payload.ClientSaleId.Trim() != submission.ClientSaleId
+                || payload.InvoiceNumber.Trim() != submission.InvoiceNumber
+                || OfflinePermitContractV1.Instant(payload.SoldAt) != OfflinePermitContractV1.Instant(submission.ClaimedSoldAt)))
+        {
+            return Errors.Reconciliation.ReplayRejected;
+        }
+
         ReviewedTillContext? reviewedTill = null;
         if (request.Action == ReconciliationAction.ReconcileTillSale)
         {
             if (command.TillReconciliationEvidence is not { } evidence) return Errors.Till.SettlementEvidenceRequired;
-            if (!string.Equals(OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, submission.DeviceId, payload), submission.PayloadHash, StringComparison.Ordinal) ||
-                payload.ClientSaleId.Trim() != submission.ClientSaleId || payload.InvoiceNumber.Trim() != submission.InvoiceNumber || payload.SoldAt.UtcTicks / 10 != submission.ClaimedSoldAt.UtcTicks / 10)
-                return Errors.Reconciliation.ReplayRejected;
             reviewedTill = new ReviewedTillContext(issue.Id, request.Reason, evidence);
         }
 
@@ -368,7 +444,6 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 submission.DeviceId,
                 submission.ClientSaleId,
                 payload,
-                // The stored hash, so a later resend from the device replays this sale instead of conflicting.
                 submission.PayloadHash,
                 AttributedUserId: issuer,
                 RecordedByUserId: command.ActorUserId,
@@ -376,10 +451,15 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 now,
                 activeRules.ToDictionary(rule => rule.Id),
                 lease,
-                // Existing historical credit review retains its decision. A TillReview retry is
-                // ordinary drawer recovery; its customer-credit variance must still be filed.
-                CreditReviewed: request.Action == ReconciliationAction.RetryHistoricalLease && issue.IssueType != ReconciliationIssueType.TillReview,
-                ReviewedTill: reviewedTill, FirstReceivedAt: submission.ReceivedAt, ReceivedPermitId: submission.LicencePermitId),
+                CreditReviewed: request.Action == ReconciliationAction.RetryHistoricalLease
+                    && issue.IssueType != ReconciliationIssueType.TillReview
+                    && !isHistoryCase,
+                ReviewedTill: reviewedTill,
+                FirstReceivedAt: submission.ReceivedAt,
+                ReceivedPermitId: submission.LicencePermitId,
+                ReceivedGrantId: submission.LicenceGrantId,
+                IsExistingHistoryReview: isHistoryCase,
+                ExistingLicence: fencedLicence),
             cancellationToken);
 
         return outcome switch
@@ -414,22 +494,18 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         }
         catch (DbUpdateConcurrencyException)
         {
-            // Another resolution (or any write of the case or batch) committed first; nothing of this one is kept.
             return Errors.Reconciliation.CaseVersionConflict;
         }
         catch (DbUpdateException ex) when (OfflineSaleSyncHelpers.ContainsExceptionText(ex, UniqueViolationState))
         {
             if (OfflineSaleSyncHelpers.ContainsExceptionText(ex, LinkedOperationIndex))
                 return Errors.Reconciliation.OperationAlreadyLinked;
-
             if (OfflineSaleSyncHelpers.ContainsExceptionText(ex, SaleInvoiceNumberIndex))
                 return Errors.Sale.InvoiceNumberAlreadyUsed;
-
             return Errors.Reconciliation.ConcurrentChange;
         }
         catch (DbUpdateException ex) when (OfflineSaleSyncHelpers.ContainsExceptionText(ex, LockNotAvailableState))
         {
-            // A row the resolution writes stayed locked past the budget; nothing was kept.
             return Errors.Reconciliation.ConcurrentChange;
         }
     }
@@ -439,14 +515,8 @@ public sealed class ResolveReconciliationCaseCommandHandler(
 
     private static OfflineSaleSyncCommand? ReadPayload(OfflineSubmission submission)
     {
-        try
-        {
-            return OfflineSubmissionPayload.Deserialize(submission.PayloadJson);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
+        try { return OfflineSubmissionPayload.Deserialize(submission.PayloadJson); }
+        catch (JsonException) { return null; }
     }
 
     private sealed record ResolutionRequest(
@@ -454,12 +524,11 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         ReconciliationAction Action,
         ShopRole Role,
         string Reason,
-        string OperationKey);
+        string OperationKey,
+        string DeviceId);
 
-    /// <summary>What the action linked, recorded on the case event.</summary>
     private sealed record Effect(Guid? LinkedOperationId);
 
-    /// <summary>The canonical business payload of one resolution; the operation id itself is never part of it.</summary>
     private sealed record ResolutionPayload(
         Guid CaseId,
         uint ExpectedVersion,

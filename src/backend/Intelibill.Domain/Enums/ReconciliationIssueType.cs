@@ -21,4 +21,7 @@ public enum ReconciliationIssueType
 
     TillReview = 13,
     ExpiryReview = 14,
+
+    /// <summary>An offline invoice held because historical licence authority is missing, conflicting or unproven.</summary>
+    LicenseHistoryReview = 15,
 }

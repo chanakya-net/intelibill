@@ -2208,6 +2208,100 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("license_grant_evidence", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.LicenseHistoryReviewObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<string>("ComparedField")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("compared_field");
+
+                    b.Property<Guid?>("CompetingSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("competing_submission_id");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<long?>("ObservedAccountRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("observed_account_revision");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
+
+                    b.Property<long?>("ObservedShopRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("observed_shop_revision");
+
+                    b.Property<Guid?>("OfflineSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("offline_submission_id");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("SourceCompletionCutoff")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("source_completion_cutoff");
+
+                    b.Property<string>("Subreason")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("subreason");
+
+                    b.Property<DateTimeOffset?>("WindowEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("window_end");
+
+                    b.Property<DateTimeOffset?>("WindowStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("window_start");
+
+                    b.HasKey("Id")
+                        .HasName("pk_license_history_review_observations");
+
+                    b.HasIndex("CaseId", "ShopId")
+                        .HasDatabaseName("ix_license_history_review_observations_case_id_shop_id");
+
+                    b.HasIndex("CompetingSubmissionId", "ShopId")
+                        .HasDatabaseName("ix_license_history_review_observations_competing_submission_id");
+
+                    b.HasIndex("OfflineSubmissionId", "ShopId")
+                        .HasDatabaseName("ix_license_history_review_observations_offline_submission_id_s");
+
+                    b.HasIndex("ShopId", "OfflineSubmissionId")
+                        .HasDatabaseName("ix_license_history_review_observations_shop_id_offline_submiss");
+
+                    b.HasIndex("ShopId", "CaseId", "Fingerprint")
+                        .IsUnique()
+                        .HasDatabaseName("ix_license_history_review_observations_shop_id_case_id_fingerp");
+
+                    b.HasIndex("ShopId", "CaseId", "ObservedAt", "Id")
+                        .HasDatabaseName("ix_license_history_review_observations_shop_id_case_id_observe");
+
+                    b.ToTable("license_history_review_observations", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.OfflineExpiryEvidence", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4204,6 +4298,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_reconciliation_issues_shop_id_linked_operation_id")
                         .HasFilter("resolution = 4");
+
+                    b.HasIndex("ShopId", "OfflineSubmissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reconciliation_issues_shop_id_offline_submission_id")
+                        .HasFilter("issue_type = 15 AND offline_submission_id IS NOT NULL");
 
                     b.HasIndex("ShopId", "ClientSaleId", "DeviceId")
                         .HasDatabaseName("ix_reconciliation_issues_shop_id_client_sale_id_device_id");
@@ -8032,6 +8131,38 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_item_barcode_sequences_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.LicenseHistoryReviewObservation", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_license_history_review_observations_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ReconciliationIssue", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_license_history_review_observations_reconciliation_issues_c");
+
+                    b.HasOne("Intelibill.Domain.Entities.OfflineSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("CompetingSubmissionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_license_history_review_observations_offline_submissions_com");
+
+                    b.HasOne("Intelibill.Domain.Entities.OfflineSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("OfflineSubmissionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_license_history_review_observations_offline_submissions_off");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.OfflineExpiryEvidence", b =>

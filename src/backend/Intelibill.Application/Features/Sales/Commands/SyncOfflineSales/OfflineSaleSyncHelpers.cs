@@ -72,7 +72,7 @@ internal static class OfflineSaleSyncHelpers
     internal static OfflineSaleSyncResultDto BuildNeedsReviewResult(
         string clientSaleId,
         Error error,
-        Guid reviewCaseId,
+        Guid? reviewCaseId,
         IReadOnlyList<OfflineArithmeticMismatch>? mismatches = null) =>
         new(clientSaleId, StatusNeedsReview, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)])
         {

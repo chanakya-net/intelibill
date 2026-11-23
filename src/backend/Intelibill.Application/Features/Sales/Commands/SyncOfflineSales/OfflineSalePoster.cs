@@ -80,10 +80,19 @@ internal sealed partial class OfflineSalePoster(
         if (shop is null) return new OfflineSalePostingOutcome.Rejected(Errors.Shop.ShopNotFound);
         var businessDay = businessClock.GetBusinessDay(sale.SoldAt, shop.BusinessTimeZoneId);
 
-        var licence = await licenceFence.EnterAsync(shopId, LicenceAction.Recovery, cancellationToken);
-        if (licence.IsError) return new OfflineSalePostingOutcome.Rejected(licence.FirstError);
-        var initialDecision = licence.Value.CurrentDecision();
-        if (await licenceHistory.EvaluateAsync(licence.Value, request, cancellationToken) is { } held) return held;
+        ShopLicenceLease licenceLease;
+        if (request.ExistingLicence is { } existingLicence)
+        {
+            licenceLease = existingLicence;
+        }
+        else
+        {
+            var licence = await licenceFence.EnterAsync(shopId, LicenceAction.Recovery, cancellationToken);
+            if (licence.IsError) return new OfflineSalePostingOutcome.Rejected(licence.FirstError);
+            licenceLease = licence.Value;
+        }
+        var initialDecision = licenceLease.CurrentDecision();
+        if (await licenceHistory.EvaluateAsync(licenceLease, request, cancellationToken) is { } held) return held;
 
         // After the licence fence: the claimed business date's month must be open. A closed month
         // holds the invoice for review (it was issued offline and cannot simply be refused); a busy
@@ -255,8 +264,8 @@ internal sealed partial class OfflineSalePoster(
         if (dueEntry is not null)
             await customerLedgerEntryRepository.AddAsync(dueEntry, cancellationToken);
 
-        if (licence.Value.CurrentDecision() != initialDecision &&
-            await licenceHistory.EvaluateAsync(licence.Value, request, cancellationToken) is { } changed) return changed;
+        if (licenceLease.CurrentDecision() != initialDecision &&
+            await licenceHistory.EvaluateAsync(licenceLease, request, cancellationToken) is { } changed) return changed;
         return new OfflineSalePostingOutcome.Staged(saleEntity, warnings);
     }
 

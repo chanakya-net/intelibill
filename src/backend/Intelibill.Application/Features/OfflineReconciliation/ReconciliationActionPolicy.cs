@@ -62,6 +62,11 @@ public static class ReconciliationActionPolicy
         ReconciliationIssueType.ExpiryReview,
     ];
 
+    public static bool IsLicenceHistoryCase(ReconciliationIssue issue, bool hasSavedLicenceObservations = false) =>
+        issue.IssueType == ReconciliationIssueType.LicenseHistoryReview
+        || (issue.IssueType == ReconciliationIssueType.ProvenanceReview && Errors.OfflineLicenceHistory.IsHistoryCode(issue.Code))
+        || hasSavedLicenceObservations;
+
     /// <param name="issue">The case.</param>
     /// <param name="submission">The case's envelope, or null when it has none (legacy cases).</param>
     /// <param name="role">The caller's live role in the case's shop.</param>
@@ -73,7 +78,10 @@ public static class ReconciliationActionPolicy
         Guid actorUserId,
         bool expiryAuthorityVerified = false,
         bool expirySaleLinkVerified = false,
-        bool tillReconciliationEligible = false)
+        bool tillReconciliationEligible = false,
+        bool hasSavedLicenceObservations = false,
+        bool licenceHistoryRetryVerified = false,
+        bool licenceHistorySaleLinkVerified = false)
     {
         if (issue.Status == ReconciliationCaseStatus.Resolved)
             return [];
@@ -86,7 +94,25 @@ public static class ReconciliationActionPolicy
         }
 
         var actions = new List<ReconciliationAction>(4);
-        if (issue.IssueType == ReconciliationIssueType.ExpiryReview)
+        if (IsLicenceHistoryCase(issue, hasSavedLicenceObservations))
+        {
+            var canLink = licenceHistorySaleLinkVerified
+                && (issue.IssueType != ReconciliationIssueType.ExpiryReview || expirySaleLinkVerified)
+                && HasEnvelope(issue, submission)
+                && OffersSaleLink(issue, submission);
+            if (canLink)
+            {
+                actions.Add(ReconciliationAction.LinkExistingSale);
+            }
+            else if (licenceHistoryRetryVerified
+                && (issue.IssueType != ReconciliationIssueType.ExpiryReview || expiryAuthorityVerified)
+                && HasEnvelope(issue, submission)
+                && submission!.AttributableUserId is not null)
+            {
+                actions.Add(ReconciliationAction.RetryHistoricalLease);
+            }
+        }
+        else if (issue.IssueType == ReconciliationIssueType.ExpiryReview)
         {
             if (HasEnvelope(issue, submission) && submission!.AttributableUserId is not null && expiryAuthorityVerified)
             {
@@ -95,7 +121,11 @@ public static class ReconciliationActionPolicy
             }
             if (expirySaleLinkVerified && OffersSaleLink(issue, submission)) actions.Add(ReconciliationAction.LinkExistingSale);
         }
-        else actions.AddRange(ResolutionsFor(issue, submission));
+        else
+        {
+            actions.AddRange(ResolutionsFor(issue, submission));
+        }
+
         if (issue.Status == ReconciliationCaseStatus.Open)
             actions.Add(ReconciliationAction.Escalate);
 

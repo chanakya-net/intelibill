@@ -328,7 +328,13 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
         Assert.Empty(_events);
 
         await _executor.Received(1).ExecuteAsync(
-            new FinancialOperationScope(_shop.Id, FinancialOperationType.OfflineRecoverySubmission, OperationId),
+            Arg.Is<FinancialOperationScope>(s =>
+                s.ShopId == _shop.Id
+                && s.OperationType == FinancialOperationType.OfflineRecoverySubmission
+                && s.Key == OperationId
+                && s.SuspensionAction == Intelibill.Application.Common.Licensing.LicenceAction.Recovery
+                && s.RecheckReplayAuthority != null
+                && s.RecheckBeforeCommit != null),
             _owner.Id,
             _shop.Id,
             Arg.Any<string>(),
