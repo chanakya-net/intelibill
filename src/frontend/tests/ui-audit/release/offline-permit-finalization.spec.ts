@@ -383,3 +383,37 @@ test('two tabs never share or skip a number, and a permit that ends while a sale
   expect(await claimed()).toBeNull();
   expect(await readQueueRows(page)).toEqual(rowsBefore);
 });
+
+test('reconnect sends the permit frozen in IndexedDB byte for byte', async ({ page, context }) => {
+  const fixture = await enableOnline(page);
+  await goOffline(context, page);
+  await addToCart(page);
+  await submit(page).click();
+  await expect(queuedDialog(page)).toBeVisible();
+  const [queued] = await readQueueRows(page);
+  const evidence = queued.payload['licenceEvidence'] as { signedPermit: string };
+  expect(evidence.signedPermit === fixture.delivered.at(-1)?.token).toBe(true);
+
+  const clientSaleId = 'legacy-queued-sale';
+  const invoiceNumber = 'A/2627/000099';
+  const idempotencyKey = 'offline-sale-' + clientSaleId;
+  const legacyPayload = { ...queued.payload, clientSaleId, invoiceNumber, idempotencyKey };
+  delete (legacyPayload as Record<string, unknown>)['licenceEvidence'];
+  await writeRecord(page, 'intelibill-offline-sales-queue', 'queued-sales', {
+    ...queued, key: [queued.shopId, queued.deviceId, clientSaleId].join('::'), clientSaleId, invoiceNumber,
+    idempotencyKey, payload: legacyPayload,
+  });
+
+  await page.route('**/api/ping**', route => route.fulfill({ json: { serverTime: new Date().toISOString() } }));
+  await page.route('**/api/sales/offline-sync', route => route.fulfill({ json: { results: [] } }));
+  const sent = page.waitForRequest(request => request.url().endsWith('/api/sales/offline-sync'), { timeout: 30_000 });
+  await context.setOffline(false);
+  const invoices = (await sent).postDataJSON().sales as Record<string, any>[];
+  const invoice = invoices.find(sale => sale['invoiceNumber'] === queued.invoiceNumber)!;
+  const legacy = invoices.find(sale => sale['clientSaleId'] === clientSaleId);
+  expect(legacy).toBeDefined();
+  expect(legacy).not.toHaveProperty('licenceEvidence');
+  expect(invoice.invoiceNumber).toBe(queued.invoiceNumber);
+  expect(invoice.soldAt).toBe(queued.payload['soldAt']);
+  expect(invoice.licenceEvidence?.signedPermit === evidence.signedPermit).toBe(true);
+});

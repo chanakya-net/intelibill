@@ -293,6 +293,11 @@ public sealed partial class P0501LicensingTests
     private sealed class ClockAdvancingRetainStore(IOfflineLicenceEvidenceStore inner, Action afterRetain)
         : IOfflineLicenceEvidenceStore
     {
+        public Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
+            string payloadHash, CancellationToken ct) =>
+            inner.HasConflictingReceiptAsync(shopId, deviceId, clientSaleId, invoiceNumber, payloadHash, ct);
+        public Task<bool> HasGrantForLeaseAsync(Guid shopId, Guid leaseId, CancellationToken ct) =>
+            inner.HasGrantForLeaseAsync(shopId, leaseId, ct);
         public bool IsBeingReserved(InvoiceLease lease) => inner.IsBeingReserved(lease);
         public Task<OfflineAuthFacts?> ReadAuthAsync(Guid shopId, Guid userId, Guid sessionId, DateTimeOffset now, CancellationToken ct) =>
             inner.ReadAuthAsync(shopId, userId, sessionId, now, ct);

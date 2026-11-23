@@ -1392,6 +1392,7 @@
             "invoiceNumberAlreadyUsed": "Invoice number is already used by another sale",
             "idempotencyConflict": "A different bill was already synced under this ID",
             "unknown": "Held for review",
+            "licenceHistory": "Original offline licence evidence requires review",
             "historicalLeaseReviewRequired": "Reached the server after its invoice range expired",
             "issuedAfterLeaseExpiry": "Billed after its invoice range expired",
             "issueTimeBeforeLease": "Billed before its invoice range was reserved",

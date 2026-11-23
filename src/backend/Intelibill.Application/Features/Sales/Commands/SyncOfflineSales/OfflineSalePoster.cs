@@ -31,7 +31,9 @@ internal sealed partial class OfflineSalePoster(
     ITillRepository tills,
     IBankAccountRepository banks,
     IExpiryPolicyFence expiryFence,
-    IOfflineExpiryAuthority expiryAuthority) : IOfflineSalePoster
+    IOfflineExpiryAuthority expiryAuthority,
+    IShopLicenceFence licenceFence,
+    IOfflineLicenceHistoryAuthority licenceHistory) : IOfflineSalePoster
 {
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
     {
@@ -78,7 +80,12 @@ internal sealed partial class OfflineSalePoster(
         if (shop is null) return new OfflineSalePostingOutcome.Rejected(Errors.Shop.ShopNotFound);
         var businessDay = businessClock.GetBusinessDay(sale.SoldAt, shop.BusinessTimeZoneId);
 
-        // The first fenced statement: the claimed business date's month must be open. A closed month
+        var licence = await licenceFence.EnterAsync(shopId, LicenceAction.Recovery, cancellationToken);
+        if (licence.IsError) return new OfflineSalePostingOutcome.Rejected(licence.FirstError);
+        var initialDecision = licence.Value.CurrentDecision();
+        if (await licenceHistory.EvaluateAsync(licence.Value, request, cancellationToken) is { } held) return held;
+
+        // After the licence fence: the claimed business date's month must be open. A closed month
         // holds the invoice for review (it was issued offline and cannot simply be refused); a busy
         // fence is retryable, so the device resends.
         var period = await postingPeriodPolicy.AuthorizeForWriteAsync(shopId, businessDay.Date, cancellationToken);
@@ -248,6 +255,8 @@ internal sealed partial class OfflineSalePoster(
         if (dueEntry is not null)
             await customerLedgerEntryRepository.AddAsync(dueEntry, cancellationToken);
 
+        if (licence.Value.CurrentDecision() != initialDecision &&
+            await licenceHistory.EvaluateAsync(licence.Value, request, cancellationToken) is { } changed) return changed;
         return new OfflineSalePostingOutcome.Staged(saleEntity, warnings);
     }
 

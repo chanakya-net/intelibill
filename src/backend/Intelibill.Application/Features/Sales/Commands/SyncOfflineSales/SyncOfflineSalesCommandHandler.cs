@@ -91,6 +91,10 @@ public sealed class SyncOfflineSalesCommandHandler(
 
         var hold = new HeldCase(command.ShopId, normalizedId, deviceId, invNum, submission.Id, command.ActorUserId);
 
+        // The web client never sends another user's invoices; one that arrives is reviewed, never posted as the submitter's.
+        if (sale.IssuedByUserId is { } issuedBy && issuedBy != command.ActorUserId)
+            return await HoldAsync(hold, null, ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.IssuerNotSubmitter, cancellationToken);
+
         var existing = await saleRepository.GetByClientSaleIdAsync(command.ShopId, deviceId, normalizedId, cancellationToken);
         if (existing is not null)
         {
@@ -110,10 +114,6 @@ public sealed class SyncOfflineSalesCommandHandler(
         var structure = salePoster.CheckStructure(sale);
         if (structure.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, structure.FirstError);
 
-        // The web client never sends another user's invoices; one that arrives is reviewed, never posted as the submitter's.
-        if (sale.IssuedByUserId is { } issuedBy && issuedBy != command.ActorUserId)
-            return await HoldAsync(hold, null, ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.IssuerNotSubmitter, cancellationToken);
-
         if (lease is null)
             return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound, cancellationToken);
 
@@ -126,7 +126,8 @@ public sealed class SyncOfflineSalesCommandHandler(
         // An envelope already held for a closed period waits for an explicit resolution: reopening the
         // month does not let a device resend post it past the open case.
         if (await reconciliationIssueRepository.FindUnresolvedByEnvelopeAsync(command.ShopId, submission.Id, cancellationToken) is
-            { IssueType: ReconciliationIssueType.ClosedPeriodReview or ReconciliationIssueType.TillReview or ReconciliationIssueType.ExpiryReview } pending)
+            {} pending && (pending.IssueType is ReconciliationIssueType.ClosedPeriodReview or ReconciliationIssueType.TillReview or ReconciliationIssueType.ExpiryReview
+                || pending.Code.StartsWith(Errors.OfflineLicenceHistory.CodePrefix, StringComparison.Ordinal)))
             return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Error.Conflict(pending.Code, pending.Message), pending.Id);
 
         // The fence inside StageAsync holds its shared lock on the period until this transaction ends,
@@ -148,7 +149,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     submission.Id,
                     now,
                     activeDiscountRulesById,
-                    lease),
+                    lease, FirstReceivedAt: submission.ReceivedAt, ReceivedPermitId: submission.LicencePermitId),
                 cancellationToken);
 
             if (outcome is not OfflineSalePostingOutcome.Staged staged)

@@ -32,6 +32,8 @@ public sealed class OfflineSubmission : BaseEntity
     /// <summary>The issuer once verified; null means "not recorded" or "not verified".</summary>
     public Guid? OriginalIssuerUserId { get; private set; }
 
+    public Guid? LicencePermitId { get; private set; }
+    public Guid? LicenceGrantId { get; private set; }
     public Guid? OriginalLeaseId { get; private set; }
     public string? RecoveryOperationId { get; private set; }
     public Guid? SaleId { get; private set; }

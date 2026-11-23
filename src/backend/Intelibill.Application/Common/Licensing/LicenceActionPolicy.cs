@@ -39,7 +39,7 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
         return decision with
         {
             OperatingRefusal = refusal,
-            SourceCompletionCutoff = action == LicenceAction.SourceCorrection && outcome == RequiresProvenSource
+            SourceCompletionCutoff = action is LicenceAction.SourceCorrection or LicenceAction.Recovery && outcome == RequiresProvenSource
                 ? SourceCompletionCutoff(shop, account, proofs, now)
                 : null,
             Status = phase != Phase.Operating ? phase.ToString()

@@ -1392,6 +1392,7 @@
             "invoiceNumberAlreadyUsed": "ઇન્વૉઇસ નંબર પહેલેથી બીજા વેચાણમાં વપરાયેલો છે",
             "idempotencyConflict": "આ ID હેઠળ પહેલેથી જ અલગ બિલ સિંક થયેલું છે",
             "unknown": "સમીક્ષા માટે રોકેલું",
+            "licenceHistory": "મૂળ ઑફલાઇન લાઇસન્સના પુરાવાની સમીક્ષા જરૂરી છે",
             "historicalLeaseReviewRequired": "ઇન્વૉઇસ રેન્જની મુદત પૂરી થયા પછી સર્વર સુધી પહોંચ્યું",
             "issuedAfterLeaseExpiry": "ઇન્વૉઇસ રેન્જની મુદત પૂરી થયા પછી બિલ બન્યું",
             "issueTimeBeforeLease": "ઇન્વૉઇસ રેન્જ આરક્ષિત થાય તે પહેલાં બિલ બન્યું",

@@ -2479,6 +2479,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_offline_license_permits");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_offline_license_permits_id_shop_id");
+
                     b.HasIndex("GrantId", "ShopId")
                         .HasDatabaseName("ix_offline_license_permits_grant_id_shop_id");
 
@@ -2570,6 +2573,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("invoice_number");
 
+                    b.Property<Guid?>("LicenceGrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("licence_grant_id");
+
+                    b.Property<Guid?>("LicencePermitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("licence_permit_id");
+
                     b.Property<Guid?>("OriginalIssuerUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("original_issuer_user_id");
@@ -2626,6 +2637,12 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("SaleId")
                         .HasDatabaseName("ix_offline_submissions_sale_id");
+
+                    b.HasIndex("LicenceGrantId", "ShopId")
+                        .HasDatabaseName("ix_offline_submissions_licence_grant_id_shop_id");
+
+                    b.HasIndex("LicencePermitId", "ShopId")
+                        .HasDatabaseName("ix_offline_submissions_licence_permit_id_shop_id");
 
                     b.HasIndex("ShopId", "DeviceId", "SubmittedByUserId")
                         .HasDatabaseName("ix_offline_submissions_shop_id_device_id_submitted_by_user_id");
@@ -8095,6 +8112,20 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_offline_submissions_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.OfflineLicenseGrant", null)
+                        .WithMany()
+                        .HasForeignKey("LicenceGrantId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_offline_submissions_offline_license_grants_licence_grant_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.OfflineLicensePermit", null)
+                        .WithMany()
+                        .HasForeignKey("LicencePermitId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_offline_submissions_offline_license_permits_licence_permit_");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.PasswordResetToken", b =>

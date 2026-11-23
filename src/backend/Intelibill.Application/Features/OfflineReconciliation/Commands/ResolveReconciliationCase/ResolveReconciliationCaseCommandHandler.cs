@@ -379,7 +379,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 // Existing historical credit review retains its decision. A TillReview retry is
                 // ordinary drawer recovery; its customer-credit variance must still be filed.
                 CreditReviewed: request.Action == ReconciliationAction.RetryHistoricalLease && issue.IssueType != ReconciliationIssueType.TillReview,
-                ReviewedTill: reviewedTill),
+                ReviewedTill: reviewedTill, FirstReceivedAt: submission.ReceivedAt, ReceivedPermitId: submission.LicencePermitId),
             cancellationToken);
 
         return outcome switch

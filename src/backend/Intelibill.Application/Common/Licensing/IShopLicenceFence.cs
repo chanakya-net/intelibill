@@ -15,6 +15,10 @@ public interface IShopLicenceFence
 public readonly record struct ShopLicenceLease(Guid ShopId, Guid? AccountId, long? AccountRevision, long? ShopRevision,
     LicenceDecision Decision)
 {
+    public long? ReleasedAccountRestriction { get; init; }
+    public long? ReleasedShopRestriction { get; init; }
+    public bool UndatedTradingRestriction { get; init; }
+
     public string? EffectiveSuspension { get; init; }
 
     /// <summary>Active-member seats per shop from the fenced projection; null when unknown or unprojected.</summary>

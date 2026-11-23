@@ -16,6 +16,11 @@ internal static class LegacyOfflineExpiryHistory
     {
         var shopId = Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(scopedToken).Claims.Single(x => x.Type == "active_shop_id").Value);
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await SeedAsync(db, shopId);
+    }
+
+    internal static async Task SeedAsync(ApplicationDbContext db, Guid shopId)
+    {
         var state = await db.ShopExpiryStates.AsNoTracking().SingleAsync(x => x.ShopId == shopId);
         Assert.Equal(1, state.CatalogVersion); Assert.Equal(1, state.DefaultPolicyVersion);
         if (state.PreFeatureBaseline) return;

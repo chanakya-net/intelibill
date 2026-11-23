@@ -32,6 +32,7 @@ export function buildSyncRequestFromQueuedSale(
   const totals = payload.pricing.totals;
 
   return {
+    ...(payload.licenceEvidence === undefined ? {} : { licenceEvidence: payload.licenceEvidence }),
     ...(payload.till === undefined ? {} : { till: payload.till }),
     ...(payload.tenderLines === undefined ? {} : { tenderLines: payload.tenderLines }),
     ...(payload.tillBusinessDate === undefined
@@ -152,6 +153,8 @@ const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
 };
 
 export function offlineReviewReasonKey(errorCode: string | null): string {
+  if (errorCode?.startsWith('OfflineLicenceHistory.'))
+    return 'sales.history.offlineQueue.review.reasons.licenceHistory';
   if (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode])
     return OFFLINE_REVIEW_REASON_KEYS[errorCode];
   // Every GST document refusal on a device-issued sale files the same informational case: posted, no document.
