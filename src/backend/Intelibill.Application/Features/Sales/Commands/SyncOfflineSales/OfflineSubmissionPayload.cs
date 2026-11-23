@@ -29,8 +29,8 @@ internal static class OfflineSubmissionPayload
         try
         {
             var sale = Deserialize(submission.PayloadJson);
-            if (sale is null) return null;
-            var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale);
+            if (!HasValidHasherInputs(sale)) return null;
+            var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale!);
             return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
         }
         catch (JsonException)
@@ -38,4 +38,7 @@ internal static class OfflineSubmissionPayload
             return null;
         }
     }
+
+    internal static bool HasValidHasherInputs(OfflineSaleSyncCommand? sale) =>
+        sale is not null && sale.Items is not null && !sale.Items.Any(item => item is null);
 }

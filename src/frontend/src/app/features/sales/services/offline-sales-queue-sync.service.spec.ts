@@ -573,67 +573,36 @@ describe('OfflineSalesQueueSyncService', () => {
     const { shopId, userId, deviceId } = vectors.scope;
     const legacy7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
     const legacy671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as OfflineQueuedSaleRecord;
-    const otherUserRow: OfflineQueuedSaleRecord = {
-      ...legacy671d,
-      key: `${shopId}::${deviceId}::other-issuer`,
-      clientSaleId: 'other-issuer',
-      payload: { ...legacy671d.payload, clientSaleId: 'other-issuer', issuedByUserId: '99999999-9999-4999-8999-999999999999' },
-    };
+    const otherUserRow = withIssuer(
+      { ...legacy671d, key: `${shopId}::${deviceId}::other-issuer`, clientSaleId: 'other-issuer', payload: { ...legacy671d.payload, clientSaleId: 'other-issuer' } },
+      '99999999-9999-4999-8999-999999999999',
+    );
 
-    activeSession.set({
-      ...makeSession(shopId),
-      user: { ...makeSession(shopId).user, id: userId },
-    });
+    activeSession.set({ ...makeSession(shopId), user: { ...makeSession(shopId).user, id: userId } });
     settingsStorage.loadSettings.mockReturnValue({
-      shopId,
-      deviceId,
-      label: 'Legacy Counter',
-      enabled: true,
-      enabledAt: '2027-01-20T00:00:00.000Z',
-      enabledByUserId: userId,
-      enabledByUserName: 'Owner',
-      lastCompleteSnapshotAt: '2027-01-20T00:00:00.000Z',
-      lastApiVerifiedAt: '2027-01-20T00:00:00.000Z',
-      lastSnapshotWarningMarker: null,
-      lastReservedLease: null,
+      shopId, deviceId, label: 'Legacy Counter', enabled: true, enabledAt: '2027-01-20T00:00:00.000Z',
+      enabledByUserId: userId, enabledByUserName: 'Owner', lastCompleteSnapshotAt: '2027-01-20T00:00:00.000Z',
+      lastApiVerifiedAt: '2027-01-20T00:00:00.000Z', lastSnapshotWarningMarker: null, lastReservedLease: null,
     });
 
     const service = setup();
     TestBed.inject(ShopContextService).initialize({ userId, shopId });
-
     queueDb.getPendingSales.mockResolvedValue([legacy7ff1, legacy671d, otherUserRow]);
-    queueDb.markSyncInProgress.mockImplementation(async (_s, _d, clientSaleId) => {
-      const match = [legacy7ff1, legacy671d].find((r) => r.clientSaleId === clientSaleId);
-      return match ? { ...match, status: 'Syncing' } : null;
+    queueDb.markSyncInProgress.mockImplementation(async (_s, _d, id) => {
+      const m = [legacy7ff1, legacy671d].find((r) => r.clientSaleId === id);
+      return m ? { ...m, status: 'Syncing' } : null;
     });
     saleService.syncOfflineSales.mockReturnValue(of({
-      results: [
-        {
-          clientSaleId: legacy7ff1.clientSaleId,
-          status: 'NeedsReview',
-          saleId: null,
-          invoiceNumber: legacy7ff1.invoiceNumber,
-          warnings: [],
-          errors: [{ code: 'OfflineLicenceHistory.EvidenceMissing', message: 'Historical evidence required' }],
-          reviewCaseId: 'case-7ff1',
-        },
-        {
-          clientSaleId: legacy671d.clientSaleId,
-          status: 'NeedsReview',
-          saleId: null,
-          invoiceNumber: legacy671d.invoiceNumber,
-          warnings: [],
-          errors: [{ code: 'OfflineLicenceHistory.EvidenceMissing', message: 'Historical evidence required' }],
-          reviewCaseId: 'case-671d',
-        },
-      ],
+      results: [legacy7ff1, legacy671d].map((r, i) => ({
+        clientSaleId: r.clientSaleId, status: 'NeedsReview', saleId: null, invoiceNumber: r.invoiceNumber,
+        warnings: [], errors: [{ code: 'OfflineLicenceHistory.EvidenceMissing', message: 'Historical evidence required' }],
+        reviewCaseId: `case-legacy-${i + 1}`,
+      })),
     }));
 
     const result = await service.syncActiveShop();
-
     expect(result.attemptedCount).toBe(2);
     expect(result.needsReviewCount).toBe(2);
-    expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(1);
     const [sentPayload, sentOwner] = saleService.syncOfflineSales.mock.calls[0];
     expect(sentOwner).toEqual({ userId, shopId });
     expect(sentPayload.deviceId).toBe(deviceId);

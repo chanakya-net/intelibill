@@ -317,7 +317,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                 }
             }
 
-            if (pending is not null && IsBlockingPendingHold(pending))
+            if (pending is not null && IsBlockingPendingHold(pending, fencedLicence?.CurrentDecision().Enforced == true))
             {
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
                 open = false;
@@ -567,11 +567,12 @@ public sealed class SyncOfflineSalesCommandHandler(
             ? issue.Id
             : null;
 
-    private static bool IsBlockingPendingHold(ReconciliationIssue pending) =>
+    private static bool IsBlockingPendingHold(ReconciliationIssue pending, bool licenceEnforced) =>
         pending.IssueType is ReconciliationIssueType.ClosedPeriodReview
             or ReconciliationIssueType.TillReview
             or ReconciliationIssueType.ExpiryReview
             or ReconciliationIssueType.LicenseHistoryReview
+        || (licenceEnforced && pending.IssueType == ReconciliationIssueType.RecoveryReview)
         || Errors.OfflineLicenceHistory.IsHistoryCode(pending.Code);
 
     private sealed record HeldCase(

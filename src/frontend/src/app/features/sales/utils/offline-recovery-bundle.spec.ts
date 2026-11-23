@@ -180,18 +180,35 @@ describe('buildSupportBundle', () => {
 
     const [part671d] = await buildSupportBundle([{ ...legacy671d, status: 'Syncing' }], vectorCtx);
     expect(part671d.checksum).toBe(vectors.v1FrozenDocument.expectedBundleChecksum);
-    expect(part671d.text).toContain('"invoices":' + vectors.v1FrozenDocument.expectedBundleInvoicesJson + '}');
+    expect(part671d.text).toBe(vectors.v1FrozenDocument.exportedBundleText);
 
     const [combined] = await buildSupportBundle([legacy7ff1, legacy671d], vectorCtx);
     expect(combined.checksum).toBe(vectors.combinedExport.expectedBundleChecksum);
     expect(combined.text).toContain('"invoices":' + vectors.combinedExport.expectedBundleInvoicesJson + '}');
 
-    // Previously exported whitespace-sensitive v1 file: raw array text determines the checksum.
-    const rawDigest = createHash('sha256').update(vectors.previouslyExportedV1Bundle.invoicesRawJson, 'utf8').digest('hex');
-    expect(rawDigest).toBe(vectors.previouslyExportedV1Bundle.checksum);
+    // Sparse unversioned row must match archived 7ff1de03f / 671d51df3 bundle checksum without synthesizing nulls (R001).
+    const sparsePayload = { ...legacy7ff1.payload } as Record<string, unknown>;
+    delete sparsePayload['customerId'];
+    delete sparsePayload['customerName'];
+    delete sparsePayload['customerPhone'];
+    const sparseLine = { ...legacy7ff1.payload.pricing.lines[0] } as Record<string, unknown>;
+    delete sparseLine['configuredRuleId'];
+    delete sparseLine['hsnCode'];
+    delete sparseLine['lineType'];
+    delete sparseLine['serviceId'];
+    const [sparsePart] = await buildSupportBundle(
+      [{ ...legacy7ff1, payload: { ...(sparsePayload as unknown as OfflineQueuedSalePayload), pricing: { ...legacy7ff1.payload.pricing, lines: [sparseLine as unknown as OfflineQueuedSalePayload['pricing']['lines'][0]] } } }],
+      vectorCtx,
+    );
+    expect(sparsePart.checksum).toBe(vectors.sparseUnversionedControl.expectedSparseBundleChecksum);
+
+    // Synthetic whitespace-sensitive v1 bundle control: raw array text determines the checksum.
+    const wsControl = vectors.syntheticPrettyWhitespaceControl;
+    const rawDigest = createHash('sha256').update(wsControl.invoicesRawJson, 'utf8').digest('hex');
+    expect(rawDigest).toBe(wsControl.checksum);
     const alteredDigest = createHash('sha256')
-      .update(vectors.previouslyExportedV1Bundle.invoicesRawJson.replace('\n', '\n '), 'utf8')
+      .update(wsControl.invoicesRawJson.replace('\n', '\n '), 'utf8')
       .digest('hex');
-    expect(alteredDigest).not.toBe(vectors.previouslyExportedV1Bundle.checksum);
+    expect(alteredDigest).not.toBe(wsControl.checksum);
   });
 });

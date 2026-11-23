@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Licensing;
@@ -271,28 +270,13 @@ public sealed class LicenseHistoryReviewAssessment(
         corrupted = false;
         if (submission is null) return null;
 
-        try
-        {
-            var payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson);
-            if (payload is null)
-            {
-                corrupted = true;
-                return null;
-            }
-
-            var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, payload);
-            if (!string.Equals(hash, submission.PayloadHash, StringComparison.Ordinal))
-            {
-                corrupted = true;
-                return null;
-            }
-
-            return payload;
-        }
-        catch (JsonException)
+        var payload = OfflineSubmissionPayload.TryReadValidated(shopId, submission);
+        if (payload is null)
         {
             corrupted = true;
             return null;
         }
+
+        return payload;
     }
 }

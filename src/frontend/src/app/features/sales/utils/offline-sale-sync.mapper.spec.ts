@@ -398,29 +398,49 @@ describe('offline-sale-sync.mapper', () => {
     expect(req671d.issuedByUserId).toBe(vectors.scope.userId);
   });
 
-  it('forwards unknown non-null licenceEvidence intact and applies archived null defaults on omitted legacy fields', () => {
+  it('forwards unknown non-null licenceEvidence intact and preserves omitted vs explicit null fields (R001)', () => {
     const legacy = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
     const unknownProof = { version: 2, opaqueField: 'keep-me' } as unknown as OfflineQueuedSaleRecord['payload']['licenceEvidence'];
     const withUnknown = { ...legacy, payload: { ...legacy.payload, licenceEvidence: unknownProof } };
 
     expect(buildSyncRequestFromQueuedSale(withUnknown)).toHaveProperty('licenceEvidence', unknownProof);
 
+    const sparsePayload = { ...legacy.payload } as Record<string, unknown>;
+    delete sparsePayload['customerId'];
+    delete sparsePayload['customerName'];
+    delete sparsePayload['customerPhone'];
     const sparseLine = { ...legacy.payload.pricing.lines[0] } as Record<string, unknown>;
     delete sparseLine['configuredRuleId'];
     delete sparseLine['hsnCode'];
     delete sparseLine['lineType'];
     delete sparseLine['serviceId'];
-    const sparse = {
+    const sparseRecord = {
       ...legacy,
       payload: {
-        ...legacy.payload,
+        ...(sparsePayload as unknown as OfflineQueuedSaleRecord['payload']),
         pricing: { ...legacy.payload.pricing, lines: [sparseLine as unknown as OfflineQueuedSaleRecord['payload']['pricing']['lines'][0]] },
       },
     };
-    const mapped = buildSyncRequestFromQueuedSale(sparse);
-    expect(mapped.items[0].configuredBatchRuleId).toBeNull();
-    expect(mapped.items[0].hsnCode).toBeNull();
-    expect(mapped.items[0].lineType).toBe('Goods');
-    expect(mapped.items[0].serviceId).toBeNull();
+    const mappedSparse = buildSyncRequestFromQueuedSale(sparseRecord);
+    expect(JSON.stringify(mappedSparse)).toBe(vectors.sparseUnversionedControl.expectedSparseSyncRequestJson);
+    expect(mappedSparse.items[0].lineType).toBe('Goods');
+    expect(mappedSparse.items[0].serviceId).toBeNull();
+
+    const explicitNullPayload = {
+      ...legacy.payload,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+      pricing: {
+        ...legacy.payload.pricing,
+        lines: [{ ...legacy.payload.pricing.lines[0], configuredRuleId: null, hsnCode: null }],
+      },
+    };
+    const mappedNulls = JSON.parse(JSON.stringify(buildSyncRequestFromQueuedSale({ ...legacy, payload: explicitNullPayload })));
+    expect(mappedNulls.customerId).toBeNull();
+    expect(mappedNulls.customerName).toBeNull();
+    expect(mappedNulls.customerPhone).toBeNull();
+    expect(mappedNulls.items[0].configuredBatchRuleId).toBeNull();
+    expect(mappedNulls.items[0].hsnCode).toBeNull();
   });
 });

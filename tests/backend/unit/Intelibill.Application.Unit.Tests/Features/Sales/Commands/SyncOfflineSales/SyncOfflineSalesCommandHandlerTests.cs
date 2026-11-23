@@ -2455,4 +2455,52 @@ public class SyncOfflineSalesCommandHandlerTests
         await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
         await _customerLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_PendingRecoveryReviewUnderEnforcedLicence_HoldsWithoutPosting()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var sale = CreateSale("offline-recovery-hold", items: [CreateLine(batch.Id)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, CreateInventory(shopId, item.Id));
+
+        ReconciliationIssue? pending = null;
+        StubRecordedEnvelope(candidate =>
+        {
+            pending = ReconciliationIssue.Create(
+                shopId, null, candidate.ClientSaleId, deviceId, ReconciliationIssueType.RecoveryReview,
+                Errors.OfflineReconciliation.RecoveryReviewRequired.Code,
+                Errors.OfflineReconciliation.RecoveryReviewRequired.Description,
+                actorId, invoiceNumber: candidate.InvoiceNumber, offlineSubmissionId: candidate.Id);
+            _reconciliationIssueRepository.FindUnresolvedPrePostingByEnvelopeAsync(shopId, candidate.Id, Arg.Any<CancellationToken>())
+                .Returns(pending);
+            return candidate;
+        });
+
+        var enforcedFence = Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>();
+        enforcedFence.EnterAsync(shopId, Intelibill.Application.Common.Licensing.LicenceAction.Recovery, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Intelibill.Application.Common.Licensing.ShopLicenceLease>>(
+                new Intelibill.Application.Common.Licensing.ShopLicenceLease(shopId, null, null, null,
+                    new(Intelibill.Application.Common.Licensing.LicenceOutcome.Allowed, true))));
+        var handler = new SyncOfflineSalesCommandHandler(
+            _userRepository, _shopRepository, _invoiceLeaseRepository, _offlineSubmissionRepository,
+            _saleRepository, _discountRuleRepository, _varianceAnalyzer, _reconciliationIssueRepository,
+            new OfflineSalePoster(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository,
+                _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock),
+                _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(),
+                Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority, enforcedFence,
+                Substitute.For<IOfflineLicenceHistoryAuthority>()),
+            _unitOfWork, _clock, enforcedFence);
+
+        var response = await handler.HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(response.IsError);
+        var row = Assert.Single(response.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Equal(pending!.Id, row.ReviewCaseId);
+        Assert.Equal(Errors.OfflineReconciliation.RecoveryReviewRequired.Code, Assert.Single(row.Errors).Code);
+        await AssertNothingPostedAsync();
+    }
 }

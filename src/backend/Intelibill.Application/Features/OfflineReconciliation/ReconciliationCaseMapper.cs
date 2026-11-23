@@ -127,7 +127,7 @@ public sealed class ReconciliationCaseMapper(
         {
             OfflineSaleSyncCommand? payload;
             try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); } catch (JsonException) { payload = null; }
-            expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
+            expiryVerified = OfflineSubmissionPayload.HasValidHasherInputs(payload) && payload!.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
                 !(await expiryAuthority.ValidateFrozenAsync(issue.ShopId, payload, now, cancellationToken)).IsError;
             tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
                 await tillEligibility.CanReconcileAsync(issue.ShopId, payload!, issuer, now, cancellationToken);
@@ -319,11 +319,11 @@ public sealed class ReconciliationCaseMapper(
             return null;
         }
 
-        if (sale is null)
+        if (!OfflineSubmissionPayload.HasValidHasherInputs(sale))
             return null;
 
         return new OfflineInvoiceSnapshotDto(
-            sale.InvoiceNumber,
+            sale!.InvoiceNumber,
             sale.SoldAt,
             sale.CustomerName,
             sale.CustomerPhone,
@@ -334,7 +334,7 @@ public sealed class ReconciliationCaseMapper(
             sale.TotalAmount,
             sale.PaidAmount,
             sale.DueAmount,
-            (sale.Items ?? [])
+            sale.Items
                 .Select(line => new OfflineInvoiceSnapshotLineDto(
                     line.ItemName,
                     line.Barcode,

@@ -16,167 +16,186 @@ namespace Intelibill.Integration.Tests;
 public sealed partial class P0506LicensingTests
 {
     [Fact]
-    public async Task Legacy_edge_cases_and_replay_authorization()
+    public async Task Anchored_missing_proof_and_7ff1_missing_reserver_hold_for_review()
     {
         var vectors = LoadLegacyVectors();
+        var v7 = vectors.GetProperty("unversionedPreDocument");
         var verifiedAt = At("2027-01-20T11:20:00Z");
-        var soldAt7ff1 = At("2027-01-20T11:45:00Z");
+        var accessEnd = At("2027-01-20T12:20:00Z");
+
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var owner = CreateClient(host);
+        var actor = await OpenPinnedVectorShopAsync(
+            host, owner, vectors, verifiedAt, verifiedAt.AddDays(-1), accessEnd, verifiedAt, verifiedAt,
+            include671dLease: false, include7ff1Lease: true, seed7ff1Batch: true, seed671dBatch: false);
+
+        // 1. Anchored lease missing licenceEvidence -> EvidenceMissingOnAnchoredLease.
+        var anchoredMissing = await BuildIssuedInvoiceAsync(owner, actor, verifiedAt, accessEnd, "missing", device: "anchored-dev");
+        _clock.Now = accessEnd.AddMinutes(10);
+        var anchoredImport = await SubmitRecoveryBundleAsync(owner, actor.Shop, _clock.Now, "p0506-anchored-missing", [anchoredMissing], device: "anchored-dev");
+        var anchoredDetail = await GetCaseDetailAsync(owner, anchoredImport.GetProperty("results")[0].GetProperty("caseId").GetGuid());
+        Assert.Equal(("LicenseHistoryReview", "EvidenceMissingOnAnchoredLease"),
+            (anchoredDetail.GetProperty("issueType").GetString(), anchoredDetail.GetProperty("licenceHistory").GetProperty("currentSubreason").GetString()));
+        Assert.Equal(["Escalate"], anchoredDetail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
+
+        // 2. Literal 7ff1de03f invoice (INV-2026-27-000001) on authentic 7ff1de03f lease (null ReservedByUserId):
+        //    - Recovery import -> Escalated ProvenanceReview + IssuerMissing.
+        var v7SyncNode = JsonNode.Parse(v7.GetProperty("expectedSyncRequestJson").GetString()!)!;
+        var importNode = CloneWithIdentity(v7SyncNode, "legacy-7ff1-import", "INV-2026-27-000005");
+        var unstampedImport = (await SubmitRawRecoveryBundleAsync(owner, "p0506-7ff1-import", BuildCompactBundle(actor.Shop, LegacyDevice, _clock.Now, importNode))).GetProperty("results")[0];
+        Assert.Equal("Escalated", unstampedImport.GetProperty("status").GetString());
+        var unstampedDetail = await GetCaseDetailAsync(owner, unstampedImport.GetProperty("caseId").GetGuid());
+        Assert.Equal(("ProvenanceReview", "IssuerMissing"),
+            (unstampedDetail.GetProperty("issueType").GetString(), unstampedDetail.GetProperty("licenceHistory").GetProperty("currentSubreason").GetString()));
+
+        //    - Sync on authentic 7ff1de03f lease (null ReservedByUserId) -> LicenseHistoryReview / LeaseReserverUnproven!
+        var beforeSync = await ReadEconomicFactsAsync(actor.Shop);
+        var held7ff1 = await SyncInvoiceAsync(owner, v7SyncNode.DeepClone(), LegacyDevice);
+        Assert.Equal("NeedsReview", held7ff1.GetProperty("status").GetString());
+        var held7ff1Detail = await GetCaseDetailAsync(owner, held7ff1.GetProperty("reviewCaseId").GetGuid());
+        Assert.Equal(("LicenseHistoryReview", "LeaseReserverUnproven"),
+            (held7ff1Detail.GetProperty("issueType").GetString(), held7ff1Detail.GetProperty("licenceHistory").GetProperty("currentSubreason").GetString()));
+        Assert.Equal(["Escalate"], held7ff1Detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
+        Assert.Equal(beforeSync, await ReadEconomicFactsAsync(actor.Shop));
+
+        // 3. Synthetic post-reserver/pre-permit control: unanchored lease WITH ReservedByUserId allows first-sync fallback + exact LinkExistingSale.
+        await VerifySyntheticPostReserverSyncAndLinkAsync(owner, actor, v7SyncNode, verifiedAt);
+    }
+
+    [Fact]
+    public async Task Replay_authorization_blocks_cross_shop_suspension_revocation_and_role_loss()
+    {
+        var vectors = LoadLegacyVectors();
+        var v6 = vectors.GetProperty("v1FrozenDocument");
+        var literalBundle = v6.GetProperty("exportedBundleText").GetString()!;
+        var literalSyncNode = JsonNode.Parse(v6.GetProperty("expectedSyncRequestJson").GetString()!)!;
+        var verifiedAt = At("2027-01-20T11:20:00Z");
         var accessEnd = At("2027-01-20T12:20:00Z");
 
         using var host = CreateHost();
         await host.InitializeAsync();
         using var owner1 = CreateClient(host);
-        var actor = await OpenHistoricalShopWithCustomVerificationAsync(
-            owner1, applyAt: verifiedAt, startsAt: verifiedAt.AddDays(-1), endsAt: accessEnd,
-            shopVerifiedAt: verifiedAt, accountVerifiedAt: verifiedAt);
+        var actor = await OpenPinnedVectorShopAsync(
+            host, owner1, vectors, verifiedAt, verifiedAt.AddDays(-1), accessEnd, verifiedAt, verifiedAt);
         using var otherShopOwner = CreateClient(host);
-        await OpenHistoricalShopWithCustomVerificationAsync(
-            otherShopOwner, applyAt: verifiedAt, startsAt: verifiedAt.AddDays(-1), endsAt: accessEnd,
-            shopVerifiedAt: verifiedAt, accountVerifiedAt: verifiedAt);
+        await OpenHistoricalShopWithCustomVerificationAsync(otherShopOwner, verifiedAt, verifiedAt.AddDays(-1), accessEnd, verifiedAt, verifiedAt);
         using var owner2 = await CreateSecondSessionClientAsync(host, actor, verifiedAt.AddDays(400));
 
-        // 1. Missing proof on an anchored lease: reserve & stream while shop has single fixture batch,
-        //    then omit licenceEvidence on import -> LicenseHistoryReview (EvidenceMissingOnAnchoredLease).
-        var anchoredMissing = await BuildIssuedInvoiceAsync(owner1, actor, verifiedAt, accessEnd, "missing", device: "anchored-dev");
+        _clock.Now = At("2027-01-20T12:05:00Z");
+        var postedSaleId = (await SyncInvoiceAsync(owner1, literalSyncNode.DeepClone(), LegacyDevice)).GetProperty("saleId").GetGuid();
+        var factsAfterPost = await ReadEconomicFactsAsync(actor.Shop);
 
-        // Seed goods matching unversioned 7ff1de03f vector (0% tax, LEG-7FF1, salesPrice 100, qty 2 -> 200).
-        Guid legacyBatchId;
-        using (var inboundResp = await owner1.PostAsJsonAsync("/api/inventory/inbound", new
-        {
-            itemName = "Legacy Rice 1kg", barcode = "LEG-7FF1", uom = "pcs", hsnCode = "1006", batchNumber = "LOT-OLD",
-            quantity = 10m, totalPurchaseCost = 700m, mrp = 120m, salesPrice = 100m, taxRatePercent = 0m,
-            taxIncluded = false, purchaseTaxIncluded = false,
-        }, Ct))
-        {
-            var body = await ReadSuccessAsync(inboundResp);
-            legacyBatchId = body.TryGetProperty("inventoryBatchId", out var b) ? b.GetGuid() : body.GetProperty("id").GetGuid();
-        }
-        await SeedUnanchoredLeaseAsync(actor, LegacyDevice, soldAt7ff1.AddMinutes(-30), verifiedAt.AddDays(3), rangeStart: 1);
+        // Authorized replay works first (sync duplicate, bundle AlreadyPosted, op-receipt replay).
+        Assert.Equal("duplicate", (await SyncInvoiceAsync(owner1, literalSyncNode.DeepClone(), LegacyDevice)).GetProperty("status").GetString());
+        Assert.Equal(postedSaleId, (await SubmitRawRecoveryBundleAsync(owner1, "p0506-replay-op", literalBundle)).GetProperty("results")[0].GetProperty("saleId").GetGuid());
+        Assert.Equal("AlreadyPosted", (await SubmitRawRecoveryBundleAsync(owner1, "p0506-replay-op", literalBundle)).GetProperty("results")[0].GetProperty("status").GetString());
 
-        _clock.Now = accessEnd.AddMinutes(10);
-        var anchoredImport = await SubmitRecoveryBundleAsync(owner1, actor.Shop, _clock.Now, "p0506-anchored-missing", [anchoredMissing], device: "anchored-dev");
-        var anchoredCaseId = anchoredImport.GetProperty("results")[0].GetProperty("caseId").GetGuid();
-        var anchoredDetail = await GetCaseDetailAsync(owner1, anchoredCaseId);
-        Assert.Equal("LicenseHistoryReview", anchoredDetail.GetProperty("issueType").GetString());
-        Assert.Equal("EvidenceMissingOnAnchoredLease", anchoredDetail.GetProperty("licenceHistory").GetProperty("currentSubreason").GetString());
-        Assert.Equal(["Escalate"], anchoredDetail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
-
-        // 2. Unstamped 7ff1de03f via recovery import: no operator fallback -> Escalated ProvenanceReview + IssuerMissing observation.
-        var (unstampedImportBundle, _, _, _) = BuildVectorRecoveryBundle(
-            vectors, actor.Shop, LegacyDevice, issuedByUserId: null, legacyBatchId, soldAt7ff1, "A/2627/000005", _clock.Now,
-            vectorName: "unversionedPreDocument", prettyWhitespace: false, clientSaleIdOverride: "legacy-unstamped-import");
-        var unstampedImport = (await SubmitRawRecoveryBundleAsync(owner1, "p0506-unstamped-import", unstampedImportBundle)).GetProperty("results")[0];
-        Assert.Equal("Escalated", unstampedImport.GetProperty("status").GetString());
-        var unstampedCaseId = unstampedImport.GetProperty("caseId").GetGuid();
-        var unstampedDetail = await GetCaseDetailAsync(owner1, unstampedCaseId);
-        Assert.Equal("ProvenanceReview", unstampedDetail.GetProperty("issueType").GetString());
-        Assert.Contains("OfflineReconciliation.ProvenanceUnknown",
-            unstampedDetail.GetProperty("reasonCodes").EnumerateArray().Select(x => x.GetString()!));
-        Assert.Equal("IssuerMissing", unstampedDetail.GetProperty("licenceHistory").GetProperty("currentSubreason").GetString());
-        Assert.False(unstampedDetail.GetProperty("licenceHistory").GetProperty("retryEligible").GetBoolean());
-
-        // 3. Unstamped 7ff1de03f via legacy sync: first-sync submitter fallback posts with exact unversioned hash and null FKs!
-        var (unstampedSyncBundle, _, _, syncExpectedHash) = BuildVectorRecoveryBundle(
-            vectors, actor.Shop, LegacyDevice, issuedByUserId: null, legacyBatchId, soldAt7ff1, "A/2627/000001", _clock.Now,
-            vectorName: "unversionedPreDocument", prettyWhitespace: false);
-        var unstampedSyncNode = JsonNode.Parse(JsonDocument.Parse(unstampedSyncBundle).RootElement.GetProperty("invoices")[0].GetRawText())!;
-        var syncedLegacy = await SyncInvoiceAsync(owner1, unstampedSyncNode, LegacyDevice);
-        Assert.Equal("created", syncedLegacy.GetProperty("status").GetString());
-        var postedSaleId = syncedLegacy.GetProperty("saleId").GetGuid();
-
-        Guid legacyReceiptId;
-        await using (var db = Open(Migrator))
-        {
-            var posted = await db.Sales.SingleAsync(x => x.Id == postedSaleId, Ct);
-            Assert.Equal(("A/2627/000001", syncExpectedHash, soldAt7ff1, 200m),
-                (posted.InvoiceNumber, posted.RequestHash, posted.SoldAt, posted.TotalAmount));
-            var receipt = await db.OfflineSubmissions.AsNoTracking()
-                .SingleAsync(x => x.ShopId == actor.Shop && x.ClientSaleId == "legacy-7ff1-0001", Ct);
-            legacyReceiptId = receipt.Id;
-            Assert.Null(receipt.LicencePermitId);
-            Assert.Null(receipt.LicenceGrantId);
-            Assert.Null(receipt.AssertedIssuerUserId);
-            Assert.Equal(actor.User, receipt.SubmittedByUserId);
-            Assert.Equal(postedSaleId, receipt.SaleId);
-        }
-
-        // 4. Exact already-posted match links under CheckHistorySaleAsync with zero economic or sequence changes.
-        Guid linkCaseId;
-        await using (var db = Open(Migrator))
-        {
-            var issue = ReconciliationIssue.Create(
-                actor.Shop, null, "legacy-7ff1-0001", LegacyDevice, ReconciliationIssueType.LicenseHistoryReview,
-                "OfflineLicenceHistory.EvidenceMissing", "Duplicate historical hold on already-posted legacy invoice",
-                actor.User, invoiceNumber: "A/2627/000001", offlineSubmissionId: legacyReceiptId);
-            db.ReconciliationIssues.Add(issue);
-            await db.SaveChangesAsync(Ct);
-            linkCaseId = issue.Id;
-        }
-        var factsBeforeLink = await ReadEconomicFactsAsync(actor.Shop);
-        var linkDetail = await GetCaseDetailAsync(owner1, linkCaseId);
-        Assert.Equal(["LinkExistingSale", "Escalate"],
-            linkDetail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
-        Assert.Equal(postedSaleId, Assert.Single(linkDetail.GetProperty("linkCandidates").EnumerateArray()).GetProperty("operationId").GetGuid());
-        using (var linkResp = await owner1.PostAsJsonAsync($"/api/offline-reconciliation/{linkCaseId:D}/resolve", new
-        {
-            operationId = "p0506-link-exact", expectedVersion = linkDetail.GetProperty("version").GetUInt32(),
-            action = "LinkExistingSale", reason = "Exact posted legacy sale matched", linkedOperationId = postedSaleId,
-        }, Ct))
-        {
-            var resolved = await ReadSuccessAsync(linkResp);
-            Assert.Equal("Resolved", resolved.GetProperty("status").GetString());
-            Assert.Equal(postedSaleId, resolved.GetProperty("saleId").GetGuid());
-        }
-        Assert.Equal(factsBeforeLink, await ReadEconomicFactsAsync(actor.Shop));
-
-        // 5. Authorized replay paths work first (sync duplicate, bundle AlreadyPosted, operation-receipt replay).
-        Assert.Equal("duplicate", (await SyncInvoiceAsync(owner1, unstampedSyncNode.DeepClone(), LegacyDevice)).GetProperty("status").GetString());
-        var alreadyPosted = (await SubmitRawRecoveryBundleAsync(owner1, "p0506-replay-bundle", unstampedSyncBundle)).GetProperty("results")[0];
-        Assert.Equal("AlreadyPosted", alreadyPosted.GetProperty("status").GetString());
-        Assert.Equal(postedSaleId, alreadyPosted.GetProperty("saleId").GetGuid());
-        var opReplay = (await SubmitRawRecoveryBundleAsync(owner1, "p0506-replay-bundle", unstampedSyncBundle)).GetProperty("results")[0];
-        Assert.Equal("AlreadyPosted", opReplay.GetProperty("status").GetString());
-
-        // 6. Cross-shop isolation: different shop gets zero disclosure / case leakage.
-        using (var crossCase = await otherShopOwner.GetAsync($"/api/offline-reconciliation/{anchoredCaseId:D}", Ct))
-            Assert.Equal(HttpStatusCode.NotFound, crossCase.StatusCode);
-        using (var crossBundle = await PostRawRecoveryBundleAsync(otherShopOwner, "p0506-replay-bundle", unstampedSyncBundle))
+        // Cross-shop refusal + security suspension refusal.
+        using (var crossBundle = await PostRawRecoveryBundleAsync(otherShopOwner, "p0506-replay-op", literalBundle))
             await AssertProblemAsync(crossBundle, HttpStatusCode.BadRequest, "Recovery.BundleShopMismatch");
 
-        // 7. Security suspension blocks sync duplicate, bundle AlreadyPosted, op-receipt replay, and case GET.
         await ApplyAsync(actor.Binding, accessEnd.AddDays(5), revision: 2, restriction: "Security");
-        using (var secSync = await owner1.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = LegacyDevice, sales = new[] { unstampedSyncNode } }, Ct))
+        using (var secSync = await owner1.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = LegacyDevice, sales = new[] { literalSyncNode } }, Ct))
             await AssertProblemAsync(secSync, HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
-        using (var secBundle = await PostRawRecoveryBundleAsync(owner1, "p0506-replay-bundle", unstampedSyncBundle))
+        using (var secBundle = await PostRawRecoveryBundleAsync(owner1, "p0506-replay-op", literalBundle))
             await AssertProblemAsync(secBundle, HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
-        using (var secGet = await owner1.GetAsync($"/api/offline-reconciliation/{anchoredCaseId:D}", Ct))
-            await AssertProblemAsync(secGet, HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
 
-        // Release suspension (rev 3 releasing rev 2) to verify session revocation, role demotion, and membership loss.
         await ApplySuspensionReleaseAsync(actor.Binding, accessEnd.AddDays(10), revision: 3, releasedRevision: 2);
+        await AssertRevocationAndRoleLossRefusalsAsync(host, owner1, owner2, actor, literalSyncNode, literalBundle);
+        Assert.Equal(factsAfterPost, await ReadEconomicFactsAsync(actor.Shop));
+    }
 
-        // 8. Revoked session blocks sync duplicate & bundle op-receipt replay while second session remains authorized.
+    [Fact]
+    public async Task Key_rotation_preserves_archived_key_and_keeps_legacy_receipt_references_null()
+    {
+        var vectors = LoadLegacyVectors();
+        var literalBundle = vectors.GetProperty("v1FrozenDocument").GetProperty("exportedBundleText").GetString()!;
+        var start = At("2027-01-20T11:20:00Z");
+        var end = At("2027-01-20T12:20:00Z");
+
+        Actor actor;
+        JsonNode signedSale;
+        using (var hostA = CreateHost(key: _keyA))
+        {
+            await hostA.InitializeAsync();
+            using var ownerA = CreateClient(hostA);
+            actor = await OpenPinnedVectorShopAsync(hostA, ownerA, vectors, start, start.AddDays(-1), end, start, start, seed7ff1Batch: false, seed671dBatch: true);
+            signedSale = await BuildIssuedInvoiceAsync(ownerA, actor, start, end, "valid", device: "signed-dev");
+        }
+
+        using var rsaB = RSA.Create(2048);
+        using var hostB = CreateHost(key: new PermitKey("p0506-key-b", rsaB));
+        using var ownerB = await CreateSecondSessionClientAsync(hostB, actor, start.AddDays(400));
+
+        _clock.Now = end.AddMinutes(5);
+        var signedSyncStatus = (await SyncInvoiceAsync(ownerB, signedSale, device: "signed-dev")).GetProperty("status").GetString();
+        Assert.True(signedSyncStatus is "created" or "SyncedWithWarnings", signedSyncStatus);
+        Assert.Equal("ReviewOpened", (await SubmitRawRecoveryBundleAsync(ownerB, "p0506-rot-legacy", literalBundle)).GetProperty("results")[0].GetProperty("status").GetString());
+
+        await using var db = Open(Migrator);
+        var archivedKey = await db.Set<OfflineLicenseVerificationKey>().SingleAsync(k => k.ShopId == actor.Shop && k.KeyId == _keyA.Id, Ct);
+        Assert.Equal(_keyA.Fingerprint, archivedKey.Fingerprint);
+        var signedReceipt = await db.OfflineSubmissions.SingleAsync(x => x.ShopId == actor.Shop && x.DeviceId == "signed-dev", Ct);
+        Assert.NotNull(signedReceipt.LicencePermitId);
+        Assert.NotNull(signedReceipt.LicenceGrantId);
+        var legacyReceipt = await db.OfflineSubmissions.SingleAsync(x => x.ShopId == actor.Shop && x.DeviceId == LegacyDevice, Ct);
+        Assert.Null(legacyReceipt.LicencePermitId);
+        Assert.Null(legacyReceipt.LicenceGrantId);
+        Assert.DoesNotContain("licenceEvidence", legacyReceipt.PayloadJson, StringComparison.Ordinal);
+        _output.WriteLine("P0506 key rotation: archivedKeyId={0} fingerprint={1} signedPermitId={2} legacyFKs=null",
+            archivedKey.KeyId, archivedKey.Fingerprint, signedReceipt.LicencePermitId);
+    }
+
+    private async Task VerifySyntheticPostReserverSyncAndLinkAsync(HttpClient owner, Actor actor, JsonNode v7SyncNode, DateTimeOffset verifiedAt)
+    {
+        await SeedUnanchoredLeaseAsync(actor, "post-reserver-dev", At("2027-01-20T11:00:00Z"), verifiedAt.AddDays(3), 50, "INV-2026-27-", withReserver: true);
+        var controlNode = CloneWithIdentity(v7SyncNode, "synthetic-post-reserver-0001", "INV-2026-27-000050");
+        var synced = await SyncInvoiceAsync(owner, controlNode, "post-reserver-dev");
+        Assert.Equal("created", synced.GetProperty("status").GetString());
+        var saleId = synced.GetProperty("saleId").GetGuid();
+
+        Guid caseId;
+        await using (var db = Open(Migrator))
+        {
+            var receipt = await db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == actor.Shop && x.ClientSaleId == "synthetic-post-reserver-0001", Ct);
+            Assert.Null(receipt.LicencePermitId);
+            Assert.Null(receipt.LicenceGrantId);
+            var issue = ReconciliationIssue.Create(actor.Shop, null, receipt.ClientSaleId, receipt.DeviceId, ReconciliationIssueType.LicenseHistoryReview,
+                "OfflineLicenceHistory.EvidenceMissing", "Duplicate historical hold on already-posted synthetic control", actor.User, invoiceNumber: receipt.InvoiceNumber, offlineSubmissionId: receipt.Id);
+            db.ReconciliationIssues.Add(issue);
+            await db.SaveChangesAsync(Ct);
+            caseId = issue.Id;
+        }
+
+        var beforeLink = await ReadEconomicFactsAsync(actor.Shop);
+        var detail = await GetCaseDetailAsync(owner, caseId);
+        Assert.Equal(["LinkExistingSale", "Escalate"], detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
+        var resolved = await ResolveCaseAsync(owner, caseId, detail.GetProperty("version").GetUInt32(), "p0506-link-exact", "LinkExistingSale", "Exact posted sale matched", saleId);
+        Assert.Equal(("Resolved", saleId), (resolved.GetProperty("status").GetString(), resolved.GetProperty("saleId").GetGuid()));
+        Assert.Equal(beforeLink, await ReadEconomicFactsAsync(actor.Shop));
+    }
+
+    private async Task AssertRevocationAndRoleLossRefusalsAsync(ApiWebApplicationFactory host, HttpClient owner1, HttpClient owner2, Actor actor, JsonNode syncNode, string literalBundle)
+    {
         await using (var db = Open(Migrator))
             await db.Database.ExecuteSqlAsync($"UPDATE auth_sessions SET revoked_at = {_clock.Now} WHERE id = {actor.Session}", Ct);
-        using (var revSync = await owner1.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = LegacyDevice, sales = new[] { unstampedSyncNode } }, Ct))
+        using (var revSync = await owner1.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = LegacyDevice, sales = new[] { syncNode } }, Ct))
             Assert.Equal(HttpStatusCode.Unauthorized, revSync.StatusCode);
-        using (var revBundle = await PostRawRecoveryBundleAsync(owner1, "p0506-replay-bundle", unstampedSyncBundle))
+        using (var revBundle = await PostRawRecoveryBundleAsync(owner1, "p0506-replay-op", literalBundle))
             Assert.Equal(HttpStatusCode.Unauthorized, revBundle.StatusCode);
-        Assert.Equal("AlreadyPosted",
-            (await SubmitRawRecoveryBundleAsync(owner2, "p0506-replay-bundle", unstampedSyncBundle)).GetProperty("results")[0].GetProperty("status").GetString());
+        Assert.Equal("AlreadyPosted", (await SubmitRawRecoveryBundleAsync(owner2, "p0506-replay-op", literalBundle)).GetProperty("results")[0].GetProperty("status").GetString());
 
-        // 9. Loss of role (Owner -> Staff) blocks bundle op-receipt replay (stale authority -> 401; fresh Staff token -> 403);
-        //    suspended membership blocks sync duplicate too.
         await using (var db = Open(Migrator))
         {
             var m = await db.ShopMemberships.SingleAsync(x => x.ShopId == actor.Shop && x.UserId == actor.User, Ct);
             m.ChangeAuthority(ShopRole.Staff, MembershipStatus.Active);
             await db.SaveChangesAsync(Ct);
         }
-        using (var staleOwnerBundle = await PostRawRecoveryBundleAsync(owner2, "p0506-replay-bundle", unstampedSyncBundle))
-            Assert.Contains(staleOwnerBundle.StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
-        using var demotedStaffClient = await CreateSecondSessionClientAsync(host, actor, verifiedAt.AddDays(400));
-        using (var staffBundle = await PostRawRecoveryBundleAsync(demotedStaffClient, "p0506-replay-bundle", unstampedSyncBundle))
+        using (var staleOwner = await PostRawRecoveryBundleAsync(owner2, "p0506-replay-op", literalBundle))
+            Assert.Contains(staleOwner.StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
+        using var staffClient = await CreateSecondSessionClientAsync(host, actor, _clock.Now.AddDays(400));
+        using (var staffBundle = await PostRawRecoveryBundleAsync(staffClient, "p0506-replay-op", literalBundle))
             Assert.Equal(HttpStatusCode.Forbidden, staffBundle.StatusCode);
 
         await using (var db = Open(Migrator))
@@ -185,70 +204,8 @@ public sealed partial class P0506LicensingTests
             m.ChangeAuthority(ShopRole.Owner, MembershipStatus.Suspended);
             await db.SaveChangesAsync(Ct);
         }
-        using (var suspSync = await demotedStaffClient.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = LegacyDevice, sales = new[] { unstampedSyncNode } }, Ct))
+        using (var suspSync = await staffClient.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = LegacyDevice, sales = new[] { syncNode } }, Ct))
             Assert.Contains(suspSync.StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
-
-        Assert.Equal(factsBeforeLink, await ReadEconomicFactsAsync(actor.Shop));
-    }
-
-    [Fact]
-    public async Task Key_rotation_preserves_archived_key_and_keeps_legacy_receipt_references_null()
-    {
-        var vectors = LoadLegacyVectors();
-        var start = At("2027-01-20T11:20:00Z");
-        var soldAt = At("2027-01-20T11:50:00Z");
-        var end = At("2027-01-20T12:20:00Z");
-
-        Actor actor;
-        JsonNode signedSale;
-        Guid legacyBatchId;
-        string rawLegacyBundle;
-        using (var hostA = CreateHost(key: _keyA))
-        {
-            await hostA.InitializeAsync();
-            using var ownerA = CreateClient(hostA);
-            actor = await OpenHistoricalShopWithCustomVerificationAsync(
-                ownerA, applyAt: start, startsAt: start.AddDays(-1), endsAt: end,
-                shopVerifiedAt: start, accountVerifiedAt: start);
-            // Issue one genuine signed permit invoice under keyA on a separate device before adding second batch.
-            signedSale = await BuildIssuedInvoiceAsync(ownerA, actor, start, end, "valid", device: "signed-dev");
-            legacyBatchId = await ConfigureRegularShopAndSeedVectorGoodsAsync(ownerA, actor.Shop);
-            await SeedUnanchoredLeaseAsync(actor, LegacyDevice, soldAt.AddMinutes(-30), start.AddDays(3), rangeStart: 1);
-            (rawLegacyBundle, _, _, _) = BuildVectorRecoveryBundle(
-                vectors, actor.Shop, LegacyDevice, actor.User, legacyBatchId, soldAt, "A/2627/000002", end.AddMinutes(5), prettyWhitespace: false);
-        }
-
-        // Rotate signing key to keyB on a fresh host (same DB; do not re-initialize); advance past ordinary expiry.
-        using var rsaB = RSA.Create(2048);
-        var keyB = new PermitKey("p0506-key-b", rsaB);
-        using var hostB = CreateHost(key: keyB);
-        using var ownerB = await CreateSecondSessionClientAsync(hostB, actor, start.AddDays(400));
-
-        _clock.Now = end.AddMinutes(5);
-        var syncedSigned = await SyncInvoiceAsync(ownerB, signedSale, device: "signed-dev");
-        Assert.Equal("created", syncedSigned.GetProperty("status").GetString());
-
-        var legacyImport = await SubmitRawRecoveryBundleAsync(ownerB, "p0506-rot-legacy", rawLegacyBundle);
-        Assert.Equal("ReviewOpened", legacyImport.GetProperty("results")[0].GetProperty("status").GetString());
-
-        await using var db = Open(Migrator);
-        var archivedKey = await db.Set<OfflineLicenseVerificationKey>()
-            .SingleAsync(k => k.ShopId == actor.Shop && k.KeyId == _keyA.Id, Ct);
-        Assert.Equal(_keyA.Fingerprint, archivedKey.Fingerprint);
-
-        var signedReceipt = await db.OfflineSubmissions.SingleAsync(x => x.ShopId == actor.Shop && x.DeviceId == "signed-dev", Ct);
-        Assert.NotNull(signedReceipt.LicencePermitId);
-        Assert.NotNull(signedReceipt.LicenceGrantId);
-        var persistedEvidence = JsonNode.Parse(signedReceipt.PayloadJson)!["licenceEvidence"]!;
-        Assert.Equal(_keyA.Id, persistedEvidence["keyId"]!.GetValue<string>());
-        Assert.Equal(signedSale["licenceEvidence"]!["signedPermit"]!.GetValue<string>(), persistedEvidence["signedPermit"]!.GetValue<string>());
-
-        var legacyReceipt = await db.OfflineSubmissions.SingleAsync(x => x.ShopId == actor.Shop && x.DeviceId == LegacyDevice, Ct);
-        Assert.Null(legacyReceipt.LicencePermitId);
-        Assert.Null(legacyReceipt.LicenceGrantId);
-        Assert.DoesNotContain("licenceEvidence", legacyReceipt.PayloadJson, StringComparison.Ordinal);
-        _output.WriteLine("P0506 key rotation: archivedKeyId={0} fingerprint={1} signedPermitId={2} legacyFKs=null",
-            archivedKey.KeyId, archivedKey.Fingerprint, signedReceipt.LicencePermitId);
     }
 
     private async Task ApplySuspensionReleaseAsync(Binding binding, DateTimeOffset endsAt, long revision, long releasedRevision)
@@ -261,11 +218,8 @@ public sealed partial class P0506LicensingTests
             new(revision, now, "Unrestricted", releasedRevision),
             new(revision, now, "Active", binding.Term, "Paid", now.AddDays(-1), endsAt, endsAt, 2, 3));
         var body = JsonSerializer.SerializeToUtf8Bytes(snapshot, EntitlementSnapshotsV1.Json);
-        var proof = new VerifiedServiceAssertion(
-            Guid.NewGuid(), "test-key", "test-public-key", now, now.AddMinutes(5),
-            SignedServiceAssertion.Digest(body), "fixture-verified-assertion");
-        var fence = new ShopLicenceFence(db, new LicenceActionPolicy(), _clock);
-        var result = await new EntitlementProjectionStore(db, _clock, fence).ApplyAsync(snapshot, body, proof, Ct);
+        var proof = new VerifiedServiceAssertion(Guid.NewGuid(), "test-key", "test-public-key", now, now.AddMinutes(5), SignedServiceAssertion.Digest(body), "fixture-verified-assertion");
+        var result = await new EntitlementProjectionStore(db, _clock, new ShopLicenceFence(db, new LicenceActionPolicy(), _clock)).ApplyAsync(snapshot, body, proof, Ct);
         Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
     }
 }

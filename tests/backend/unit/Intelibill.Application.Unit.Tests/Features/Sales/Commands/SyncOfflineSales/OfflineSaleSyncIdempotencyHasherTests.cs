@@ -192,6 +192,20 @@ public class OfflineSaleSyncIdempotencyHasherTests
         Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, badJson));
     }
 
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"items\":null}")]
+    [InlineData("{\"items\":[null]}")]
+    public void TryReadValidated_ReturnsNullForMalformedRetainedItemCollections(string payloadJson)
+    {
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", "client-sale-1", "INV-2025-26-000001", new string('A', 64), payloadJson,
+            now, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-malformed");
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, submission));
+    }
+
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>
         new(
             "client-sale-1",
