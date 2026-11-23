@@ -184,7 +184,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             cancellationToken);
 
         var held = new HeldInvoice(context, submission.ClientSaleId, submission.InvoiceNumber, submission.Id, submission.SubmittedByUserId, now);
-        var storedSale = ReadValidatedPayload(context.ShopId, submission);
+        var storedSale = OfflineSubmissionPayload.TryReadValidated(context.ShopId, submission);
         if (storedSale is null)
         {
             var corrupted = await OpenLicenceHistoryAsync(held, Errors.OfflineLicenceHistory.EvidenceInvalid,
@@ -416,21 +416,6 @@ public sealed class SubmitRecoveryBundleCommandHandler(
 
     private static string ComputeChecksum(string invoicesJson) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(invoicesJson)));
-
-    private static OfflineSaleSyncCommand? ReadValidatedPayload(Guid shopId, OfflineSubmission submission)
-    {
-        try
-        {
-            var sale = OfflineSubmissionPayload.Deserialize(submission.PayloadJson);
-            if (sale is null) return null;
-            var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale);
-            return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 
     private static List<OfflineSaleSyncCommand>? ReadInvoices(string invoicesJson)
     {

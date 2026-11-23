@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Licensing.Offline;
@@ -100,15 +99,8 @@ internal static class ReconciliationLinkRules
         if (!SameIdentity(sale, submission.DeviceId, submission.ClientSaleId))
             return Errors.Reconciliation.SaleIdentityMismatch;
 
-        OfflineSaleSyncCommand? payload;
-        try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); }
-        catch (JsonException) { return Errors.Reconciliation.SaleIdentityMismatch; }
-        if (payload is null)
-            return Errors.Reconciliation.SaleIdentityMismatch;
-
-        var recomputedHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(issue.ShopId, submission.DeviceId, payload);
-        if (!string.Equals(recomputedHash, submission.PayloadHash, StringComparison.Ordinal)
-            || !string.Equals(sale.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
+        var payload = OfflineSubmissionPayload.TryReadValidated(issue.ShopId, submission);
+        if (payload is null || !string.Equals(sale.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
             return Errors.Reconciliation.SaleIdentityMismatch;
 
         if (!string.Equals(sale.InvoiceNumber, submission.InvoiceNumber, StringComparison.Ordinal)

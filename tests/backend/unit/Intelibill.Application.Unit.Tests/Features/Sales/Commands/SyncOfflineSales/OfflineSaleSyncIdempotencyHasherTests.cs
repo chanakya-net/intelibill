@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using System.Text.Json;
 using Intelibill.Application.Features.Tills;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -162,6 +163,140 @@ public class OfflineSaleSyncIdempotencyHasherTests
         var trimmed = sale with { Till = sale.Till with { OverrideReason = "assistance" }, TenderLines = [sale.TenderLines[0] with { ExternalReference = "ref" }] };
         Assert.Equal(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", trimmed));
         Assert.DoesNotContain("till", OfflineSubmissionPayload.Serialize(Sale(1)), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TryReadValidated_VerifiesHashShopAndJsonWithoutRewritingEnvelope()
+    {
+        var sale = Sale(calculationVersion: null, issuedByUserId: null);
+        var json = OfflineSubmissionPayload.Serialize(sale);
+        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", sale);
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, hash, json,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-1");
+
+        var read = OfflineSubmissionPayload.TryReadValidated(ShopId, submission);
+        Assert.NotNull(read);
+        Assert.Equal(LegacyHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", read!));
+        Assert.Equal(json, submission.PayloadJson);
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(Guid.NewGuid(), submission));
+        var badHash = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, new string('0', 64), json,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-2");
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, badHash));
+        var badJson = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, hash, "{not-json",
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-3");
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, badJson));
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"items\":null}")]
+    [InlineData("{\"items\":[null]}")]
+    public void TryReadValidated_ReturnsNullForMalformedRetainedItemCollections(string payloadJson)
+    {
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", "client-sale-1", "INV-2025-26-000001", new string('A', 64), payloadJson,
+            now, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-malformed");
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, submission));
+    }
+
+    [Theory]
+    [InlineData(null, LegacyHash)]
+    [InlineData(1, Version1WithoutIssuerHash)]
+    public void TryReadValidated_AcceptsOmittedHistoricalLineServiceFieldsWithGoodsDefaults(int? calculationVersion, string expectedHash)
+    {
+        var sale = Sale(calculationVersion, issuedByUserId: null);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(OfflineSubmissionPayload.Serialize(sale))!.AsObject();
+        var line = root["items"]![0]!.AsObject();
+        line.Remove("lineType");
+        line.Remove("serviceId");
+        var strippedJson = root.ToJsonString();
+
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, expectedHash, strippedJson,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-omitted");
+
+        var read = OfflineSubmissionPayload.TryReadValidated(ShopId, submission);
+        Assert.NotNull(read);
+        Assert.Equal("Goods", read!.Items[0].LineType);
+        Assert.Null(read.Items[0].ServiceId);
+        Assert.False(read.Items[0].IsServiceLine);
+        Assert.Equal(expectedHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", read));
+        Assert.Equal(strippedJson, submission.PayloadJson);
+    }
+
+    [Theory]
+    [InlineData("Service", null)]
+    [InlineData("service", null)]
+    [InlineData("Other", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    [InlineData("Goods", "11111111-1111-4111-8111-111111111111")]
+    [InlineData("Goods", "00000000-0000-0000-0000-000000000000")]
+    [InlineData("Service", "11111111-1111-4111-8111-111111111111")]
+    public void TryReadValidated_RejectsIncompatibleLineServiceSemanticsEvenWithMatchingHash(string? lineType, string? serviceId)
+    {
+        var sale = Sale(calculationVersion: null, issuedByUserId: null);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(OfflineSubmissionPayload.Serialize(sale))!.AsObject();
+        var line = root["items"]![0]!.AsObject();
+        line["lineType"] = lineType is null ? null : System.Text.Json.Nodes.JsonValue.Create(lineType);
+        line["serviceId"] = serviceId is null ? null : System.Text.Json.Nodes.JsonValue.Create(serviceId);
+        var mutatedJson = root.ToJsonString();
+
+        // Confirm the canonical v1 hash is unchanged by the two omitted properties.
+        var deserialized = OfflineSubmissionPayload.Deserialize(mutatedJson)!;
+        Assert.Equal(LegacyHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", deserialized));
+
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", sale.ClientSaleId, sale.InvoiceNumber, LegacyHash, mutatedJson,
+            sale.SoldAt, now, OfflineSubmissionSource.Recovery, IssuerId, null, null, null, "op-service-tamper");
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidated(ShopId, submission));
+        Assert.Equal(mutatedJson, submission.PayloadJson);
+        Assert.Equal(LegacyHash, submission.PayloadHash);
+    }
+
+    [Fact]
+    public void TryReadValidatedSync_ValidatesHashSourceAndUnhashedLineSemantics()
+    {
+        var serviceId = Guid.NewGuid();
+        var goods = Sale(calculationVersion: null, issuedByUserId: null);
+        var service = goods with
+        {
+            Items = [goods.Items[0] with { LineType = "Service", ServiceId = serviceId }],
+        };
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        OfflineSubmission Make(OfflineSubmissionSource source, OfflineSaleSyncCommand stored) =>
+            OfflineSubmission.Record(ShopId, "device-1", stored.ClientSaleId, stored.InvoiceNumber, LegacyHash,
+                OfflineSubmissionPayload.Serialize(stored), stored.SoldAt, now, source, IssuerId, null, null, null, null);
+
+        var syncService = Make(OfflineSubmissionSource.Sync, service);
+        var read = OfflineSubmissionPayload.TryReadValidatedSync(ShopId, syncService, LegacyHash, service);
+        Assert.NotNull(read);
+        Assert.Equal(("Service", serviceId), (read!.Items[0].LineType, read.Items[0].ServiceId));
+
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Sync,
+            service with { Items = [service.Items[0] with { ServiceId = Guid.NewGuid() }] }), LegacyHash, service));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Sync, goods), LegacyHash, service));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, syncService, new string('F', 64), service));
+
+        var invalidGoodsWithService = goods with { Items = [goods.Items[0] with { ServiceId = serviceId }] };
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Sync, invalidGoodsWithService), LegacyHash, invalidGoodsWithService));
+
+        // Recovery-originated receipts stay strictly v1 goods-only even when a direct sync command carries matching service lines.
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Recovery, service), LegacyHash, service));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, Make(OfflineSubmissionSource.Recovery, goods), LegacyHash, service));
+
+        var lowercaseGoods = Make(OfflineSubmissionSource.Recovery, goods with { Items = [goods.Items[0] with { LineType = "goods" }] });
+        Assert.NotNull(OfflineSubmissionPayload.TryReadValidatedSync(ShopId, lowercaseGoods, LegacyHash, goods));
     }
 
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>

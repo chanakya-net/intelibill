@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import vectors from '../../../../../../../tests/contracts/licensing/p05-06-legacy-queue-vectors.json';
 import { OfflineQueueWriteRefusedError, OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 
 describe('OfflineSalesQueueIndexedDbService', () => {
@@ -225,6 +227,173 @@ describe('OfflineSalesQueueIndexedDbService', () => {
     });
   });
 
+  describe('legacy v1 queue compatibility (P05-06)', () => {
+    function sha256(text: string): string {
+      return createHash('sha256').update(text, 'utf8').digest('hex');
+    }
+
+    async function seedRawV1Rows(rows: readonly Record<string, unknown>[]): Promise<void> {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const open = indexedDB.open('intelibill-offline-sales-queue', 1);
+        open.onupgradeneeded = () => {
+          const database = open.result;
+          if (!database.objectStoreNames.contains('queued-sales')) {
+            database.createObjectStore('queued-sales', { keyPath: 'key' });
+          }
+        };
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('queued-sales', 'readwrite');
+        const store = tx.objectStore('queued-sales');
+        for (const row of rows) store.put(row);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    }
+
+    async function readRawV1Row(key: string): Promise<Record<string, unknown> | undefined> {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const open = indexedDB.open('intelibill-offline-sales-queue', 1);
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      const raw = await new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
+        const tx = db.transaction('queued-sales', 'readonly');
+        const req = tx.objectStore('queued-sales').get(key);
+        req.onsuccess = () => resolve(req.result as Record<string, unknown> | undefined);
+        req.onerror = () => reject(req.error);
+      });
+      db.close();
+      return raw;
+    }
+
+    function spyTransactionModes(): { modes: string[]; restore: () => void } {
+      const modes: string[] = [];
+      const origOpen = indexedDB.open.bind(indexedDB);
+      const openSpy = vi.spyOn(indexedDB, 'open').mockImplementation((name: string, version?: number) => {
+        const req = origOpen(name, version);
+        req.addEventListener('success', () => {
+          const db = req.result;
+          const origTx = db.transaction.bind(db);
+          db.transaction = ((storeNames: string | string[], mode?: IDBTransactionMode) => {
+            modes.push(mode ?? 'readonly');
+            return origTx(storeNames, mode);
+          }) as typeof db.transaction;
+        });
+        return req;
+      });
+      return { modes, restore: () => openSpy.mockRestore() };
+    }
+
+    async function assertDeliveryTransitions(
+      compat: OfflineSalesQueueIndexedDbService,
+      shopId: string,
+      deviceId: string,
+      modes: string[],
+      restore: () => void,
+    ): Promise<void> {
+      const syncing7ff1 = await compat.markSyncInProgress(shopId, deviceId, 'legacy-7ff1-0001');
+      expect(modes).toEqual(['readwrite']);
+      restore();
+      expect(syncing7ff1?.status).toBe('Syncing');
+      expect(syncing7ff1?.syncAttemptCount).toBe(1);
+      expect(JSON.stringify(syncing7ff1?.payload)).toBe(vectors.unversionedPreDocument.payloadJson);
+      expect(await compat.deleteOldSyncedRecords(-1)).toBe(0);
+
+      const held7ff1 = await compat.applySyncResult(shopId, deviceId, 'legacy-7ff1-0001', {
+        status: 'NeedsReview', errorCode: 'OfflineLicenceHistory.EvidenceMissing',
+        errorMessage: 'Historical evidence required', reviewCaseId: 'case-legacy-7ff1',
+      });
+      expect(held7ff1?.status).toBe('NeedsReview');
+      expect(held7ff1?.syncAttempts).toHaveLength(1);
+      expect(held7ff1?.reviewCaseId).toBe('case-legacy-7ff1');
+      expect(sha256(JSON.stringify(held7ff1?.payload))).toBe(vectors.unversionedPreDocument.payloadSha256);
+
+      const syncing671d = await compat.markSyncInProgress(shopId, deviceId, 'legacy-671d-0002');
+      expect(JSON.stringify(syncing671d?.payload)).toBe(vectors.v1FrozenDocument.payloadJson);
+      const held671d = await compat.applySyncResult(shopId, deviceId, 'legacy-671d-0002', {
+        status: 'NeedsReview', errorCode: 'OfflineLicenceHistory.EvidenceMissing', reviewCaseId: 'case-legacy-671d',
+      });
+      expect(sha256(JSON.stringify(held671d?.payload))).toBe(vectors.v1FrozenDocument.payloadSha256);
+    }
+
+    it('retains issued bytes through a legacy queue delivery cycle', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const compat = new OfflineSalesQueueIndexedDbService();
+      const { shopId, deviceId } = vectors.scope;
+      const raw7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as Record<string, unknown>;
+      const raw671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as Record<string, unknown>;
+      const { warnings: _w, syncAttempts: _a, syncAttemptCount: _c, lastSyncAttemptAt: _l, ...minimal7ff1 } = raw7ff1;
+
+      await seedRawV1Rows([minimal7ff1, raw671d]);
+      const { modes, restore } = spyTransactionModes();
+
+      const byKey7ff1 = await compat.getQueuedSale(shopId, deviceId, 'legacy-7ff1-0001');
+      const byKey671d = await compat.getQueuedSale(shopId, deviceId, 'legacy-671d-0002');
+      const listed = await compat.getAllByShopDevice(shopId, deviceId);
+      const retryable = await compat.getRetryableSales(shopId, deviceId);
+      expect(modes).toEqual(['readonly', 'readonly', 'readonly', 'readonly']);
+      modes.length = 0;
+
+      expect(listed.map((r) => r.clientSaleId).sort()).toEqual(['legacy-671d-0002', 'legacy-7ff1-0001']);
+      expect(retryable.map((r) => r.clientSaleId)).toEqual(['legacy-7ff1-0001', 'legacy-671d-0002']);
+      expect(byKey7ff1?.warnings).toEqual([]);
+      expect(byKey7ff1?.syncAttempts).toEqual([]);
+      expect(byKey7ff1?.syncAttemptCount).toBe(0);
+      expect(sha256(JSON.stringify(byKey7ff1!.payload))).toBe(vectors.unversionedPreDocument.payloadSha256);
+      expect(sha256(JSON.stringify(byKey671d!.payload))).toBe(vectors.v1FrozenDocument.payloadSha256);
+
+      const rawAfterRead = await readRawV1Row(raw7ff1['key'] as string);
+      expect('syncAttempts' in (rawAfterRead ?? {})).toBe(false);
+      modes.length = 0;
+
+      await assertDeliveryTransitions(compat, shopId, deviceId, modes, restore);
+
+      const rawFinal7ff1 = await readRawV1Row(raw7ff1['key'] as string);
+      const rawFinal671d = await readRawV1Row(raw671d['key'] as string);
+      expect(JSON.stringify(rawFinal7ff1?.['payload'])).toBe(vectors.unversionedPreDocument.payloadJson);
+      expect(JSON.stringify(rawFinal671d?.['payload'])).toBe(vectors.v1FrozenDocument.payloadJson);
+      expect(rawFinal7ff1?.['idempotencyKey']).toBe(vectors.unversionedPreDocument.deviceIdempotencyKey);
+      expect(rawFinal671d?.['idempotencyKey']).toBe(vectors.v1FrozenDocument.deviceIdempotencyKey);
+      expect(rawFinal7ff1?.['idempotencyKey']).not.toBe(vectors.unversionedPreDocument.expectedServerIdempotencyKey);
+      expect(rawFinal7ff1?.['invoiceNumber']).toBe(vectors.unversionedPreDocument.invoiceNumber);
+      expect(rawFinal671d?.['invoiceNumber']).toBe(vectors.v1FrozenDocument.invoiceNumber);
+      expect('licenceEvidence' in (rawFinal7ff1?.['payload'] as Record<string, unknown>)).toBe(false);
+      expect('document' in (rawFinal7ff1?.['payload'] as Record<string, unknown>)).toBe(false);
+      expect('licenceEvidence' in (rawFinal671d?.['payload'] as Record<string, unknown>)).toBe(false);
+    });
+
+    it('prunes synced rows by stored delivery metadata, never by the soldAt read fallback (R009)', async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      const now = Date.parse('2027-01-30T12:00:00.000Z');
+      vi.spyOn(Date, 'now').mockReturnValue(now);
+      const compat = new OfflineSalesQueueIndexedDbService();
+      const { shopId, deviceId } = vectors.scope;
+      const recentAttempt = new Date(now).toISOString();
+      const synced = (clientSaleId: string): Record<string, unknown> => {
+        const row = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as Record<string, unknown>;
+        return {
+          ...row, key: `${shopId}::${deviceId}::${clientSaleId}`, clientSaleId, status: 'Synced',
+          syncAttemptCount: 1, lastSyncAttemptAt: recentAttempt, syncAttempts: [{ attemptedAt: recentAttempt, ok: true }],
+        };
+      };
+      const { updatedAt: _sparse, ...sparseRecent } = synced('legacy-671d-0002');
+      const documentedStale: Record<string, unknown> = { ...synced('stale-control'), updatedAt: '2027-01-21T12:00:00.000Z' };
+      await seedRawV1Rows([sparseRecent, documentedStale]);
+
+      expect(await compat.deleteOldSyncedRecords()).toBe(1);
+
+      const kept = await readRawV1Row(sparseRecent['key'] as string);
+      expect(JSON.stringify(kept?.['payload'])).toBe(vectors.v1FrozenDocument.payloadJson);
+      expect('updatedAt' in (kept ?? {})).toBe(false);
+      expect(await readRawV1Row(documentedStale['key'] as string)).toBeUndefined();
+      expect((await compat.getQueuedSale(shopId, deviceId, 'legacy-671d-0002'))?.status).toBe('Synced');
+    });
+  });
+
   function makeInput(shopId: string, deviceId: string, clientSaleId: string, soldAt: string) {
     return {
       shopId,
@@ -283,20 +452,38 @@ describe('OfflineSalesQueueIndexedDbService', () => {
         storesByName.set(storeName, new Map());
       }),
       transaction: vi.fn((storeName: string) => {
+        let pendingRequests = 0;
+        let completed = false;
+        const scheduleComplete = () => {
+          if (!options.autoCompleteTransactions || completed) return;
+          queueMicrotask(() => {
+            if (pendingRequests === 0 && !completed) {
+              completed = true;
+              tx.oncomplete?.();
+            }
+          });
+        };
+        const trackRequest = <T>(resolveValue: () => T) => {
+          pendingRequests += 1;
+          return createRequest(resolveValue, () => {
+            pendingRequests -= 1;
+            if (pendingRequests === 0) scheduleComplete();
+          });
+        };
         const tx = {
           objectStore: () => {
             const store = storesByName.get(storeName) ?? new Map<string, unknown>();
             storesByName.set(storeName, store);
             return {
-              get: (key: string) => createRequest(() => store.get(key)),
-              getAll: () => createRequest(() => Array.from(store.values())),
+              get: (key: string) => trackRequest(() => store.get(key)),
+              getAll: () => trackRequest(() => Array.from(store.values())),
               put: (value: { key: string }) =>
-                createRequest(() => {
+                trackRequest(() => {
                   store.set(value.key, value);
                   return value;
                 }),
               delete: (key: string) =>
-                createRequest(() => {
+                trackRequest(() => {
                   store.delete(key);
                   return undefined;
                 }),
@@ -308,9 +495,7 @@ describe('OfflineSalesQueueIndexedDbService', () => {
           error: null as unknown,
         };
         transactions.push(tx);
-        if (options.autoCompleteTransactions) {
-          queueMicrotask(() => tx.oncomplete?.());
-        }
+        scheduleComplete();
         return tx;
       }),
     };
@@ -333,7 +518,7 @@ describe('OfflineSalesQueueIndexedDbService', () => {
     return transactions;
   }
 
-  function createRequest<T>(resolveValue: () => T) {
+  function createRequest<T>(resolveValue: () => T, onSettled?: () => void) {
     const request = {
       result: undefined as T | undefined,
       error: null as unknown,
@@ -348,6 +533,8 @@ describe('OfflineSalesQueueIndexedDbService', () => {
       } catch (error) {
         request.error = error;
         request.onerror?.();
+      } finally {
+        onSettled?.();
       }
     });
 

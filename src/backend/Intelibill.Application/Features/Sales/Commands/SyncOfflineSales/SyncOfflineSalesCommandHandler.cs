@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Licensing;
@@ -85,7 +84,8 @@ public sealed class SyncOfflineSalesCommandHandler(
             return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, recorded.FirstError);
 
         return await ProcessCommittedReceiptAsync(
-            command, actorRole, recorded.Value, incomingLease, now, activeDiscountRulesById, cancellationToken);
+            command, actorRole, recorded.Value, new SubmittedReceipt(candidate.PayloadHash, sale),
+            incomingLease, now, activeDiscountRulesById, cancellationToken);
     }
 
     private async Task<ErrorOr<OfflineSubmission>> CommitReceiptAsync(
@@ -123,6 +123,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         SyncOfflineSalesCommand command,
         ShopRole actorRole,
         OfflineSubmission initialReceipt,
+        SubmittedReceipt submittedReceipt,
         InvoiceLease? incomingLease,
         DateTimeOffset now,
         IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById,
@@ -146,7 +147,8 @@ public sealed class SyncOfflineSalesCommandHandler(
                 command.ShopId, submission.ClientSaleId, submission.DeviceId, submission.InvoiceNumber,
                 submission.Id, submission.SubmittedByUserId, actorRole, command.ActorUserId);
 
-            var storedSale = ReadValidatedPayload(command.ShopId, submission);
+            var storedSale = OfflineSubmissionPayload.TryReadValidatedSync(
+                command.ShopId, submission, submittedReceipt.PayloadHash, submittedReceipt.Command);
             if (storedSale is null)
             {
                 var corrupted = await HoldLicenceHistoryAsync(hold, Errors.OfflineLicenceHistory.EvidenceInvalid,
@@ -318,7 +320,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                 }
             }
 
-            if (pending is not null && IsBlockingPendingHold(pending))
+            if (pending is not null && IsBlockingPendingHold(pending, fencedLicence?.CurrentDecision().Enforced == true))
             {
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
                 open = false;
@@ -568,27 +570,15 @@ public sealed class SyncOfflineSalesCommandHandler(
             ? issue.Id
             : null;
 
-    private static bool IsBlockingPendingHold(ReconciliationIssue pending) =>
+    private static bool IsBlockingPendingHold(ReconciliationIssue pending, bool licenceEnforced) =>
         pending.IssueType is ReconciliationIssueType.ClosedPeriodReview
             or ReconciliationIssueType.TillReview
             or ReconciliationIssueType.ExpiryReview
             or ReconciliationIssueType.LicenseHistoryReview
+        || (licenceEnforced && pending.IssueType == ReconciliationIssueType.RecoveryReview)
         || Errors.OfflineLicenceHistory.IsHistoryCode(pending.Code);
 
-    private static OfflineSaleSyncCommand? ReadValidatedPayload(Guid shopId, OfflineSubmission submission)
-    {
-        try
-        {
-            var sale = OfflineSubmissionPayload.Deserialize(submission.PayloadJson);
-            if (sale is null) return null;
-            var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale);
-            return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    private readonly record struct SubmittedReceipt(string PayloadHash, OfflineSaleSyncCommand Command);
 
     private sealed record HeldCase(
         Guid ShopId,
