@@ -24,25 +24,42 @@ internal static class OfflineSubmissionPayload
     /// canonical idempotency hash without modifying the first stored envelope.
     /// </summary>
     internal static OfflineSaleSyncCommand? TryReadValidated(Guid shopId, OfflineSubmission submission) =>
-        TryReadCore(shopId, submission, requireV1GoodsLines: true);
+        TryReadCore(shopId, submission, expectedPayloadHash: null, expectedFreshCommand: null);
 
     /// <summary>
-    /// Validates a newly created in-process sync command receipt before persistence alters or retains
-    /// it; HTTP v1 intake always binds goods lines, while direct handler callers may exercise services.
+    /// Reads a newly inserted sync receipt and verifies both its canonical idempotency hash and that
+    /// the line properties omitted from the v1 digest still match the original in-process command.
     /// </summary>
-    internal static OfflineSaleSyncCommand? TryReadFreshCommand(Guid shopId, OfflineSubmission submission) =>
-        TryReadCore(shopId, submission, requireV1GoodsLines: false);
+    internal static OfflineSaleSyncCommand? TryReadValidatedFresh(
+        Guid shopId,
+        OfflineSubmission submission,
+        string expectedPayloadHash,
+        OfflineSaleSyncCommand expectedCommand) =>
+        TryReadCore(shopId, submission, expectedPayloadHash, expectedCommand);
 
-    private static OfflineSaleSyncCommand? TryReadCore(Guid shopId, OfflineSubmission submission, bool requireV1GoodsLines)
+    private static OfflineSaleSyncCommand? TryReadCore(
+        Guid shopId,
+        OfflineSubmission submission,
+        string? expectedPayloadHash,
+        OfflineSaleSyncCommand? expectedFreshCommand)
     {
         if (submission.ShopId != shopId)
             return null;
+
+        if (expectedPayloadHash is not null
+            && !string.Equals(submission.PayloadHash, expectedPayloadHash, StringComparison.Ordinal))
+        {
+            return null;
+        }
 
         try
         {
             var sale = Deserialize(submission.PayloadJson);
             if (!HasValidHasherInputs(sale)) return null;
-            if (requireV1GoodsLines && !HasCompatibleV1GoodsLines(sale!)) return null;
+            var lineSemanticsValid = expectedFreshCommand is not null
+                ? MatchesUnhashedLineSemantics(sale!, expectedFreshCommand)
+                : HasCompatibleV1GoodsLines(sale!);
+            if (!lineSemanticsValid) return null;
             var recomputed = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, submission.DeviceId, sale!);
             return string.Equals(recomputed, submission.PayloadHash, StringComparison.Ordinal) ? sale : null;
         }
@@ -59,4 +76,21 @@ internal static class OfflineSubmissionPayload
         sale.Items.All(line =>
             string.Equals(line.LineType, nameof(SaleLineType.Goods), StringComparison.OrdinalIgnoreCase)
             && line.ServiceId is null);
+
+    private static bool MatchesUnhashedLineSemantics(OfflineSaleSyncCommand stored, OfflineSaleSyncCommand original)
+    {
+        if (!HasValidHasherInputs(original) || stored.Items.Count != original.Items.Count)
+            return false;
+
+        for (var i = 0; i < stored.Items.Count; i++)
+        {
+            if (!string.Equals(stored.Items[i].LineType, original.Items[i].LineType, StringComparison.Ordinal)
+                || stored.Items[i].ServiceId != original.Items[i].ServiceId)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

@@ -264,6 +264,38 @@ public class OfflineSaleSyncIdempotencyHasherTests
         Assert.Equal(LegacyHash, submission.PayloadHash);
     }
 
+    [Fact]
+    public void TryReadValidatedFresh_RequiresMatchingHashAndUnhashedLineSemantics()
+    {
+        var serviceId = Guid.NewGuid();
+        var original = Sale(calculationVersion: null, issuedByUserId: null) with
+        {
+            Items = [Sale(null).Items[0] with { LineType = "Service", ServiceId = serviceId }],
+        };
+        var json = OfflineSubmissionPayload.Serialize(original);
+        var now = new DateTimeOffset(2026, 10, 21, 5, 0, 0, TimeSpan.Zero);
+        var fresh = OfflineSubmission.Record(
+            ShopId, "device-1", original.ClientSaleId, original.InvoiceNumber, LegacyHash, json,
+            original.SoldAt, now, OfflineSubmissionSource.Sync, IssuerId, null, null, null, null);
+
+        var read = OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, fresh, LegacyHash, original);
+        Assert.NotNull(read);
+        Assert.Equal(("Service", serviceId), (read!.Items[0].LineType, read.Items[0].ServiceId));
+
+        var differentService = OfflineSubmission.Record(
+            ShopId, "device-1", original.ClientSaleId, original.InvoiceNumber, LegacyHash,
+            OfflineSubmissionPayload.Serialize(original with { Items = [original.Items[0] with { ServiceId = Guid.NewGuid() }] }),
+            original.SoldAt, now, OfflineSubmissionSource.Sync, IssuerId, null, null, null, null);
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, differentService, LegacyHash, original));
+
+        var flippedToGoods = OfflineSubmission.Record(
+            ShopId, "device-1", original.ClientSaleId, original.InvoiceNumber, LegacyHash,
+            OfflineSubmissionPayload.Serialize(original with { Items = [original.Items[0] with { LineType = "Goods", ServiceId = null }] }),
+            original.SoldAt, now, OfflineSubmissionSource.Sync, IssuerId, null, null, null, null);
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, flippedToGoods, LegacyHash, original));
+        Assert.Null(OfflineSubmissionPayload.TryReadValidatedFresh(ShopId, fresh, new string('F', 64), original));
+    }
+
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>
         new(
             "client-sale-1",

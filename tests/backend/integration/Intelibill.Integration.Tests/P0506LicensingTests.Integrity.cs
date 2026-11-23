@@ -2,10 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -118,6 +120,72 @@ public sealed partial class P0506LicensingTests
         var line = Assert.Single(sale.Items);
         Assert.Equal((savedHash, SaleLineType.Goods, (Guid?)null), (sale.RequestHash, line.LineType, line.ServiceId));
     }
+
+    [Fact]
+    public async Task Direct_handler_service_and_mixed_commands_preserve_outcomes_with_materialized_receipts()
+    {
+        var vectors = LoadLegacyVectors();
+        var verifiedAt = At("2027-01-20T11:20:00Z");
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var owner = CreateClient(host);
+        var actor = await OpenPinnedVectorShopAsync(
+            host, owner, vectors, verifiedAt, verifiedAt.AddDays(-1), At("2027-01-20T12:20:00Z"),
+            verifiedAt, verifiedAt, include671dLease: false, include7ff1Lease: false);
+        await SeedUnanchoredLeaseAsync(actor, LegacyDevice, At("2027-01-20T11:00:00Z"), At("2027-01-20T13:00:00Z"),
+            1, "INV-2026-27-", withReserver: true);
+
+        Guid serviceId;
+        await using (var db = Open(Migrator))
+        {
+            var service = Service.Create(actor.Shop, "SVC-001", "Repair Service", null, 500m, "9987", 0m, false, true, actor.User);
+            db.Services.Add(service);
+            await db.SaveChangesAsync(Ct);
+            serviceId = service.Id;
+        }
+
+        _clock.Now = At("2027-01-20T12:00:00Z");
+        var batchId = vectors.GetProperty("unversionedPreDocument").GetProperty("inventoryBatchId").GetGuid();
+        var before = await ReadEconomicFactsAsync(actor.Shop);
+        var sales = new[]
+        {
+            BuildDirectCommand("direct-svc-only", "INV-2026-27-000001", actor.User, [DirectServiceLine(serviceId)]),
+            BuildDirectCommand("direct-mixed", "INV-2026-27-000002", actor.User, [DirectGoodsLine(batchId), DirectServiceLine(serviceId)]),
+            BuildDirectCommand("direct-missing-svc", "INV-2026-27-000003", actor.User, [DirectServiceLine(null)]),
+        };
+
+        using var _ = AmbientSessionContext.Enter(actor.User, actor.Shop);
+        using var scope = host.Services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<SyncOfflineSalesCommandHandler>();
+        var response = await handler.HandleAsync(new SyncOfflineSalesCommand(actor.User, actor.Shop, LegacyDevice, sales), Ct);
+
+        Assert.False(response.IsError);
+        var results = response.Value.Results;
+        Assert.Equal(["created", "created", "failed"], results.Select(r => r.Status).ToArray());
+        Assert.Contains(results[2].Errors, e => e.Code == "Sale.ServiceIdRequired");
+
+        var after = await ReadEconomicFactsAsync(actor.Shop);
+        Assert.Equal((before.Sales + 2, before.OutStockTransactions + 1, before.BatchQuantity - 2m),
+            (after.Sales, after.OutStockTransactions, after.BatchQuantity));
+    }
+
+    private static OfflineSaleSyncCommand BuildDirectCommand(
+        string clientSaleId, string invoiceNumber, Guid issuerId, IReadOnlyList<OfflineSaleSyncLineCommand> items)
+    {
+        var total = items.Sum(x => x.TotalAmount);
+        return new(clientSaleId, invoiceNumber, At("2027-01-20T11:50:00Z"), null, "Walk-in", "+919876543210",
+            PaymentMethod.Cash, total, 0m, total, total, 0m, 0m, total,
+            InstantDiscountType.None, 0m, null, null, null, null, items, IssuedByUserId: issuerId);
+    }
+
+    private static OfflineSaleSyncLineCommand DirectGoodsLine(Guid batchId) =>
+        new("LEG-7FF1", "LOT-OLD", "Legacy Rice 1kg", 2m, 70m, 100m, 120m, 0m, false, batchId,
+            200m, 0m, 0m, 200m, 0m, 200m, null, null, InstantDiscountType.None, 0m, "1006");
+
+    private static OfflineSaleSyncLineCommand DirectServiceLine(Guid? serviceId) =>
+        new("SVC-001", "", "Repair Service", 1m, 0m, 500m, 0m, 0m, false, Guid.Empty,
+            500m, 0m, 0m, 500m, 0m, 500m, null, null, InstantDiscountType.None, 0m, "9987",
+            LineType: "Service", ServiceId: serviceId);
 
     private async Task<(Actor Actor, Guid CaseId, uint Version, string SavedHash, Guid ServiceId)> OpenLegacyGoodsRecoveryCaseAsync(
         ApiWebApplicationFactory host, HttpClient owner)
