@@ -43,6 +43,7 @@ internal static class MerchantBillingRegistration
             provider.GetRequiredKeyedService<IMerchantBillingSigningKeys>(OfflinePermitContractV1.Section),
             provider.GetRequiredService<IOptionsMonitor<MerchantBillingDelegationOptions>>(),
             provider.GetRequiredService<IOptionsMonitor<OfflinePermitKeyOptions>>()));
+        services.AddScoped<OfflineDeviceObservationOutbox>();
         services.AddScoped<IOfflineLicenceEvidenceStore, OfflineLicenceEvidenceStore>();
         services.AddScoped<OfflinePermitGates>();
         services.AddSingleton<OfflineSnapshotCaptureRegistry>();

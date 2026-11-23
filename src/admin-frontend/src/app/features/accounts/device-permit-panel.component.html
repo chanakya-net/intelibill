@@ -1,0 +1,116 @@
+@if (mayRead()) {
+  <section class="ib-panel" aria-labelledby="device-permit-heading" data-testid="device-permit-panel">
+    <div class="adm-panel-head">
+      <div class="adm-panel-head__copy">
+        <h2 id="device-permit-heading" class="ib-panel__title">Device contact and offline permission</h2>
+        <p class="adm-panel-sub">Read-only evidence for suspension, replacement and transfer decisions.</p>
+      </div>
+      @if (shops().length) {
+        <div class="adm-field device-filter">
+          <label for="device-permit-shop">Shop</label>
+          <select id="device-permit-shop" [value]="shop()" (change)="filter($any($event.target).value)">
+            <option value="">All shops in this account</option>
+            @for (item of shops(); track item.shopId) {
+              <option [value]="item.shopId">{{ item.shopName }}</option>
+            }
+          </select>
+        </div>
+      }
+    </div>
+
+    <dl class="device-semantics">
+      <div data-testid="device-permit-observed">
+        <dt>Observed</dt>
+        <dd>When the merchant service issued offline permission to a device, the exact end of that permission, and when
+          it received an offline upload from the device. Times are the merchant service's clock.</dd>
+      </div>
+      <div data-testid="device-permit-not-observed">
+        <dt>Not observed</dt>
+        <dd>Whether a device is connected now, still holds its permission, or stopped selling early.</dd>
+      </div>
+      <div data-testid="device-permit-unknown">
+        <dt>Unknown</dt>
+        <dd>Invoices a disconnected device has issued and not yet uploaded. A received upload does not mean its queue is empty.</dd>
+      </div>
+    </dl>
+    <p class="adm-callout adm-callout--warn" data-testid="device-permit-revocation">
+      Suspending, replacing or transferring does not revoke permission already issued. A disconnected device can keep
+      issuing offline invoices until its known permission end; those invoices are reviewed when it reconnects.
+    </p>
+
+    @switch (outcome()) {
+      @case ('loading') { <p class="adm-callout adm-callout--info" role="status">Loading device permission…</p> }
+      @case ('denied') { <p class="ib-error-banner" role="alert">Only Support, Licensing Manager or Security administrators can read device permission.</p> }
+      @case ('missing') { <p class="ib-error-banner" role="alert">That account or shop could not be found for device permission.</p> }
+      @case ('session') { <p class="ib-error-banner" role="alert">Your provider session ended. Sign in again.</p> }
+      @case ('unavailable') { <p class="ib-error-banner" role="alert">Device permission could not be read right now. Nothing is known until it can be; try again.</p> }
+    }
+
+    @if (result(); as seen) {
+      <p class="adm-panel-sub" data-testid="device-permit-evaluated">Evaluated {{ exact(seen.evaluatedAt) }}.
+        @if (seen.observedSince) {
+          <span data-testid="device-permit-since">Reporting for this account began {{ exact(seen.observedSince) }}. A device
+            whose last contact was earlier is not listed, and its permission may still be outstanding.</span>
+        }
+      </p>
+      @for (device of seen.devices; track device.shopId + device.deviceRef) {
+        <article class="adm-subcard device-card" data-testid="device-permit-device" [attr.data-device-ref]="device.deviceRef">
+          <div class="device-card__head">
+            <h3>{{ device.shopName }}</h3>
+            <span class="adm-pill" title="Opaque reference; the device's own identifier stays with the merchant">Device {{ device.deviceRef.slice(0, 12) }}</span>
+            @if (device.outstanding) {
+              <span class="adm-pill adm-pill--warn" data-testid="device-permit-state">Permission outstanding</span>
+            } @else {
+              <span class="adm-pill" data-testid="device-permit-state">No known outstanding permission</span>
+            }
+          </div>
+          <dl class="device-facts">
+            <div>
+              <dt>Known permission end</dt>
+              <dd data-testid="device-permit-end">
+                @if (device.knownPermitEnd; as end) {
+                  @if (device.outstanding) {
+                    {{ exact(end) }} · {{ left(device, seen.evaluatedAt) }} remaining at evaluation
+                    @if (device.outstandingPermits > 1) { · {{ device.outstandingPermits }} permits outstanding }
+                  } @else {
+                    No known outstanding permission; last ended {{ exact(end) }}
+                  }
+                } @else {
+                  No permission issuance observed for this device
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Last offline upload received</dt>
+              <dd data-testid="device-permit-sync">{{ exact(device.lastSynchronizedAt) ?? 'None observed' }}</dd>
+            </div>
+            <div>
+              <dt>Permission last issued</dt>
+              <dd data-testid="device-permit-issued">{{ exact(device.lastPermitIssuedAt) ?? 'None observed' }}</dd>
+            </div>
+            <div>
+              <dt>Last known contact</dt>
+              <dd data-testid="device-permit-contact">{{ exact(device.lastContactAt) }}</dd>
+            </div>
+            <div>
+              <dt>Unsent offline invoices</dt>
+              <dd data-testid="device-permit-queue">Unknown</dd>
+            </div>
+            @if (device.limit; as limit) {
+              <div>
+                <dt>Why it ends then</dt>
+                <dd>{{ limits[limit] }} · licence verified {{ exact(device.authorityVerifiedAt) }}
+                  (account revision {{ device.accountRevision }}, shop revision {{ device.shopRevision }})</dd>
+              </div>
+            }
+          </dl>
+        </article>
+      } @empty {
+        <p class="adm-callout" data-testid="device-permit-empty">
+          No device evidence has been reported{{ shop() ? ' for this shop' : ' for this account' }}. This is not proof that no
+          offline permission is outstanding or that no offline work exists: permission issued before reporting began is not listed.
+        </p>
+      }
+    }
+  </section>
+}

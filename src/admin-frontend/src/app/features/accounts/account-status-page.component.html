@@ -193,6 +193,9 @@
         </section>
       }
     }
+    @if (selected(); as account) {
+      <adm-device-permit-panel [account]="account" [shops]="accountShops()" />
+    }
     @if (mayGrant() && selected(); as account) {
       <adm-complimentary-grant [accountId]="account" (granted)="reload()" />
       <adm-trial-extension [accountId]="account" [trials]="trialShops()" (extended)="reload()" />

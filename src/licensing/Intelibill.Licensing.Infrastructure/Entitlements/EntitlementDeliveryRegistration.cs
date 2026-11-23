@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Coverage;
 using Intelibill.Licensing.Application.Restrictions;
 using Intelibill.Licensing.Infrastructure.Restrictions;
 using Intelibill.Licensing.Infrastructure.Status;
@@ -37,6 +38,11 @@ internal static class EntitlementDeliveryRegistration
         services.AddScoped<IEntitlementPublisher>(provider => provider.GetRequiredService<EntitlementPublisher>());
         services.AddScoped<LicensingEntitlementTransport>();
         services.AddScoped<IEntitlementSynchronizationReader, EntitlementSynchronizationReader>();
+        services.AddScoped<IDevicePermitObservationReader, DevicePermitObservationReader>();
+        services.AddScoped(provider => new ReadDevicePermitsHandler(provider.GetRequiredService<ISubscriptionStatusStore>(),
+            provider.GetRequiredService<IDevicePermitObservationReader>(),
+            provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
+            provider.GetRequiredService<TimeProvider>()));
         services.AddScoped(provider => new EntitlementMerchantEvents(provider.GetRequiredService<LicensingDbContext>(),
             provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>()));
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<LicensingDbContext>()));

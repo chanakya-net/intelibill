@@ -7,6 +7,7 @@ import type { Subscription } from 'rxjs';
 import { AccountStatusApi, type AccountStatus, type ProviderClosure, basisLabels, formatIst, formatIstExact, stateLabels, statusReaders } from './account-status-api.service';
 import { AccountCancellationDetailComponent } from './account-cancellation-detail.component';
 import { ComplimentaryGrantComponent } from './complimentary-grant.component';
+import { DevicePermitPanelComponent } from './device-permit-panel.component';
 import { TrialExtensionComponent } from './trial-extension.component';
 
 type Outcome = 'idle' | 'loading' | 'denied' | 'missing' | 'unavailable' | 'session';
@@ -18,7 +19,8 @@ const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
  */
 @Component({
   selector: 'adm-account-status-page',
-  imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent, TrialExtensionComponent, AccountCancellationDetailComponent],
+  imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent, TrialExtensionComponent, AccountCancellationDetailComponent,
+    DevicePermitPanelComponent],
   templateUrl: './account-status-page.component.html',
   styleUrls: ['../form-page.css', './account-status-page.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +39,9 @@ export class AccountStatusPageComponent {
   protected readonly trialShops = computed(() => this.status()?.items
     .filter(item => item.status.basis === 'Trial')
     .flatMap(item => item.coveredShops) ?? []);
+  /** Shops named by the loaded status, offered as the device panel's filter. */
+  protected readonly accountShops = computed(() => [...new Map((this.status()?.items ?? [])
+    .flatMap(item => item.coveredShops).map(shop => [shop.shopId, shop] as const)).values()]);
   protected readonly closures = signal<readonly ProviderClosure[] | null>(null);
   protected readonly closureUnavailable = signal(false);
   protected readonly closureStates = {
