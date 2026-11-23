@@ -24,6 +24,7 @@ for (const width of [1440, 390]) {
     const server = await startStaticServer(resolve('dist/ADMIN/browser'));
     const problems: string[] = [];
     const reads: URL[] = [];
+    const statusOrClosureCalls: string[] = [];
     let capabilities = ['support'];
     page.on('console', message => { if (message.type() === 'error') problems.push(message.text()); });
     page.on('pageerror', error => problems.push(error.message));
@@ -33,15 +34,21 @@ for (const width of [1440, 390]) {
         adminId: 'b3333333-3333-4333-8333-333333333333', sessionId: 'b4444444-4444-4444-8444-444444444444',
         capabilities, accessExpiresAt: new Date(Date.now() + 300_000).toISOString(),
       } }));
-      await page.route('**/api/admin/accounts/*/status', route => route.fulfill({ json: { evaluatedAt, nextCursor: null,
-        items: new URL(route.request().url()).pathname.includes(other) ? [] : [{ coveredShopCount: 2, coveredShops: [
-          { shopId, shopName: 'Counter Shop' }, { shopId: otherShop, shopName: 'Back Office Shop' }],
-        status: { termId: 'b7777777-7777-4777-8777-777777777777', state: 'Active', evidenceState: 'Complete', basis: 'Paid',
-          billingPeriod: 'Month', timeZone: 'Asia/Kolkata', startsAt: '2026-11-01T00:00:00Z', paidThrough: '2026-12-01T00:00:00Z',
-          graceEndsAt: null, accessEndsAt: '2026-12-01T00:00:00Z', nextDeadline: '2026-12-01T00:00:00Z', nextPeriodEndsAt: null,
-          coverageMode: 'Grouped', purchasedCapacity: 2, memberAllowance: 5, sourceReference: null, developmentFixture: true,
-          commercial: null } }] } }));
-      await page.route('**/api/admin/accounts/*/closures', route => route.fulfill({ json: [] }));
+      await page.route('**/api/admin/accounts/*/status', route => {
+        statusOrClosureCalls.push(route.request().url());
+        return route.fulfill({ json: { evaluatedAt, nextCursor: null,
+          items: new URL(route.request().url()).pathname.includes(other) ? [] : [{ coveredShopCount: 2, coveredShops: [
+            { shopId, shopName: 'Counter Shop' }, { shopId: otherShop, shopName: 'Back Office Shop' }],
+          status: { termId: 'b7777777-7777-4777-8777-777777777777', state: 'Active', evidenceState: 'Complete', basis: 'Paid',
+            billingPeriod: 'Month', timeZone: 'Asia/Kolkata', startsAt: '2026-11-01T00:00:00Z', paidThrough: '2026-12-01T00:00:00Z',
+            graceEndsAt: null, accessEndsAt: '2026-12-01T00:00:00Z', nextDeadline: '2026-12-01T00:00:00Z', nextPeriodEndsAt: null,
+            coverageMode: 'Grouped', purchasedCapacity: 2, memberAllowance: 5, sourceReference: null, developmentFixture: true,
+            commercial: null } }] } });
+      });
+      await page.route('**/api/admin/accounts/*/closures', route => {
+        statusOrClosureCalls.push(route.request().url());
+        return route.fulfill({ json: [] });
+      });
       await page.route('**/api/admin/accounts/*/device-permits**', route => {
         const url = new URL(route.request().url());
         reads.push(url);
@@ -107,6 +114,26 @@ for (const width of [1440, 390]) {
       await expect(page.getByText('Counter Shop').first()).toBeVisible();
       await expect(page.getByTestId('device-permit-panel')).toHaveCount(0);
       expect(reads.length).toBe(before);
+
+      // Capability: a Security-Administrator-only session navigates from landing to device permissions,
+      // reads and filters devices, and never requests /status or /closures.
+      capabilities = ['security-administrator'];
+      const statusCallsBefore = statusOrClosureCalls.length;
+      await page.goto(server.origin + '/');
+      await expect(page.getByRole('link', { name: 'Account access status' })).toHaveCount(0);
+      await page.getByRole('main').getByRole('link', { name: 'Device permissions' }).click();
+      await expect(page).toHaveURL(server.origin + '/accounts');
+      await expect(page.getByTestId('device-permits-only-notice')).toBeVisible();
+      await page.getByLabel('Billing account ID').fill(account);
+      await page.getByRole('button', { name: 'Read device permission' }).click();
+      await expect(panel.getByTestId('device-permit-device')).toHaveCount(2);
+      await expect(page.getByTestId('provider-term')).toHaveCount(0);
+      await panel.getByLabel('Shop').selectOption(otherShop);
+      await expect(panel.getByTestId('device-permit-device')).toHaveCount(1);
+      await expect(panel.getByTestId('device-permit-device')).toContainText('Back Office Shop');
+      expect(statusOrClosureCalls.length).toBe(statusCallsBefore);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: info.outputPath('security-admin-device-permits.png'), fullPage: true });
       expect(problems).toEqual([]);
     } finally {
       await server.close();

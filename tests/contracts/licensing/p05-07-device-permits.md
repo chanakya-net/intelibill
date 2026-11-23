@@ -39,7 +39,9 @@ anything else answers 409 and stores nothing. Replayed assertions answer 401; a 
 
 `GET /api/admin/accounts/{account}/device-permits?shop=&after=` (`no-store`; live Support, Licensing Manager or Security
 Administrator grant re-read under lock; Billing or Platform Owner alone → 403 `Status.AccessDenied`; a shop outside the
-account → 404 `Status.ShopNotFound`). 50 devices per page ordered by `(shopId, deviceRef)`.
+account → 404 `Status.ShopNotFound`). 50 devices per page ordered by `(shopId, deviceRef)`. In the admin console,
+Security Administrator alone navigates to `/accounts` via `Device permissions` and queries only `/device-permits`
+(never `/status` or `/closures`), keeping commercial/subscription terms inaccessible.
 
 | Field | Meaning |
 |---|---|

@@ -7,6 +7,7 @@ import type { Subscription } from 'rxjs';
 import { AccountStatusApi, type AccountStatus, type ProviderClosure, basisLabels, formatIst, formatIstExact, stateLabels, statusReaders } from './account-status-api.service';
 import { AccountCancellationDetailComponent } from './account-cancellation-detail.component';
 import { ComplimentaryGrantComponent } from './complimentary-grant.component';
+import { devicePermitReaders } from './device-permit-api.service';
 import { DevicePermitPanelComponent } from './device-permit-panel.component';
 import { TrialExtensionComponent } from './trial-extension.component';
 
@@ -31,6 +32,9 @@ export class AccountStatusPageComponent {
   private readonly session = inject(SESSION_PORT);
   protected readonly mayRead = computed(() => this.session.state() === 'authenticated'
     && this.session.capabilities().some(grant => (statusReaders as readonly string[]).includes(grant)));
+  protected readonly mayReadDevicePermits = computed(() => this.session.state() === 'authenticated'
+    && this.session.capabilities().some(grant => (devicePermitReaders as readonly string[]).includes(grant)));
+  protected readonly mayLookup = computed(() => this.mayRead() || this.mayReadDevicePermits());
   /** Only a Licensing Manager is offered the grant editor; the server re-checks the live grant and recent MFA. */
   protected readonly mayGrant = computed(() => this.mayRead() && this.session.capabilities().includes('licensing-manager'));
   protected readonly accountId = signal('');
@@ -82,10 +86,10 @@ export class AccountStatusPageComponent {
   protected lookup(event: Event) {
     event.preventDefault();
     const account = this.accountId().trim().toLowerCase();
-    if (!accountPattern.test(account) || !this.mayRead()) return;
+    if (!accountPattern.test(account) || !this.mayLookup()) return;
     this.selectedAccount = account;
     this.selected.set(account);
-    this.read(account);
+    if (this.mayRead()) this.read(account);
   }
 
   /** Refresh the evaluated account terms after an access change. */

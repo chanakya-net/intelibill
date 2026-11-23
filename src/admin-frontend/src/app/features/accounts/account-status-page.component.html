@@ -4,17 +4,31 @@
       <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
     </a>
     <p class="ib-eyebrow">Merchant Licensing</p>
-    <h1 class="ib-page-title">Account access status</h1>
-    <p class="ib-subtitle">Inspect subscription terms, entitlement synchronization, operational closures, and courtesy grants.</p>
+    <h1 class="ib-page-title">{{ !mayRead() && mayReadDevicePermits() ? 'Device contact and offline permission' : 'Account access status' }}</h1>
+    <p class="ib-subtitle">
+      @if (!mayRead() && mayReadDevicePermits()) {
+        Inspect observed device last contact and known offline permission windows before suspension, replacement or transfer.
+      } @else {
+        Inspect subscription terms, entitlement synchronization, operational closures, and courtesy grants.
+      }
+    </p>
   </header>
 
-  <p class="adm-callout adm-callout--info" data-testid="provider-observe-only">
-    Observe-only subscription dates and commercial terms. Operational closure and its delivery are shown separately.
-  </p>
+  @if (mayRead()) {
+    <p class="adm-callout adm-callout--info" data-testid="provider-observe-only">
+      Observe-only subscription dates and commercial terms. Operational closure and its delivery are shown separately.
+    </p>
+  }
 
-  @if (!mayRead()) {
+  @if (!mayLookup()) {
     <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p>
   } @else {
+    @if (!mayRead()) {
+      <p class="adm-callout adm-callout--info" data-testid="device-permits-only-notice">
+        Only Support, Billing or Licensing Manager administrators can read access status. Your Security Administrator grant
+        permits read-only device contact and offline permission lookup only; commercial and subscription terms are not loaded.
+      </p>
+    }
     <form class="ib-panel status-lookup" (submit)="lookup($event)">
       <div class="adm-lookup-bar">
         <div class="adm-field">
@@ -23,16 +37,18 @@
             placeholder="00000000-0000-0000-0000-000000000000"
             [value]="accountId()" (input)="accountId.set($any($event.target).value)" />
         </div>
-        <button pButton type="submit" [disabled]="outcome() === 'loading'">Read access status</button>
+        <button pButton type="submit" [disabled]="outcome() === 'loading'">{{ mayRead() ? 'Read access status' : 'Read device permission' }}</button>
       </div>
     </form>
 
-    @switch (outcome()) {
-      @case ('loading') { <p class="adm-callout adm-callout--info" role="status">Loading access status…</p> }
-      @case ('denied') { <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p> }
-      @case ('missing') { <p class="ib-error-banner" role="alert">No access status exists for that account.</p> }
-      @case ('session') { <p class="ib-error-banner" role="alert">Your provider session ended. Sign in again.</p> }
-      @case ('unavailable') { <p class="ib-error-banner" role="alert">Access status could not be verified right now. This is not an expiry; try again.</p> }
+    @if (mayRead()) {
+      @switch (outcome()) {
+        @case ('loading') { <p class="adm-callout adm-callout--info" role="status">Loading access status…</p> }
+        @case ('denied') { <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p> }
+        @case ('missing') { <p class="ib-error-banner" role="alert">No access status exists for that account.</p> }
+        @case ('session') { <p class="ib-error-banner" role="alert">Your provider session ended. Sign in again.</p> }
+        @case ('unavailable') { <p class="ib-error-banner" role="alert">Access status could not be verified right now. This is not an expiry; try again.</p> }
+      }
     }
 
     @if (closureUnavailable()) {

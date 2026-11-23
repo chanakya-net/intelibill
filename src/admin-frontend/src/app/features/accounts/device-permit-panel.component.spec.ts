@@ -126,4 +126,38 @@ describe('device permission panel', () => {
     view.detectChanges();
     expect(page.textContent?.trim()).toBe('');
   });
+
+  it('derives the shop filter from observed devices when no covered-shop list is supplied', () => {
+    const otherShop = '22222222-2222-4222-8222-222222222222';
+    const capabilities = signal(['security-administrator']);
+    const state = signal<SessionState>('authenticated');
+    const spy = vi.fn((_: string, selected?: string | null) => of(seen(
+      [device(), device({ shopId: otherShop, shopName: 'Second Shop', deviceRef: 'cd'.repeat(32) })]
+        .filter(row => !selected || row.shopId === selected),
+    )));
+    TestBed.configureTestingModule({ providers: [
+      { provide: SESSION_PORT, useValue: { state, capabilities } },
+      { provide: DevicePermitApi, useValue: { read: spy } },
+    ] });
+    const view = TestBed.createComponent(DevicePermitPanelComponent);
+    view.componentRef.setInput('account', account);
+    view.componentRef.setInput('shops', []);
+    view.detectChanges();
+    const page = view.nativeElement as HTMLElement;
+    const select = page.querySelector<HTMLSelectElement>('#device-permit-shop');
+    expect(select).not.toBeNull();
+    expect([...select!.options].map(option => option.value)).toEqual(['', shop, otherShop]);
+
+    select!.value = otherShop;
+    select!.dispatchEvent(new Event('change'));
+    view.detectChanges();
+    expect(spy).toHaveBeenLastCalledWith(account, otherShop);
+    expect([...page.querySelector<HTMLSelectElement>('#device-permit-shop')!.options].map(option => option.value))
+      .toEqual(['', shop, otherShop]);
+
+    spy.mockReturnValueOnce(of(seen([], null)));
+    view.componentRef.setInput('account', '44444444-4444-4444-8444-444444444444');
+    view.detectChanges();
+    expect(page.querySelector('#device-permit-shop')).toBeNull();
+  });
 });

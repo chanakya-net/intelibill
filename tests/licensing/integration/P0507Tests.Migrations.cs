@@ -1,3 +1,4 @@
+using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -49,6 +50,52 @@ public sealed class P0507TestsMigrations(LicensingPostgreSqlFixture database) : 
             (run.Fixture.Hosts.LicensingOwner, "entitlement_merchant_inbox"), (run.Fixture.MerchantDb, "entitlement_messages") })
             Assert.Equal(true, await LicensingPostgreSqlFixture.ReadScalarAsync(connection,
                 $"SELECT relforcerowsecurity FROM pg_class WHERE relname = '{table}' AND relnamespace = 'public'::regnamespace"));
+
+        // Verify the licensing migrator (source) is non-superuser NOBYPASSRLS where RLS hides observations,
+        // and verify merchant Down under a non-superuser NOBYPASSRLS owner where RLS hides DeviceObservation rows.
+        Assert.Equal("off", await source.Database.SqlQueryRaw<string>(
+            "SELECT current_setting('is_superuser') AS \"Value\"").SingleAsync());
+        Assert.False(await source.Database.SqlQueryRaw<bool>(
+            "SELECT rolbypassrls AS \"Value\" FROM pg_roles WHERE rolname = current_user").SingleAsync());
+        Assert.Equal(0L, await source.Database.SqlQueryRaw<long>(
+            "SELECT count(*) AS \"Value\" FROM public.offline_device_observations").SingleAsync());
+        await AssertRestrictedMerchantOwnerRefusedAsync(run.Fixture.MerchantDb);
+    }
+
+    private static async Task AssertRestrictedMerchantOwnerRefusedAsync(NpgsqlConnectionStringBuilder merchantOwnerConn)
+    {
+        var role = $"p0507_owner_{Guid.NewGuid():N}";
+        var restrictedConn = new NpgsqlConnectionStringBuilder(merchantOwnerConn.ConnectionString)
+            { Username = role, Password = role, Pooling = false };
+        await LicensingPostgreSqlFixture.ExecuteAsync(merchantOwnerConn, $"""
+            CREATE ROLE {role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '{role}';
+            GRANT CONNECT ON DATABASE "{merchantOwnerConn.Database}" TO {role};
+            GRANT USAGE, CREATE ON SCHEMA public TO {role};
+            ALTER TABLE public.entitlement_messages OWNER TO {role};
+            ALTER TABLE public."__EFMigrationsHistory" OWNER TO {role};
+            """);
+        try
+        {
+            Assert.Equal(0L, await LicensingPostgreSqlFixture.ReadScalarAsync(restrictedConn,
+                "SELECT count(*) FROM public.entitlement_messages"));
+            await using var restricted = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseNpgsql(restrictedConn.ConnectionString).UseSnakeCaseNamingConvention().Options);
+            var failure = await Record.ExceptionAsync(() => restricted.GetService<IMigrator>().MigrateAsync(MerchantPredecessor));
+            Assert.Equal("55000", Assert.IsType<PostgresException>(failure?.GetBaseException()).SqlState);
+            Assert.Equal(true, await LicensingPostgreSqlFixture.ReadScalarAsync(merchantOwnerConn,
+                "SELECT relforcerowsecurity FROM pg_class WHERE relname = 'entitlement_messages' AND relnamespace = 'public'::regnamespace"));
+        }
+        finally
+        {
+            NpgsqlConnection.ClearAllPools();
+            await LicensingPostgreSqlFixture.ExecuteAsync(merchantOwnerConn, $"""
+                ALTER TABLE public.entitlement_messages OWNER TO bootstrap;
+                ALTER TABLE public."__EFMigrationsHistory" OWNER TO bootstrap;
+                REVOKE ALL ON SCHEMA public FROM {role};
+                REVOKE CONNECT ON DATABASE "{merchantOwnerConn.Database}" FROM {role};
+                DROP ROLE IF EXISTS {role};
+                """);
+        }
     }
 
     private static async Task<string> KindCheckAsync(DbContext context, string table)

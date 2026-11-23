@@ -215,6 +215,13 @@ public sealed partial class P0401LicensingTests
                     {tables}
                     ALTER TABLE public.account_license_restrictions OWNER TO {_role};
                     ALTER TABLE public.shop_closure_consents OWNER TO {_role};
+                    ALTER TABLE public.invoice_leases OWNER TO {_role};
+                    ALTER TABLE public.offline_license_grants OWNER TO {_role};
+                    ALTER TABLE public.offline_license_permits OWNER TO {_role};
+                    ALTER TABLE public.offline_license_verification_keys OWNER TO {_role};
+                    ALTER TABLE public.offline_submissions OWNER TO {_role};
+                    ALTER TABLE public.reconciliation_issues OWNER TO {_role};
+                    ALTER TABLE public.license_history_review_observations OWNER TO {_role};
                     ALTER TABLE public."__EFMigrationsHistory" OWNER TO {_role};
                     ALTER FUNCTION public.take_merchant_licence_fence(uuid, uuid, boolean) OWNER TO {_role};
                     """);

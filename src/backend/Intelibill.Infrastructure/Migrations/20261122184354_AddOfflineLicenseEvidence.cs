@@ -204,11 +204,10 @@ namespace Intelibill.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // EF commits each downgrade separately. When retained entitlement evidence will stop the
-            // chain further down, stop here and keep this schema with it.
-            migrationBuilder.Sql(BoundMerchantEntitlementReconciliation.RefusePopulatedDowngrade);
             // Issued permits stay provable only while their grants and public keys exist. Row security
             // would hide other shops' rows from this check, so it is lifted first; a refusal rolls that back.
+            // Earlier entitlement tables are untouched by this migration, so a populated pre-P05 database
+            // with no offline licence evidence rolls back cleanly to let P04 guards enforce their own contract.
             migrationBuilder.Sql("""
                 LOCK TABLE public.offline_license_permits, public.offline_license_grants,
                     public.offline_license_verification_keys IN ACCESS EXCLUSIVE MODE;

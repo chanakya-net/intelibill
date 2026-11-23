@@ -73,8 +73,11 @@ namespace Intelibill.Infrastructure.Migrations
                 LOCK TABLE public.offline_submissions IN ACCESS EXCLUSIVE MODE;
                 ALTER TABLE public.offline_submissions NO FORCE ROW LEVEL SECURITY;
                 DO $$ BEGIN
-                    IF EXISTS (SELECT FROM public.offline_submissions WHERE payload_json ? 'licenceEvidence') THEN
-                        RAISE EXCEPTION 'Cannot remove historical licence references after receipt';
+                    IF EXISTS (SELECT FROM public.offline_submissions
+                        WHERE payload_json ? 'licenceEvidence'
+                            OR licence_grant_id IS NOT NULL
+                            OR licence_permit_id IS NOT NULL) THEN
+                        RAISE EXCEPTION 'Cannot remove historical licence references after receipt' USING ERRCODE = '55000';
                     END IF;
                 END $$;
                 ALTER TABLE public.offline_submissions FORCE ROW LEVEL SECURITY;

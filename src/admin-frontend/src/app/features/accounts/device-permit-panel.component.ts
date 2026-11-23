@@ -26,6 +26,13 @@ export class DevicePermitPanelComponent {
   protected readonly mayRead = computed(() => this.session.state() === 'authenticated'
     && this.session.capabilities().some(grant => (devicePermitReaders as readonly string[]).includes(grant)));
   protected readonly shop = signal('');
+  private readonly observedShops = signal<readonly { readonly shopId: string; readonly shopName: string }[]>([]);
+  protected readonly filterShops = computed(() => {
+    const merged = new Map<string, { readonly shopId: string; readonly shopName: string }>();
+    for (const item of this.shops()) merged.set(item.shopId, item);
+    for (const item of this.observedShops()) if (!merged.has(item.shopId)) merged.set(item.shopId, item);
+    return [...merged.values()];
+  });
   protected readonly result = signal<AccountDevicePermits | null>(null);
   protected readonly outcome = signal<Outcome>('idle');
   protected readonly exact = formatIstExact;
@@ -42,6 +49,7 @@ export class DevicePermitPanelComponent {
       const [account, allowed] = [this.account(), this.mayRead()];
       untracked(() => {
         this.shop.set('');
+        this.observedShops.set([]);
         this.read(account, allowed);
       });
     });
@@ -64,9 +72,15 @@ export class DevicePermitPanelComponent {
     this.result.set(null);
     this.outcome.set(allowed ? 'loading' : 'idle');
     if (!allowed) return;
-    this.request = this.api.read(account, this.shop() || null).subscribe({
+    const selectedShop = this.shop() || null;
+    this.request = this.api.read(account, selectedShop).subscribe({
       next: result => {
         if (generation !== this.generation) return;
+        if (!selectedShop) {
+          this.observedShops.set([...new Map(result.devices.map(
+            item => [item.shopId, { shopId: item.shopId, shopName: item.shopName }] as const,
+          )).values()]);
+        }
         this.result.set(result);
         this.outcome.set('idle');
       },

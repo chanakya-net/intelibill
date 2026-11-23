@@ -5,12 +5,12 @@
         <h2 id="device-permit-heading" class="ib-panel__title">Device contact and offline permission</h2>
         <p class="adm-panel-sub">Read-only evidence for suspension, replacement and transfer decisions.</p>
       </div>
-      @if (shops().length) {
+      @if (filterShops().length) {
         <div class="adm-field device-filter">
           <label for="device-permit-shop">Shop</label>
           <select id="device-permit-shop" [value]="shop()" (change)="filter($any($event.target).value)">
             <option value="">All shops in this account</option>
-            @for (item of shops(); track item.shopId) {
+            @for (item of filterShops(); track item.shopId) {
               <option [value]="item.shopId">{{ item.shopName }}</option>
             }
           </select>

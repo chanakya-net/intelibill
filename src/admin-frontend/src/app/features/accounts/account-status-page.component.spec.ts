@@ -187,4 +187,52 @@ describe('provider account access status', () => {
   it('formats the billing zone whatever the browser zone is', () => {
     expect(formatIst('2027-03-30T20:30:00Z')).toBe('31 Mar 2027, 02:00 IST');
   });
+
+  it('lets Security Administrator look up device permissions without requesting account status or closures', () => {
+    const read = vi.fn(() => of(status(true)));
+    const closures = vi.fn(() => of([]));
+    const readPermits = vi.fn(() => of({
+      accountId: account, evaluatedAt: '2026-11-22T04:00:00Z', disconnectedQueues: 'Unknown' as const,
+      observedSince: '2026-11-21T04:00:00Z', devices: [],
+    }));
+    const capabilities = signal(['security-administrator']);
+    const state = signal<SessionState>('authenticated');
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: SESSION_PORT, useValue: { state, capabilities } },
+        { provide: AccountStatusApi, useValue: { read, closures } },
+        { provide: AdminSessionService, useValue: { adminId: signal('admin-1'), sessionId: signal('session-1') } },
+        { provide: ComplimentaryGrantApi, useValue: {} },
+        { provide: DevicePermitApi, useValue: { read: readPermits } },
+        { provide: TrialExtensionApi, useValue: {} },
+        { provide: TrialExtensionDrafts, useValue: { read: () => Promise.resolve(null) } },
+      ],
+    });
+    const view = TestBed.createComponent(AccountStatusPageComponent);
+    view.detectChanges();
+    const page = view.nativeElement as HTMLElement;
+    const input = page.querySelector<HTMLInputElement>('#status-account');
+    expect(input).not.toBeNull();
+    input!.value = account;
+    input!.dispatchEvent(new Event('input'));
+    page.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    view.detectChanges();
+
+    expect(readPermits).toHaveBeenCalledWith(account, null);
+    expect(read).not.toHaveBeenCalled();
+    expect(closures).not.toHaveBeenCalled();
+    expect(page.querySelector('[data-testid="device-permit-panel"]')).not.toBeNull();
+    expect(page.querySelector('[data-testid="provider-term"]')).toBeNull();
+    expect(page.querySelector('[data-testid="provider-closure-detail"]')).toBeNull();
+    expect(page.querySelector('[data-testid="grant-editor"]')).toBeNull();
+
+    window.dispatchEvent(new Event('focus'));
+    expect(read).not.toHaveBeenCalled();
+
+    capabilities.set(['platform-owner']);
+    view.detectChanges();
+    expect(page.querySelector('#status-account')).toBeNull();
+    expect(page.querySelector('[data-testid="device-permit-panel"]')).toBeNull();
+  });
 });

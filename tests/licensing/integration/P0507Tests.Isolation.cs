@@ -71,6 +71,17 @@ public sealed partial class P0507Tests
         {
             using var allowed = await P0417Tests.SignInAsync(run.Fixture, capability, platform);
             Assert.Single((await ReadAsync(allowed, run.Account)).GetProperty("devices").EnumerateArray());
+            if (capability == "security-administrator")
+            {
+                // Security Administrator reaches device permits without gaining commercial status or closure reads.
+                foreach (var deniedPath in new[] { $"/api/admin/accounts/{run.Account:D}/status",
+                    $"/api/admin/accounts/{run.Account:D}/closures" })
+                {
+                    using var deniedStatus = await allowed.SendAsync(HttpMethod.Get, deniedPath);
+                    Assert.Equal((HttpStatusCode.Forbidden, "Status.AccessDenied"),
+                        (deniedStatus.StatusCode, await P0206Fixture.CodeAsync(deniedStatus)));
+                }
+            }
         }
 
         // No provider session at all is refused before anything is read.
