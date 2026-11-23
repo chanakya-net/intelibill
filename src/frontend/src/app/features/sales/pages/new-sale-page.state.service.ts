@@ -161,6 +161,8 @@ export abstract class NewSalePageStateService {
   readonly isScannerOpen = signal(false);
   readonly isWalkIn = signal(true);
   readonly paymentSplitError = signal('');
+  /** The exact instant offline permission ended at, already formatted, when a checkout was refused for it. */
+  readonly offlinePermitEndedAt = signal('');
   readonly lastEditedPaymentField = signal<'paid' | 'due'>('due');
   protected isSyncingPaymentControls = false;
   readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;

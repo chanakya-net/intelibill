@@ -567,6 +567,25 @@ describe('OfflineSaleStateService', () => {
   });
 
   it.each([
+    [{ ok: false, reason: 'OFFLINE_PERMIT_INVALID' }, { errorKey: 'sales.newSale.offline.blockPermitInvalid' }],
+    [{ ok: false, reason: 'OFFLINE_CLOCK_INCONSISTENT' }, { errorKey: 'sales.newSale.offline.blockClockInconsistent' }],
+    [
+      { ok: false, reason: 'OFFLINE_PERMIT_EXPIRED', reconnectBy: '2026-11-22T12:00:00.000000Z' },
+      { errorKey: 'sales.newSale.offline.blockPermitExpired', reconnectBy: '2026-11-22T12:00:00.000000Z' },
+    ],
+  ])('explains a refused offline permission and keeps the verified deadline (%o)', async (refusal, expected) => {
+    snapshotDb.getUsableCustomers.mockResolvedValue([
+      { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },
+    ]);
+    finalization.finalizeAndQueue.mockResolvedValue(refusal as never);
+
+    const service = setup();
+    const result = await service.submitOfflineSale(buildSubmitPayload('customer-1'));
+
+    expect(result).toEqual({ ok: false, ...expected });
+  });
+
+  it.each([
     [
       { ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' },
       'sales.newSale.offline.blockSellerProfileUnavailable',

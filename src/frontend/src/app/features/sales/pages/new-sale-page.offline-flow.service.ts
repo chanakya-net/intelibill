@@ -1,4 +1,5 @@
 import { NewSalePagePaymentFlowService } from './new-sale-page.payment-flow.service';
+import { LocaleFormattingService } from '../../../core/i18n/locale-formatting.service';
 import { CartItem } from '../services/sale-cart-state.service';
 import { openPrintWindow } from '../utils/print-window';
 
@@ -70,6 +71,7 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
 
     this.isOfflineSubmitting.set(true);
     this.paymentSplitError.set('');
+    this.offlinePermitEndedAt.set('');
 
     try {
       const result = await this.offlineSaleState.submitOfflineSale({
@@ -113,6 +115,9 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
         await this.offlineSaleState.refreshSnapshot();
       } else {
         this.paymentSplitError.set(result.errorKey);
+        this.offlinePermitEndedAt.set(
+          result.reconnectBy ? this.injector.get(LocaleFormattingService).formatExactInstant(result.reconnectBy) : '',
+        );
       }
     } finally {
       this.isOfflineSubmitting.set(false);

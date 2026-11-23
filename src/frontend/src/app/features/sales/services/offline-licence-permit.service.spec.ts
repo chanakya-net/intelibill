@@ -12,12 +12,15 @@ import {
   type OfflineSalesDeviceSettings,
 } from '../../../core/storage/offline-sales-device-settings.storage';
 import { TillContextService } from '../../tills/services/till-context.service';
+import { OfflinePermitClockIndexedDbService } from '../../../core/storage/offline-permit-clock-indexeddb.service';
+import { OFFLINE_PERMIT_PUBLIC_KEYS } from '../utils/offline-permit-signature';
 import { OfflineLicencePermitService } from './offline-licence-permit.service';
 
 const PERMIT_FIXTURE_PATH = resolve(process.cwd(), '../../tests/contracts/licensing/offline-permit-v1.json');
 const DELIVERY_FIXTURE_PATH = resolve(process.cwd(), '../../tests/contracts/licensing/offline-permit-delivery-v1.json');
 
 const permitFixture = JSON.parse(readFileSync(PERMIT_FIXTURE_PATH, 'utf8')) as {
+  key: { keyId: string; publicKeySpki: string };
   permit: { token: string; fields: Record<string, string> };
 };
 const deliveryFixture = JSON.parse(readFileSync(DELIVERY_FIXTURE_PATH, 'utf8')) as {
@@ -58,10 +61,14 @@ describe('OfflineLicencePermitService', () => {
     }),
   };
 
-  function setup(): OfflineLicencePermitService {
+  const clock = { rebase: vi.fn(async () => true) };
+
+  function setup(pins: Record<string, string> = {}): OfflineLicencePermitService {
     TestBed.configureTestingModule({
       providers: [
         OfflineLicencePermitService,
+        { provide: OfflinePermitClockIndexedDbService, useValue: clock },
+        { provide: OFFLINE_PERMIT_PUBLIC_KEYS, useValue: pins },
         { provide: AuthService, useValue: { session: sessionSignal } },
         { provide: OfflineSalesDeviceSettingsStorage, useValue: settingsStorage },
         { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
@@ -216,5 +223,58 @@ describe('OfflineLicencePermitService', () => {
     );
     expect(stale).toBeNull();
     expect(settingsStorage.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('adopts the signed server time as clock evidence only when the delivered signature verifies against a pin', async () => {
+    const service = setup({ [permitFixture.key.keyId]: permitFixture.key.publicKeySpki });
+    const binding = (await service.resolveBinding(shopId))!;
+
+    const stored = await service.acceptDeliveredPermit(
+      binding,
+      deliveryFixture.issuedRecord.licencePermit,
+      fields['snapshotId'],
+      fields['snapshotCompletedAt'],
+    );
+
+    expect(stored?.signedPermit).toBe(permitFixture.permit.token);
+    expect(clock.rebase).toHaveBeenCalledWith({
+      shopId,
+      deviceId,
+      userId,
+      sessionId,
+      permitId: fields['permitId'],
+      serverObservedAt: fields['issuedAt'],
+      serverObservedMs: Date.parse('2026-11-22T11:59:30.123Z'),
+    });
+  });
+
+  it('still stores a delivered permit this build cannot verify, but establishes no clock evidence from it', async () => {
+    const service = setup({});
+    const binding = (await service.resolveBinding(shopId))!;
+
+    const stored = await service.acceptDeliveredPermit(
+      binding,
+      deliveryFixture.issuedRecord.licencePermit,
+      fields['snapshotId'],
+      fields['snapshotCompletedAt'],
+    );
+
+    expect(stored).not.toBeNull();
+    expect(clock.rebase).not.toHaveBeenCalled();
+  });
+
+  it('keeps the stored permit when clock evidence cannot be written', async () => {
+    clock.rebase.mockRejectedValueOnce(new Error('storage unavailable'));
+    const service = setup({ [permitFixture.key.keyId]: permitFixture.key.publicKeySpki });
+    const binding = (await service.resolveBinding(shopId))!;
+
+    const stored = await service.acceptDeliveredPermit(
+      binding,
+      deliveryFixture.issuedRecord.licencePermit,
+      fields['snapshotId'],
+      fields['snapshotCompletedAt'],
+    );
+
+    expect(stored).not.toBeNull();
   });
 });

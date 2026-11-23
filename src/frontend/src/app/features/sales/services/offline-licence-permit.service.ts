@@ -2,15 +2,18 @@ import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseIndexedDbService, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
+import { OfflinePermitClockIndexedDbService } from '../../../core/storage/offline-permit-clock-indexeddb.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { TillContextService } from '../../tills/services/till-context.service';
 import {
   isValidLeaseLicenceEvidence,
+  parseInstantNanos,
   toOfflinePermitDisplaySummary,
   verifyDeliveredOfflineLicencePermit,
   type OfflineLicencePermitBinding,
   type StoredOfflineLicencePermit,
 } from '../utils/offline-licence-permit';
+import { OFFLINE_PERMIT_PUBLIC_KEYS, verifyOfflinePermitSignature } from '../utils/offline-permit-signature';
 
 @Injectable({ providedIn: 'root' })
 export class OfflineLicencePermitService {
@@ -18,6 +21,8 @@ export class OfflineLicencePermitService {
   private readonly settingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
   private readonly tillContext = inject(TillContextService, { optional: true });
+  private readonly clock = inject(OfflinePermitClockIndexedDbService);
+  private readonly publicKeys = inject(OFFLINE_PERMIT_PUBLIC_KEYS);
 
   async resolveBinding(shopId: string): Promise<OfflineLicencePermitBinding | null> {
     const session = this.auth.session();
@@ -92,6 +97,31 @@ export class OfflineLicencePermitService {
     this.settingsStorage.updateSettings(binding.shopId, (current) =>
       current.lastReservedLease?.leaseId === stored.leaseId ? { ...current, lastOfflinePermit: summary } : current,
     );
+    await this.establishClockEvidence(stored, session.sessionId ?? null);
     return stored;
+  }
+
+  /**
+   * A permit that just arrived over the authenticated stream carries a fresh signed server time. Only when its
+   * signature verifies against this build's pins, for this very session, does that time become the clock checkpoint
+   * offline issuance is judged against. A failure here never undoes the stored permit; issuance simply stays refused.
+   */
+  private async establishClockEvidence(stored: StoredOfflineLicencePermit, sessionId: string | null): Promise<void> {
+    try {
+      const verified = await verifyOfflinePermitSignature(stored.signedPermit, this.publicKeys);
+      const issuedAt = verified ? parseInstantNanos(verified.payload.issuedAt) : null;
+      if (!verified || issuedAt === null || !sessionId || verified.payload.sessionId !== sessionId) return;
+      await this.clock.rebase({
+        shopId: verified.payload.shopId,
+        deviceId: verified.payload.deviceId,
+        userId: verified.payload.userId,
+        sessionId: verified.payload.sessionId,
+        permitId: verified.payload.permitId,
+        serverObservedAt: verified.payload.issuedAt,
+        serverObservedMs: Number(issuedAt / 1_000_000n),
+      });
+    } catch {
+      // Storage or crypto unavailable: no checkpoint, so issuance asks for an online verification.
+    }
   }
 }

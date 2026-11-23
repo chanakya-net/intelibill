@@ -104,6 +104,22 @@ export interface OfflineFrozenSalePricing {
   readonly configuredSaleRuleThresholdAmount?: number | null;
 }
 
+/**
+ * The offline permission an invoice was issued under, copied byte for byte from the verified permit at issue time.
+ * Version 1. Never added to, or recomputed for, an invoice that was queued without it.
+ */
+export interface OfflineSaleLicenceEvidence {
+  readonly version: 1;
+  readonly permitId: string;
+  readonly grantId: string;
+  readonly grantSha256: string;
+  readonly leaseId: string;
+  readonly snapshotId: string;
+  readonly keyId: string;
+  /** The original compact token, exactly as the server signed it. */
+  readonly signedPermit: string;
+}
+
 export interface OfflineQueuedSalePayload {
   readonly till?: import('../../tills/services/till.models').TillPostingContext;
   readonly tenderLines?: import('../../tills/services/till.models').TenderLine[];
@@ -127,6 +143,8 @@ export interface OfflineQueuedSalePayload {
    * and reprint renders it. Absent on payloads queued before devices issued documents (legacy).
    */
   readonly document?: InvoiceDocument | null;
+  /** Absent on payloads queued before offline issuance required a signed permit (legacy); never backfilled. */
+  readonly licenceEvidence?: OfflineSaleLicenceEvidence;
 }
 
 export interface OfflineArithmeticMismatch {

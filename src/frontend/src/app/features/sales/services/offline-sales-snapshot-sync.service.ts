@@ -1,3 +1,4 @@
+import { underOfflineAuthorityLock } from '../../../core/storage/offline-issuance-lock';
 import { observeShopDataRefusal } from '../../../core/context/shop-data-response';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { isOfflineSalesSnapshotMetadata, hasOfflineExpiryAuthority } from '../utils/offline-sales-snapshot.schema';
@@ -88,7 +89,8 @@ export class OfflineSalesSnapshotSyncService {
     const promote = async (value: Extract<OfflineSnapshotStreamRecord, { type: 'complete' }>['complete']) => {
       ensureScope();
       if (!authority || value.snapshotId !== snapshotId || Object.entries(received).some(([key, count]) => value[key as keyof typeof received] !== count)) throw new Error('Incomplete snapshot record counts.');
-      await this.snapshotDb.markComplete(snapshotId!, shopId, value.completedAt, abort.signal);
+      // Promotion waits for an issuance in flight in any tab: a sale is judged against one snapshot throughout.
+      await underOfflineAuthorityLock(shopId, () => this.snapshotDb.markComplete(snapshotId!, shopId, value.completedAt, abort.signal));
       if (binding && pendingPermitRecord && this.licencePermit) {
         try {
           ensureScope();

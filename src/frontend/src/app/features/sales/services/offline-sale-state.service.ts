@@ -80,6 +80,8 @@ export interface OfflineSaleSubmitSuccess {
 export interface OfflineSaleSubmitFailure {
   readonly ok: false;
   readonly errorKey: string;
+  /** The verified signed instant offline permission ended at, when that is why the sale was refused. */
+  readonly reconnectBy?: string;
 }
 
 export type OfflineSaleSubmitResult = OfflineSaleSubmitSuccess | OfflineSaleSubmitFailure;
@@ -468,6 +470,9 @@ export class OfflineSaleStateService {
     const result = await this.offlineFinalization.finalizeAndQueue(request);
     if (!result.ok) {
       const reasonKey: Record<typeof result.reason, string> = {
+        OFFLINE_PERMIT_INVALID: 'sales.newSale.offline.blockPermitInvalid',
+        OFFLINE_PERMIT_EXPIRED: 'sales.newSale.offline.blockPermitExpired',
+        OFFLINE_CLOCK_INCONSISTENT: 'sales.newSale.offline.blockClockInconsistent',
         TILL_CONTEXT_INVALID: 'tills.sessionRequired',
         BELOW_RECORDED_COST: 'sales.newSale.offline.blockBelowRecordedCost',
         EXPIRY_REFRESH_REQUIRED: 'expiry.offline.refresh',
@@ -490,6 +495,7 @@ export class OfflineSaleStateService {
         errorKey:
           (result.reason === 'DOCUMENT_UNAVAILABLE' ? invoiceErrorKey(result.errorCode) : null) ??
           reasonKey[result.reason],
+        ...(result.reconnectBy ? { reconnectBy: result.reconnectBy } : {}),
       };
     }
 

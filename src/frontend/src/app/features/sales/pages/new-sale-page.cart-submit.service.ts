@@ -143,6 +143,7 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     }
 
     this.paymentSplitError.set('');
+    this.offlinePermitEndedAt.set('');
 
     // OFFLINE BRANCH
     if (this.isOfflineMode()) {

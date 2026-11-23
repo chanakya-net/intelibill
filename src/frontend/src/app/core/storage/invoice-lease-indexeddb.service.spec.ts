@@ -1,6 +1,8 @@
+import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  InvoiceLeaseChangedError,
   InvoiceLeaseExhaustedError,
   InvoiceLeaseExpiredError,
   InvoiceLeaseIndexedDbService,
@@ -161,6 +163,83 @@ describe('InvoiceLeaseIndexedDbService', () => {
     // Saving a fresh lease drops the previous lease's permit in the same write.
     await service.saveLease(makeLease({ leaseId: 'lease-2' }));
     expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toBeUndefined();
+  });
+
+  describe('guarded allocation and number claims (IndexedDB transactions)', () => {
+    const KEY = ['shop-1', 'device-1', '2025-26'] as const;
+    const permit = { signedPermit: 'token-a' } as never;
+    const guard = (overrides: Record<string, unknown> = {}) => ({
+      leaseId: 'lease-1', nextNumber: 1, signedPermit: 'token-a', clientSaleId: 'sale-1', ...overrides,
+    });
+
+    beforeEach(async () => {
+      vi.stubGlobal('indexedDB', new IDBFactory());
+      await service.saveLease(makeLease({ offlinePermit: permit }));
+    });
+
+    it('takes the number and records its claim in one durable transaction', async () => {
+      const consumed = await service.consumeNextInvoiceNumber(...KEY, guard());
+
+      expect(consumed.invoiceNumber).toBe('INV-2025-26-0001');
+      expect((await service.loadLease(...KEY))!.nextNumber).toBe(2);
+      expect(await service.loadPendingClaim(...KEY)).toEqual({ leaseId: 'lease-1', number: 1, clientSaleId: 'sale-1' });
+    });
+
+    for (const [name, overrides] of [
+      ['another lease', { leaseId: 'lease-2' }],
+      ['a moved cursor', { nextNumber: 2 }],
+      ['other permit bytes', { signedPermit: 'token-b' }],
+    ] as const) {
+      it(`takes nothing when the stored record holds ${name} than was verified`, async () => {
+        await expect(service.consumeNextInvoiceNumber(...KEY, guard(overrides))).rejects.toBeInstanceOf(InvoiceLeaseChangedError);
+
+        expect((await service.loadLease(...KEY))!.nextNumber).toBe(1);
+        expect(await service.loadPendingClaim(...KEY)).toBeNull();
+      });
+    }
+
+    it('gives back exactly the claimed number and clears the claim', async () => {
+      await service.consumeNextInvoiceNumber(...KEY, guard());
+      const claim = { leaseId: 'lease-1', number: 1, clientSaleId: 'sale-1' };
+
+      const restored = await service.rollbackConsumedInvoiceNumber(...KEY, 2, claim);
+
+      expect(restored!.nextNumber).toBe(1);
+      expect(await service.loadPendingClaim(...KEY)).toBeNull();
+    });
+
+    it('leaves the cursor alone for another sale, another lease, or a settled claim', async () => {
+      await service.consumeNextInvoiceNumber(...KEY, guard());
+
+      await service.rollbackConsumedInvoiceNumber(...KEY, 2, { leaseId: 'lease-1', number: 1, clientSaleId: 'sale-2' });
+      await service.rollbackConsumedInvoiceNumber(...KEY, 2, { leaseId: 'lease-2', number: 1, clientSaleId: 'sale-1' });
+      expect((await service.loadLease(...KEY))!.nextNumber).toBe(2);
+
+      await service.settleClaim(...KEY, 'sale-1');
+      await service.rollbackConsumedInvoiceNumber(...KEY, 2, { leaseId: 'lease-1', number: 1, clientSaleId: 'sale-1' });
+      expect((await service.loadLease(...KEY))!.nextNumber).toBe(2);
+      expect(await service.loadPendingClaim(...KEY)).toBeNull();
+    });
+
+    it('settling keeps the number used and ignores another sale id', async () => {
+      await service.consumeNextInvoiceNumber(...KEY, guard());
+
+      await service.settleClaim(...KEY, 'someone-else');
+      expect(await service.loadPendingClaim(...KEY)).not.toBeNull();
+      await service.settleClaim(...KEY, 'sale-1');
+      expect(await service.loadPendingClaim(...KEY)).toBeNull();
+      expect((await service.loadLease(...KEY))!.nextNumber).toBe(2);
+    });
+
+    it('never hands one number to two queued allocations', async () => {
+      const first = service.consumeNextInvoiceNumber(...KEY, guard());
+      const second = service.consumeNextInvoiceNumber(...KEY, guard({ clientSaleId: 'sale-2' }));
+
+      const results = await Promise.allSettled([first, second]);
+
+      expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+      expect((await service.loadLease(...KEY))!.nextNumber).toBe(2);
+    });
   });
 
   function makeLease(overrides: Partial<InvoiceLeaseSnapshot> = {}): InvoiceLeaseSnapshot {
