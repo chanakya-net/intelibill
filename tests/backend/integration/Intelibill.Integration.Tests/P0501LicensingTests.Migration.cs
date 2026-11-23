@@ -69,6 +69,12 @@ public sealed partial class P0501LicensingTests
             """));
         await AssertEvidenceSchemaAsync(owner);
 
+        // A stored permit also queues its device observation (P05-07), so the current writer needs the
+        // current schema. The evidence tables asserted above are unchanged by the later migrations.
+        await migrator.MigrateAsync(null, Ct);
+        await RestrictedRuntimeRole.GrantAsync(Migrator);
+        NpgsqlConnection.ClearAllPools();
+
         a = await LicenseAsync(a, verified, verified.AddDays(30));
         b = await LicenseAsync(b, verified, verified.AddDays(30));
         _clock.Now = verified.AddHours(1);

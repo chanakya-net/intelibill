@@ -23,7 +23,8 @@ public sealed class AllowDeviceObservationMerchantEvents : Migration
         ALTER TABLE public.entitlement_messages NO FORCE ROW LEVEL SECURITY;
         DO $$ BEGIN
             IF EXISTS (SELECT FROM public.entitlement_messages WHERE kind = 'DeviceObservation') THEN
-                RAISE EXCEPTION 'Retained device observations prevent downgrade' USING ERRCODE = '55000';
+                -- Device observations are entitlement messages: the same refusal the earlier guards give for them.
+                RAISE EXCEPTION 'Retained entitlement evidence prevents downgrade' USING ERRCODE = '55000';
             END IF;
         END $$;
         ALTER TABLE public.entitlement_messages FORCE ROW LEVEL SECURITY;
