@@ -12,7 +12,8 @@ namespace Intelibill.Infrastructure.Licensing;
 /// Tenant-scoped reads and inserts for offline licence evidence. Every query names the shop as
 /// well as relying on row security, and nothing here updates or deletes: the tables refuse both.
 /// </summary>
-internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOfflineLicenceEvidenceStore
+internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db, OfflineDeviceObservationOutbox? observations = null)
+    : IOfflineLicenceEvidenceStore
 {
     public async Task<bool> HasConflictingReceiptAsync(Guid shopId, string deviceId, string clientSaleId, string invoiceNumber,
         string payloadHash, CancellationToken ct) =>
@@ -147,8 +148,9 @@ internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOf
         db.Set<OfflineLicenseVerificationKey>().AsNoTracking()
             .Where(row => row.ShopId == shopId && row.KeyId == keyId).Select(row => row.PublicKey).SingleOrDefaultAsync(ct)!;
 
-    public async Task<bool> TryInsertPermitAsync(OfflineLicensePermit permit, CancellationToken ct) =>
-        await db.Database.ExecuteSqlAsync($"""
+    public async Task<bool> TryInsertPermitAsync(OfflineLicensePermit permit, CancellationToken ct)
+    {
+        var stored = await db.Database.ExecuteSqlAsync($"""
             INSERT INTO public.offline_license_permits (id, shop_id, grant_id, lease_id, snapshot_id, user_id, session_id,
                 device_id, till_session_id, batch_count, catalog_version, current_account_revision, current_shop_revision,
                 completed_at, not_before, valid_until, limiting_reason, key_id, signed_permit)
@@ -158,4 +160,10 @@ internal sealed class OfflineLicenceEvidenceStore(ApplicationDbContext db) : IOf
                 {permit.ValidUntil}, {permit.LimitingReason}, {permit.KeyId}, {permit.SignedPermit})
             ON CONFLICT (shop_id, snapshot_id) DO NOTHING
             """, ct) == 1;
+
+        // Only the request that stored the permit reports it, in the permit's own transaction.
+        if (stored && observations is not null)
+            await observations.AppendPermitAsync(permit, ct);
+        return stored;
+    }
 }

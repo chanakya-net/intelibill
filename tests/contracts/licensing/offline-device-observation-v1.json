@@ -1,0 +1,44 @@
+{
+  "contract": "offline-device-observation",
+  "schemaVersion": 1,
+  "path": "/internal/licensing/v1/merchant-events/device-observation",
+  "messageKind": "DeviceObservation",
+  "observations": ["PermitIssued", "OfflineSync"],
+  "fields": [
+    "schemaVersion", "eventId", "accountId", "shopId", "affiliationRequestId", "deviceRef", "observation", "observedAt", "permit"
+  ],
+  "permitFields": [
+    "permitId", "notBefore", "validUntil", "limit", "accountRevision", "shopRevision", "authorityVerifiedAt"
+  ],
+  "forbiddenFields": [
+    "deviceId", "userId", "sessionId", "leaseId", "grantId", "snapshotId", "tillSessionId", "batchCount", "catalogVersion",
+    "signedPermit", "keyId", "invoiceNumber", "clientSaleId", "customerId", "customerName", "items", "totalAmount", "queuedInvoices"
+  ],
+  "deviceRef": {
+    "algorithm": "lowercase hex SHA-256 of UTF-8 \"{shopId:D}\\n{deviceId}\"",
+    "shopId": "0f8fad5b-d9cb-469f-a165-70867728950e",
+    "deviceId": "p0507 front counter",
+    "expected": "fc77331c4d341d069fdad99830a22716d2efd126696d477f08140e9fd7073657"
+  },
+  "limits": {
+    "LicenceEnd": "LicenceEnd",
+    "CurrentLicenceEnd": "LicenceEnd",
+    "AuthorityFreshness": "VerificationFreshness",
+    "DeviceFreshness": "VerificationFreshness",
+    "AuthDeadline": "MerchantLimit",
+    "LeaseExpiry": "MerchantLimit",
+    "FiscalYearEnd": "MerchantLimit",
+    "SnapshotLifetime": "MerchantLimit",
+    "StockEvidenceExpiry": "MerchantLimit",
+    "TillDayEnd": "MerchantLimit"
+  },
+  "providerRead": {
+    "route": "GET /api/admin/accounts/{account}/device-permits?shop=&after=",
+    "fields": ["accountId", "evaluatedAt", "disconnectedQueues", "observedSince", "devices", "nextCursor"],
+    "deviceFields": [
+      "shopId", "shopName", "deviceRef", "lastContactAt", "lastSynchronizedAt", "lastPermitIssuedAt", "outstanding",
+      "knownPermitEnd", "outstandingPermits", "limit", "accountRevision", "shopRevision", "authorityVerifiedAt"
+    ],
+    "disconnectedQueues": "Unknown"
+  }
+}

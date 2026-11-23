@@ -1,6 +1,7 @@
 using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Application.AdminIdentities;
+using Intelibill.Licensing.Application.Coverage;
 using Intelibill.Licensing.Application.Status;
 
 namespace Intelibill.Licensing.Api.Status;
@@ -16,6 +17,7 @@ internal static class AdminSubscriptionStatusEndpoints
         var group = app.MapGroup("/api/admin/accounts/{account:guid}").RequireAuthorization(ProviderSessions.StatusPolicy);
         group.MapGet("/status", ReadAccountAsync);
         group.MapGet("/closures", ReadClosuresAsync);
+        group.MapGet("/device-permits", ReadDevicePermitsAsync);
         group.MapGet("/subscriptions/{term:guid}/cancellation", ReadCancellationAsync);
         group.MapGet("/shops/{shop:guid}/status", ReadShopAsync);
     }
@@ -26,6 +28,16 @@ internal static class AdminSubscriptionStatusEndpoints
         if (ProviderSessions.ReadCaller(context.User) is not { } caller)
             return CatalogueDraftEndpoints.Problem(context, AdminRefreshErrors.SessionEnded);
         return Respond(context, await handler.ReadClosuresAsync(caller, account, context.RequestAborted));
+    }
+
+    /// <summary>Observed device contact and known offline permission; Support, Licensing Manager or Security only.</summary>
+    private static async Task<IResult> ReadDevicePermitsAsync(HttpContext context, Guid account, Guid? shop, string? after,
+        ReadDevicePermitsHandler handler)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        if (ProviderSessions.ReadCaller(context.User) is not { } caller)
+            return CatalogueDraftEndpoints.Problem(context, AdminRefreshErrors.SessionEnded);
+        return Respond(context, await handler.ReadAsync(caller, account, shop, after, context.RequestAborted));
     }
 
     private static async Task<IResult> ReadAccountAsync(HttpContext context, Guid account, Guid? after,

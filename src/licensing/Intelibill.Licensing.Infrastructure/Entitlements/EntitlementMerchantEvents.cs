@@ -39,6 +39,35 @@ public sealed class EntitlementMerchantEvents
             token => SaveReconciliationAsync(request, token), ct);
     }
 
+    /// <summary>
+    /// Retains one device observation. Its account, shop and affiliation must be the shop's current binding;
+    /// a permit is kept once, so a second event naming the same permit conflicts and stores nothing.
+    /// </summary>
+    public Task<ErrorOr<Success>> ObserveDeviceAsync(OfflineDeviceObservationV1 seen, byte[] body, VerifiedServiceAssertion proof,
+        CancellationToken ct)
+    {
+        if (!seen.IsValid())
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Entitlement.InvalidMerchantEvent"));
+        return InEventAsync(seen.AccountId, seen.EventId, OfflineDeviceObservationsV1.Kind, body, proof,
+            token => SaveObservationAsync(seen, token), ct);
+    }
+
+    private async Task<bool> SaveObservationAsync(OfflineDeviceObservationV1 seen, CancellationToken ct)
+    {
+        var permit = seen.Permit;
+        return await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.offline_device_observations (event_id, account_id, shop_id, affiliation_request_id, device_ref,
+                observation, observed_at, permit_id, not_before, valid_until, permit_limit, account_revision, shop_revision,
+                authority_verified_at)
+            SELECT {seen.EventId}, a.account_id, a.shop_id, a.request_id, {seen.DeviceRef}, {seen.Observation}, {seen.ObservedAt},
+                {permit?.PermitId}::uuid, {permit?.NotBefore}::timestamptz, {permit?.ValidUntil}::timestamptz, {permit?.Limit}::text,
+                {permit?.AccountRevision}::bigint, {permit?.ShopRevision}::bigint, {permit?.AuthorityVerifiedAt}::timestamptz
+            FROM public.shop_affiliations a
+            WHERE a.account_id = {seen.AccountId} AND a.shop_id = {seen.ShopId} AND a.request_id = {seen.AffiliationRequestId}
+            ON CONFLICT (permit_id) DO NOTHING
+            """, ct) == 1;
+    }
+
     private async Task<ErrorOr<Success>> InEventAsync(Guid account, Guid id, string kind, byte[] body, VerifiedServiceAssertion proof,
         Func<CancellationToken, Task<bool>> apply, CancellationToken ct)
     {

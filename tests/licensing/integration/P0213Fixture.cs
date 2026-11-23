@@ -30,7 +30,7 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         IReadOnlyDictionary<string, string?>? licensingExtras = null, Action<IServiceCollection>? licensingServices = null,
         bool? prepareProvider = null, P0201Clock? businessClock = null, bool observeDelegation = false,
         bool reopeningCutover = true, Action<IServiceCollection>? merchantServices = null, bool liveDelivery = false,
-        bool countAllTraffic = false)
+        bool countAllTraffic = false, IReadOnlyDictionary<string, string?>? merchantExtras = null)
     {
         var transport = new P0213Transport();
         using var consent = RSA.Create(2048);
@@ -42,6 +42,7 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         transport.AddSettings(destination, licensing: true);
         foreach (var (name, value) in licensingExtras ?? new Dictionary<string, string?>()) destination[name] = value;
         transport.AddSettings(source, licensing: false);
+        foreach (var (name, value) in merchantExtras ?? new Dictionary<string, string?>()) source[name] = value;
         var merchantTraffic = new P0213Traffic(countAllTraffic);
         var licensingTraffic = new P0213Traffic(countAllTraffic);
         var setup = new P0210HostSetup(destination, source,

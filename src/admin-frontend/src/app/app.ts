@@ -5,6 +5,7 @@ import { FormSectionStylesComponent } from '@intelibill/ui';
 import { ButtonDirective } from 'primeng/button';
 import { filter, map, startWith } from 'rxjs';
 import { AdminSessionService } from './features/auth/admin-session.service';
+import { devicePermitReaders } from './features/accounts/device-permit-api.service';
 
 interface NavItem {
   readonly label: string;
@@ -178,6 +179,8 @@ export class App {
     const operations: NavItem[] = [];
     if (statusReaderGrants.some(has)) {
       operations.push({ label: 'Accounts', route: '/accounts', icon: 'pi-building' });
+    } else if (devicePermitReaders.some(has)) {
+      operations.push({ label: 'Device permissions', route: '/accounts', icon: 'pi-mobile' });
     }
     if (has('security-administrator') || has('support')) {
       operations.push({ label: 'Restrictions', route: '/restrictions', icon: 'pi-ban', exact: true });

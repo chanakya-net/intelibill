@@ -5,12 +5,13 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Infrastructure.Licensing;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Intelibill.Infrastructure.Repositories;
 
-internal sealed class OfflineSubmissionRepository(ApplicationDbContext context)
+internal sealed class OfflineSubmissionRepository(ApplicationDbContext context, OfflineDeviceObservationOutbox? observations = null)
     : RepositoryBase<OfflineSubmission>(context), IOfflineSubmissionRepository
 {
     private const string IntakeLockTimeout = "5s";
@@ -99,6 +100,10 @@ internal sealed class OfflineSubmissionRepository(ApplicationDbContext context)
             ON CONFLICT (shop_id, device_id, client_sale_id, payload_hash) DO NOTHING
             """,
             cancellationToken);
+
+        // The server received an upload from this device: reported with the receipt, never its content.
+        if (observations is not null && candidate.Source == OfflineSubmissionSource.Sync)
+            await observations.AppendSyncAsync(candidate.ShopId, candidate.DeviceId, candidate.ReceivedAt, cancellationToken);
 
         return await DbSet.SingleAsync(
             s => s.ShopId == candidate.ShopId

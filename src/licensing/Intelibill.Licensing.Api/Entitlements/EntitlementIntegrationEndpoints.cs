@@ -18,6 +18,9 @@ internal static class EntitlementIntegrationEndpoints
         endpoints.MapPost(EntitlementSnapshotsV1.ReconciliationPath, (HttpContext context,
             LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<EntitlementReconciliationV1>(context,
                 transport, EntitlementSnapshotsV1.ReconciliationPath, events.ReconcileAsync)).AllowAnonymous();
+        endpoints.MapPost(OfflineDeviceObservationsV1.Path, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<OfflineDeviceObservationV1>(context,
+                transport, OfflineDeviceObservationsV1.Path, events.ObserveDeviceAsync)).AllowAnonymous();
     }
 
     private static async Task<IResult> ReceiveAsync<T>(HttpContext context, LicensingEntitlementTransport transport,
