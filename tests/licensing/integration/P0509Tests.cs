@@ -1,9 +1,13 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
+using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -22,23 +26,24 @@ public sealed partial class P0509Tests(LicensingPostgreSqlFixture database, ITes
     public async Task RefreshAndStockNeverExtendOriginalGrant()
     {
         const string device = "p0509-stale-counter";
-        var verifiedAt = P0202Fixture.WholeSecondNow().AddHours(-48).AddMinutes(5);
+        var verifiedAt = Utc("2026-11-29T06:35:00Z");
+        var reserveAt = Utc("2026-12-01T06:30:00Z");
         var expectedEnd = verifiedAt.AddHours(48);
+        var businessClock = new P0201Clock { Now = verifiedAt };
         using var rsa = RSA.Create(2048);
         await using var fixture = await P0213Fixture.StartAsync(
             database,
-            businessClock: new P0201Clock { Now = verifiedAt },
+            businessClock: businessClock,
+            merchantServices: ConfigureMerchantJwtClock,
             merchantExtras: new Dictionary<string, string?>
             {
                 ["OfflineLicensePermit:LocalKeyId"] = "p0509-stale-key",
                 ["OfflineLicensePermit:LocalPrivateKeyPem"] = rsa.ExportPkcs8PrivateKeyPem(),
             });
 
-        var (owner, account) = await P0507Tests.Run.OpenShopAsync(fixture, verifiedAt);
-        var (staleOnly, _) = await P0507Tests.Run.OpenShopAsync(fixture, verifiedAt);
+        var (owner, account, staleOnly) = await ArrangeStaleMonthChangeShopsAsync(fixture, businessClock, verifiedAt, reserveAt);
         using var ownerClient = owner.Client;
         using var staleClient = staleOnly.Client;
-        await P0403Tests.EnrollAsync(fixture, owner, staleOnly);
 
         var initialSnapshot = await fixture.LatestSnapshotAsync(owner.ShopId);
         var staleSnapshot = await fixture.LatestSnapshotAsync(staleOnly.ShopId);
@@ -47,6 +52,7 @@ public sealed partial class P0509Tests(LicensingPostgreSqlFixture database, ITes
             authority.GetProperty("authorityVerifiedAt").GetDateTimeOffset(),
             authority.GetProperty("validUntil").GetDateTimeOffset()));
         Assert.True(initialSnapshot.Shop!.AccessEndsAt > expectedEnd);
+        Assert.True(initialSnapshot.Shop.NextBoundary > expectedEnd);
 
         var (leaseId, grantId) = await P0507Tests.Run.ReserveAsync(owner, device);
         var first = await P0507Tests.Run.CompleteSnapshotAsync(owner, device, leaseId, grantId);
@@ -64,6 +70,7 @@ public sealed partial class P0509Tests(LicensingPostgreSqlFixture database, ITes
             accountId = account,
             deviceRef,
             authorityVerifiedAt = verifiedAt,
+            reserveAt,
             expectedEnd,
             lastAllowedInstant = expectedEnd.AddMicroseconds(-1),
             refusedInstant = expectedEnd,
@@ -180,6 +187,66 @@ public sealed partial class P0509Tests(LicensingPostgreSqlFixture database, ITes
             deviceAt.GetProperty("knownPermitEnd").GetDateTimeOffset(),
             deviceAt.GetProperty("outstandingPermits").GetInt32()));
         return deviceBefore.GetProperty("deviceRef").GetString()!;
+    }
+
+    private static async Task<(Merchant Owner, Guid Account, Merchant StaleOnly)> ArrangeStaleMonthChangeShopsAsync(
+        P0213Fixture fixture, P0201Clock businessClock, DateTimeOffset verifiedAt, DateTimeOffset reserveAt)
+    {
+        fixture.Hosts.Fixture.Clock.Now = verifiedAt;
+        fixture.Transport.LeaseClock.Now = verifiedAt;
+
+        var (ownerSetup, account) = await OpenAnnualPaidShopAsync(fixture, verifiedAt);
+        var (staleSetup, _) = await OpenAnnualPaidShopAsync(fixture, verifiedAt);
+        using var ownerSetupClient = ownerSetup.Client;
+        using var staleSetupClient = staleSetup.Client;
+
+        SetMerchantAndBusinessClocks(fixture, businessClock, reserveAt);
+        return (
+            await SignInShopSessionAsync(fixture, ownerSetup),
+            account,
+            await SignInShopSessionAsync(fixture, staleSetup));
+    }
+
+    private static async Task<(Merchant Owner, Guid Account)> OpenAnnualPaidShopAsync(P0213Fixture fixture, DateTimeOffset verifiedAt)
+    {
+        var owner = await CreateTradingShopAsync(fixture.Hosts);
+        var account = await CreateAccountAsync(owner.Client);
+        var local = verifiedAt.ToOffset(TimeSpan.FromHours(5.5));
+        var anchor = new DateTimeOffset(local.Year, local.Month, 1, 0, 0, 0, local.Offset);
+        var term = await SeedTermAsync(fixture.Hosts, account, new TermSeed(
+            anchor.ToUniversalTime(), anchor.AddYears(1).ToUniversalTime(), Period: "Year", PricePaise: 1499000,
+            AnchorLocal: FormattableString.Invariant($"{anchor:yyyy-MM-dd HH:mm:ss}")));
+        await P0213Fixture.LinkAsync(account, owner, owner, term);
+        await DrainBothAsync(fixture);
+        var activated = await fixture.MerchantScalarAsync($"""
+            UPDATE public.shop_license_states SET enforcement_activated_at = '{verifiedAt:O}'
+            WHERE shop_id = '{owner.ShopId:D}' RETURNING shop_id
+            """);
+        Assert.Equal(owner.ShopId, activated);
+        await SeedGoodsStockAsync(owner, "Batch-1");
+        return (owner, account);
+    }
+
+    private static void ConfigureMerchantJwtClock(IServiceCollection services) =>
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .PostConfigure<TimeProvider>((bearer, clock) =>
+                bearer.TokenValidationParameters.LifetimeValidator = (notBefore, expires, _, _) =>
+                {
+                    var now = clock.GetUtcNow().UtcDateTime;
+                    return (!notBefore.HasValue || notBefore.Value <= now)
+                        && (!expires.HasValue || now < expires.Value);
+                });
+
+    private static async Task<Merchant> SignInShopSessionAsync(P0213Fixture fixture, Merchant existing)
+    {
+        var client = fixture.Hosts.Merchant.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", await P0201Tests.LoginAsync(client, existing.Email));
+        using var switched = await client.PostAsJsonAsync("/api/shops/switch", new { shopId = existing.ShopId });
+        var body = await P0418Tests.ReadAsync(switched, HttpStatusCode.OK);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", body.GetProperty("accessToken").GetString());
+        return existing with { Client = client };
     }
 }
 
