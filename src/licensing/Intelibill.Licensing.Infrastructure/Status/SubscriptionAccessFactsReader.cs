@@ -41,7 +41,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
                     AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
                         SELECT FROM public.paid_fresh_starts pf WHERE pf.account_id = s.account_id
-                            AND pf.order_id = s.order_id AND pf.kind = 'RestoredAccess')) AS renewed_at_end
+                            AND pf.order_id = s.order_id AND pf.kind = 'RestoredAccess')) AS renewed_at_end,
+                rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at
             FROM public.shop_affiliations a
             LEFT JOIN public.payment_trial_conversions x ON x.account_id = a.account_id AND x.shop_id = a.shop_id
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
@@ -57,6 +58,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
                 WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
+            LEFT JOIN LATERAL (SELECT new_paid_through, new_access_ends_at FROM public.refund_access_decisions
+                WHERE account_id = t.account_id AND term_id = t.term_id AND treatment <> 'Preserve'
+                ORDER BY term_revision DESC LIMIT 1) rd ON true
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE a.shop_id = {shop}
@@ -205,7 +209,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
                     AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
                         SELECT FROM public.paid_fresh_starts f WHERE f.account_id = s.account_id AND f.order_id = s.order_id
-                            AND f.kind = 'RestoredAccess')) AS renewed_at_end
+                            AND f.kind = 'RestoredAccess')) AS renewed_at_end,
+                rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at
             FROM public.subscription_coverage_terms t
             LEFT JOIN public.trial_history h ON h.term_id = t.term_id AND h.account_id = t.account_id
             LEFT JOIN public.shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
@@ -214,6 +219,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
                 WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
+            LEFT JOIN LATERAL (SELECT new_paid_through, new_access_ends_at FROM public.refund_access_decisions
+                WHERE account_id = t.account_id AND term_id = t.term_id AND treatment <> 'Preserve'
+                ORDER BY term_revision DESC LIMIT 1) rd ON true
             LEFT JOIN public.complimentary_grants g ON g.term_id = t.term_id AND g.account_id = t.account_id
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
@@ -231,12 +239,14 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
         Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
-        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation, DateTimeOffset? ConvertedPaidStartsAt, bool RenewedAtEnd)
+        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation, DateTimeOffset? ConvertedPaidStartsAt, bool RenewedAtEnd,
+        DateTimeOffset? RefundPaidThrough, DateTimeOffset? RefundAccessEndsAt)
     {
         internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
             EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
             Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion,
-            ParseTrial(Trial, ExtendedEndsAt), Cancellation: ParseCancellation(Cancellation), RenewedAtEnd: RenewedAtEnd);
+            ParseTrial(Trial, ExtendedEndsAt), Cancellation: ParseCancellation(Cancellation), RenewedAtEnd: RenewedAtEnd,
+            RefundBoundary: Boundary(RefundPaidThrough, RefundAccessEndsAt));
     }
 
     private sealed record PredecessorLink(Guid TermId, Guid PredecessorTermId);
@@ -245,13 +255,17 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
         int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
         string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion, string? Trial,
-        string? Complimentary, DateTimeOffset? ExtendedEndsAt, string? Cancellation, bool RenewedAtEnd)
+        string? Complimentary, DateTimeOffset? ExtendedEndsAt, string? Cancellation, bool RenewedAtEnd,
+        DateTimeOffset? RefundPaidThrough, DateTimeOffset? RefundAccessEndsAt)
     {
         internal TermFactsRow ToTerm() => new(TermId, AccountId, Mode, Capacity, StartsAt, EndsAt, Basis, BillingPeriod,
             AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise, Currency, PlanVersionId,
             SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial, ExtendedEndsAt), ParseGrant(Complimentary), ParseCancellation(Cancellation),
-            RenewedAtEnd: RenewedAtEnd);
+            RenewedAtEnd: RenewedAtEnd, RefundBoundary: Boundary(RefundPaidThrough, RefundAccessEndsAt));
     }
+
+    private static RefundTermBoundary? Boundary(DateTimeOffset? paidThrough, DateTimeOffset? accessEndsAt) =>
+        paidThrough is { } paid && accessEndsAt is { } ends ? new(paid.ToUniversalTime(), ends.ToUniversalTime()) : null;
 
     private sealed record GrantRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
         DateTimeOffset EndsAt, string Complimentary)

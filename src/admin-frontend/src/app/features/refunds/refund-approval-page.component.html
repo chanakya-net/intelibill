@@ -1,0 +1,165 @@
+<main class="adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/payments/refunds" [queryParams]="{ account: account() || null }">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Refund requests
+    </a>
+    <p class="ib-eyebrow">Finance Approval</p>
+    <h1 class="ib-page-title">Approve a refund</h1>
+    <p class="ib-subtitle">
+      Approving reserves an amount against the original verified payment and records one explicit access decision.
+      It does not send money: the refund is then pending with the original payment provider.
+    </p>
+  </header>
+
+  @if (!allowed()) {
+    <section class="ib-panel"><p class="ib-error-banner">Billing access is required to approve refunds.</p></section>
+  } @else {
+    @if (error()) {
+      <p role="alert" class="ib-error-banner" data-testid="refund-approval-error">{{ error() }}</p>
+    }
+    @if (reauthenticate()) {
+      <p class="adm-callout">
+        <a routerLink="/auth/sign-in" data-testid="refund-approval-sign-in"
+          [queryParams]="{ refundAccount: account(), refundRequest: request() }">Sign in with MFA</a>
+        to continue with this refund request.
+      </p>
+    }
+
+    @if (item(); as shown) {
+      <section class="ib-panel" aria-labelledby="refund-approval-request">
+        <h2 class="ib-panel__title" id="refund-approval-request">Customer request</h2>
+        <dl>
+          <dt>Status</dt><dd data-testid="refund-approval-status">{{ statusLabel(shown.status) }}</dd>
+          <dt>Requested</dt><dd>{{ money(shown.amountPaise) }} of {{ money(shown.paymentAmountPaise) }} · {{ instant(shown.requestedAt) }}</dd>
+          <dt>Customer reason</dt><dd>{{ shown.reason }}</dd>
+          <dt>Request ID</dt><dd>{{ shown.refundRequestId }}</dd>
+          <dt>Original payment</dt>
+          <dd>{{ shown.paymentSource }} · {{ shown.providerId }} · {{ shown.providerAccountId }} · {{ shown.environment }}</dd>
+        </dl>
+      </section>
+    } @else if (loaded()) {
+      <section class="ib-panel"><p class="adm-callout" data-testid="refund-approval-missing">This refund request is unavailable for this billing account.</p></section>
+    }
+
+    @if (pending(); as frozen) {
+      <section class="ib-panel" data-testid="refund-approval-pending" aria-labelledby="refund-approval-pending-title">
+        <h2 class="ib-panel__title" id="refund-approval-pending-title">Approval sent — outcome not confirmed</h2>
+        <p class="adm-panel-sub">This exact approval is saved on this device. Check it or retry it; a different approval cannot be started.</p>
+        <dl>
+          <dt>Operation key</dt><dd data-testid="refund-approval-operation">{{ frozen.operationKey }}</dd>
+          <dt>Amount</dt><dd>{{ money(frozen.amountPaise) }}</dd>
+          <dt>Access treatment</dt>
+          <dd>{{ treatmentLabel(frozen.treatment) }}@if (frozen.effectiveAt) { · {{ instant(frozen.effectiveAt) }} }</dd>
+          <dt>Finance reason</dt><dd>{{ frozen.reason }}</dd>
+        </dl>
+        <div class="adm-actions">
+          <button pButton type="button" data-testid="refund-approval-check" [disabled]="busy()" (click)="resolve(true)">Check original approval</button>
+          <button pButton type="button" severity="secondary" [outlined]="true" data-testid="refund-approval-retry"
+            [disabled]="busy()" (click)="resolve(false)">Retry original approval</button>
+        </div>
+      </section>
+    } @else if (receipt(); as saved) {
+      <section class="ib-panel" data-testid="refund-approval-receipt" aria-labelledby="refund-approval-receipt-title">
+        <h2 class="ib-panel__title" id="refund-approval-receipt-title">Refund approved — pending with the provider</h2>
+        <dl>
+          <dt>Approved amount</dt><dd>{{ money(saved.approvedAmountPaise) }} of {{ money(saved.requestedAmountPaise) }} requested</dd>
+          <dt>Remaining refundable</dt><dd>{{ money(saved.remainingAfterPaise) }} of {{ money(saved.verifiedAmountPaise) }} verified</dd>
+          <dt>Access decision</dt>
+          <dd>{{ treatmentLabel(saved.access.treatment) }}@if (saved.access.effectiveAt) { · {{ instant(saved.access.effectiveAt) }} }</dd>
+          <dt>Decided</dt><dd>{{ instant(saved.decidedAt) }}</dd>
+          <dt>Reservation ID</dt><dd>{{ saved.reservationId }}</dd>
+          <dt>Access decision ID</dt><dd>{{ saved.accessDecisionId }}</dd>
+          <dt>Approval ID</dt><dd>{{ saved.approvalId }}</dd>
+          <dt>Approved by</dt><dd>{{ saved.adminId }}</dd>
+        </dl>
+      </section>
+    } @else if (item() && item()!.status !== 'Requested') {
+      <section class="ib-panel">
+        <p class="adm-callout" data-testid="refund-approval-decided">
+          This refund request already has a decision ({{ statusLabel(item()!.status) }}). It cannot be approved again.
+        </p>
+      </section>
+    } @else if (item()) {
+      <form class="ib-panel" data-testid="refund-approval-form" (submit)="$event.preventDefault(); review()">
+        <h2 class="ib-panel__title">Decision</h2>
+        <div class="adm-field">
+          <label for="refund-approval-amount">Amount to approve (₹)</label>
+          <input id="refund-approval-amount" inputmode="decimal" autocomplete="off" placeholder="0.00"
+            [value]="amount()" (input)="edit('amount', $event)" />
+        </div>
+        <fieldset>
+          <legend>Access treatment — choose one</legend>
+          @for (choice of choices; track choice.value) {
+            <label>
+              <input type="radio" name="treatment" [value]="choice.value" [checked]="treatment() === choice.value"
+                (change)="choose(choice.value)" />
+              <span><strong>{{ choice.label }}</strong> — {{ choice.detail }}</span>
+            </label>
+          }
+        </fieldset>
+        @if (treatment() === 'EndAt' || treatment() === 'TermAdjustment') {
+          <div class="adm-field">
+            <label for="refund-approval-effective">Effective instant (India Standard Time)</label>
+            <input id="refund-approval-effective" type="datetime-local" step="1" [value]="effective()"
+              (input)="edit('effective', $event)" />
+          </div>
+        }
+        <div class="adm-field">
+          <label for="refund-approval-reason">Finance reason</label>
+          <textarea id="refund-approval-reason" rows="3" maxlength="500" [value]="reason()" (input)="edit('reason', $event)"></textarea>
+        </div>
+        <div class="adm-actions">
+          <button pButton type="submit" data-testid="refund-approval-preview" [disabled]="busy() || !input()">Preview impact</button>
+        </div>
+      </form>
+
+      @if (preview(); as reviewed) {
+        <section class="ib-panel" data-testid="refund-approval-impact" aria-labelledby="refund-approval-impact-title">
+          <h2 class="ib-panel__title" id="refund-approval-impact-title">Reviewed impact</h2>
+          <dl>
+            <dt>Verified payment</dt><dd>{{ money(reviewed.verifiedAmountPaise) }}</dd>
+            <dt>Customer requested</dt><dd>{{ money(reviewed.requestedAmountPaise) }}</dd>
+            <dt>Already held or refunded</dt><dd>{{ money(reviewed.occupiedAmountPaise) }}</dd>
+            <dt>Remaining refundable</dt><dd>{{ money(reviewed.remainingAmountPaise) }}</dd>
+            <dt>Approving now</dt><dd>{{ money(reviewed.proposedAmountPaise) }}</dd>
+            <dt>Remaining after approval</dt><dd>{{ money(reviewed.proposedRemainingAmountPaise) }}</dd>
+            <dt>Original payment</dt>
+            <dd>{{ reviewed.paymentSource }} · {{ reviewed.providerId }} · {{ reviewed.providerAccountId }} · {{ reviewed.environment }} · {{ reviewed.configurationVersion }}</dd>
+            <dt>Refund policy accepted</dt><dd>{{ reviewed.refundPolicyVersion }}</dd>
+            <dt>Access impact</dt>
+            <dd data-testid="refund-approval-access">
+              @switch (reviewed.access.treatment) {
+                @case ('Preserve') { Access is preserved. No shop, term, member or restriction changes. }
+                @case ('EndAt') { Access ends for the named shops at {{ instant(reviewed.access.effectiveAt) }}. Nothing remains after that instant, grace included. }
+                @case ('TermAdjustment') { Paid-through moves to {{ instant(reviewed.access.effectiveAt) }} for the named shops; access then ends at {{ instant(reviewed.access.newAccessEndsAt) }}. }
+              }
+            </dd>
+            @if (reviewed.access.termId) {
+              <dt>Paid through</dt>
+              <dd>{{ instant(reviewed.access.previousPaidThrough) }} → {{ instant(reviewed.access.newPaidThrough) }}</dd>
+              <dt>Access ends</dt>
+              <dd>{{ instant(reviewed.access.previousAccessEndsAt) }} → {{ instant(reviewed.access.newAccessEndsAt) }}</dd>
+            }
+            <dt>Named shops</dt>
+            <dd>
+              @for (shop of reviewed.access.shops; track shop.shopId) {
+                <div data-testid="refund-approval-shop">{{ shop.shopName }}@if (shop.restricted) { (currently suspended — the suspension is not changed) }</div>
+              } @empty {
+                This payment funded no current term: there is no shop access to change.
+              }
+            </dd>
+          </dl>
+          <label>
+            <input id="refund-approval-confirm" type="checkbox" [checked]="confirmed()" (change)="confirm($event)" />
+            I reviewed this amount and this named access impact.
+          </label>
+          <div class="adm-actions">
+            <button pButton type="button" data-testid="refund-approval-submit" [disabled]="busy() || !confirmed()" (click)="submit()">
+              Approve refund
+            </button>
+          </div>
+        </section>
+      }
+    }
+  }
+</main>

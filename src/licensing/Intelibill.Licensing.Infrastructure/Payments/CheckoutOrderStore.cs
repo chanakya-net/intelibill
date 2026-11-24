@@ -148,6 +148,8 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
             JOIN public.subscription_term_facts f USING (account_id, term_id)
             WHERE t.account_id = {account} AND t.term_id = {term} AND NOT EXISTS (SELECT FROM public.capacity_increases i
                 WHERE i.account_id=t.account_id AND i.term_id=t.term_id AND i.state='Pending')
+                AND NOT EXISTS (SELECT FROM public.refund_access_decisions rd
+                    WHERE rd.account_id = t.account_id AND rd.term_id = t.term_id AND rd.treatment <> 'Preserve')
                 AND NOT EXISTS (SELECT FROM public.payment_fulfilments s
                 WHERE s.account_id = t.account_id AND s.predecessor_term_id = t.term_id)
             """).SingleOrDefaultAsync(ct);

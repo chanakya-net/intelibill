@@ -16,7 +16,12 @@ public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int 
     int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
     string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
     TrialTermProvenance? Trial = null, ComplimentaryTermProvenance? Complimentary = null,
-    ScheduledSubscriptionChange? Cancellation = null, DateTimeOffset? PaidFrom = null, bool RenewedAtEnd = false);
+    ScheduledSubscriptionChange? Cancellation = null, DateTimeOffset? PaidFrom = null, bool RenewedAtEnd = false,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    RefundTermBoundary? RefundBoundary = null);
+
+/// <summary>The resulting instants of the term's latest effective refund access decision; operational columns only.</summary>
+public sealed record RefundTermBoundary(DateTimeOffset PaidThrough, DateTimeOffset AccessEndsAt);
 
 public sealed record TrialTermProvenance(string ComputationVersion, int MemberCap, int ActiveMembers,
     int AccountTrialCap, bool DevelopmentFixture, bool ConflictingCoverage = false, DateTimeOffset? ExtendedEndsAt = null);
