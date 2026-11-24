@@ -19,6 +19,15 @@ internal static class EntitlementEndpoints
             endpoints.MapPost(path, (HttpContext context, MerchantEntitlementTransport transport, ICapacityReservationReceiver receiver) =>
                 CapacityAsync(context, transport, receiver, phase, path)).AllowAnonymous()
                 .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+        endpoints.MapPost(ReductionTransportV1.ObservePath, ObserveReductionAsync).AllowAnonymous()
+            .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+        endpoints.MapPost(ReductionTransportV1.ManifestPath, ReductionManifestAsync).AllowAnonymous()
+            .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+        foreach (var (phase, path) in new[] { (ReductionTransportV1.ReserveKind, ReductionTransportV1.ReservePath),
+            (ReductionTransportV1.ConsumeKind, ReductionTransportV1.ConsumePath) })
+            endpoints.MapPost(path, (HttpContext context, MerchantEntitlementTransport transport, IReductionReservationReceiver receiver) =>
+                ReductionReservationAsync(context, transport, receiver, phase, path)).AllowAnonymous()
+                .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(EntitlementSnapshotsV1.SnapshotPath, ApplyAsync).AllowAnonymous()
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(ShopClosuresV1.ValidationPath, ValidateClosureAsync).AllowAnonymous()
@@ -45,6 +54,74 @@ internal static class EntitlementEndpoints
         catch (JsonException) { return Results.BadRequest(); }
         catch (NpgsqlException) { return Results.StatusCode(503); }
     }
+
+    private static async Task<IResult> ObserveReductionAsync(HttpContext context, MerchantEntitlementTransport transport,
+        IReductionReservationReceiver receiver)
+    {
+        var path = ReductionTransportV1.ObservePath;
+        var ct = context.RequestAborted;
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, ReductionTransportV1.BodyLimit) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof)
+            return Results.Unauthorized();
+        try
+        {
+            var input = JsonSerializer.Deserialize<ReductionObservationRequestV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (input?.IsValid() != true) return Results.BadRequest();
+            var result = await receiver.ObserveAsync(input, proof, ct);
+            if (result.IsError)
+                return result.FirstError.Type == ErrorType.Unauthorized ? Results.Unauthorized() : Results.StatusCode(503);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(result.Value, EntitlementSnapshotsV1.Json);
+            if (bytes.Length > ReductionTransportV1.BodyLimit ||
+                await transport.SignReductionObservationAsync(bytes, ct) is not { } signature)
+                return Results.StatusCode(503);
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers[ReductionTransportV1.ProofHeader] = signature;
+            return Results.Bytes(bytes, "application/json");
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
+    }
+
+    private static async Task<IResult> ReductionManifestAsync(HttpContext context, MerchantEntitlementTransport transport,
+        IReductionReservationReceiver receiver)
+    {
+        var path = ReductionTransportV1.ManifestPath;
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, ReductionTransportV1.BodyLimit) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof)
+            return Results.Unauthorized();
+        try
+        {
+            var page = JsonSerializer.Deserialize<ReductionManifestPageV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (page?.IsValid() != true) return Results.BadRequest();
+            return MapInternalWrite(await receiver.ReceiveManifestAsync(page, request.Body, proof, context.RequestAborted));
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
+    }
+
+    private static async Task<IResult> ReductionReservationAsync(HttpContext context, MerchantEntitlementTransport transport,
+        IReductionReservationReceiver receiver, string phase, string path)
+    {
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, ReductionTransportV1.BodyLimit) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof)
+            return Results.Unauthorized();
+        try
+        {
+            var command = JsonSerializer.Deserialize<ReductionReservationV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (command?.IsValid(phase) != true) return Results.BadRequest();
+            return MapInternalWrite(await receiver.ReceiveReservationAsync(command, request.Body, proof, context.RequestAborted));
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
+    }
+
+    private static IResult MapInternalWrite(ErrorOr<Success> result) => !result.IsError ? Results.NoContent()
+        : result.FirstError.Type switch
+        {
+            ErrorType.Unauthorized => Results.Unauthorized(),
+            ErrorType.Conflict when result.FirstError.Code != LicenceErrors.BusyCode => Results.Conflict(),
+            _ => Results.StatusCode(503),
+        };
 
     private static async Task<IResult> ValidateClosureAsync(HttpContext context, MerchantEntitlementTransport transport,
         IMerchantClosureValidationReceiver consents)

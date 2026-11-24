@@ -13,14 +13,37 @@ public sealed class EntitlementMerchantEvents
     private readonly TimeProvider clock;
     private readonly EntitlementPublisher publisher;
     private readonly CapacityReservationAcknowledgements increases;
+    private readonly ReductionReservationAcknowledgements reductions;
 
     internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
-        CapacityReservationAcknowledgements increases)
+        CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions)
     {
         this.increases = increases;
+        this.reductions = reductions;
         this.db = db;
         this.clock = clock;
         this.publisher = publisher;
+    }
+
+    public Task<ErrorOr<Success>> ReductionAsync(ReductionReceiptV1 ack, byte[] body, VerifiedServiceAssertion proof,
+        CancellationToken ct)
+    {
+        var valid = ack.Outcome switch
+        {
+            "Reserved" => ack.Phase == ReductionTransportV1.ReserveKind && ack.Reason is null,
+            "Applied" => ack.Phase == ReductionTransportV1.ConsumeKind && ack.Reason is null,
+            "NeedsResolution" => ack.Phase is ReductionTransportV1.ReserveKind or ReductionTransportV1.ConsumeKind &&
+                ack.Reason is "MemberCapacityExceeded" or "ReservationExpired" or "ReservationChanged" or "ReservationBusy" or "SourceChanged",
+            "NeedsReview" => ack.Phase is ReductionTransportV1.ReserveKind or ReductionTransportV1.ConsumeKind &&
+                ack.Reason is "SourceChanged" or "ReservationChanged" or "ReservationExpired" or "ReservationBusy",
+            _ => false,
+        };
+        if (!valid || ack.SchemaVersion != 1 || ack.EventId == Guid.Empty || ack.ScheduleId == Guid.Empty ||
+            ack.AccountId == Guid.Empty || ack.TermId == Guid.Empty || ack.OrderId == Guid.Empty ||
+            ack.Generation <= 0 || !EntitlementSnapshotsV1.IsDigest(ack.CommandDigest))
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Reduction.InvalidReceipt"));
+        return InEventAsync(ack.AccountId, ack.EventId, ReductionTransportV1.ReceiptKind, body, proof,
+            token => reductions.ApplyAsync(ack, token), ct);
     }
 
     public Task<ErrorOr<Success>> CapacityAsync(CapacityReceiptV1 ack, byte[] body, VerifiedServiceAssertion proof,

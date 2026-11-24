@@ -36,6 +36,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
         services.AddScoped<ICapacityReservationReceiver, MerchantCapacityReservationStore>();
+        services.AddScoped<IReductionReservationReceiver, MerchantReductionReservationStore>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
         AddDeliveryKey(services, OfflinePermitContractV1.Section);
@@ -72,6 +73,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantShopTrials, MerchantBillingClient>()
             .AddTypedClient<IMerchantCheckoutOrders, MerchantBillingClient>()
             .AddTypedClient<IMerchantCapacityChangeQuotes, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCapacityReductions, MerchantBillingClient>()
             .AddTypedClient<IMerchantRefundRequests, MerchantBillingClient>()
             .AddTypedClient<IMerchantCheckoutPayments, MerchantBillingClient>()
             .AddTypedClient<IMerchantPaymentConfirmations, MerchantBillingClient>()

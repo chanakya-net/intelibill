@@ -51,6 +51,7 @@ internal static class CustomerBillingEndpoints
         app.MapCustomerCheckout(policy);
         app.MapCustomerPayments(policy);
         app.MapCustomerCapacityChangeQuotes(policy);
+        app.MapCustomerCapacityReductions(policy);
         app.MapCustomerRefundRequests(policy);
     }
 

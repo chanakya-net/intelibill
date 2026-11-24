@@ -56,6 +56,8 @@ public static class CheckoutOrdersV1
         var legacy = LegacySnapshotHash(q);
         if (q.Increase is { } change)
             return Digest(Policy, "capacity-increase", legacy, change.QuoteHash, change.PinHash, change.RoutingRevision, change.SourceRevision);
+        if (q.Reduction is { } reduction)
+            return Digest(Policy, "capacity-reduction", legacy, reduction.ScheduleId, reduction.ScheduleHash, reduction.SourceShopCount, reduction.SourceShopHash);
         return q.FreshStart is { } fresh
             ? Digest(Policy, "fresh-start", legacy, fresh.Policy, fresh.TrialShopCount, fresh.TrialSourceHash) : legacy;
     }
@@ -114,7 +116,8 @@ public sealed record CheckoutQuoteV1(Guid AccountId, Guid OrderId, int Revision,
     DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, [property: JsonRequired] bool DevelopmentFixture, string SnapshotHash,
     CheckoutAcceptanceV1? Acceptance = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CheckoutFreshStartV1? FreshStart = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityIncreaseOrderV1? Increase = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityIncreaseOrderV1? Increase = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityReductionOrderV1? Reduction = null)
 {
     [JsonRequired]
     public int SchemaVersion { get; init; } = 1;
@@ -131,3 +134,5 @@ public sealed record CapacityIncreaseOrderV1(string QuoteHash, string PinHash, l
 {
     public const string Rule = "CapacityIncrease";
 }
+
+public sealed record CapacityReductionOrderV1(Guid ScheduleId, string ScheduleHash, int SourceShopCount, string SourceShopHash);

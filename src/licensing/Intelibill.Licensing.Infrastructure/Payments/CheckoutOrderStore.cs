@@ -6,9 +6,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Payments;
 
-internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Application.Subscriptions.ICapacityChangeQuoteStore changes) : ICheckoutOrderStore
+internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Application.Subscriptions.ICapacityChangeQuoteStore changes,
+    Application.Changes.IScheduledCapacityReductionStore reductions) : ICheckoutOrderStore
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    public Task<bool> ReductionOrderCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct) =>
+        reductions.ReductionOrderCurrentAsync(quote, now, ct);
+
+    public Task<bool> IsReductionOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct) =>
+        reductions.IsReductionOwnerAsync(account, order, actor, ct);
 
     public async Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct)
     {
@@ -115,7 +122,26 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
                    coalesce(i.target_revision,0) AS capacity_revision,
                    CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, EXISTS (SELECT FROM public.payment_fulfilments r WHERE r.account_id = t.account_id
                        AND r.term_id = t.term_id AND (r.predecessor_term_id IS NOT NULL OR EXISTS (
-                           SELECT FROM public.paid_fresh_starts x WHERE x.account_id = r.account_id AND x.order_id = r.order_id))) AS renewed
+                           SELECT FROM public.paid_fresh_starts x WHERE x.account_id = r.account_id AND x.order_id = r.order_id))) AS renewed,
+                   (SELECT sr.schedule_id FROM public.scheduled_capacity_reductions sr
+                       WHERE sr.account_id = t.account_id AND sr.term_id = t.term_id
+                           AND sr.state IN ('Scheduled','Funded','Applying','NeedsResolution','NeedsReview') LIMIT 1) AS active_reduction_id,
+                   EXISTS (SELECT FROM public.scheduled_capacity_reductions sr
+                       WHERE sr.account_id = t.account_id AND sr.term_id = t.term_id
+                           AND (sr.state IN ('Funded','Applying','NeedsResolution')
+                               OR (sr.state = 'NeedsReview' AND NOT public.reduction_review_settled(sr.account_id, sr.schedule_id))
+                               OR (sr.state = 'Scheduled' AND EXISTS (
+                                   SELECT FROM public.checkout_orders q
+                                   WHERE q.account_id = sr.account_id AND q.term_id = sr.term_id
+                                       AND q.snapshot->'reduction'->>'scheduleId' = sr.schedule_id::text
+                                       AND (EXISTS (SELECT FROM public.payment_attempts a
+                                               WHERE a.account_id = q.account_id AND a.order_id = q.order_id
+                                                   AND (NOT EXISTS (SELECT FROM public.payment_events e
+                                                           WHERE e.attempt_id = a.attempt_id AND e.kind = 'CheckoutFailed')
+                                                       OR EXISTS (SELECT FROM public.verified_payments v
+                                                           WHERE v.attempt_id = a.attempt_id)))
+                                           OR EXISTS (SELECT FROM public.manual_payment_receipts r
+                                               WHERE r.account_id = q.account_id AND r.order_id = q.order_id)))))) AS blocks_restored_access
             FROM public.subscription_coverage_terms t
             LEFT JOIN LATERAL (SELECT capacity,target_revision FROM public.capacity_increases WHERE account_id=t.account_id
                 AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true

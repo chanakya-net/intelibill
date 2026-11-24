@@ -105,6 +105,7 @@
             @if (item.status.basis === 'Paid') {
               <app-subscription-cancellation [account]="account" [term]="item.status" (saved)="load()" />
               <app-subscription-cancellation-withdrawal [account]="account" [term]="item.status" (saved)="load()" />
+              <app-capacity-reduction-preview [account]="account" [term]="item.status" (changed)="load()" />
             }
             @if (item.status.basis === 'Paid' || item.status.basis === 'Trial') {
               <app-capacity-change-preview [account]="account" [term]="item.status" />

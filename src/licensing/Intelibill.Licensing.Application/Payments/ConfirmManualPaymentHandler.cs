@@ -8,7 +8,8 @@ namespace Intelibill.Licensing.Application.Payments;
 
 public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IPaymentStore payments, ICheckoutOrderStore orders,
     IManualPaymentEvidence evidence, IValidator<ConfirmManualPayment> validator, FulfilPaidOrderHandler fulfilment,
-    CheckoutPaymentStatusReader status, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations, Changes.ApplyCapacityIncreaseHandler increases, TimeProvider clock)
+    CheckoutPaymentStatusReader status, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations,
+    Changes.ApplyCapacityIncreaseHandler increases, Changes.IScheduledCapacityReductionStore reductions, TimeProvider clock)
 {
     public Task<ErrorOr<ManualPaymentView>> ReadAsync(AdminSessionCaller caller, Guid account, Guid order,
         Guid? after, CancellationToken ct) => store.InManualScopeAsync<ManualPaymentView>(caller, account, order,
@@ -30,7 +31,8 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IPaym
             var (quote, receiving, _) = input.Value;
             var decision = await fulfilment.DecideAsync(quote, BillingAccountRules.StorageInstant(command!.ReceivedAt), token);
             return new ManualPaymentPreview(await OrderViewAsync(quote, null, token), receiving,
-                command!.ReceivedAt, decision.Increase is null ? decision.ReviewReason : "CapacityPending",
+                command!.ReceivedAt, decision.Reduction is not null ? "ReductionPending"
+                    : decision.Increase is not null ? "CapacityPending" : decision.ReviewReason,
                 decision.Term?.StartsAt, decision.Term?.EndsAt);
         }, ct);
 
@@ -80,11 +82,14 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IPaym
         var receipt = new ManualPaymentReceipt(id, command.OperationKey, caller.AdminId, mfa,
             BillingAccountRules.StorageInstant(command.ReceivedAt), BillingAccountRules.StorageInstant(clock.GetUtcNow()),
             quote.AmountPaise, quote.Currency, receiving.Id, receiving.ConfigurationVersion, receiving.EvidencePolicyVersion,
-            receiving.Environment, decision.Increase is null ? decision.ReviewReason : "CapacityPending", decision.Term?.TermId);
+            receiving.Environment, decision.Reduction is not null ? "ReductionPending"
+                : decision.Increase is not null ? "CapacityPending" : decision.ReviewReason, decision.Term?.TermId);
         await store.SaveManualAsync(account, order, caller, command, receipt, digest,
             evidence.Protect(account, order, id, command), ct);
         if (decision.Increase is { } change)
             await increases.FundAsync(change, null, id, ct);
+        else if (decision.Reduction is { } funding)
+            await reductions.FundAsync(funding, null, id, receipt.VerifiedAt, ct);
         else if (decision.Term is null)
             await reviews.RecordManualAsync(account, order, receipt, ct);
         if (decision.Hold is { } hold)

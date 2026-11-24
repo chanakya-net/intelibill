@@ -77,6 +77,7 @@ public sealed partial class P0403Tests
                 GRANT SELECT ON public.capacity_increases, public.active_operational_restrictions, public.operational_closures,
                     public.operational_closure_targets, public.active_operational_closure_targets TO licensing_runtime;
                 GRANT SELECT, INSERT ON public.operational_closure_reopenings TO licensing_runtime;
+                GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
                 """);
         }
 

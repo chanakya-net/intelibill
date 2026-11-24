@@ -29,7 +29,10 @@ public sealed class P0507TestsMigrations(LicensingPostgreSqlFixture database) : 
         Assert.DoesNotContain("DeviceObservation", await KindCheckAsync(merchant, "entitlement_messages"));
         await source.Database.MigrateAsync();
         await merchant.Database.MigrateAsync();
-        await source.Database.ExecuteSqlRawAsync("GRANT SELECT, INSERT ON public.offline_device_observations TO licensing_runtime");
+        await source.Database.ExecuteSqlRawAsync("""
+            GRANT SELECT, INSERT ON public.offline_device_observations TO licensing_runtime;
+            GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
+            """);
         Assert.Contains("DeviceObservation", await KindCheckAsync(source, "entitlement_merchant_inbox"));
         Assert.Contains("DeviceObservation", await KindCheckAsync(merchant, "entitlement_messages"));
 

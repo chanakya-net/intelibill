@@ -12,7 +12,9 @@ public enum FulfilmentOutcome { AlreadyRecorded, Rejected, NeedsReview, Pending,
 /// one paid term for the complete frozen package, its shop links, audit event and entitlement outbox snapshots in
 /// one transaction. A payment already recorded for the attempt returns without writing again.
 /// </summary>
-public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderStore orders, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations, Changes.ApplyCapacityIncreaseHandler increases, TimeProvider lifecycle)
+public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderStore orders, IPaymentReviewStore reviews,
+    IPaymentConfirmationStore confirmations, Changes.ApplyCapacityIncreaseHandler increases,
+    Changes.IScheduledCapacityReductionStore reductions, TimeProvider lifecycle)
 {
     public Task<ErrorOr<FulfilmentOutcome>> HandleAsync(StoredPaymentAttempt attempt, PaymentObservation payment,
         CancellationToken ct) =>
@@ -50,6 +52,12 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         if (decision.Increase is { } change)
         {
             await increases.FundAsync(change, attempt.AttemptId, null, ct);
+            await confirmations.IssueAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, verifiedAt, ct);
+            return FulfilmentOutcome.Pending;
+        }
+        if (decision.Reduction is { } funding)
+        {
+            await reductions.FundAsync(funding, attempt.AttemptId, null, verifiedAt, ct);
             await confirmations.IssueAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, verifiedAt, ct);
             return FulfilmentOutcome.Pending;
         }
@@ -95,6 +103,8 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
             var command = recovery is null ? await increases.PrepareAsync(quote, effectiveAt, latestPossible, now, ct) : null;
             return new(null, [], now, command is null ? "CoverageChanged" : null, Increase: command);
         }
+        if (quote.Reduction is { } red)
+            return await ReductionDecisionAsync(quote, red, source, effectiveAt, latestPossible, now, recovery is not null, ct);
         if (CheckoutRenewalPolicy.IsRenewal(quote))
             return RenewalDecision(quote, source, effectiveAt, latestPossible, now, ids);
 
@@ -148,6 +158,20 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         return new(successor, ids, now, null, new(quote.TermId!.Value, latestPossible, grace));
     }
 
+    private async Task<PaidOrderDecision> ReductionDecisionAsync(CheckoutQuoteV1 quote, CapacityReductionOrderV1 red,
+        CheckoutSource source, DateTimeOffset effectiveAt, DateTimeOffset latestPossible, DateTimeOffset now,
+        bool isRecovery, CancellationToken ct)
+    {
+        if (isRecovery || source.Prior is not { } prior || !await orders.ReductionOrderCurrentAsync(quote, now, ct))
+            return new(null, [], now, "CoverageChanged");
+        if (!CheckoutRenewalPolicy.ReductionTiming(quote, prior, effectiveAt, now, out var grace))
+            return new(null, [], now, "TermUnavailable");
+        if (latestPossible != effectiveAt &&
+            (!CheckoutRenewalPolicy.ReductionTiming(quote, prior, latestPossible, now, out var late) || late != grace))
+            return new(null, [], now, "CaptureTimeUnproven");
+        return new(null, [], now, null, Reduction: new(quote.AccountId, red.ScheduleId, quote.OrderId, latestPossible, grace));
+    }
+
     internal Task FulfilAsync(CheckoutQuoteV1 quote, PaidOrderDecision decision, StoredPaymentAttempt? attempt,
         Guid? manualReceipt, CancellationToken ct) =>
         store.FulfilAsync(new(quote.AccountId, quote.OrderId, attempt, manualReceipt, quote.AmountPaise, quote.Currency,
@@ -155,7 +179,8 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
             decision.Renewal, decision.Fresh), ct);
 
     internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason,
-        RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, PaymentRestorationEvidence? Hold = null, CapacityReservationV1? Increase = null);
+        RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, PaymentRestorationEvidence? Hold = null,
+        CapacityReservationV1? Increase = null, Changes.ReductionFunding? Reduction = null);
 }
 
 public static class PaymentFulfilmentPolicy

@@ -58,6 +58,24 @@ public static class CheckoutRenewalPolicy
         return new PaidTerm(Guid.NewGuid(), prior.Mode, prior.Capacity, starts, ends, quote.Period, prior.AnchorLocal, ordinal);
     }
 
+    public static bool ReductionTiming(CheckoutQuoteV1 quote, CheckoutRenewalSource prior, DateTimeOffset effectiveAt,
+        DateTimeOffset now, out int graceDays)
+    {
+        graceDays = 0;
+        var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
+        if (quote.Reduction is null || effectiveAt > now || prior.Basis != "Paid" || prior.Period != quote.Period ||
+            prior.CancellationRevision % 2 == 1 || prior.EndsAt != quote.PreviewStartsAt)
+            return false;
+        var anchor = new BillingAnchor(prior.AnchorLocal, BillingCalendar.Zone, period);
+        var decision = RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
+            VerifiedPaymentAt: effectiveAt, AcceptedQuote: true));
+        if (decision is not { Start: RenewalStart.PriorPaidThrough, Ordinal: { } ordinal, StartsAt: { } starts, EndsAt: { } ends }
+            || starts != quote.PreviewStartsAt || ends != quote.PreviewEndsAt || ordinal != quote.Ordinal)
+            return false;
+        graceDays = decision.IncludedGraceDays;
+        return true;
+    }
+
     public static (PaidTerm Term, string Kind)? FreshTerm(CheckoutQuoteV1 quote, CheckoutSource source,
         DateTimeOffset effectiveAt, DateTimeOffset now)
     {

@@ -33,6 +33,14 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             return Result.Success;
         }, ct);
 
+    internal Task<ErrorOr<Success>> EnterObservationAsync(Guid accountId, Guid[] shopIds, CancellationToken ct) =>
+        WithinBudgetAsync<Success>(async () =>
+        {
+            foreach (var shopId in shopIds.Order())
+                await LockAsync(accountId, shopId, shared: true, ct);
+            return Result.Success;
+        }, ct);
+
     private async Task<ErrorOr<ShopLicenceLease>> ReadUnderFenceAsync(Guid shopId, LicenceAction action, CancellationToken ct)
     {
         var scope = await db.Database.SqlQuery<Guid?>(
@@ -73,12 +81,32 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         };
     }
 
-    private Task<int?> AppliedAllowanceAsync(ShopLicenseState shop, Guid term, DateTimeOffset now, CancellationToken ct) =>
-        db.Database.SqlQuery<int?>($"""
-            SELECT members AS "Value" FROM public.applied_shop_capacity WHERE shop_id={shop.ShopId}
-                AND account_id={shop.AccountId} AND term_id={term} AND affiliation_id={shop.AffiliationRequestId}
-                AND paid_through>{now} ORDER BY revision DESC LIMIT 1
+    private async Task<int?> AppliedAllowanceAsync(ShopLicenseState shop, Guid term, DateTimeOffset now, CancellationToken ct)
+    {
+        var reduced = await db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_reductions
+            WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
+                AND predecessor_term_id = {term} AND affiliation_id = {shop.AffiliationRequestId}
+                AND starts_at <= {now} AND paid_through > {now}
+            ORDER BY generation DESC LIMIT 1
             """).SingleOrDefaultAsync(ct);
+        if (reduced is not null) return reduced;
+
+        var increased = await db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_capacity WHERE shop_id = {shop.ShopId}
+                AND account_id = {shop.AccountId} AND term_id = {term} AND affiliation_id = {shop.AffiliationRequestId}
+                AND paid_through > {now} ORDER BY revision DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
+        if (increased is not null) return increased;
+
+        return await db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_reductions
+            WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
+                AND successor_term_id = {term} AND affiliation_id = {shop.AffiliationRequestId}
+                AND starts_at <= {now} AND paid_through > {now}
+            ORDER BY generation DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
+    }
 
     // The account head may rest on a sibling shop's evidence, which row security rightly hides from this shop.
     internal async Task<LicenseProofIssuance?> ReadProofIssuanceAsync(Guid shopId, CancellationToken ct) =>

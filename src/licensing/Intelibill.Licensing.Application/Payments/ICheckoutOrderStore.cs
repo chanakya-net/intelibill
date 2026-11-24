@@ -7,12 +7,14 @@ public sealed record CheckoutSourceShop(Guid ShopId, string Name, Guid RequestId
     DateTimeOffset AppliedAt, DateTimeOffset? CoverageEndsAt);
 
 /// <summary>
-/// The latest (unsuperseded) paid period a renewal extends. <c>Mode</c> and <c>Renewed</c> (a paid renewal
-/// successor or a recorded fresh start, which may still start in the future) are deliberately outside the V1 source digest.
+/// The latest (unsuperseded) paid period a renewal extends. <c>Mode</c>, <c>Renewed</c> (a paid renewal
+/// successor or a recorded fresh start, which may still start in the future) and <c>BlocksRestoredAccess</c>
+/// are deliberately outside the V1 source digest.
 /// </summary>
 public sealed record CheckoutRenewalSource(DateTimeOffset StartsAt, DateTimeOffset EndsAt, int Capacity, string Basis,
     string Period, DateTime AnchorLocal, int Ordinal, string CalendarVersion, string AccessPolicyVersion, int CancellationRevision,
-    string Mode = "Grouped", bool Renewed = false, long CapacityRevision = 0);
+    string Mode = "Grouped", bool Renewed = false, long CapacityRevision = 0, Guid? ActiveReductionId = null,
+    bool BlocksRestoredAccess = false);
 
 public sealed record CheckoutTrialSource(Guid ShopId, Guid TermId, int Revision, DateTimeOffset EndsAt);
 
@@ -29,10 +31,12 @@ public sealed record CheckoutSource(CheckoutSourceShop[] Shops, CheckoutRenewalS
 
     public string Hash()
     {
-        var original = OriginalHash();
-        return Prior is { CapacityRevision: > 0 } latest
-            ? CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "capacity-revision", original, latest.CapacityRevision)
-            : original;
+        var hash = OriginalHash();
+        if (Prior is { CapacityRevision: > 0 } latest)
+            hash = CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "capacity-revision", hash, latest.CapacityRevision);
+        if (Prior is { ActiveReductionId: { } reductionId })
+            hash = CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "reduction-schedule", hash, reductionId);
+        return hash;
     }
 
     private string OriginalHash() => CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "source",
@@ -50,6 +54,8 @@ public interface ICheckoutOrderStore
 {
     Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct);
     Task<bool> IsIncreaseOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
+    Task<bool> ReductionOrderCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct);
+    Task<bool> IsReductionOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
     Task<StoredCheckoutQuote?> FindAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<CheckoutSource?> SourceAsync(Guid account, Guid? term, Guid[] requested, CancellationToken ct);
     Task SaveAsync(CheckoutQuoteV1 quote, CheckoutSource source, Guid actor, Guid key, string requestHash, Guid replay, CancellationToken ct);

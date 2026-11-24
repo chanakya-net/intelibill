@@ -10,7 +10,7 @@ public sealed partial class PaidCapacityIncreases
         'TermUnavailable','CaptureTimeUnproven','RestorationPending','LegacyNeedsReview'
         """;
 
-    private const string ManualCapacityReason = """
+    internal const string ManualCapacityReason = """
         OR r.review_reason='CapacityPending' AND EXISTS (SELECT FROM public.capacity_increases i
             WHERE i.account_id=r.account_id AND i.order_id=r.order_id AND i.receipt_id=r.receipt_id
               AND i.state='NeedsReview' AND i.reason=NEW.classification)

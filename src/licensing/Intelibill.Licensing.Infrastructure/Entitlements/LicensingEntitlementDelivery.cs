@@ -10,7 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Licensing.Infrastructure.Entitlements;
 
 internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, EntitlementPublisher publisher,
-    LicensingEntitlementTransport transport, IHttpClientFactory clients) : ILeasedHttpDestination
+    LicensingEntitlementTransport transport, IHttpClientFactory clients,
+    Subscriptions.ScheduledCapacityReductionStore reductions) : ILeasedHttpDestination
 {
     public bool Enabled => transport.Origin is not null;
 
@@ -21,6 +22,9 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
             "Snapshot" => EntitlementSnapshotsV1.SnapshotPath,
             CapacityReservationV1.Reserve => CapacityReservationV1.ReservePath,
             CapacityReservationV1.Consume => CapacityReservationV1.ConsumePath,
+            ReductionTransportV1.ManifestKind => ReductionTransportV1.ManifestPath,
+            ReductionTransportV1.ReserveKind => ReductionTransportV1.ReservePath,
+            ReductionTransportV1.ConsumeKind => ReductionTransportV1.ConsumePath,
             _ => null,
         };
         if (transport.Origin is not { } origin || path is null)
@@ -73,10 +77,23 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
     public async Task QueueDueAsync(CancellationToken ct)
     {
         var now = publisher.Now;
+        var dueReductions = await db.Database.SqlQuery<DueReduction>(
+            $"SELECT * FROM public.due_scheduled_capacity_reductions({now})").ToListAsync(ct);
+        foreach (var item in dueReductions)
+            await QueueDueReductionAsync(item, now, ct);
+
         var due = await db.Database.SqlQuery<SourceBinding>(
             $"SELECT * FROM public.due_entitlement_verification({now})").ToListAsync(ct);
         foreach (var binding in due)
             await PublishDueAsync(binding, now, ct);
+    }
+
+    private async Task QueueDueReductionAsync(DueReduction item, DateTimeOffset now, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await EntitlementMerchantEvents.EnterAccountAsync(db, item.AccountId, ct);
+        if (await reductions.QueueDueAttemptAsync(item.AccountId, item.ScheduleId, now, ct))
+            await tx.CommitAsync(ct);
     }
 
     private async Task PublishDueAsync(SourceBinding binding, DateTimeOffset now, CancellationToken ct)
@@ -92,4 +109,5 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
     }
 
     private sealed record SourceBinding(Guid AccountId, Guid ShopId);
+    private sealed record DueReduction(Guid AccountId, Guid ScheduleId);
 }
