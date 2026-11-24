@@ -35,9 +35,10 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
         var inserted = await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.shop_affiliation_requests
                 (request_id, account_id, account_name, shop_id, requester_id, requester_revision,
-                 operation_key, term_id, created_at, expires_at)
+                 operation_key, term_id, created_at, expires_at, reviewed_refund_paid_through)
             SELECT {id}, a.id, a.name, {request.ShopId}, m.merchant_user_id, m.revision,
-                {request.OperationKey}, {request.TermId}, {now}, {now.AddDays(7)}
+                {request.OperationKey}, {request.TermId}, {now}, {now.AddDays(7)},
+                (SELECT new_paid_through FROM public.refund_boundary({account}, {request.TermId}))
             FROM public.billing_accounts a JOIN public.billing_account_members m ON a.id = m.account_id
             WHERE a.id = {account} AND m.merchant_user_id = {actor} AND m.status = 1
             """, ct);
@@ -55,11 +56,12 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
         var terms = await db.Database.SqlQuery<SubscriptionCoverageV1>($"""
             SELECT t.term_id, CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode,
                 coalesce(i.capacity,t.capacity) AS capacity,
-                starts_at AS starts_at, ends_at AS ends_at
+                t.starts_at AS starts_at, coalesce(rd.new_paid_through,t.ends_at) AS ends_at
             FROM public.subscription_coverage_terms t
             LEFT JOIN LATERAL (SELECT capacity FROM public.capacity_increases WHERE account_id=t.account_id AND term_id=t.term_id
                 AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
-            WHERE t.account_id = {account} AND t.ends_at > {Now}
+            LEFT JOIN LATERAL public.refund_boundary(t.account_id,t.term_id) rd ON true
+            WHERE t.account_id = {account} AND coalesce(rd.new_paid_through,t.ends_at) > {Now}
                 AND NOT EXISTS (SELECT FROM public.trial_history h WHERE h.term_id = t.term_id)
                 AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes c
                     WHERE c.account_id = t.account_id AND c.term_id = t.term_id AND c.kind = 'ScheduleCancellation'
@@ -83,16 +85,21 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
 
     private DateTimeOffset Now => BillingAccountRules.StorageInstant(clock.GetUtcNow());
 
-    private Task<bool> CanAssignAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct) =>
+    private Task<bool> CanAssignAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct, Guid? request = null) =>
         db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (
-                SELECT FROM public.subscription_coverage_terms t WHERE t.account_id = {account} AND t.term_id = {term}
+                SELECT FROM public.subscription_coverage_terms t
+                LEFT JOIN LATERAL public.refund_boundary(t.account_id,t.term_id) rd ON true
+                WHERE ({request}::uuid IS NULL OR EXISTS (SELECT FROM public.shop_affiliation_requests r
+                    WHERE r.request_id = {request} AND r.account_id = t.account_id AND r.term_id = t.term_id
+                        AND r.reviewed_refund_paid_through IS NOT DISTINCT FROM rd.new_paid_through))
+                  AND t.account_id = {account} AND t.term_id = {term}
                   AND NOT EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.account_id=t.account_id AND f.term_id=t.term_id)
                   AND NOT EXISTS (SELECT FROM public.trial_history h WHERE h.term_id = t.term_id)
                 AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes c
                     WHERE c.account_id = t.account_id AND c.term_id = t.term_id AND c.kind = 'ScheduleCancellation'
                         AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes w WHERE w.withdraws_change_id = c.change_id))
-                  AND t.starts_at <= {now} AND {now} < t.ends_at AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)
+                  AND t.starts_at <= {now} AND {now} < coalesce(rd.new_paid_through,t.ends_at) AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)
             ) AS "Value"
             """).SingleAsync(ct);
 
@@ -103,7 +110,7 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
         SELECT r.request_id AS request_id, r.account_id AS account_id, r.account_name AS account_name,
             r.shop_id AS shop_id, r.term_id AS term_id, CASE WHEN adj.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode,
             coalesce(adj.capacity,t.capacity) AS capacity,
-            t.starts_at AS starts_at, t.ends_at AS ends_at, r.expires_at AS expires_at, r.created_at AS created_at,
+            t.starts_at AS starts_at, coalesce(a.coverage_ends_at, r.reviewed_refund_paid_through, t.ends_at) AS ends_at, r.expires_at AS expires_at, r.created_at AS created_at,
             COALESCE(i.status, 'AwaitingConsent') AS status,
             a.shop_name AS shop_name, a.owner_name AS owner_name, a.applied_at AS applied_at
         FROM public.shop_affiliation_requests r

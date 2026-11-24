@@ -7,7 +7,8 @@ namespace Intelibill.Licensing.Infrastructure.Refunds;
 
 /// <summary>
 /// SQL-owned refund request evidence. Runs inside the delegation or admin scope transaction under forced RLS.
-/// Status is derived as <see cref="RefundRequestsV1.Requested"/> in P06-08; there is no mutable status column.
+/// Status is derived: <see cref="RefundRequestsV1.Requested"/> until a committed approval's access decision exists,
+/// then <see cref="RefundRequestsV1.Pending"/>; there is no mutable status column. The create replay keeps its original response.
 /// </summary>
 internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequestStore
 {
@@ -51,9 +52,11 @@ internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequest
     public async Task<RefundRequestPageV1> PageAsync(Guid account, Guid? after, CancellationToken ct)
     {
         var rows = await db.Database.SqlQuery<CustomerRow>($"""
-            SELECT refund_request_id, account_id, order_id, confirmation_id, amount_paise, payment_amount_paise,
-                currency, reason, requested_at
-            FROM public.refund_requests
+            SELECT refund_request_id, account_id, order_id, confirmation_id, CASE WHEN EXISTS (SELECT FROM public.refund_access_decisions d
+                    WHERE d.account_id = r.account_id AND d.refund_request_id = r.refund_request_id)
+                    THEN 'Pending' ELSE 'Requested' END AS status,
+                amount_paise, payment_amount_paise, currency, reason, requested_at
+            FROM public.refund_requests r
             WHERE account_id = {account}
                 AND ({after}::uuid IS NULL OR (requested_at, refund_request_id) > (
                     SELECT requested_at, refund_request_id FROM public.refund_requests
@@ -65,15 +68,17 @@ internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequest
         return new(account, items, rows.Count > items.Length ? items[^1].RefundRequestId : null);
     }
 
-    public async Task<RefundIntakePage> IntakeAsync(Guid account, Guid? after, CancellationToken ct)
+    public async Task<RefundIntakePage> IntakeAsync(Guid account, Guid? after, CancellationToken ct, Guid? request = null)
     {
         var rows = await db.Database.SqlQuery<IntakeRow>($"""
             SELECT refund_request_id, account_id, order_id, confirmation_id, actor_id,
-                CASE WHEN attempt_id IS NOT NULL THEN 'Online' ELSE 'Manual' END AS payment_source,
+                CASE WHEN attempt_id IS NOT NULL THEN 'Online' ELSE 'Manual' END AS payment_source, CASE WHEN EXISTS (SELECT FROM public.refund_access_decisions d
+                    WHERE d.account_id = r.account_id AND d.refund_request_id = r.refund_request_id)
+                    THEN 'Pending' ELSE 'Requested' END AS status,
                 amount_paise, payment_amount_paise, currency, reason, requested_at,
                 provider_id, provider_account_id, environment, configuration_version
-            FROM public.refund_requests
-            WHERE account_id = {account}
+            FROM public.refund_requests r
+            WHERE account_id = {account} AND ({request}::uuid IS NULL OR refund_request_id = {request})
                 AND ({after}::uuid IS NULL OR (requested_at, refund_request_id) > (
                     SELECT requested_at, refund_request_id FROM public.refund_requests
                     WHERE account_id = {account} AND refund_request_id = {after}))
@@ -85,10 +90,10 @@ internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequest
     }
 
     private sealed record CustomerRow(Guid RefundRequestId, Guid AccountId, Guid OrderId, Guid ConfirmationId,
-        long AmountPaise, long PaymentAmountPaise, string Currency, string Reason, DateTimeOffset RequestedAt)
+        string Status, long AmountPaise, long PaymentAmountPaise, string Currency, string Reason, DateTimeOffset RequestedAt)
     {
         internal RefundRequestV1 ToContract() => new(RefundRequestId, AccountId, OrderId, ConfirmationId,
-            RefundRequestsV1.Requested, AmountPaise, PaymentAmountPaise, Currency, Reason, RequestedAt.ToUniversalTime());
+            Status, AmountPaise, PaymentAmountPaise, Currency, Reason, RequestedAt.ToUniversalTime());
     }
 
     private sealed record StoredRow(Guid RefundRequestId, Guid AccountId, Guid OrderId, Guid ConfirmationId,
@@ -100,12 +105,12 @@ internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequest
     }
 
     private sealed record IntakeRow(Guid RefundRequestId, Guid AccountId, Guid OrderId, Guid ConfirmationId,
-        Guid ActorId, string PaymentSource, long AmountPaise, long PaymentAmountPaise, string Currency, string Reason,
+        Guid ActorId, string PaymentSource, string Status, long AmountPaise, long PaymentAmountPaise, string Currency, string Reason,
         DateTimeOffset RequestedAt, string ProviderId, string ProviderAccountId, string Environment,
         string ConfigurationVersion)
     {
         internal RefundIntakeItem ToItem() => new(RefundRequestId, AccountId, OrderId, ConfirmationId, ActorId,
-            PaymentSource, RefundRequestsV1.Requested, AmountPaise, PaymentAmountPaise, Currency, Reason,
+            PaymentSource, Status, AmountPaise, PaymentAmountPaise, Currency, Reason,
             RequestedAt.ToUniversalTime(), ProviderId, ProviderAccountId, Environment, ConfigurationVersion);
     }
 }

@@ -37,6 +37,13 @@ internal static class CheckoutRegistration
         services.AddScoped<Application.Refunds.ReadRefundRequestsHandler>();
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<Application.Refunds.CreateRefundRequestHandler>(
             provider, CheckoutClock(provider)));
+        services.AddScoped<Application.Refunds.IRefundApprovalStore, Refunds.RefundApprovalStore>();
+        services.AddScoped(provider => new Application.Refunds.ApproveRefundHandler(
+            provider.GetRequiredService<IManualPaymentStore>(),
+            provider.GetRequiredService<Application.Refunds.IRefundApprovalStore>(),
+            provider.GetRequiredService<Application.Entitlements.IEntitlementPublisher>(),
+            new(provider.GetRequiredService<TimeProvider>(),
+                provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey))));
     }
 
     // Capacity previews share the checkout clock and quote lifetime, and the provider selection of new attempts.

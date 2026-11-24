@@ -59,7 +59,7 @@ internal sealed partial class ShopAffiliationStore
                 : ShopAffiliationPolicy.Conflict;
 
         var now = Now;
-        var eligible = authorized && !await ClosureStore.AccountClosedAsync(db, decision.AccountId, ct) && (decision.TermId is not { } term || await CanAssignAsync(decision.AccountId, term, now, ct));
+        var eligible = authorized && !await ClosureStore.AccountClosedAsync(db, decision.AccountId, ct) && (decision.TermId is not { } term || await CanAssignAsync(decision.AccountId, term, now, ct, decision.RequestId));
         var applied = eligible && await InsertAffiliationAsync(decision, now, ct);
         var status = applied ? "Applied" : "NeedsReview";
         var inserted = await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -78,7 +78,9 @@ internal sealed partial class ShopAffiliationStore
                 authority_version, shop_name, owner_name, accepted_at, applied_at, coverage_ends_at)
             VALUES ({decision.RequestId}, {decision.AccountId}, {decision.ShopId}, {decision.TermId}, {decision.EventId},
                 {decision.ActorId}, {decision.MembershipId}, {decision.AuthorityVersion}, {decision.ShopName}, {decision.OwnerName},
-                {decision.AcceptedAt}, {now}, (SELECT ends_at FROM public.subscription_coverage_terms WHERE term_id = {decision.TermId}))
+                {decision.AcceptedAt}, {now}, (SELECT coalesce(r.reviewed_refund_paid_through,t.ends_at)
+                    FROM public.subscription_coverage_terms t JOIN public.shop_affiliation_requests r USING (account_id,term_id)
+                    WHERE r.request_id = {decision.RequestId} AND t.term_id = {decision.TermId}))
             ON CONFLICT DO NOTHING
             """, ct) == 1;
 

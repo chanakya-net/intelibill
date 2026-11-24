@@ -129,6 +129,11 @@ public sealed partial class P0106Tests
     {
         private long _ticks = new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero).Ticks;
         public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref _ticks), TimeSpan.Zero);
-        internal void Advance(TimeSpan duration) => Interlocked.Add(ref _ticks, duration.Ticks);
+        internal event Action<DateTimeOffset>? Advanced;
+        internal void Advance(TimeSpan duration)
+        {
+            Interlocked.Add(ref _ticks, duration.Ticks);
+            Advanced?.Invoke(GetUtcNow());
+        }
     }
 }

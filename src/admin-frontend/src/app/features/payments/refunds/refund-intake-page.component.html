@@ -6,7 +6,8 @@
     <p class="ib-eyebrow">Finance Intake</p>
     <h1 class="ib-page-title">Refund requests</h1>
     <p class="ib-subtitle">
-      Read-only per-account intake of customer refund requests. A request alone is not an approval, money movement, or access change.
+      Per-account intake of customer refund requests. A request alone is not an approval, money movement, or access change;
+      a Billing operator reviews and approves each one separately.
     </p>
   </header>
 
@@ -71,6 +72,17 @@
                   {{ item.providerId }} · {{ item.providerAccountId }} · {{ item.environment }} · {{ item.configurationVersion }}
                 </dd>
               </dl>
+              @if (item.status === 'Requested') {
+                <div class="adm-actions">
+                  <a pButton data-testid="refund-intake-approve"
+                    [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">
+                    Review and approve
+                  </a>
+                </div>
+              } @else if (item.status === 'Pending') {
+                <a pButton data-testid="refund-intake-view"
+                  [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">View approval</a>
+              }
             </article>
           } @empty {
             @if (loaded() && !busy() && !error()) {

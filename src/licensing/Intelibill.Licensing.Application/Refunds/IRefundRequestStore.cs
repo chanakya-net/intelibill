@@ -49,5 +49,5 @@ public interface IRefundRequestStore
     Task SaveAsync(RefundRequestV1 request, RefundablePayment payment, Guid actor, Guid operationKey,
         string requestHash, Guid replay, CancellationToken ct);
     Task<RefundRequestPageV1> PageAsync(Guid account, Guid? after, CancellationToken ct);
-    Task<RefundIntakePage> IntakeAsync(Guid account, Guid? after, CancellationToken ct);
+    Task<RefundIntakePage> IntakeAsync(Guid account, Guid? after, CancellationToken ct, Guid? request = null);
 }

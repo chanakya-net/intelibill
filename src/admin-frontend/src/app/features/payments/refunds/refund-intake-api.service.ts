@@ -108,12 +108,12 @@ function isValidItem(value: unknown, account: string): value is RefundIntakeItem
 export class RefundIntakeApi {
   private readonly http = inject(HttpClient);
 
-  async list(account: string, session: string, after?: string): Promise<RefundIntakePage> {
+  async list(account: string, session: string, after?: string, request?: string): Promise<RefundIntakePage> {
     const canonical = canonicalAccountId(account);
     if (!canonical) throw new Error('Invalid billing account ID');
     const raw = await firstValueFrom(this.http.get<unknown>(
       `/api/admin/accounts/${encodeURIComponent(canonical)}/refund-requests`,
-      { headers: { 'X-Admin-Session': session }, params: after ? { after } : {} },
+      { headers: { 'X-Admin-Session': session }, params: request ? { request } : after ? { after } : {} },
     ));
     if (!raw || typeof raw !== 'object') throw new Error('Invalid refund intake response');
     const page = raw as Record<string, unknown>;

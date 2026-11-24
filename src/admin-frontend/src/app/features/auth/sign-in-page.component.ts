@@ -73,7 +73,11 @@ export class SignInPageComponent {
     const account = params.get('paymentAccount');
     const order = params.get('paymentOrder');
     const reviewAccount = params.get('reviewAccount');
-    if (reviewAccount) {
+    const refundAccount = params.get('refundAccount');
+    const refundRequest = params.get('refundRequest');
+    if (refundAccount && refundRequest) {
+      void this.router.navigate(['/payments/refunds', refundAccount, refundRequest, 'approve']);
+    } else if (reviewAccount) {
       void this.router.navigate(['/payments/review'], { queryParams: { account: reviewAccount, case: params.get('reviewCase') } });
     } else if (account && order) {
       void this.router.navigate(['/payments'], { queryParams: { account, order } });

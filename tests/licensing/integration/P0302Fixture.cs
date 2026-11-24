@@ -31,6 +31,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             public.scheduled_capacity_reduction_shops, public.scheduled_capacity_reduction_resolutions TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE ON public.scheduled_capacity_reductions TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.refund_approvals, public.refund_access_decisions TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_orders, public.checkout_order_shops,
             public.checkout_order_acceptances, public.payment_attempts, public.payment_attempt_sessions,
             public.payment_events, public.verified_payments, public.payment_fulfilments, public.payment_fulfilment_shops,

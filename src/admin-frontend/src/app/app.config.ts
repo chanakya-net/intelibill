@@ -56,6 +56,12 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.PaymentReviewPageComponent),
       },
       {
+        path: 'payments/refunds/:account/:request/approve',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/refunds/refund-approval-page.component')
+          .then((m) => m.RefundApprovalPageComponent),
+      },
+      {
         path: 'payments/refunds',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/payments/refunds/refund-intake-page.component')

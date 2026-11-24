@@ -72,7 +72,9 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db, Subscripti
             SELECT EXISTS (SELECT FROM public.payment_fulfilments f
                     WHERE f.account_id = {account} AND f.predecessor_term_id = {term})
                 OR EXISTS (SELECT FROM public.payment_trial_conversions c
-                    WHERE c.account_id = {account} AND c.trial_term_id = {term}) AS "Value"
+                    WHERE c.account_id = {account} AND c.trial_term_id = {term})
+                OR EXISTS (SELECT FROM public.refund_access_decisions rd
+                    WHERE rd.account_id = {account} AND rd.term_id = {term} AND rd.treatment <> 'Preserve') AS "Value"
             """).SingleAsync(ct);
 
     // Affiliation-assigned shops of an imported term, the paid links the payment pipeline issued, or a trial's shop.
