@@ -366,4 +366,22 @@ describe('subscription status', () => {
     expect(terms[0].querySelector('[data-testid="withdrawal-review"]')).toBeTruthy();
     expect(terms[1].querySelector('[data-testid="withdrawal-review"]')).toBeNull();
   });
+
+  it('places a capacity-increase preview beside paid and trial account terms only', () => {
+    const accountRead = vi.fn(() => of({ evaluatedAt: '2027-02-10T00:00:00Z', items: [
+      { status: term, coveredShops: [], coveredShopCount: 0 },
+      { status: { ...term, termId: '66666666-6666-4666-8666-666666666666', basis: 'Trial' }, coveredShops: [], coveredShopCount: 0 },
+      { status: { ...term, termId: '77777777-7777-4777-8777-777777777777', basis: 'Complimentary' }, coveredShops: [], coveredShopCount: 0 },
+    ] }));
+    const { page } = render({ account: accountRead, shop: vi.fn() }, { accountId: account });
+    const terms = page.querySelectorAll('[data-testid="account-term"]');
+    expect(terms[0].querySelector('app-capacity-change-preview')).toBeTruthy();
+    expect(terms[1].querySelector('app-capacity-change-preview')).toBeTruthy();
+    expect(terms[2].querySelector('app-capacity-change-preview')).toBeNull();
+  });
+
+  it('never offers a capacity-increase preview on the shop status view', () => {
+    const { page } = render({ shop: id => of(status(id)) });
+    expect(page.querySelector('app-capacity-change-preview')).toBeNull();
+  });
 });

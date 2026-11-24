@@ -46,7 +46,8 @@ public static class BillingAccountRules
     public static bool Allows(BillingAccountRole role, string action) => action switch
     {
         ShopClosuresV1.AccountRead or ShopClosuresV1.Propose or ShopClosuresV1.Confirm or
-        BillingOwnershipTransfersV1.Issue or BillingInvitationsV1.OwnerCheck or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember => role == BillingAccountRole.Owner,
+        BillingOwnershipTransfersV1.Issue or BillingInvitationsV1.OwnerCheck or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember
+        or CapacityChangeQuotesV1.Create or CapacityChangeQuotesV1.Shops => role == BillingAccountRole.Owner,
         MerchantBillingDelegationV1.ReadAccount or BillingInvitationsV1.Roster or ShopAffiliationsV1.Read or ShopAffiliationsV1.Request or SubscriptionStatusV1.AccountRead
         or SubscriptionCancellationsV1.Read or SubscriptionCancellationsV1.Schedule or SubscriptionCancellationsV1.Recover
         or SubscriptionCancellationsV1.Withdraw or SubscriptionCancellationsV1.WithdrawRecover => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
@@ -60,7 +61,7 @@ public static class BillingAccountRules
     public static bool SerializesAccountMutation(string action) => action is ShopClosuresV1.Propose or ShopClosuresV1.Confirm
         or BillingOwnershipTransfersV1.Issue
         or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember or ShopAffiliationsV1.Request or SubscriptionCancellationsV1.Schedule
-        or SubscriptionCancellationsV1.Withdraw or CheckoutOrdersV1.Create or CheckoutOrdersV1.Accept
+        or SubscriptionCancellationsV1.Withdraw or CheckoutOrdersV1.Create or CheckoutOrdersV1.Accept or CapacityChangeQuotesV1.Create
         or CheckoutPaymentsV1.Start or CheckoutPaymentsV1.Verify;
 
     public static string RoleName(BillingAccountRole role) => role switch

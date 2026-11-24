@@ -185,6 +185,8 @@ internal sealed partial class MerchantBillingClient(
                 return MapCancellationFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutPaymentsV1.IsAction(action):
                 return MapPaymentFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityChangeQuotesV1.IsAction(action):
+                return MapCapacityQuoteFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutOrdersV1.IsAction(action):
                 return MapCheckoutFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action == PublishedCatalogueV1.Read:

@@ -32,6 +32,8 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
     public bool SupportsAmount(long amountPaise, string currency) =>
         currency == "INR" && amountPaise >= RazorpayConfiguration.MinAmountPaise && amountPaise <= config.MaxAmountPaise;
 
+    public long? MinimumAmountPaise(string currency) => currency == "INR" ? RazorpayConfiguration.MinAmountPaise : null;
+
     public async Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
         if (!SupportsAmount(request.AmountPaise, request.Currency))
