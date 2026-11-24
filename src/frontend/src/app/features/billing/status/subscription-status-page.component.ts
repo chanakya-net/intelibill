@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { map, Subscription } from 'rxjs';
 import { CapacityChangePreviewComponent } from '../changes/capacity-change-preview.component';
+import { CapacityReductionPreviewComponent } from '../changes/capacity-reduction-preview.component';
 import { AccountClosureComponent } from '../closure/account-closure.component';
 import { ClosureConfirmationComponent } from '../closure/closure-confirmation.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -38,7 +39,8 @@ type TradingAuthorityView =
 @Component({
   selector: 'app-subscription-status-page',
   imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent, SubscriptionCancellationComponent,
-    SubscriptionCancellationWithdrawalComponent, ClosureConfirmationComponent, AccountClosureComponent, CapacityChangePreviewComponent],
+    SubscriptionCancellationWithdrawalComponent, ClosureConfirmationComponent, AccountClosureComponent, CapacityChangePreviewComponent,
+    CapacityReductionPreviewComponent],
   templateUrl: './subscription-status-page.component.html',
   styleUrl: './subscription-status-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

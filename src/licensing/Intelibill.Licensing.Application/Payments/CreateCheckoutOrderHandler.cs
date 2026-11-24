@@ -34,6 +34,8 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
                 return CheckoutOrderErrors.Invalid;
 
             var source = await store.SourceAsync(account, request.TermId, request.ShopIds!, token);
+            if (source?.Prior?.ActiveReductionId is not null)
+                return CheckoutOrderErrors.Changed;
             var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
             if (source is null || BuildQuote(account, offer, request, source, now) is not { } quote)
                 return CheckoutOrderErrors.Invalid;
@@ -76,6 +78,7 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
         if (source.Prior is not { } prior)
             return RenewalPolicy.DetermineTerm(new(period, now, RoundFreshStartUp: true));
         if (prior.Basis != "Paid" || prior.Period != request.Period || prior.Capacity != capacity ||
+            prior.ActiveReductionId is not null ||
             prior.CalendarVersion != BillingCalendar.Version || prior.AccessPolicyVersion != GracePolicy.Version ||
             (prior.StartsAt > now && !prior.Renewed) || prior.CancellationRevision % 2 == 1 ||
             source.Shops.Any(s => s.CoverageEndsAt != prior.EndsAt))

@@ -39,6 +39,8 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutOrderErrors.Missing;
         if (quote.Increase is not null && !await orders.IsIncreaseOwnerAsync(account, order, proof.ActorId, ct))
             return BillingDelegationErrors.Denied;
+        if (quote.Reduction is not null && !await orders.IsReductionOwnerAsync(account, order, proof.ActorId, ct))
+            return BillingDelegationErrors.Denied;
         var hash = CheckoutPaymentsV1.StartHash(order, request);
         if (await store.FindAttemptAsync(account, request.OperationKey, true, ct) is { } prior)
             return prior.ActorId == proof.ActorId && prior.RequestHash == hash && prior.OrderId == order
@@ -82,6 +84,7 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
         if (!CheckoutPaymentStatusReader.Startable(quote))
             return CheckoutPaymentErrors.Unsupported;
         return await orders.IncreaseStillCurrentAsync(quote, clock.GetUtcNow(), ct) &&
+            await orders.ReductionOrderCurrentAsync(quote, clock.GetUtcNow(), ct) &&
             (await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct))?.Matches(quote) == true
             ? null : CheckoutOrderErrors.Changed;
     }

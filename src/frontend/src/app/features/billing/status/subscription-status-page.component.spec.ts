@@ -376,12 +376,16 @@ describe('subscription status', () => {
     const { page } = render({ account: accountRead, shop: vi.fn() }, { accountId: account });
     const terms = page.querySelectorAll('[data-testid="account-term"]');
     expect(terms[0].querySelector('app-capacity-change-preview')).toBeTruthy();
+    expect(terms[0].querySelector('app-capacity-reduction-preview')).toBeTruthy();
     expect(terms[1].querySelector('app-capacity-change-preview')).toBeTruthy();
+    expect(terms[1].querySelector('app-capacity-reduction-preview')).toBeNull();
     expect(terms[2].querySelector('app-capacity-change-preview')).toBeNull();
+    expect(terms[2].querySelector('app-capacity-reduction-preview')).toBeNull();
   });
 
   it('never offers a capacity-increase preview on the shop status view', () => {
     const { page } = render({ shop: id => of(status(id)) });
     expect(page.querySelector('app-capacity-change-preview')).toBeNull();
+    expect(page.querySelector('app-capacity-reduction-preview')).toBeNull();
   });
 });

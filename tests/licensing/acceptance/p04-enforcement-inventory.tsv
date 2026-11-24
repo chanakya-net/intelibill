@@ -188,6 +188,10 @@ route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/canc
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/operations/{operation:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal/operations/{operation:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes/{quoteId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/operations/{operationKey:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/previews/{previewId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/shops	Billing	M01/M13	protected/request
 route	GET api/billing/invitations	Billing	M01/M13	protected/request
 route	GET api/billing/ownership-transfer-operations/{operation}/{key:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/ownership-transfers	Billing	M01/M13	protected/request
@@ -267,9 +271,13 @@ route	GET api/users/me/sessions	Authentication	M01	protected/request
 route	PATCH api/items/{itemId:guid}	OperationalCapacity	M04	protected/request
 route	PATCH api/services/{serviceId:guid}	OperationalCapacity	M04	protected/request
 route	PATCH api/shops/{shopId:guid}/members/{targetUserId:guid}	OperationalCapacity	M04	protected/source
+route	POST /internal/licensing/v1/capacity-reductions/consume	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reductions/manifest	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reductions/reserve	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/capacity-reservations/consume	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/capacity-reservations/reserve	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/entitlements	InternalService	internal	anonymous/request
+route	POST /internal/merchant/v1/capacity-reductions/observe	InternalService	internal	anonymous/request
 route	POST /internal/merchant/v1/closures/validate	InternalService	internal	anonymous/request
 route	POST api/auth/email-change/confirm	Authentication	M01	protected/request
 route	POST api/auth/email-change/request	Authentication	M01	protected/request
@@ -311,6 +319,10 @@ route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/can
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes/{quoteId:guid}/order	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/previews	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/order	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/resolve	Billing	M01/M13	protected/request
 route	POST api/billing/invitations/{invitationId:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/billing/ownership-transfers/{transfer:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/credit-notes/{code}/void	SourceCorrection	M09	protected/request

@@ -24,6 +24,7 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
         {
             "Acknowledgement" => EntitlementSnapshotsV1.AcknowledgementPath,
             CapacityReservationV1.Receipt => CapacityReservationV1.ReceiptPath,
+            ReductionTransportV1.ReceiptKind => ReductionTransportV1.ReceiptPath,
             "Reconciliation" => EntitlementSnapshotsV1.ReconciliationPath,
             OfflineDeviceObservationsV1.Kind => OfflineDeviceObservationsV1.Path,
             _ => null,

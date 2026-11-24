@@ -54,7 +54,11 @@
     @if (status.manualPayment || status.payment === 'Verified') {
       <app-payment-confirmation-links [account]="quote().accountId" [order]="quote().orderId" />
       @if (status.fulfilment === 'Pending') {
-        <p role="status" data-testid="capacity-pending">{{ 'billing.checkout.payment.capacityPending' | transloco }}</p>
+        @if (quote().reduction) {
+          <p role="status" data-testid="reduction-pending">{{ 'billing.checkout.payment.reductionPending' | transloco }}</p>
+        } @else {
+          <p role="status" data-testid="capacity-pending">{{ 'billing.checkout.payment.capacityPending' | transloco }}</p>
+        }
         <button pButton type="button" [disabled]="busy()" [label]="'billing.checkout.payment.checkAgain' | transloco"
           (click)="refreshReview()"></button>
       }

@@ -3586,7 +3586,8 @@
           "expired": "भुगतान शुरू होने से पहले यह कोट समाप्त हो गया। नया कोट देखें।",
           "changed": "कोट या उसकी दुकानें बदल गईं। नया कोट देखें।",
           "denied": "अब आपके पास इस बिलिंग खाते की पहुँच नहीं है।"
-        }
+        },
+        "reductionPending": "Payment verified. Your scheduled reduction is funded and will apply at renewal; current paid access remains unchanged until your paid-through date."
       },
       "renewal": {
         "title": "मूल नवीनीकरण तिथि से नवीनीकरण",
@@ -4024,6 +4025,62 @@
         "denied": "आपको इस बिलिंग खाते के लिए रिफंड अनुरोध प्रबंधित करने की अनुमति नहीं है।",
         "unknown": "अनुरोध का परिणाम अज्ञात है। डुप्लिकेट से बचने के लिए सहेजा गया अनुरोध पुनः भेजें।",
         "unavailable": "अभी रिफंड अनुरोध लोड या सहेजे नहीं जा सके। कृपया थोड़ी देर बाद पुनः प्रयास करें।"
+      }
+    },
+    "reductions": {
+      "open": "Schedule a capacity reduction for renewal",
+      "heading": "Capacity reduction at renewal",
+      "description": "Choose a smaller published package for your next renewal. You must explicitly select which shops to keep; no shop or member is removed automatically.",
+      "noPlans": "No smaller published package is available for this subscription term.",
+      "plan": "Smaller renewal package",
+      "capacity": "Shops after renewal",
+      "previewSubmit": "Preview reduction and check live members",
+      "previewHeading": "Capacity reduction preview",
+      "target": "Target package",
+      "capacityChange": "Shop capacity",
+      "membersChange": "Members per shop",
+      "currentPaidThrough": "Current paid through",
+      "renewalWindow": "Next renewal term",
+      "effectiveAt": "Applies at renewal",
+      "amount": "Full renewal price",
+      "keepCurrentNote": "Your current paid capacity stays active through {{ time }}. Scheduling a reduction adds no extra grace.",
+      "unusedSlotsNote": "Unused paid slots removed at renewal: {{ count }}.",
+      "conflictSummary": "{{ count }} shop(s) exceed the target limit of {{ allowance }} active members. Resolve active members before selecting them.",
+      "selectPrompt": "Select up to {{ max }} shop(s) to keep ({{ selected }} selected). No shop is preselected.",
+      "activeMembers": "{{ count }} active / {{ limit }} max",
+      "exceedsAllowance": "Exceeds limit by {{ excess }}",
+      "expired": "This preview has expired. Request a fresh preview before scheduling.",
+      "validUntil": "Preview valid until {{ time }}.",
+      "confirmText": "I confirm the retained shops, that unselected shops lose paid coverage at renewal, and accept Terms {{ terms }} and Refund Policy {{ refund }}.",
+      "scheduleSubmit": "Schedule reduction for renewal",
+      "again": "Start a new reduction preview",
+      "scheduledHeading": "Scheduled capacity reduction",
+      "retained": "Retained at renewal",
+      "omitted": "Ends at current paid-through",
+      "proceedToPayment": "Proceed to renewal payment",
+      "needsResolutionNotice": "Active member counts or coverage drifted before renewal. Nobody was removed automatically. Resolve the conflicts below, then re-verify to apply using your original payment.",
+      "resolveSubmit": "Re-verify and apply with original payment",
+      "needsReviewNotice": "Coverage changed before renewal. Your payment evidence is preserved for finance review; no different package was applied.",
+      "appliedNotice": "Applied at renewal (term {{ termId }}).",
+      "states": {
+        "Scheduled": "Scheduled for renewal",
+        "Funded": "Funded — waiting for renewal",
+        "Applying": "Applying at renewal",
+        "Applied": "Applied",
+        "NeedsResolution": "Needs resolution",
+        "NeedsReview": "Needs finance review"
+      },
+      "errors": {
+        "invalid": "Choose a smaller published package and explicitly select valid retained shops.",
+        "notFound": "This subscription term or scheduled reduction was not found.",
+        "changed": "Active member counts or covered shops changed. Refresh and review again.",
+        "expired": "This preview expired. Request a fresh preview.",
+        "memberConflict": "One or more retained shops exceed the target active-member allowance. Resolve memberships first.",
+        "alreadyScheduled": "A capacity reduction is already scheduled for this subscription term.",
+        "alreadyFunded": "This scheduled capacity reduction is already funded.",
+        "review": "This subscription needs provider review before a reduction can be scheduled.",
+        "mismatch": "This operation key was already used with different details.",
+        "unavailable": "Could not load or save the capacity reduction right now. Try again shortly."
       }
     }
   }

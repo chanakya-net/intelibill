@@ -37,7 +37,11 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
-                    'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial
+                    'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial,
+                EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
+                    AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
+                        SELECT FROM public.paid_fresh_starts pf WHERE pf.account_id = s.account_id
+                            AND pf.order_id = s.order_id AND pf.kind = 'RestoredAccess')) AS renewed_at_end
             FROM public.shop_affiliations a
             LEFT JOIN public.payment_trial_conversions x ON x.account_id = a.account_id AND x.shop_id = a.shop_id
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
@@ -82,15 +86,37 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         if (facts.Evidence != TermEvidenceState.Complete) return [];
 
         var rows = await Terms(tail.AccountId, null, null, null, paidShop: shop).ToListAsync(ct);
-        var candidates = rows.Select(row => row.ToTerm()).ToLookup(row => row.EndsAt);
+        var byId = rows.Select(row => row.ToTerm()).ToDictionary(row => row.TermId);
+        var links = await db.Database.SqlQuery<PredecessorLink>($"""
+            SELECT f.term_id, f.predecessor_term_id FROM public.payment_fulfilments f
+            WHERE f.account_id = {tail.AccountId} AND f.predecessor_term_id IS NOT NULL
+                AND NOT EXISTS (SELECT FROM public.paid_fresh_starts x
+                    WHERE x.account_id = f.account_id AND x.order_id = f.order_id AND x.kind = 'RestoredAccess')
+            """).ToDictionaryAsync(link => link.TermId, link => link.PredecessorTermId, ct);
+        var candidates = byId.Values.ToLookup(row => row.EndsAt);
         var periods = new List<TermFactsRow>();
+        var seen = new HashSet<Guid> { tail.TermId };
         var successor = tail;
-        while (candidates[successor.StartsAt].Where(row => row.PeriodOrdinal == successor.PeriodOrdinal - 1
-                   && row.Capacity == tail.Capacity && row.Mode == tail.Mode
-                   && SubscriptionStatusProjection.ToFacts(row) is { Evidence: TermEvidenceState.Complete, Anchor: var anchor }
-                   && anchor == facts.Anchor && SubscriptionStatusProjection.ActiveCancellation(row) is null)
-               .Take(2).ToArray() is [var previous])
+        while (true)
         {
+            TermFactsRow? previous = null;
+            if (links.TryGetValue(successor.TermId, out var linkedId) && byId.TryGetValue(linkedId, out var linked)
+                && linked.EndsAt == successor.StartsAt && linked.PeriodOrdinal == successor.PeriodOrdinal - 1
+                && SubscriptionStatusProjection.ToFacts(linked) is { Evidence: TermEvidenceState.Complete, Anchor: var linkedAnchor }
+                && linkedAnchor == facts.Anchor && SubscriptionStatusProjection.ActiveCancellation(linked) is null)
+            {
+                previous = linked;
+            }
+            else if (!links.ContainsKey(successor.TermId) && candidates[successor.StartsAt].Where(row =>
+                    row.PeriodOrdinal == successor.PeriodOrdinal - 1 && row.Capacity == successor.Capacity
+                    && row.Mode == successor.Mode
+                    && SubscriptionStatusProjection.ToFacts(row) is { Evidence: TermEvidenceState.Complete, Anchor: var anchor }
+                    && anchor == facts.Anchor && SubscriptionStatusProjection.ActiveCancellation(row) is null)
+                .Take(2).ToArray() is [var heuristic])
+            {
+                previous = heuristic;
+            }
+            if (previous is null || !seen.Add(previous.TermId)) break;
             periods.Add(previous);
             successor = previous;
         }
@@ -205,12 +231,15 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
         Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
-        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation, DateTimeOffset? ConvertedPaidStartsAt)
+        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation, DateTimeOffset? ConvertedPaidStartsAt, bool RenewedAtEnd)
     {
         internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
             EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
-            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial, ExtendedEndsAt), Cancellation: ParseCancellation(Cancellation));
+            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion,
+            ParseTrial(Trial, ExtendedEndsAt), Cancellation: ParseCancellation(Cancellation), RenewedAtEnd: RenewedAtEnd);
     }
+
+    private sealed record PredecessorLink(Guid TermId, Guid PredecessorTermId);
 
     private sealed record TermRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
         DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,

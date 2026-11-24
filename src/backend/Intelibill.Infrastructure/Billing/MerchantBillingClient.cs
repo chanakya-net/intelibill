@@ -157,7 +157,7 @@ internal sealed partial class MerchantBillingClient(
         {
             case HttpStatusCode.OK:
             case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request or CheckoutOrdersV1.Create
-                or CheckoutPaymentsV1.Start:
+                or CheckoutPaymentsV1.Start or CapacityReductionsV1.Schedule:
             case HttpStatusCode.Accepted when action is BillingInvitationsV1.Issue or BillingOwnershipTransfersV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
@@ -187,6 +187,8 @@ internal sealed partial class MerchantBillingClient(
                 return MapPaymentFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityChangeQuotesV1.IsAction(action):
                 return MapCapacityQuoteFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityReductionsV1.IsAction(action):
+                return MapCapacityReductionFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when RefundRequestsV1.IsAction(action):
                 return MapRefundRequestFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutOrdersV1.IsAction(action):

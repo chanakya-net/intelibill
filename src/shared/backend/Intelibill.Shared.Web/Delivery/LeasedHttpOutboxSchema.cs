@@ -54,13 +54,18 @@ public static class LeasedHttpOutboxSchema
             WHERE m.event_id = o.event_id AND m.kind IN ('CapacityReserve','CapacityConsume'))
         """;
 
-    public static string Claim(bool recoverCapacity) => $$"""
+    private const string DeadCapacityAndReduction = """
+        OR o.status = 'DeadLetter' AND EXISTS (SELECT FROM public.entitlement_messages m
+            WHERE m.event_id = o.event_id AND m.kind IN ('CapacityReserve','CapacityConsume','ReductionManifest','ReductionReserve','ReductionConsume'))
+        """;
+
+    public static string Claim(bool recoverCapacity, bool recoverReductions = false) => $$"""
         CREATE OR REPLACE FUNCTION public.claim_entitlement_delivery(p_now timestamptz, p_lease uuid)
         RETURNS TABLE (event_id uuid, kind text, payload bytea, attempts integer)
         LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
             WITH due AS MATERIALIZED (
                 SELECT o.event_id, (o.attempts < 12 OR o.status = 'DeadLetter') AS claimable FROM public.entitlement_outbox o
-                WHERE (o.status IN ('Pending', 'Leased', 'AwaitingAcknowledgement') {{(recoverCapacity ? DeadCapacity : "")}})
+                WHERE (o.status IN ('Pending', 'Leased', 'AwaitingAcknowledgement') {{(recoverReductions ? DeadCapacityAndReduction : recoverCapacity ? DeadCapacity : "")}})
                     AND o.next_attempt_at <= p_now AND {{Unscoped}}
                 ORDER BY o.next_attempt_at, o.event_id LIMIT 1 FOR UPDATE SKIP LOCKED
             ), claimed AS (
