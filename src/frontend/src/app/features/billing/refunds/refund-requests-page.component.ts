@@ -12,10 +12,11 @@ import type { PaymentConfirmation } from '../payments/payment-confirmation.model
 import { PaymentConfirmationService } from '../payments/payment-confirmation.service';
 import { formatBillingInstant } from '../status/subscription-status.models';
 import { InvalidRefundRequestDraft, RefundRequestDrafts } from './refund-request-drafts';
+import { RefundRequestListState } from './refund-request-list-state';
 import {
   formatPaiseAsInput, mapRefundErrorKey, normalizeRefundReason,
   parseInrToPaise, REFUND_MAX_REASON_LENGTH, refundRefusalKind, REFUND_STATUS_COPY,
-  type CreateRefundRequest, type RefundRequestItem, type RefundRequestStatus,
+  type CreateRefundRequest, type RefundRequestStatus,
 } from './refund-request.models';
 import { RefundRequestService } from './refund-request.service';
 import { findRefundTargetPayment } from './refund-target-payment';
@@ -61,18 +62,22 @@ export class RefundRequestsPageComponent {
     return owner && isUuid(account) ? { userId: owner.userId, shopId: owner.shopId, account } : null;
   });
 
+  private readonly listState = new RefundRequestListState(
+    (scope, after) => this.api.list(scope, after),
+    error => this.mapError(error, false),
+  );
   protected readonly maxReasonLength = REFUND_MAX_REASON_LENGTH;
-  protected readonly items = signal<readonly RefundRequestItem[]>([]);
-  protected readonly nextCursor = signal<string | null>(null);
-  protected readonly listLoaded = signal(false);
-  protected readonly listErrorKey = signal<string | null>(null);
+  protected readonly items = this.listState.items;
+  protected readonly nextCursor = this.listState.nextCursor;
+  protected readonly listLoaded = this.listState.loaded;
+  protected readonly listErrorKey = this.listState.errorKey;
   protected readonly payment = signal<PaymentConfirmation | null>(null);
   protected readonly pendingDraft = signal<CreateRefundRequest | null>(null);
   protected readonly pendingConflict = signal(false);
   protected readonly unreadableDraft = signal(false);
   protected readonly amountInput = signal('');
   protected readonly reasonInput = signal('');
-  protected readonly loading = signal(false);
+  protected readonly loading = this.listState.loading;
   protected readonly submitting = signal(false);
   protected readonly errorKey = signal<string | null>(null);
   protected readonly submittedNotice = signal(false);
@@ -80,7 +85,10 @@ export class RefundRequestsPageComponent {
   private generation = 0;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => { this.generation++; });
+    inject(DestroyRef).onDestroy(() => {
+      this.generation++;
+      this.listState.reset();
+    });
     effect(() => {
       const scope = this.scope();
       const order = this.orderId();
@@ -176,21 +184,9 @@ export class RefundRequestsPageComponent {
 
   protected async loadMore() {
     const scope = this.scope();
-    const cursor = this.nextCursor();
-    if (!scope || !cursor || this.loading()) return;
+    if (!scope) return;
     const generation = this.generation;
-    this.loading.set(true);
-    this.listErrorKey.set(null);
-    try {
-      const page = await this.api.list(scope, cursor);
-      if (generation !== this.generation) return;
-      this.mergeItems(page.items, false);
-      this.nextCursor.set(page.nextCursor);
-    } catch (error) {
-      if (generation === this.generation) this.listErrorKey.set(this.mapError(error, false));
-    } finally {
-      if (generation === this.generation) this.loading.set(false);
-    }
+    await this.listState.loadMore(scope, () => generation === this.generation);
   }
 
   private async load(scope: CheckoutScope | null, order: string | null, confirmation: string | null) {
@@ -199,44 +195,22 @@ export class RefundRequestsPageComponent {
     this.resetState();
     if (!scope) return;
     await Promise.all([
-      this.loadList(scope, current),
+      this.listState.refresh(scope, current),
       order && confirmation ? this.loadTarget(scope, order, confirmation, current) : Promise.resolve(),
     ]);
   }
 
   private resetState() {
-    this.items.set([]);
-    this.nextCursor.set(null);
-    this.listLoaded.set(false);
-    this.listErrorKey.set(null);
+    this.listState.reset();
     this.payment.set(null);
     this.pendingDraft.set(null);
     this.pendingConflict.set(false);
     this.unreadableDraft.set(false);
     this.amountInput.set('');
     this.reasonInput.set('');
-    this.loading.set(false);
     this.submitting.set(false);
     this.errorKey.set(null);
     this.submittedNotice.set(false);
-  }
-
-  private async loadList(scope: CheckoutScope, current: () => boolean) {
-    this.loading.set(true);
-    try {
-      const page = await this.api.list(scope);
-      if (!current()) return;
-      // Rows already shown were acknowledged by a create after this read began; a page that predates them
-      // must not erase them.
-      const listed = new Set(page.items.map(item => item.refundRequestId));
-      this.items.set([...page.items, ...this.items().filter(item => !listed.has(item.refundRequestId))]);
-      this.nextCursor.set(page.nextCursor);
-      this.listLoaded.set(true);
-    } catch (error) {
-      if (current()) this.listErrorKey.set(this.mapError(error, false));
-    } finally {
-      if (current()) this.loading.set(false);
-    }
   }
 
   /**
@@ -284,8 +258,9 @@ export class RefundRequestsPageComponent {
     try {
       if (!await this.drafts.beginDelivery(scope, command)) {
         // Another tab settled this command; show what the server now holds instead of sending again.
-        if (current()) this.clearPendingDraft();
-        if (current()) await this.loadList(scope, current);
+        if (!current()) return;
+        this.clearPendingDraft();
+        await this.listState.refresh(scope, current);
         return;
       }
       const created = await this.api.create(scope, command);
@@ -293,7 +268,7 @@ export class RefundRequestsPageComponent {
       if (!current()) return;
       this.clearPendingDraft();
       this.submittedNotice.set(true);
-      this.mergeItems([created], true);
+      this.listState.acknowledge(created);
     } catch (error) {
       const outcome = await this.releaseAfterRefusal(scope, command, error).catch((failure: unknown) => failure);
       if (!current()) return;
@@ -320,19 +295,6 @@ export class RefundRequestsPageComponent {
     this.reasonInput.set('');
     const verified = this.payment();
     if (verified) this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
-  }
-
-  private mergeItems(incoming: readonly RefundRequestItem[], prependNew: boolean) {
-    const existing = this.items();
-    const byId = new Map(existing.map(item => [item.refundRequestId, item]));
-    for (const item of incoming) byId.set(item.refundRequestId, item);
-    if (prependNew) {
-      const added = incoming.filter(item => !existing.some(e => e.refundRequestId === item.refundRequestId));
-      const updated = existing.map(item => byId.get(item.refundRequestId)!);
-      this.items.set([...updated, ...added]);
-    } else {
-      this.items.set(Array.from(byId.values()));
-    }
   }
 
   private handleError(error: unknown) {

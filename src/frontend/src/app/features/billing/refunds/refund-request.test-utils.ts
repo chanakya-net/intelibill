@@ -70,6 +70,7 @@ export interface RefundPageBackend {
 export function configureRefundPage(backend: RefundPageBackend) {
   const paramMap = new BehaviorSubject(convertToParamMap({ accountId: account }));
   const queryParamMap = new BehaviorSubject(convertToParamMap({ order, confirmation }));
+  const scope = signal<{ userId: string; shopId: string } | null>({ userId: 'payer', shopId: 'shop-1' });
   const create = vi.fn(backend.create);
   const list = vi.fn(backend.list ?? (async () => refundPage()));
   const listConfirmations = vi.fn(backend.listConfirmations ?? (async () => [verifiedPayment]));
@@ -84,13 +85,13 @@ export function configureRefundPage(backend: RefundPageBackend) {
     providers: [
       provideRouter([]),
       { provide: ActivatedRoute, useValue: { paramMap, queryParamMap } },
-      { provide: ShopContextService, useValue: { scope: signal({ userId: 'payer', shopId: 'shop-1' }) } },
+      { provide: ShopContextService, useValue: { scope } },
       { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
       { provide: RefundRequestService, useValue: { list, create } },
       { provide: PaymentConfirmationService, useValue: { list: listConfirmations } },
     ],
   });
-  return { create, list, listConfirmations, queryParamMap };
+  return { create, list, listConfirmations, paramMap, queryParamMap, scope };
 }
 
 /** Mounts one page instance: a tab, or the same tab after a reload. */
