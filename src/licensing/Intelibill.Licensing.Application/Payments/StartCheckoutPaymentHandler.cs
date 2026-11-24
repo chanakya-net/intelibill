@@ -35,18 +35,23 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
     {
         if (!request.IsValid())
             return CheckoutPaymentErrors.Invalid;
+        if (await orders.FindAsync(account, order, false, ct) is not { Quote: var quote })
+            return CheckoutOrderErrors.Missing;
+        if (quote.Increase is not null && !await orders.IsIncreaseOwnerAsync(account, order, proof.ActorId, ct))
+            return BillingDelegationErrors.Denied;
         var hash = CheckoutPaymentsV1.StartHash(order, request);
         if (await store.FindAttemptAsync(account, request.OperationKey, true, ct) is { } prior)
             return prior.ActorId == proof.ActorId && prior.RequestHash == hash && prior.OrderId == order
                 ? (prior, false) : BillingAccountErrors.PayloadMismatch;
-        if (await orders.FindAsync(account, order, false, ct) is not { Quote: var quote })
-            return CheckoutOrderErrors.Missing;
         var refusal = await RefuseAsync(account, quote, request, ct);
         if (refusal is { } error)
             return error;
         var selected = await selection.SelectedAsync(true, ct);
         if (selected.Pin is not { } pin || gateways.ForPin(pin) is not { } gateway || gateway.Pin != pin)
             return CheckoutPaymentErrors.Unavailable;
+        if (quote.Increase is { } change && (change.RoutingRevision != selected.Revision ||
+            change.PinHash != Subscriptions.ConvertCapacityQuoteHandler.PinHash(pin)))
+            return CheckoutOrderErrors.Changed;
         // An amount the provider cannot take is refused before an attempt row would make the quote unrecoverable.
         if (!gateway.SupportsAmount(quote.AmountPaise, quote.Currency))
             return CheckoutPaymentErrors.Unsupported;
@@ -76,7 +81,8 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutPaymentErrors.AlreadyStarted;
         if (!CheckoutPaymentStatusReader.Startable(quote))
             return CheckoutPaymentErrors.Unsupported;
-        return (await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct))?.Matches(quote) == true
+        return await orders.IncreaseStillCurrentAsync(quote, clock.GetUtcNow(), ct) &&
+            (await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct))?.Matches(quote) == true
             ? null : CheckoutOrderErrors.Changed;
     }
 

@@ -16,6 +16,8 @@ public sealed class ReadCheckoutOrdersHandler(IBillingDelegationAccess access, I
             if (operation == "accept" && acceptance?.ActorId != proof.ActorId)
                 return CheckoutOrderErrors.Missing;
             var retained = await store.FindAsync(account, acceptance?.OrderId ?? id, operation == "create", token);
+            if (retained?.Quote.Increase is not null && !await store.IsIncreaseOwnerAsync(account, retained.Quote.OrderId, proof.ActorId, token))
+                return BillingDelegationErrors.Denied;
             return retained is not null && (operation != "create" || retained.ActorId == proof.ActorId)
                 ? retained.Quote : CheckoutOrderErrors.Missing;
         }, ct);
@@ -26,8 +28,13 @@ public sealed class ReadCheckoutOrdersHandler(IBillingDelegationAccess access, I
         {
             if (after == Guid.Empty)
                 return CheckoutOrderErrors.Invalid;
-            if (order is { } id && await store.FindAsync(account, id, false, token) is null)
-                return CheckoutOrderErrors.Missing;
+            if (order is { } id)
+            {
+                var retained = await store.FindAsync(account, id, false, token);
+                if (retained is null) return CheckoutOrderErrors.Missing;
+                if (retained.Quote.Increase is not null && !await store.IsIncreaseOwnerAsync(account, id, proof.ActorId, token))
+                    return BillingDelegationErrors.Denied;
+            }
             return await store.PageAsync(account, order, after, token);
         }, ct);
 }

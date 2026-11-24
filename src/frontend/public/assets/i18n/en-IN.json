@@ -3521,6 +3521,7 @@
       "restrictedGap": "The restricted gap is not charged.",
       "start": {
         "Fulfilment": "The term starts when the purchase can be fulfilled. These dates are a preview.",
+        "CapacityIncrease": "The increase keeps your existing paid-through date.",
         "PriorPaidThrough": "The term extends from the previous paid-through date.",
         "RestoredAccess": "The term starts when access is restored. These dates are a preview."
       },
@@ -3558,6 +3559,7 @@
         "restorationAdjustment": "Latest service-restoration adjustment ({{count}} recorded)",
         "restorationReference": "Grant reference",
         "reviewUnverified": "Payment is not yet verified and needs support review. Keep checking this original payment; do not pay again.",
+        "capacityPending": "Payment verified. The capacity increase is awaiting confirmation from your shops.",
         "reviewPayment": "Your payment is recorded, but this order needs review before access is applied.",
         "term": "Paid term",
         "failed": "Payment failed. No funds were captured for this checkout.",

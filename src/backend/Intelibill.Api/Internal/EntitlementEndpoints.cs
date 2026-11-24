@@ -14,10 +14,36 @@ internal static class EntitlementEndpoints
 {
     internal static void MapEntitlementReceiver(this IEndpointRouteBuilder endpoints)
     {
+        foreach (var (phase, path) in new[] { (CapacityReservationV1.Reserve, CapacityReservationV1.ReservePath),
+            (CapacityReservationV1.Consume, CapacityReservationV1.ConsumePath) })
+            endpoints.MapPost(path, (HttpContext context, MerchantEntitlementTransport transport, ICapacityReservationReceiver receiver) =>
+                CapacityAsync(context, transport, receiver, phase, path)).AllowAnonymous()
+                .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(EntitlementSnapshotsV1.SnapshotPath, ApplyAsync).AllowAnonymous()
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(ShopClosuresV1.ValidationPath, ValidateClosureAsync).AllowAnonymous()
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+    }
+
+    private static async Task<IResult> CapacityAsync(HttpContext context, MerchantEntitlementTransport transport,
+        ICapacityReservationReceiver receiver, string phase, string path)
+    {
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, EntitlementSnapshotsV1.BodyLimit) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof) return Results.Unauthorized();
+        try
+        {
+            var command = JsonSerializer.Deserialize<CapacityReservationV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (command?.IsValid(phase) != true) return Results.BadRequest();
+            var result = await receiver.ReceiveAsync(command, request.Body, proof, context.RequestAborted);
+            return !result.IsError ? Results.NoContent() : result.FirstError.Type switch
+            {
+                ErrorType.Unauthorized => Results.Unauthorized(),
+                ErrorType.Conflict when result.FirstError.Code != LicenceErrors.BusyCode => Results.Conflict(),
+                _ => Results.StatusCode(503),
+            };
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
     }
 
     private static async Task<IResult> ValidateClosureAsync(HttpContext context, MerchantEntitlementTransport transport,

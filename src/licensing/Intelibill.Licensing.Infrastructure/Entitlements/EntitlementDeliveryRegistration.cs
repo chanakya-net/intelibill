@@ -43,8 +43,10 @@ internal static class EntitlementDeliveryRegistration
             provider.GetRequiredService<IDevicePermitObservationReader>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
             provider.GetRequiredService<TimeProvider>()));
+        services.AddScoped<CapacityReservationAcknowledgements>();
         services.AddScoped(provider => new EntitlementMerchantEvents(provider.GetRequiredService<LicensingDbContext>(),
-            provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>()));
+            provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>(),
+            provider.GetRequiredService<CapacityReservationAcknowledgements>()));
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<LicensingDbContext>()));
         services.AddScoped<ILeasedHttpDestination, LicensingEntitlementDelivery>();
         LeasedHttpDeliveryPump.Register(services);

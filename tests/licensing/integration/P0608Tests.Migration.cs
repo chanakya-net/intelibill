@@ -49,6 +49,12 @@ public sealed partial class P0608Tests
             Assert.Equal("55000", Assert.IsType<PostgresException>(refused?.GetBaseException()).SqlState);
         }
 
+        // EF commits each downgrade separately. P06-02 may have rolled back before the refund guard refused.
+        // The current API reads the P06-02 capacity overlay. Restore its schema and runtime grants before serving it.
+        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
+            await context.GetService<IMigrator>().MigrateAsync();
+        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
+
         foreach (var statement in new[]
         {
             "UPDATE public.refund_requests SET amount_paise = 1",

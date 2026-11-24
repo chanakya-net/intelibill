@@ -12,7 +12,7 @@ public sealed record CheckoutSourceShop(Guid ShopId, string Name, Guid RequestId
 /// </summary>
 public sealed record CheckoutRenewalSource(DateTimeOffset StartsAt, DateTimeOffset EndsAt, int Capacity, string Basis,
     string Period, DateTime AnchorLocal, int Ordinal, string CalendarVersion, string AccessPolicyVersion, int CancellationRevision,
-    string Mode = "Grouped", bool Renewed = false);
+    string Mode = "Grouped", bool Renewed = false, long CapacityRevision = 0);
 
 public sealed record CheckoutTrialSource(Guid ShopId, Guid TermId, int Revision, DateTimeOffset EndsAt);
 
@@ -27,7 +27,15 @@ public sealed record CheckoutSource(CheckoutSourceShop[] Shops, CheckoutRenewalS
     public bool Matches(CheckoutQuoteV1 quote) => Hash() == quote.SourceHash &&
         (quote.FreshStart is { } fresh ? fresh == FreshStart() : Trials is null or { Length: 0 });
 
-    public string Hash() => CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "source",
+    public string Hash()
+    {
+        var original = OriginalHash();
+        return Prior is { CapacityRevision: > 0 } latest
+            ? CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "capacity-revision", original, latest.CapacityRevision)
+            : original;
+    }
+
+    private string OriginalHash() => CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "source",
         Shops.Select(s => new object?[] { s.ShopId, s.Name, s.RequestId, s.TermId, CheckoutOrdersV1.Instant(s.AppliedAt),
             s.CoverageEndsAt is { } end ? CheckoutOrdersV1.Instant(end) : null }).ToArray(),
         Prior is { } p ? new object[] { CheckoutOrdersV1.Instant(p.StartsAt), CheckoutOrdersV1.Instant(p.EndsAt),
@@ -40,6 +48,8 @@ public sealed record StoredCheckoutAcceptance(Guid OrderId, Guid ActorId, string
 
 public interface ICheckoutOrderStore
 {
+    Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct);
+    Task<bool> IsIncreaseOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
     Task<StoredCheckoutQuote?> FindAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<CheckoutSource?> SourceAsync(Guid account, Guid? term, Guid[] requested, CancellationToken ct);
     Task SaveAsync(CheckoutQuoteV1 quote, CheckoutSource source, Guid actor, Guid key, string requestHash, Guid replay, CancellationToken ct);

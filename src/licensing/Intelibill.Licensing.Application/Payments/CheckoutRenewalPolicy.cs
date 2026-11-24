@@ -26,10 +26,10 @@ public static class CheckoutRenewalPolicy
 
     public static bool Payable(CheckoutQuoteV1 quote) =>
         quote.Acceptance is not null && (quote.TermId is null ? quote.StartRule == FirstPurchase
-            : IsRenewal(quote) || IsRestoredAccess(quote));
+            : IsRenewal(quote) || IsRestoredAccess(quote) || quote.Increase is not null);
 
     public static bool WindowOpen(CheckoutQuoteV1 quote, DateTimeOffset now) =>
-        !IsRenewal(quote) || now < quote.PreviewStartsAt + GracePolicy.EligiblePaidGrace;
+        quote.Increase is not null ? now < quote.PreviewEndsAt : !IsRenewal(quote) || now < quote.PreviewStartsAt + GracePolicy.EligiblePaidGrace;
 
     /// <summary>The live source the quote was frozen from: its paid term, or its named open shops.</summary>
     public static async Task<CheckoutSource?> SourceAsync(ICheckoutOrderStore orders, CheckoutQuoteV1 quote, CancellationToken ct) =>

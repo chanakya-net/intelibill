@@ -29,6 +29,17 @@
       </button>
     </form>
   }
+  @case ('purchase') {
+    <section class="ib-panel">
+      @if (current.unavailable) { <p role="alert">{{ 'billing.checkout.errors.unknown' | transloco }}</p> }
+      <a [routerLink]="['/billing/accounts', account(), 'checkout']" [queryParams]="{ order: current.quoteId }"
+        data-testid="capacity-order">{{ 'billing.checkout.title' | transloco }} · {{ current.quoteId }}</a>
+      <button class="ib-btn-secondary" type="button" (click)="purchase()">{{ 'billing.checkout.payment.checkAgain' | transloco }}</button>
+      @if (current.canReplace) {
+        <button class="ib-btn-secondary" type="button" (click)="startOver()">{{ 'billing.changes.again' | transloco }}</button>
+      }
+    </section>
+  }
   @case ('failed') {
     <section class="ib-panel" role="alert" data-testid="capacity-change-failed">
       <p>{{ 'billing.changes.errors.' + current.code | transloco }}</p>
@@ -82,6 +93,11 @@
         <p role="status" data-testid="capacity-expired">{{ 'billing.changes.expired' | transloco }}</p>
       } @else {
         <p data-testid="capacity-valid-until">{{ 'billing.changes.validUntil' | transloco: { time: instant(quote.validUntil) } }}</p>
+      }
+      @if (quote.outcome === 'Payable' && quote.actions.includes('AcceptIncrease') && !expired(quote)) {
+        <button class="ib-btn-primary" type="button" data-testid="capacity-purchase" (click)="purchase()">
+          {{ 'billing.checkout.title' | transloco }}
+        </button>
       }
       <p class="hint">{{ 'billing.changes.previewOnly' | transloco }}</p>
       <button class="ib-btn-secondary" type="button" data-testid="capacity-change-again" (click)="startOver()">

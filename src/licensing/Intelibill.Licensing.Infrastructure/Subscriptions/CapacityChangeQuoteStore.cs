@@ -19,6 +19,23 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db, Subscripti
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    public async Task<(CapacityChangeQuoteV1 Quote, PaymentProviderPin Pin, long Revision)?> PayableAsync(Guid account,
+        Guid term, Guid quote, Guid actor, CancellationToken ct)
+    {
+        var row = await db.Database.SqlQuery<PayableRow>($"""
+            SELECT snapshot::text, provider_id, provider_account_id, provider_environment, provider_configuration_version,
+                routing_revision FROM public.capacity_change_quotes
+            WHERE account_id = {account} AND term_id = {term} AND quote_id = {quote} AND actor_id = {actor}
+                AND outcome = 'Payable' AND EXISTS (SELECT FROM public.billing_account_members m
+                    WHERE m.account_id={account} AND m.merchant_user_id={actor} AND m.status=1 AND m.role=1)
+            """).SingleOrDefaultAsync(ct);
+        return row is null ? null : (JsonSerializer.Deserialize<CapacityChangeQuoteV1>(row.Snapshot, Json)!,
+            new(row.ProviderId, row.ProviderAccountId, row.ProviderEnvironment, row.ProviderConfigurationVersion), row.RoutingRevision);
+    }
+
+    private sealed record PayableRow(string Snapshot, string ProviderId, string ProviderAccountId,
+        string ProviderEnvironment, string ProviderConfigurationVersion, long RoutingRevision);
+
     public async Task<StoredCapacityChangeQuote?> FindAsync(Guid account, Guid operationKey, CancellationToken ct)
     {
         var row = await db.Database.SqlQuery<QuoteRow>($"""

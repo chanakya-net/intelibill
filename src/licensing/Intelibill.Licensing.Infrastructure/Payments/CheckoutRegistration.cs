@@ -42,8 +42,13 @@ internal static class CheckoutRegistration
     // Capacity previews share the checkout clock and quote lifetime, and the provider selection of new attempts.
     private static void AddCapacityChangeQuotes(this IServiceCollection services)
     {
+        services.AddScoped<Subscriptions.CapacityIncreaseStore>();
+        services.AddScoped<Application.Changes.ICapacityIncreaseStore>(p => p.GetRequiredService<Subscriptions.CapacityIncreaseStore>());
+        services.AddScoped<Application.Changes.ApplyCapacityIncreaseHandler>();
         services.AddScoped<Application.Subscriptions.ICapacityChangeQuoteStore, Subscriptions.CapacityChangeQuoteStore>();
         services.AddScoped<Application.Subscriptions.ReadCapacityChangeShopsHandler>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<Application.Subscriptions.ConvertCapacityQuoteHandler>(
+            provider, CheckoutClock(provider)));
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<Application.Subscriptions.CreateCapacityChangeQuoteHandler>(
             provider, CheckoutClock(provider)));
     }
@@ -100,10 +105,10 @@ internal static class CheckoutRegistration
             provider.GetRequiredService<Application.Status.IEntitlementSynchronizationReader>(),
             provider.GetRequiredService<IPaymentGatewayResolver>(), CheckoutClock(provider),
             provider.GetRequiredService<IPaymentProviderSelection>(),
-            provider.GetRequiredService<Application.Restrictions.IClosureStore>()));
+            provider.GetRequiredService<Application.Restrictions.IClosureStore>(), provider.GetRequiredService<Application.Changes.ICapacityIncreaseStore>()));
         services.AddScoped(provider => new FulfilPaidOrderHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<ICheckoutOrderStore>(), provider.GetRequiredService<IPaymentReviewStore>(),
-            provider.GetRequiredService<IPaymentConfirmationStore>(),
+            provider.GetRequiredService<IPaymentConfirmationStore>(), provider.GetRequiredService<Application.Changes.ApplyCapacityIncreaseHandler>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
         services.AddScoped(provider => new ReconcilePaymentHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<IPaymentGatewayResolver>(), provider.GetRequiredService<FulfilPaidOrderHandler>(),

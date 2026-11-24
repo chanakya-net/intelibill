@@ -25,6 +25,8 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
 
     /// <summary>The runtime grant step for tables a test re-creates by migrating down and up again.</summary>
     internal const string RuntimeGrant = """
+        GRANT SELECT, INSERT ON public.capacity_change_quotes, public.capacity_change_quote_shops TO licensing_runtime;
+        GRANT SELECT, INSERT, UPDATE ON public.capacity_increases TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_orders, public.checkout_order_shops,
             public.checkout_order_acceptances, public.payment_attempts, public.payment_attempt_sessions,
             public.payment_events, public.verified_payments, public.payment_fulfilments, public.payment_fulfilment_shops,

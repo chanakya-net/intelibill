@@ -8,6 +8,18 @@ namespace Intelibill.Infrastructure.Billing;
 
 internal sealed partial class MerchantBillingClient : IMerchantCapacityChangeQuotes
 {
+    public Task<ErrorOr<CheckoutQuoteV1>> ConvertCapacityQuoteAsync(MerchantBillingCaller caller, Guid account, Guid term,
+        Guid quote, ConvertCapacityQuoteV1 request, CancellationToken ct) =>
+        RunAsync<CheckoutQuoteV1>(caller, new(CheckoutOrdersV1.Create, HttpMethod.Post,
+            CapacityChangeQuotesV1.OrderPath(account, term, quote), account, JsonSerializer.SerializeToUtf8Bytes(request, Json)),
+            CheckoutOrdersV1.MaxQuoteBytes, async (response, token) =>
+            {
+                var order = await ReadJsonAsync<CheckoutQuoteV1>(response, token);
+                return order is not null && IsCheckoutQuoteValid(order, account) && order.TermId == term &&
+                    order.OrderId == quote && order.Increase?.QuoteHash == request.SnapshotHash
+                    ? order : Unavailable("InvalidCapacityOrder");
+            }, ct);
+
     public Task<ErrorOr<CapacityChangeQuoteV1>> CreateCapacityQuoteAsync(MerchantBillingCaller caller, Guid account, Guid term,
         CreateCapacityChangeQuoteV1 request, CancellationToken ct) =>
         RunAsync<CapacityChangeQuoteV1>(caller, new(CapacityChangeQuotesV1.Create, HttpMethod.Post,

@@ -53,9 +53,13 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
         if (name is null)
             return BillingDelegationErrors.Denied;
         var terms = await db.Database.SqlQuery<SubscriptionCoverageV1>($"""
-            SELECT term_id AS term_id, mode AS mode, capacity AS capacity,
+            SELECT t.term_id, CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode,
+                coalesce(i.capacity,t.capacity) AS capacity,
                 starts_at AS starts_at, ends_at AS ends_at
-            FROM public.subscription_coverage_terms t WHERE t.account_id = {account} AND t.ends_at > {Now}
+            FROM public.subscription_coverage_terms t
+            LEFT JOIN LATERAL (SELECT capacity FROM public.capacity_increases WHERE account_id=t.account_id AND term_id=t.term_id
+                AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
+            WHERE t.account_id = {account} AND t.ends_at > {Now}
                 AND NOT EXISTS (SELECT FROM public.trial_history h WHERE h.term_id = t.term_id)
                 AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes c
                     WHERE c.account_id = t.account_id AND c.term_id = t.term_id AND c.kind = 'ScheduleCancellation'
@@ -83,12 +87,12 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
         db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (
                 SELECT FROM public.subscription_coverage_terms t WHERE t.account_id = {account} AND t.term_id = {term}
+                  AND NOT EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.account_id=t.account_id AND f.term_id=t.term_id)
                   AND NOT EXISTS (SELECT FROM public.trial_history h WHERE h.term_id = t.term_id)
                 AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes c
                     WHERE c.account_id = t.account_id AND c.term_id = t.term_id AND c.kind = 'ScheduleCancellation'
                         AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes w WHERE w.withdraws_change_id = c.change_id))
-                  AND t.starts_at <= {now} AND {now} < t.ends_at AND t.capacity >
-                      (SELECT count(*) FROM public.shop_affiliations a WHERE a.term_id = t.term_id)
+                  AND t.starts_at <= {now} AND {now} < t.ends_at AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)
             ) AS "Value"
             """).SingleAsync(ct);
 
@@ -97,12 +101,15 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
 
     private IQueryable<RequestRow> Requests(Guid account) => db.Database.SqlQuery<RequestRow>($"""
         SELECT r.request_id AS request_id, r.account_id AS account_id, r.account_name AS account_name,
-            r.shop_id AS shop_id, r.term_id AS term_id, t.mode AS mode, t.capacity AS capacity,
+            r.shop_id AS shop_id, r.term_id AS term_id, CASE WHEN adj.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode,
+            coalesce(adj.capacity,t.capacity) AS capacity,
             t.starts_at AS starts_at, t.ends_at AS ends_at, r.expires_at AS expires_at, r.created_at AS created_at,
             COALESCE(i.status, 'AwaitingConsent') AS status,
             a.shop_name AS shop_name, a.owner_name AS owner_name, a.applied_at AS applied_at
         FROM public.shop_affiliation_requests r
         LEFT JOIN public.subscription_coverage_terms t ON r.term_id = t.term_id
+        LEFT JOIN LATERAL (SELECT capacity FROM public.capacity_increases WHERE account_id=t.account_id AND term_id=t.term_id
+            AND state='Applied' ORDER BY target_revision DESC LIMIT 1) adj ON true
         LEFT JOIN public.shop_affiliations a ON r.request_id = a.request_id
         LEFT JOIN public.shop_affiliation_inbox i ON r.request_id = i.request_id
         WHERE r.account_id = {account}

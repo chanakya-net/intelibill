@@ -9,12 +9,17 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Infrastructure.Billing;
 
 internal sealed class ShopAffiliationConsentStore(ApplicationDbContext db, IMembershipAuthorityRepository membership,
-    IAuthSessionRepository sessions, TimeProvider clock)
+    IAuthSessionRepository sessions, TimeProvider clock, Licensing.ShopLicenceFence fence)
 {
     internal async Task<ErrorOr<ShopAffiliationConsentV1>> RunAsync(MerchantBillingCaller caller,
         ShopAffiliationRequestV1 request, ShopAffiliationConsentAction action, Guid operation, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (action != ShopAffiliationConsentAction.Read && request.Term is not null)
+        {
+            var entered = await fence.EnterProjectionAsync(request.AccountId, request.ShopId, ct);
+            if (entered.IsError) return entered.Errors;
+        }
         var owner = await LockOwnerAsync(caller, request.ShopId, ct);
         if (owner is null)
             return ShopAffiliationConsentErrors.OwnerRequired;

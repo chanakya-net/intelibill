@@ -48,7 +48,10 @@ function quote(overrides: Partial<CapacityChangeQuote> = {}): CapacityChangeQuot
 
 function render(role: 'Owner' | 'Manager', create: CapacityChangeQuoteService['create'], plans = [plan]) {
   const scope = signal({ userId: 'u1', shopId: 's1', epoch: 1 });
-  const api = { create: vi.fn(create), shops: vi.fn(async () => shops) };
+  const api = { create: vi.fn(create), shops: vi.fn(async () => shops),
+    convert: vi.fn(async (_scope: unknown, _term: string, _order: string, _key: string, _hash: string) => {
+      throw new HttpErrorResponse({ status: 503 });
+    }), status: vi.fn(async () => { throw new HttpErrorResponse({ status: 404 }); }) };
   TestBed.configureTestingModule({
     imports: [TranslocoTestingModule.forRoot({
       langs: { 'en-IN': en }, translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' }, preloadLangs: true,
@@ -106,6 +109,7 @@ describe('capacity change preview', () => {
     await settle(fixture);
 
     expect(savedBeforeSend).toBe(true);
+    expect(page.querySelector('[data-testid="capacity-purchase"]')).not.toBeNull();
     const command = vi.mocked(api.create).mock.calls[0][2];
     expect(command).toMatchObject({ targetPlanVersionId: plan.versionId, targetCapacity: 4, observedCapacity: 3,
       observedPaidThrough: term.paidThrough });
@@ -242,6 +246,28 @@ describe('capacity change outcomes and draft recovery', () => {
     await settle(retried.fixture);
     expect(retried.api.create).toHaveBeenCalledWith(ownerScope, termId, command);
     expect(retried.page.querySelector('[data-testid="capacity-change-quote"]')).not.toBeNull();
+  });
+
+  it('keeps the same purchase after a lost conversion and a missing order on reload', async () => {
+    const drafts = new CapacityChangeQuoteDrafts();
+    await drafts.prepare(ownerScope, termId, command);
+    const first = render('Owner', async () => quote());
+    await settle(first.fixture);
+    (first.page.querySelector('[data-testid="capacity-purchase"]') as HTMLButtonElement).click();
+    await settle(first.fixture);
+    const original = drafts.read(ownerScope, termId)!.purchase!;
+    expect(first.api.convert).toHaveBeenCalledWith(ownerScope, termId, original.quoteId, original.operationKey, original.snapshotHash);
+    await drafts.discard(ownerScope, termId, command.operationKey);
+    expect(drafts.read(ownerScope, termId)?.purchase).toEqual(original);
+    TestBed.resetTestingModule();
+    const reloaded = render('Owner', async () => quote());
+    await settle(reloaded.fixture);
+    expect(reloaded.api.create).not.toHaveBeenCalled();
+    expect(reloaded.page.querySelector('[data-testid="capacity-order"]')?.textContent).toContain(original.quoteId);
+    expect(reloaded.page.querySelector('[data-testid="capacity-purchase"]')).toBeNull();
+    (reloaded.page.querySelector('section button') as HTMLButtonElement).click();
+    await settle(reloaded.fixture);
+    expect(reloaded.api.convert.mock.calls).toEqual(first.api.convert.mock.calls);
   });
 
   it('clears corrupted storage when the owner requests a new preview', async () => {

@@ -49,7 +49,7 @@ export interface Quote {
   readonly previewStartsAt: string;
   readonly previewEndsAt: string;
   readonly expiresAt: string;
-  readonly startRule: 'Fulfilment' | 'PriorPaidThrough' | 'RestoredAccess';
+  readonly startRule: 'Fulfilment' | 'PriorPaidThrough' | 'RestoredAccess' | 'CapacityIncrease';
   readonly graceDaysIncluded: number;
   readonly freshStart?: { readonly policy: 'paid-fresh-start/1'; readonly trialShopCount: number; readonly trialSourceHash: string };
   readonly developmentFixture: boolean;

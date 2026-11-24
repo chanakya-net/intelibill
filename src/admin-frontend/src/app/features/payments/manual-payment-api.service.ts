@@ -56,7 +56,7 @@ export interface ManualPaymentReceipt {
   readonly currency: string;
   readonly source: 'Manual';
   readonly payment: 'Verified';
-  readonly fulfilment: 'NeedsReview' | 'Fulfilled';
+  readonly fulfilment: 'NeedsReview' | 'Fulfilled' | 'Pending';
   readonly reviewReason: string | null;
   readonly termId: string | null;
 }

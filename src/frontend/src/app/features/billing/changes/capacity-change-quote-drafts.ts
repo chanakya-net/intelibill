@@ -9,6 +9,7 @@ import type { CreateCapacityChangeQuote } from './capacity-change-quote.service'
 export interface CapacityChangeDraft {
   readonly schemaVersion: 1;
   readonly command: CreateCapacityChangeQuote;
+  readonly purchase?: { readonly quoteId: string; readonly snapshotHash: string; readonly operationKey: string };
 }
 
 export class InvalidCapacityChangeDraft extends Error {}
@@ -35,6 +36,8 @@ export class CapacityChangeQuoteDrafts {
       !Number.isSafeInteger(command.targetCapacity) || !Number.isSafeInteger(command.observedCapacity) ||
       command.targetCapacity < command.observedCapacity || typeof command.observedPaidThrough !== 'string' || !Number.isFinite(Date.parse(command.observedPaidThrough)))
       throw new InvalidCapacityChangeDraft();
+    if (value.purchase && (!isUuid(value.purchase.quoteId) || !isUuid(value.purchase.operationKey) ||
+      !/^[a-f0-9]{64}$/.test(value.purchase.snapshotHash))) throw new InvalidCapacityChangeDraft();
     return value;
   }
 
@@ -50,13 +53,26 @@ export class CapacityChangeQuoteDrafts {
     });
   }
 
+  purchase(scope: CheckoutScope, term: string, previewKey: string, quoteId: string, snapshotHash: string) {
+    const key = this.key(scope, term);
+    return navigator.locks.request(key, () => {
+      const saved = this.read(scope, term);
+      if (!saved || saved.command.operationKey !== previewKey) throw new InvalidCapacityChangeDraft();
+      if (saved.purchase) return saved.purchase;
+      const purchase = { quoteId, snapshotHash, operationKey: crypto.randomUUID() };
+      localStorage.setItem(key, JSON.stringify({ ...saved, purchase }));
+      return purchase;
+    });
+  }
+
   /** Discard the matching request, or only malformed data when the owner explicitly resets it. */
-  discard(scope: CheckoutScope, term: string, operationKey?: string): Promise<void> {
+  discard(scope: CheckoutScope, term: string, operationKey?: string, settledOrder?: string): Promise<void> {
     const key = this.key(scope, term);
     return navigator.locks.request(key, () => {
       try {
         const saved = this.read(scope, term);
-        if (saved && saved.command.operationKey === operationKey) localStorage.removeItem(key);
+        if (saved && saved.command.operationKey === operationKey &&
+          (!saved.purchase || saved.purchase.quoteId === settledOrder)) localStorage.removeItem(key);
       } catch (error) {
         if (!(error instanceof InvalidCapacityChangeDraft)) throw error;
         if (operationKey === undefined) localStorage.removeItem(key);

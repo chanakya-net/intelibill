@@ -5,14 +5,14 @@ using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Payments;
 
-public enum FulfilmentOutcome { AlreadyRecorded, Rejected, NeedsReview, Fulfilled }
+public enum FulfilmentOutcome { AlreadyRecorded, Rejected, NeedsReview, Pending, Fulfilled }
 
 /// <summary>
 /// System act on verified funds, never on a caller: under the billing-account lock it commits the verified payment,
 /// one paid term for the complete frozen package, its shop links, audit event and entitlement outbox snapshots in
 /// one transaction. A payment already recorded for the attempt returns without writing again.
 /// </summary>
-public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderStore orders, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations, TimeProvider lifecycle)
+public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderStore orders, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations, Changes.ApplyCapacityIncreaseHandler increases, TimeProvider lifecycle)
 {
     public Task<ErrorOr<FulfilmentOutcome>> HandleAsync(StoredPaymentAttempt attempt, PaymentObservation payment,
         CancellationToken ct) =>
@@ -47,6 +47,12 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         await store.RecordVerifiedAsync(attempt, payment, verifiedAt, ct);
         var decision = await DecideAsync(quote, effective, ct, notBefore, upperBound: !proven, attempt: attempt.AttemptId,
             verifiedAt: verifiedAt);
+        if (decision.Increase is { } change)
+        {
+            await increases.FundAsync(change, attempt.AttemptId, null, ct);
+            await confirmations.IssueAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, verifiedAt, ct);
+            return FulfilmentOutcome.Pending;
+        }
         if (decision.Term is null)
         {
             if (decision.Hold is { } hold)
@@ -84,6 +90,11 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         if (effectiveAt < notBefore)
             return new(null, [], now, "TermUnavailable");
         var latestPossible = recovery?.LatestPossibleCaptureAt ?? (upperBound ? now : effectiveAt);
+        if (quote.Increase is not null)
+        {
+            var command = recovery is null ? await increases.PrepareAsync(quote, effectiveAt, latestPossible, now, ct) : null;
+            return new(null, [], now, command is null ? "CoverageChanged" : null, Increase: command);
+        }
         if (CheckoutRenewalPolicy.IsRenewal(quote))
             return RenewalDecision(quote, source, effectiveAt, latestPossible, now, ids);
 
@@ -144,7 +155,7 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
             decision.Renewal, decision.Fresh), ct);
 
     internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason,
-        RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, PaymentRestorationEvidence? Hold = null);
+        RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, PaymentRestorationEvidence? Hold = null, CapacityReservationV1? Increase = null);
 }
 
 public static class PaymentFulfilmentPolicy
