@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
+using Intelibill.Licensing.Domain.Policies;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -55,6 +56,33 @@ public sealed partial class P0609Tests
     }
 
     [Fact]
+    public async Task ImportedPaidTermClipsFebruaryAtTheKolkataMonthEnd()
+    {
+        var start = P0209Fixture.Utc("2027-01-30T22:00:00Z");
+        await using var fixture = await StartAsync(database, start);
+        var owner = await P0209Fixture.SignInAsync(fixture.Hosts, ShopRole.Owner);
+        var account = await P0209Fixture.CreateAccountAsync(owner.Client);
+        var plan = await P0301Tests.PublishPlanAsync(fixture.Checkout.Trial);
+        var seed = ImportedPaidTerm(start, plan);
+        var term = await P0209Fixture.SeedTermAsync(fixture.Hosts, account, seed);
+        await P0209Fixture.AffiliateAsync(fixture.Hosts, account, owner.UserId, owner.ShopId, owner.UserId, term, start, seed.EndsAt);
+
+        var paid = await TermAsync(owner);
+        Assert.Equal(P0209Fixture.Utc("2027-02-27T22:00:00Z"), paid.GetProperty("paidThrough").GetDateTimeOffset());
+        Assert.Equal("Complete", paid.GetProperty("evidenceState").GetString());
+        Assert.Equal("Paid", paid.GetProperty("basis").GetString());
+    }
+
+    private static P0209Fixture.TermSeed ImportedPaidTerm(DateTimeOffset start, Guid plan)
+    {
+        var anchor = new BillingAnchor(BillingCalendar.LocalStart(start), BillingCalendar.Zone, BillingPeriod.Month);
+        var (startsAt, endsAt) = BillingCalendar.Period(anchor, 0);
+        return new(startsAt, endsAt, Period: anchor.Period.ToString(), Zone: anchor.TimeZone,
+            AnchorLocal: anchor.LocalStart.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+            PricePaise: 12000, Grouped: true, Capacity: 3, PlanVersionId: plan);
+    }
+
+    [Fact]
     public async Task AdjustedImportedTermRejectsOldCancellationAndPendingShopConsent()
     {
         var now = P0202Fixture.WholeSecondNow().AddSeconds(1);
@@ -64,18 +92,15 @@ public sealed partial class P0609Tests
         var extra = await P0209Fixture.SignInAsync(fixture.Hosts, ShopRole.Owner);
         var account = await P0209Fixture.CreateAccountAsync(owner.Client);
         var plan = await P0301Tests.PublishPlanAsync(fixture.Checkout.Trial);
-        var start = now.AddDays(-1);
-        var end = start.AddMonths(1);
-        var term = await P0209Fixture.SeedTermAsync(fixture.Hosts, account, new(start, end,
-            AnchorLocal: start.ToOffset(TimeSpan.FromHours(5.5)).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
-            PricePaise: 12000, Grouped: true, Capacity: 3, PlanVersionId: plan));
+        var seed = ImportedPaidTerm(now.AddDays(-1), plan);
+        var term = await P0209Fixture.SeedTermAsync(fixture.Hosts, account, seed);
         await P0213Fixture.LinkAsync(account, owner, owner, term);
         var package = new Package(owner, account, [owner], plan);
         var cancelPath = P0215Tests.CancellationPath(account, term);
         var cancellation = await P0215Fixture.PreviewAsync(owner, cancelPath);
         var consent = await P0215Fixture.RequestAsync(owner, extra, account, term);
         Assert.Equal("Granted", await P0205Tests.DecideAsync(extra.Client, consent, "grant"));
-        var order = await P0602Tests.IncreaseSeatsAsync(fixture, package, term, end);
+        var order = await P0602Tests.IncreaseSeatsAsync(fixture, package, term, seed.EndsAt);
         await fixture.Checkout.Delivery.ScanAsync(true);
         await P0608Tests.DrainAsync(fixture);
         using var billing = await P0306Tests.SignInBillingAsync(fixture.Checkout);
@@ -195,14 +220,11 @@ public sealed partial class P0609Tests
         var owner = await P0209Fixture.SignInAsync(fixture.Hosts, ShopRole.Owner);
         var account = await P0209Fixture.CreateAccountAsync(owner.Client);
         var plan = await P0301Tests.PublishPlanAsync(fixture.Checkout.Trial);
-        var start = now.AddDays(-1);
-        var end = start.AddMonths(1);
-        var term = await P0209Fixture.SeedTermAsync(fixture.Hosts, account, new(start, end,
-            AnchorLocal: start.ToOffset(TimeSpan.FromHours(5.5)).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-            PricePaise: 12000, Grouped: true, Capacity: 3, PlanVersionId: plan));
+        var seed = ImportedPaidTerm(now.AddDays(-1), plan);
+        var term = await P0209Fixture.SeedTermAsync(fixture.Hosts, account, seed);
         await P0213Fixture.LinkAsync(account, owner, owner, term);
         var package = new Package(owner, account, [owner], plan);
-        var order = await P0602Tests.IncreaseSeatsAsync(fixture, package, term, end);
+        var order = await P0602Tests.IncreaseSeatsAsync(fixture, package, term, seed.EndsAt);
         await fixture.Checkout.Delivery.ScanAsync(true);
         await P0608Tests.DrainAsync(fixture);
         using var billing = await P0306Tests.SignInBillingAsync(fixture.Checkout);
@@ -215,7 +237,7 @@ public sealed partial class P0609Tests
         var preview = await PreviewAsync(billing, account, request, 100, treatment, boundary);
         await ReadAsync(await ApproveAsync(billing, account, request, Command(preview, 100, treatment, boundary)), HttpStatusCode.Created);
         await P0608Tests.DrainAsync(fixture);
-        return (package with { Plan = order.PlanVersionId }, term, end);
+        return (package with { Plan = order.PlanVersionId }, term, seed.EndsAt);
     }
 
     private static async Task AssignSpareSlotBeforeBoundaryAsync(P0308Fixture fixture, Package package,
