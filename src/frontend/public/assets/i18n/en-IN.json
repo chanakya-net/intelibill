@@ -3921,6 +3921,61 @@
         "EvidenceIncomplete": "Facts incomplete",
         "NeedsReview": "Needs review"
       }
+    },
+    "changes": {
+      "open": "Review a capacity increase",
+      "heading": "Capacity increase preview",
+      "description": "Prices the extra capacity for the time left in this paid term. Your renewal date does not change.",
+      "plan": "Package",
+      "capacity": "Shops after the increase",
+      "submit": "Preview increase",
+      "quoteHeading": "Capacity increase quote",
+      "target": "Package",
+      "oldCapacity": "Current shops",
+      "newCapacity": "Shops after increase",
+      "members": "Members per shop",
+      "intervalStart": "Paid period starts",
+      "paidThrough": "Paid through (renewal date kept)",
+      "evaluatedAt": "Quoted at",
+      "remaining": "Time left in term",
+      "seconds": "{{ remaining }} of {{ total }} seconds",
+      "purchasedGross": "Price paid for this term",
+      "targetGross": "Price of the larger package",
+      "amount": "Due now for the increase",
+      "anchorKept": "Your renewal date stays {{ time }}.",
+      "checkoutLink": "Open renewal or purchase review",
+      "suspension": "A saved suspension stays in effect. Paying for this change does not release it.",
+      "coveredShops": "Shops covered now: {{ count }}",
+      "expired": "This preview has expired. Request a new preview to see a current price.",
+      "validUntil": "This preview is valid until {{ time }}.",
+      "previewOnly": "This is a preview only. Nothing is charged and coverage does not change.",
+      "again": "Request a new preview",
+      "outcomes": {
+        "Payable": "The increase can be paid now for the time left in this term.",
+        "AtRenewalOrCourtesy": "No payment is due now. Apply the change at renewal or ask for a courtesy grant.",
+        "RenewalRequired": "This term has reached its paid-through date. Renew first; the change is priced on the renewal.",
+        "NewTermRequired": "This term's grace has ended. Buy a new term with the capacity you need.",
+        "TrialConversion": "A trial converts through a full paid purchase of the package you choose.",
+        "PaymentUnavailable": "Payment for this increase is not available right now. Try again later."
+      },
+      "reasons": {
+        "NonPositiveDifference": "The larger package does not cost more than the price you already paid.",
+        "RoundedToZero": "The charge for the time left rounds to zero.",
+        "BelowProviderMinimum": "The charge is below the smallest amount the payment provider accepts. No surcharge is added.",
+        "PaidThroughReached": "The paid-through date has passed.",
+        "GraceEnded": "The grace period has ended.",
+        "TrialSource": "This term is a trial.",
+        "AmountUnsupported": "The payment provider cannot take this amount.",
+        "ProviderUnavailable": "No payment provider is available."
+      },
+      "errors": {
+        "invalid": "Choose a published package that increases capacity without reducing members per shop.",
+        "changed": "This subscription changed. Refresh the status and try again.",
+        "review": "This subscription needs provider review before a change can be quoted.",
+        "notFound": "This subscription term was not found.",
+        "mismatch": "This request was already used with different details. Request a new preview.",
+        "unavailable": "The preview could not be loaded right now. Try again shortly."
+      }
     }
   }
 }

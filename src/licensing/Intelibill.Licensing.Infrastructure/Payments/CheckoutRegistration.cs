@@ -27,6 +27,16 @@ internal static class CheckoutRegistration
             provider.GetRequiredService<Application.Catalogue.IPublishedCatalogueReader>(),
             provider.GetRequiredService<Application.Catalogue.ICataloguePublicationApproval>(), CheckoutClock(provider)));
         services.AddPayments();
+        services.AddCapacityChangeQuotes();
+    }
+
+    // Capacity previews share the checkout clock and quote lifetime, and the provider selection of new attempts.
+    private static void AddCapacityChangeQuotes(this IServiceCollection services)
+    {
+        services.AddScoped<Application.Subscriptions.ICapacityChangeQuoteStore, Subscriptions.CapacityChangeQuoteStore>();
+        services.AddScoped<Application.Subscriptions.ReadCapacityChangeShopsHandler>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<Application.Subscriptions.CreateCapacityChangeQuoteHandler>(
+            provider, CheckoutClock(provider)));
     }
 
     private static void AddPayments(this IServiceCollection services)

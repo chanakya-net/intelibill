@@ -70,6 +70,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantSubscriptionCancellations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopTrials, MerchantBillingClient>()
             .AddTypedClient<IMerchantCheckoutOrders, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCapacityChangeQuotes, MerchantBillingClient>()
             .AddTypedClient<IMerchantCheckoutPayments, MerchantBillingClient>()
             .AddTypedClient<IMerchantPaymentConfirmations, MerchantBillingClient>()
             .RemoveAllLoggers()

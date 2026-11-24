@@ -1,0 +1,89 @@
+@let current = view();
+@switch (current.kind) {
+  @case ('closed') {
+    <button class="ib-btn-secondary" type="button" data-testid="capacity-change-open" (click)="open()">
+      {{ 'billing.changes.open' | transloco }}
+    </button>
+  }
+  @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
+  @case ('form') {
+    <form class="ib-panel" data-testid="capacity-change-form" (ngSubmit)="preview()" aria-labelledby="capacity-change-heading">
+      <h3 id="capacity-change-heading">{{ 'billing.changes.heading' | transloco }}</h3>
+      <p>{{ 'billing.changes.description' | transloco }}</p>
+      <label>
+        {{ 'billing.changes.plan' | transloco }}
+        <select name="plan" data-testid="capacity-change-plan" [ngModel]="planId()" (ngModelChange)="planId.set($event)" required>
+          @for (plan of current.plans; track plan.versionId) {
+            <option [value]="plan.versionId">{{ plan.name }} · v{{ plan.versionNumber }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        {{ 'billing.changes.capacity' | transloco }}
+        <input name="capacity" type="number" data-testid="capacity-change-capacity" [min]="term().purchasedCapacity"
+          [ngModel]="capacity()" (ngModelChange)="capacity.set(+$event)" required />
+      </label>
+      <button class="ib-btn-primary" type="submit" data-testid="capacity-change-submit" [disabled]="!planId()">
+        {{ 'billing.changes.submit' | transloco }}
+      </button>
+    </form>
+  }
+  @case ('failed') {
+    <section class="ib-panel" role="alert" data-testid="capacity-change-failed">
+      <p>{{ 'billing.changes.errors.' + current.code | transloco }}</p>
+      <button class="ib-btn-secondary" type="button" (click)="startOver()">{{ 'billing.changes.again' | transloco }}</button>
+    </section>
+  }
+  @case ('quote') {
+    @let quote = current.quote;
+    <section class="ib-panel" data-testid="capacity-change-quote" [attr.data-quote-id]="quote.quoteId"
+      aria-labelledby="capacity-quote-heading">
+      <h3 id="capacity-quote-heading">{{ 'billing.changes.quoteHeading' | transloco }}</h3>
+      @if (quote.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }
+      <dl>
+        <dt>{{ 'billing.changes.target' | transloco }}</dt><dd data-testid="capacity-target-plan">{{ quote.targetPlanName }}</dd>
+        <dt>{{ 'billing.changes.oldCapacity' | transloco }}</dt><dd data-testid="capacity-old">{{ quote.priorCapacity }}</dd>
+        <dt>{{ 'billing.changes.newCapacity' | transloco }}</dt><dd data-testid="capacity-new">{{ quote.targetCapacity }}</dd>
+        <dt>{{ 'billing.changes.members' | transloco }}</dt>
+        <dd data-testid="capacity-members">{{ quote.priorMemberAllowance }} → {{ quote.targetMemberAllowance }}</dd>
+        <dt>{{ 'billing.changes.intervalStart' | transloco }}</dt><dd data-testid="capacity-interval-start">{{ instant(quote.intervalStartsAt) }}</dd>
+        <dt>{{ 'billing.changes.paidThrough' | transloco }}</dt><dd data-testid="capacity-paid-through">{{ instant(quote.paidThrough) }}</dd>
+        <dt>{{ 'billing.changes.evaluatedAt' | transloco }}</dt><dd data-testid="capacity-evaluated-at">{{ instant(quote.evaluatedAt) }}</dd>
+        @if (quote.remainingSeconds !== null) {
+          <dt>{{ 'billing.changes.remaining' | transloco }}</dt>
+          <dd data-testid="capacity-seconds">{{ 'billing.changes.seconds' | transloco: { remaining: quote.remainingSeconds, total: quote.totalSeconds } }}</dd>
+        }
+        @if (quote.purchasedGrossPaise !== null) {
+          <dt>{{ 'billing.changes.purchasedGross' | transloco }}</dt>
+          <dd data-testid="capacity-purchased-gross">{{ rupees(quote.purchasedGrossPaise) | localeMoney }}</dd>
+        }
+        <dt>{{ 'billing.changes.targetGross' | transloco }}</dt>
+        <dd data-testid="capacity-target-gross">{{ rupees(quote.targetGrossPaise) | localeMoney }}</dd>
+        @if (quote.amountPaise !== null) {
+          <dt>{{ 'billing.changes.amount' | transloco }}</dt>
+          <dd data-testid="capacity-amount"><strong>{{ rupees(quote.amountPaise) | localeMoney }}</strong></dd>
+        }
+      </dl>
+      <p data-testid="capacity-anchor">{{ 'billing.changes.anchorKept' | transloco: { time: instant(quote.paidThrough) } }}</p>
+      <p data-testid="capacity-outcome">{{ 'billing.changes.outcomes.' + quote.outcome | transloco }}</p>
+      @if (quote.reason) { <p data-testid="capacity-reason">{{ 'billing.changes.reasons.' + quote.reason | transloco }}</p> }
+      @if (quote.actions.includes('Renew') || quote.actions.includes('PurchaseNewTerm') || quote.actions.includes('PurchasePaid')) {
+        <p><a data-testid="capacity-checkout-link" [routerLink]="['/billing/accounts', account(), 'checkout']">{{ 'billing.changes.checkoutLink' | transloco }}</a></p>
+      }
+      @if (quote.suspensionDisclosed) { <p data-testid="capacity-suspension">{{ 'billing.changes.suspension' | transloco }}</p> }
+      <p>{{ 'billing.changes.coveredShops' | transloco: { count: quote.shopCount } }}</p>
+      <ul data-testid="capacity-shops">
+        @for (shop of current.shops; track shop.shopId) { <li>{{ shop.name }}</li> }
+      </ul>
+      @if (expired(quote)) {
+        <p role="status" data-testid="capacity-expired">{{ 'billing.changes.expired' | transloco }}</p>
+      } @else {
+        <p data-testid="capacity-valid-until">{{ 'billing.changes.validUntil' | transloco: { time: instant(quote.validUntil) } }}</p>
+      }
+      <p class="hint">{{ 'billing.changes.previewOnly' | transloco }}</p>
+      <button class="ib-btn-secondary" type="button" data-testid="capacity-change-again" (click)="startOver()">
+        {{ 'billing.changes.again' | transloco }}
+      </button>
+    </section>
+  }
+}

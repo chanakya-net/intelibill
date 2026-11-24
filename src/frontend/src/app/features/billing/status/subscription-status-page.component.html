@@ -106,6 +106,9 @@
               <app-subscription-cancellation [account]="account" [term]="item.status" (saved)="load()" />
               <app-subscription-cancellation-withdrawal [account]="account" [term]="item.status" (saved)="load()" />
             }
+            @if (item.status.basis === 'Paid' || item.status.basis === 'Trial') {
+              <app-capacity-change-preview [account]="account" [term]="item.status" />
+            }
           }
           <p>{{ 'billing.status.coveredShops' | transloco: { count: item.coveredShopCount } }}</p>
           <ul>

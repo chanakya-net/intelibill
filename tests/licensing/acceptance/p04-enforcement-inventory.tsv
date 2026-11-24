@@ -186,6 +186,7 @@ route	GET api/billing/accounts/{accountId:guid}/subscriptions	Billing	M01/M13	pr
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/operations/{operation:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal/operations/{operation:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes/{quoteId:guid}/shops	Billing	M01/M13	protected/request
 route	GET api/billing/invitations	Billing	M01/M13	protected/request
 route	GET api/billing/ownership-transfer-operations/{operation}/{key:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/ownership-transfers	Billing	M01/M13	protected/request
@@ -304,6 +305,7 @@ route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/a
 route	POST api/billing/accounts/{accountId:guid}/ownership-transfers	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes	Billing	M01/M13	protected/request
 route	POST api/billing/invitations/{invitationId:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/billing/ownership-transfers/{transfer:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/credit-notes/{code}/void	SourceCorrection	M09	protected/request

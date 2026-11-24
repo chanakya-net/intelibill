@@ -14,6 +14,8 @@ public interface IPaymentGateway
         new Dictionary<string, string>();
     /// <summary>Whether the provider can take this full amount; checked before any attempt is persisted.</summary>
     bool SupportsAmount(long amountPaise, string currency) => true;
+    /// <summary>The documented smallest full amount for a currency, when the provider has one; null when it has none.</summary>
+    long? MinimumAmountPaise(string currency) => null;
     Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct);
     Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<CheckoutLookup>());
