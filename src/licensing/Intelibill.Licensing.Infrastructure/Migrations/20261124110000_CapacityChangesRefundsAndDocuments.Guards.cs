@@ -38,9 +38,26 @@ public sealed partial class CapacityChangesRefundsAndDocuments
             IF NEW.actor_id IS DISTINCT FROM {{Actor}} OR named <> NEW.shop_count OR hash IS DISTINCT FROM NEW.shop_hash
                 OR (SELECT count(*) FROM public.capacity_change_quote_shops s
                     WHERE s.account_id = NEW.account_id AND s.quote_id = NEW.quote_id) <> named
-                OR NOT EXISTS (SELECT FROM public.subscription_coverage_terms t WHERE t.account_id = NEW.account_id
-                    AND t.term_id = NEW.term_id AND t.capacity = NEW.prior_capacity
-                    AND t.starts_at = NEW.interval_starts_at AND t.ends_at = NEW.paid_through)
+                OR NOT EXISTS (SELECT FROM public.subscription_coverage_terms t
+                    LEFT JOIN public.trial_history h ON h.account_id = t.account_id AND h.term_id = t.term_id
+                    LEFT JOIN LATERAL (SELECT e.ends_at FROM public.trial_extensions e
+                        WHERE e.account_id = h.account_id AND e.shop_id = h.shop_id ORDER BY e.revision DESC LIMIT 1) e ON true
+                    WHERE t.account_id = NEW.account_id AND t.term_id = NEW.term_id AND t.capacity = NEW.prior_capacity
+                        AND t.starts_at = NEW.interval_starts_at AND coalesce(e.ends_at, t.ends_at) = NEW.paid_through)
+                OR EXISTS (SELECT FROM public.payment_fulfilments f
+                    WHERE f.account_id = NEW.account_id AND f.predecessor_term_id = NEW.term_id)
+                OR EXISTS (SELECT FROM public.payment_trial_conversions c
+                    WHERE c.account_id = NEW.account_id AND c.trial_term_id = NEW.term_id)
+                OR EXISTS (SELECT FROM public.capacity_change_quote_shops s
+                    JOIN public.shop_affiliations a ON a.account_id = s.account_id AND a.shop_id = s.shop_id
+                        AND a.request_id = s.affiliation_request_id
+                    WHERE s.account_id = NEW.account_id AND s.quote_id = NEW.quote_id AND NOT (
+                        a.term_id IS NOT DISTINCT FROM NEW.term_id
+                        OR EXISTS (SELECT FROM public.payment_fulfilment_shops p WHERE p.account_id = s.account_id
+                            AND p.term_id = NEW.term_id AND p.shop_id = s.shop_id
+                            AND p.affiliation_request_id = s.affiliation_request_id)
+                        OR (a.term_id IS NULL AND EXISTS (SELECT FROM public.trial_history h
+                            WHERE h.account_id = s.account_id AND h.term_id = NEW.term_id AND h.shop_id = s.shop_id))))
                 OR (NEW.snapshot->>'accountId')::uuid IS DISTINCT FROM NEW.account_id
                 OR (NEW.snapshot->>'quoteId')::uuid IS DISTINCT FROM NEW.quote_id
                 OR (NEW.snapshot->>'termId')::uuid IS DISTINCT FROM NEW.term_id

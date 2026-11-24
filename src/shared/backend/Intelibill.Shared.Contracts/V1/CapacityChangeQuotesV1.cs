@@ -57,12 +57,13 @@ public sealed record CreateCapacityChangeQuoteV1([property: JsonPropertyName("op
     public bool IsValid() => OperationKey != Guid.Empty && TargetPlanVersionId != Guid.Empty &&
         TargetCapacity is > 0 and <= CheckoutOrdersV1.MaxShops && ObservedCapacity is > 0 and <= CheckoutOrdersV1.MaxShops &&
         TargetCapacity >= ObservedCapacity &&
-        ObservedPaidThrough.UtcTicks % TimeSpan.TicksPerSecond == 0;
+        EntitlementSnapshotsV1.IsInstant(ObservedPaidThrough.ToUniversalTime());
 }
 
 /// <summary>
 /// The frozen preview. <c>AmountPaise</c> is present only for <c>Payable</c>; every other outcome names its next step
-/// in <c>Actions</c>. <c>ValidUntil</c> is the earlier of the 15-minute lifetime and the paid-through (end-exclusive).
+/// in <c>Actions</c>. A quote evaluated before paid-through expires at that boundary or after 15 minutes, whichever
+/// comes first. At or after paid-through, the review lasts 15 minutes. Both cutoffs are end-exclusive.
 /// </summary>
 public sealed record CapacityChangeQuoteV1(Guid AccountId, Guid QuoteId, Guid TermId, string Outcome, string? Reason,
     string[] Actions, Guid? SourcePlanVersionId, Guid TargetPlanId, Guid TargetPlanVersionId, int TargetPlanVersion,

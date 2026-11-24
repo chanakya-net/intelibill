@@ -1,7 +1,11 @@
 using System.Text.Json;
 using Intelibill.Licensing.Application.Payments;
+using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Application.Subscriptions;
+using Intelibill.Licensing.Domain.ValueObjects;
 using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.Restrictions;
+using Intelibill.Licensing.Infrastructure.Status;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +15,7 @@ namespace Intelibill.Licensing.Infrastructure.Subscriptions;
 /// SQL-owned capacity-change quote evidence. Every read runs inside the delegation transaction, so row-level security
 /// limits it to the delegated account and the live owner; the term facts come from fulfilment, never the catalogue.
 /// </summary>
-internal sealed class CapacityChangeQuoteStore(LicensingDbContext db) : ICapacityChangeQuoteStore
+internal sealed class CapacityChangeQuoteStore(LicensingDbContext db, SubscriptionAccessFactsReader reader) : ICapacityChangeQuoteStore
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -27,28 +31,32 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db) : ICapacit
 
     public async Task<CapacityChangeSource?> SourceAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct)
     {
-        var row = await db.Database.SqlQuery<SourceRow>($"""
-            SELECT t.term_id AS term_id, t.starts_at AS starts_at, t.ends_at AS ends_at, t.capacity AS capacity,
-                f.basis AS basis, f.billing_period AS period, f.anchor_local AS anchor_local, f.period_ordinal AS ordinal,
-                f.calendar_version AS calendar_version, coalesce(f.member_allowance, h.member_cap) AS member_allowance,
-                f.price_paise AS price_paise, f.currency AS currency, f.plan_version_id AS plan_version_id,
-                coalesce(f.development_fixture, h.development_fixture, false) AS development_fixture,
-                h.shop_id IS NOT NULL AS trial,
-                EXISTS (SELECT FROM public.payment_fulfilments s
-                    WHERE s.account_id = t.account_id AND s.predecessor_term_id = t.term_id) AS superseded,
-                coalesce((SELECT max(c.revision) FROM public.scheduled_subscription_changes c
-                    WHERE c.account_id = t.account_id AND c.term_id = t.term_id), 0) AS cancellation_revision
-            FROM public.subscription_coverage_terms t
-            LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
-            LEFT JOIN public.trial_history h ON h.account_id = t.account_id AND h.term_id = t.term_id
-            WHERE t.account_id = {account} AND t.term_id = {term}
-            """).SingleOrDefaultAsync(ct);
+        var row = await reader.ReadTermAsync(account, term, ct);
         if (row is null)
             return null;
+
+        var facts = SubscriptionStatusProjection.ToFacts(row);
+        var trial = row.Trial;
+        var expectedBasis = trial is null ? SubscriptionBasis.Paid : SubscriptionBasis.Trial;
+        var complete = facts.Evidence == TermEvidenceState.Complete && facts.Basis == expectedBasis;
+        var superseded = await SupersededAsync(account, term, ct);
         var shops = await ShopsAsync(account, term, ct);
         var ids = shops.Select(s => s.ShopId).ToArray();
-        return row.ToSource(shops, await SuspendedAsync(account, ids, now, ct), await ClosedAsync(account, ids, ct));
+        return new(row.TermId, row.StartsAt.ToUniversalTime(), (trial?.ExtendedEndsAt ?? row.EndsAt).ToUniversalTime(),
+            row.Capacity, row.Basis, row.BillingPeriod, row.AnchorLocal, row.PeriodOrdinal, row.CalendarVersion,
+            trial?.MemberCap ?? row.MemberAllowance, row.PricePaise, row.Currency, row.PlanVersionId,
+            trial?.DevelopmentFixture ?? row.DevelopmentFixture == true, trial is not null, superseded,
+            row.Cancellation?.Version ?? 0, await SuspendedAsync(account, ids, now, ct), await ClosedAsync(account, ids, ct),
+            shops, complete, trial?.ComputationVersion ?? row.AccessPolicyVersion);
     }
+
+    private Task<bool> SupersededAsync(Guid account, Guid term, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.payment_fulfilments f
+                    WHERE f.account_id = {account} AND f.predecessor_term_id = {term})
+                OR EXISTS (SELECT FROM public.payment_trial_conversions c
+                    WHERE c.account_id = {account} AND c.trial_term_id = {term}) AS "Value"
+            """).SingleAsync(ct);
 
     // Affiliation-assigned shops of an imported term, the paid links the payment pipeline issued, or a trial's shop.
     private Task<CapacityChangeSourceShop[]> ShopsAsync(Guid account, Guid term, CancellationToken ct) =>
@@ -74,8 +82,8 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db) : ICapacit
                 AND r.effective_at <= {now} AND (r.shop_id IS NULL OR r.shop_id = ANY({shops}))) AS "Value"
             """).SingleAsync(ct);
 
-    private Task<bool> ClosedAsync(Guid account, Guid[] shops, CancellationToken ct) =>
-        db.Database.SqlQuery<bool>($"""
+    private async Task<bool> ClosedAsync(Guid account, Guid[] shops, CancellationToken ct) =>
+        await ClosureStore.AccountClosedAsync(db, account, ct) || await db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (SELECT FROM public.active_operational_closure_targets c
                 WHERE c.account_id = {account} AND c.shop_id = ANY({shops})) AS "Value"
             """).SingleAsync(ct);
@@ -125,14 +133,4 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db) : ICapacit
     }
 
     private sealed record QuoteRow(string Snapshot, Guid ActorId, string RequestHash);
-
-    private sealed record SourceRow(Guid TermId, DateTimeOffset StartsAt, DateTimeOffset EndsAt, int Capacity, string? Basis,
-        string? Period, DateTime? AnchorLocal, int? Ordinal, string? CalendarVersion, int? MemberAllowance, long? PricePaise,
-        string? Currency, Guid? PlanVersionId, bool DevelopmentFixture, bool Trial, bool Superseded, int CancellationRevision)
-    {
-        internal CapacityChangeSource ToSource(CapacityChangeSourceShop[] shops, bool suspended, bool closed) => new(TermId,
-            StartsAt.ToUniversalTime(), EndsAt.ToUniversalTime(), Capacity, Basis, Period, AnchorLocal, Ordinal, CalendarVersion,
-            MemberAllowance, PricePaise, Currency, PlanVersionId, DevelopmentFixture, Trial, Superseded, CancellationRevision,
-            suspended, closed, shops);
-    }
 }

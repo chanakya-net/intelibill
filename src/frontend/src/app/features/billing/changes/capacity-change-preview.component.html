@@ -7,12 +7,12 @@
   }
   @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
   @case ('form') {
-    <form class="ib-panel" data-testid="capacity-change-form" (ngSubmit)="preview()" aria-labelledby="capacity-change-heading">
-      <h3 id="capacity-change-heading">{{ 'billing.changes.heading' | transloco }}</h3>
+    <form class="ib-panel" data-testid="capacity-change-form" (ngSubmit)="preview()" [attr.aria-labelledby]="'capacity-change-heading-' + term().termId">
+      <h3 [id]="'capacity-change-heading-' + term().termId">{{ 'billing.changes.heading' | transloco }}</h3>
       <p>{{ 'billing.changes.description' | transloco }}</p>
       <label>
         {{ 'billing.changes.plan' | transloco }}
-        <select name="plan" data-testid="capacity-change-plan" [ngModel]="planId()" (ngModelChange)="planId.set($event)" required>
+        <select name="plan" data-testid="capacity-change-plan" [ngModel]="planId()" (ngModelChange)="selectPlan($event)" required>
           @for (plan of current.plans; track plan.versionId) {
             <option [value]="plan.versionId">{{ plan.name }} · v{{ plan.versionNumber }}</option>
           }
@@ -20,7 +20,8 @@
       </label>
       <label>
         {{ 'billing.changes.capacity' | transloco }}
-        <input name="capacity" type="number" data-testid="capacity-change-capacity" [min]="term().purchasedCapacity"
+        <input name="capacity" type="number" data-testid="capacity-change-capacity" [min]="minimumCapacity(selectedPlan())"
+          [readOnly]="!selectedPlan()?.extraShopsOffered"
           [ngModel]="capacity()" (ngModelChange)="capacity.set(+$event)" required />
       </label>
       <button class="ib-btn-primary" type="submit" data-testid="capacity-change-submit" [disabled]="!planId()">
@@ -37,8 +38,8 @@
   @case ('quote') {
     @let quote = current.quote;
     <section class="ib-panel" data-testid="capacity-change-quote" [attr.data-quote-id]="quote.quoteId"
-      aria-labelledby="capacity-quote-heading">
-      <h3 id="capacity-quote-heading">{{ 'billing.changes.quoteHeading' | transloco }}</h3>
+      [attr.aria-labelledby]="'capacity-quote-heading-' + term().termId">
+      <h3 [id]="'capacity-quote-heading-' + term().termId">{{ 'billing.changes.quoteHeading' | transloco }}</h3>
       @if (quote.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }
       <dl>
         <dt>{{ 'billing.changes.target' | transloco }}</dt><dd data-testid="capacity-target-plan">{{ quote.targetPlanName }}</dd>
@@ -64,7 +65,9 @@
           <dd data-testid="capacity-amount"><strong>{{ rupees(quote.amountPaise) | localeMoney }}</strong></dd>
         }
       </dl>
-      <p data-testid="capacity-anchor">{{ 'billing.changes.anchorKept' | transloco: { time: instant(quote.paidThrough) } }}</p>
+      @if (quote.outcome !== 'TrialConversion' && quote.outcome !== 'NewTermRequired') {
+        <p data-testid="capacity-anchor">{{ 'billing.changes.anchorKept' | transloco: { time: instant(quote.paidThrough) } }}</p>
+      }
       <p data-testid="capacity-outcome">{{ 'billing.changes.outcomes.' + quote.outcome | transloco }}</p>
       @if (quote.reason) { <p data-testid="capacity-reason">{{ 'billing.changes.reasons.' + quote.reason | transloco }}</p> }
       @if (quote.actions.includes('Renew') || quote.actions.includes('PurchaseNewTerm') || quote.actions.includes('PurchasePaid')) {

@@ -1,4 +1,5 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -15,13 +16,13 @@ import type { PublishedPlan } from '../plans/billing-plans.service';
 import { BillingAccountService } from '../services/billing-account.service';
 import type { SubscriptionTermStatus } from '../status/subscription-status.models';
 import { CapacityChangeQuoteDrafts } from './capacity-change-quote-drafts';
-import { CapacityChangeQuoteService, type CapacityChangeQuote } from './capacity-change-quote.service';
+import { CapacityChangeQuoteService, matchesRequest, type CapacityChangeQuote } from './capacity-change-quote.service';
 import { CapacityChangePreviewComponent } from './capacity-change-preview.component';
 
 const account = '33333333-3333-4333-8333-333333333333';
 const termId = '44444444-4444-4444-8444-444444444444';
 const plan = { versionId: '55555555-5555-4555-8555-555555555555', versionNumber: 2, name: 'Local growth', includedShops: 3,
-  membersPerShop: 5, kind: 'multi-shop' } as PublishedPlan;
+  membersPerShop: 5, kind: 'multi-shop', extraShopsOffered: true } as PublishedPlan;
 const shops = [{ shopId: '66666666-6666-4666-8666-666666666666', name: 'Leap Central' },
   { shopId: '77777777-7777-4777-8777-777777777777', name: 'Leap East' }];
 const term = { termId, basis: 'Paid', purchasedCapacity: 3, memberAllowance: 5, paidThrough: '2028-02-29T04:30:00+00:00',
@@ -45,7 +46,7 @@ function quote(overrides: Partial<CapacityChangeQuote> = {}): CapacityChangeQuot
   };
 }
 
-function render(role: 'Owner' | 'Manager', create: CapacityChangeQuoteService['create']) {
+function render(role: 'Owner' | 'Manager', create: CapacityChangeQuoteService['create'], plans = [plan]) {
   const scope = signal({ userId: 'u1', shopId: 's1', epoch: 1 });
   const api = { create: vi.fn(create), shops: vi.fn(async () => shops) };
   TestBed.configureTestingModule({
@@ -57,7 +58,7 @@ function render(role: 'Owner' | 'Manager', create: CapacityChangeQuoteService['c
       { provide: ShopContextService, useValue: { scope } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: BillingAccountService, useValue: { list: () => of([{ accountId: account, name: 'A', role, createdAt: '' }]) } },
-      { provide: CheckoutService, useValue: { plans: async () => [plan] } },
+      { provide: CheckoutService, useValue: { plans: async () => plans } },
       { provide: CapacityChangeQuoteService, useValue: api },
     ],
   });
@@ -177,5 +178,101 @@ describe('capacity change preview', () => {
     });
     await settle(refused.fixture);
     expect(refused.page.querySelector('[data-testid="capacity-change-failed"]')?.textContent).toContain('This subscription changed');
+    expect(storage.size).toBe(0);
+    refused.fixture.componentRef.setInput('term', { ...term, purchasedCapacity: 4 });
+    await settle(refused.fixture);
+    expect(refused.api.create).toHaveBeenCalledTimes(1);
+    expect(refused.page.querySelector('[data-testid="capacity-change-open"]')).not.toBeNull();
+  });
+});
+
+const ownerScope = { userId: 'u1', shopId: 's1', account };
+const command = { operationKey: '99999999-9999-4999-8999-999999999999', targetPlanVersionId: plan.versionId,
+  targetCapacity: 4, observedCapacity: 3, observedPaidThrough: term.paidThrough };
+
+describe('capacity change response validation', () => {
+  it('rejects nonpayable amounts and a different paid-through instant', () => {
+    expect(matchesRequest(quote(), ownerScope, termId, command)).toBe(true);
+    expect(matchesRequest(quote({ outcome: 'AtRenewalOrCourtesy', amountPaise: 0 }), ownerScope, termId, command)).toBe(false);
+    expect(matchesRequest(quote({ paidThrough: term.startsAt }), ownerScope, termId, command)).toBe(false);
+  });
+
+  it('rejects a frozen shop page for a different account', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const api = TestBed.inject(CapacityChangeQuoteService);
+    const requests = TestBed.inject(HttpTestingController);
+    const page = api.shops(ownerScope, quote({ shopCount: 0 }), () => true);
+    const rejected = expect(page).rejects.toThrow('Invalid capacity quote shop page');
+    requests.expectOne(request => request.url.endsWith('/shops'))
+      .flush({ accountId: termId, quoteId: quote().quoteId, items: [], nextCursor: null });
+    await rejected;
+    requests.verify();
+  });
+});
+
+describe('capacity change outcomes and draft recovery', () => {
+  it.each([
+    ['Payable', ['AcceptIncrease'], true, false, false],
+    ['RenewalRequired', ['Renew'], true, true, true],
+    ['TrialConversion', ['PurchasePaid'], false, true, false],
+    ['NewTermRequired', ['PurchaseNewTerm'], false, true, false],
+  ] as const)('renders the renewal date and actions for %s', async (outcome, actions, anchor, checkout, suspended) => {
+    await new CapacityChangeQuoteDrafts().prepare(ownerScope, termId, command);
+    const { fixture, page } = render('Owner', async () => quote({ outcome, actions, suspensionDisclosed: suspended,
+      amountPaise: outcome === 'Payable' ? leap.expected!.chargePaise : null }));
+    await settle(fixture);
+    const panel = page.querySelector('[data-testid="capacity-change-quote"]')!;
+    expect(panel).not.toBeNull();
+    expect(!!panel.querySelector('[data-testid="capacity-anchor"]')).toBe(anchor);
+    expect(!!panel.querySelector('[data-testid="capacity-checkout-link"]')).toBe(checkout);
+    expect(!!panel.querySelector('[data-testid="capacity-suspension"]')).toBe(suspended);
+    expect(panel.getAttribute('aria-labelledby')).toBe('capacity-quote-heading-' + termId);
+    expect(panel.querySelector('h3')?.id).toBe('capacity-quote-heading-' + termId);
+  });
+
+  it('retains the exact draft on a 503 and recovers it on reload', async () => {
+    const drafts = new CapacityChangeQuoteDrafts();
+    await drafts.prepare(ownerScope, termId, command);
+    const failed = render('Owner', async () => { throw new HttpErrorResponse({ status: 503 }); });
+    await settle(failed.fixture);
+    expect(failed.page.querySelector('[data-testid="capacity-change-failed"]')).not.toBeNull();
+    expect(drafts.read(ownerScope, termId)?.command).toEqual(command);
+    TestBed.resetTestingModule();
+    const retried = render('Owner', async () => quote());
+    await settle(retried.fixture);
+    expect(retried.api.create).toHaveBeenCalledWith(ownerScope, termId, command);
+    expect(retried.page.querySelector('[data-testid="capacity-change-quote"]')).not.toBeNull();
+  });
+
+  it('clears corrupted storage when the owner requests a new preview', async () => {
+    storage.set(new CapacityChangeQuoteDrafts().key(ownerScope, termId), '{corrupt');
+    const { fixture, page, api } = render('Owner', async () => quote());
+    await settle(fixture);
+    (page.querySelector('[data-testid="capacity-change-failed"] button') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(storage.size).toBe(0);
+    expect(page.querySelector('[data-testid="capacity-change-form"]')).not.toBeNull();
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it('filters ineligible plans and selects the fixed included capacity when switching', async () => {
+    const fixed = { ...plan, versionId: command.operationKey, extraShopsOffered: false };
+    const ineligible = { ...fixed, versionId: termId, includedShops: 1, kind: 'single-shop' } as PublishedPlan;
+    const flexible = { ...plan, includedShops: 1 };
+    const { fixture, page } = render('Owner', async () => quote(), [flexible, ineligible, fixed]);
+    fixture.componentRef.setInput('term', { ...term, purchasedCapacity: 1 });
+    await settle(fixture);
+    (page.querySelector('[data-testid="capacity-change-open"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const select = page.querySelector('select')!;
+    expect([...select.options].map(option => option.value)).toEqual([flexible.versionId, fixed.versionId]);
+    expect(page.querySelector('input')?.value).toBe('2');
+    select.value = fixed.versionId;
+    select.dispatchEvent(new Event('change'));
+    await settle(fixture);
+    expect(page.querySelector('input')?.value).toBe('3');
+    expect(page.querySelector('input')?.readOnly).toBe(true);
+    expect(page.querySelector('form')?.getAttribute('aria-labelledby')).toBe('capacity-change-heading-' + termId);
+    expect(page.querySelector('h3')?.id).toBe('capacity-change-heading-' + termId);
   });
 });

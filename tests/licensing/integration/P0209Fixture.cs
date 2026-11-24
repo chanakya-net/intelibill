@@ -128,7 +128,8 @@ internal static class P0209Fixture
     internal sealed record TermSeed(DateTimeOffset StartsAt, DateTimeOffset EndsAt, string? Basis = "Paid",
         string Period = "Month", string AnchorLocal = "", int Ordinal = 0, int MemberAllowance = 5,
         long? PricePaise = 149900, bool Grouped = false, int Capacity = 1, string? Zone = "Asia/Kolkata",
-        string CalendarVersion = BillingCalendar.Version, string AccessPolicyVersion = GracePolicy.Version);
+        string CalendarVersion = BillingCalendar.Version, string AccessPolicyVersion = GracePolicy.Version,
+        Guid? PlanVersionId = null);
 
     internal static Task<Guid> SeedTermAsync(Hosts host, Guid account, TermSeed seed) =>
         SeedTermAsync(host.LicensingOwner, account, seed);
@@ -163,8 +164,8 @@ internal static class P0209Fixture
             INSERT INTO public.subscription_term_facts
                 (term_id, account_id, basis, billing_period, anchor_local, time_zone, period_ordinal,
                  calendar_version, access_policy_version, member_allowance, price_paise, currency,
-                 source_reference, development_fixture, recorded_at)
-            VALUES ($1, $2, $3, $4, $5::timestamp, $6, $7, $8, $9, $10, $11, $12,
+                 plan_version_id, source_reference, development_fixture, recorded_at)
+            VALUES ($1, $2, $3, $4, $5::timestamp, $6, $7, $8, $9, $10, $11, $12, $13,
                 'local-fixture-p0209', true, now())
             """, connection);
         facts.Parameters.AddWithValue(term);
@@ -179,6 +180,7 @@ internal static class P0209Fixture
         facts.Parameters.AddWithValue(seed.MemberAllowance);
         facts.Parameters.AddWithValue((object?)seed.PricePaise ?? DBNull.Value);
         facts.Parameters.AddWithValue(seed.PricePaise is null ? DBNull.Value : "INR");
+        facts.Parameters.AddWithValue(NpgsqlTypes.NpgsqlDbType.Uuid, (object?)seed.PlanVersionId ?? DBNull.Value);
         await facts.ExecuteNonQueryAsync();
     }
 

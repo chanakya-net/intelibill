@@ -70,7 +70,10 @@ export function matchesRequest(quote: CapacityChangeQuote, scope: CheckoutScope,
   return quote.schemaVersion === 1 && quote.accountId === scope.account && quote.termId === term &&
     outcomes.includes(quote.outcome) && quote.targetPlanVersionId === command.targetPlanVersionId &&
     quote.targetCapacity === command.targetCapacity && quote.priorCapacity === command.observedCapacity &&
-    (quote.outcome === 'Payable') === (typeof quote.amountPaise === 'number' && quote.amountPaise > 0);
+    Date.parse(quote.paidThrough) === Date.parse(command.observedPaidThrough) &&
+    (quote.outcome === 'Payable'
+      ? quote.amountPaise !== null && Number.isSafeInteger(quote.amountPaise) && quote.amountPaise > 0
+      : quote.amountPaise === null);
 }
 
 @Injectable({ providedIn: 'root' })
@@ -90,8 +93,9 @@ export class CapacityChangeQuoteService {
       const page: CapacityChangeShopPage = await firstValueFrom(this.http.get<CapacityChangeShopPage>(
         this.path(scope, quote.termId) + '/' + encodeURIComponent(quote.quoteId) + '/shops',
         { context: scopedRequestContext(scope), params: after ? { after } : {} }));
-      if (!current() || page.quoteId !== quote.quoteId || (page.nextCursor && after && page.nextCursor <= after))
-        throw new Error('Capacity quote shop read did not advance');
+      if (!current() || page.accountId !== scope.account || page.quoteId !== quote.quoteId ||
+        (page.nextCursor && after && page.nextCursor <= after))
+        throw new Error('Invalid capacity quote shop page');
       shops.push(...page.items);
       after = page.nextCursor;
     } while (after && shops.length <= quote.shopCount);

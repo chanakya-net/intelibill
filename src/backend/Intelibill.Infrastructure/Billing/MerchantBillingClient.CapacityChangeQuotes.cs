@@ -16,7 +16,8 @@ internal sealed partial class MerchantBillingClient : IMerchantCapacityChangeQuo
             {
                 var quote = await ReadJsonAsync<CapacityChangeQuoteV1>(response, token);
                 return quote is not null && IsCapacityQuoteValid(quote, account, term) &&
-                    quote.TargetPlanVersionId == request.TargetPlanVersionId && quote.TargetCapacity == request.TargetCapacity
+                    quote.TargetPlanVersionId == request.TargetPlanVersionId && quote.TargetCapacity == request.TargetCapacity &&
+                    quote.PriorCapacity == request.ObservedCapacity && quote.PaidThrough == request.ObservedPaidThrough
                     ? quote : Unavailable("InvalidCapacityChangeQuote");
             }, ct);
 
@@ -40,15 +41,23 @@ internal sealed partial class MerchantBillingClient : IMerchantCapacityChangeQuo
     internal static bool IsCapacityQuoteValid(CapacityChangeQuoteV1 q, Guid account, Guid term) =>
         q.SchemaVersion == 1 && q.AccountId == account && q.TermId == term && q.QuoteId != Guid.Empty &&
         CapacityChangeQuotesV1.Outcomes.Contains(q.Outcome) && q.Actions is { Length: <= 4 } &&
+        q.TargetPlanId != Guid.Empty && q.TargetPlanVersionId != Guid.Empty && q.TargetPlanVersion > 0 &&
         q.TargetPlanName is { Length: > 0 and <= 80 } && q.Period is "Month" or "Year" &&
         q.PriorCapacity is > 0 and <= CheckoutOrdersV1.MaxShops && q.TargetCapacity >= q.PriorCapacity &&
         q.TargetCapacity <= CheckoutOrdersV1.MaxShops && q.ShopCount > 0 && q.ShopCount <= q.PriorCapacity &&
-        q.TargetMemberAllowance >= q.PriorMemberAllowance && CheckoutOrdersV1.IsHash(q.ShopHash) &&
+        q.TargetMemberAllowance > 0 && q.TargetMemberAllowance >= q.PriorMemberAllowance && CheckoutOrdersV1.IsHash(q.ShopHash) &&
         CheckoutOrdersV1.IsHash(q.SourceHash) && q.Currency == "INR" && q.TargetGrossPaise is > 0 and <= CheckoutOrdersV1.MaxPaise &&
-        (q.Outcome == "Payable") == (q.AmountPaise is > 0) && (q.AmountPaise is null || q.AmountPaise <= q.DifferencePaise) &&
-        q.IntervalStartsAt < q.PaidThrough && q.ExpiresAt - q.CreatedAt == TimeSpan.FromMinutes(15) &&
-        q.ValidUntil <= q.ExpiresAt && q.BillingTimeZone == "Asia/Kolkata" && q.ProrationVersion == "proration/1" &&
+        (q.Outcome == "Payable" ? q.AmountPaise is > 0 && q.AmountPaise <= q.DifferencePaise : q.AmountPaise is null) &&
+        IsCapacityQuoteTimingValid(q) && q.PriceBasis == "TaxInclusiveFinal" &&
+        q.BillingTimeZone == "Asia/Kolkata" && q.ProrationVersion == "proration/1" && q.CalendarVersion == "calendar-month-year/1" &&
         q.SnapshotHash == CapacityChangeQuotesV1.SnapshotHash(q);
+
+    private static bool IsCapacityQuoteTimingValid(CapacityChangeQuoteV1 q) =>
+        EntitlementSnapshotsV1.IsInstant(q.IntervalStartsAt) && EntitlementSnapshotsV1.IsInstant(q.PaidThrough) &&
+        EntitlementSnapshotsV1.IsInstant(q.EvaluatedAt) && EntitlementSnapshotsV1.IsInstant(q.CreatedAt) &&
+        EntitlementSnapshotsV1.IsInstant(q.ExpiresAt) && EntitlementSnapshotsV1.IsInstant(q.ValidUntil) &&
+        q.IntervalStartsAt < q.PaidThrough && q.ExpiresAt - q.CreatedAt == TimeSpan.FromMinutes(15) &&
+        q.ValidUntil >= q.CreatedAt && q.ValidUntil <= q.ExpiresAt;
 
     private Error MapCapacityQuoteFailure(HttpStatusCode status, string? code) => (status, code) switch
     {

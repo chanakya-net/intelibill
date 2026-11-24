@@ -11,6 +11,8 @@ export interface CapacityChangeDraft {
   readonly command: CreateCapacityChangeQuote;
 }
 
+export class InvalidCapacityChangeDraft extends Error {}
+
 const prefix = 'intelibill.billing.capacity-change.v1:';
 
 @Injectable({ providedIn: 'root' })
@@ -22,12 +24,17 @@ export class CapacityChangeQuoteDrafts {
   read(scope: CheckoutScope, term: string): CapacityChangeDraft | null {
     const raw = localStorage.getItem(this.key(scope, term));
     if (raw === null) return null;
-    const value = JSON.parse(raw) as CapacityChangeDraft;
+    let value: CapacityChangeDraft;
+    try {
+      value = JSON.parse(raw) as CapacityChangeDraft;
+    } catch {
+      throw new InvalidCapacityChangeDraft();
+    }
     const command = value?.command;
     if (value?.schemaVersion !== 1 || !command || !isUuid(command.operationKey) || !isUuid(command.targetPlanVersionId) ||
       !Number.isSafeInteger(command.targetCapacity) || !Number.isSafeInteger(command.observedCapacity) ||
-      command.targetCapacity < command.observedCapacity || typeof command.observedPaidThrough !== 'string')
-      throw new Error('Invalid capacity change draft');
+      command.targetCapacity < command.observedCapacity || typeof command.observedPaidThrough !== 'string' || !Number.isFinite(Date.parse(command.observedPaidThrough)))
+      throw new InvalidCapacityChangeDraft();
     return value;
   }
 
@@ -43,11 +50,17 @@ export class CapacityChangeQuoteDrafts {
     });
   }
 
-  /** An explicit new preview: the frozen request is discarded only when it is still the one shown. */
-  discard(scope: CheckoutScope, term: string, operationKey: string): Promise<void> {
+  /** Discard the matching request, or only malformed data when the owner explicitly resets it. */
+  discard(scope: CheckoutScope, term: string, operationKey?: string): Promise<void> {
     const key = this.key(scope, term);
     return navigator.locks.request(key, () => {
-      if (this.read(scope, term)?.command.operationKey === operationKey) localStorage.removeItem(key);
+      try {
+        const saved = this.read(scope, term);
+        if (saved && saved.command.operationKey === operationKey) localStorage.removeItem(key);
+      } catch (error) {
+        if (!(error instanceof InvalidCapacityChangeDraft)) throw error;
+        if (operationKey === undefined) localStorage.removeItem(key);
+      }
     });
   }
 }

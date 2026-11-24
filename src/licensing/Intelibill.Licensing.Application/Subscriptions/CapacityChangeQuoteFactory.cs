@@ -23,7 +23,7 @@ internal static class CapacityChangeQuoteFactory
             d.Offer.PriceBasis, s.StartsAt, s.EndsAt, d.Now, proration?.TotalSeconds, proration?.RemainingSeconds,
             s.AnchorLocal?.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture), s.Ordinal, BillingCalendar.Zone,
             ProrationPolicy.Version, BillingCalendar.Version, s.Suspended, d.Now, expires,
-            payable && s.EndsAt < expires ? s.EndsAt : expires, d.Offer.DevelopmentFixture || s.DevelopmentFixture, string.Empty);
+            s.EndsAt > d.Now && s.EndsAt < expires ? s.EndsAt : expires, d.Offer.DevelopmentFixture || s.DevelopmentFixture, string.Empty);
         return quote with { SnapshotHash = CapacityChangeQuotesV1.SnapshotHash(quote) };
     }
 }

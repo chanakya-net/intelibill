@@ -61,21 +61,11 @@ public sealed class CreateCapacityChangeQuoteHandler(IBillingDelegationAccess ac
             return CapacityChangeQuoteErrors.Missing;
         if (source.Superseded || source.Capacity != request.ObservedCapacity || source.EndsAt != request.ObservedPaidThrough)
             return CapacityChangeQuoteErrors.Changed;
-        if (source.Closed || source.Shops.Length is 0 || source.Shops.Length > source.Capacity ||
+        if (!source.CompleteEvidence || source.Closed || source.Shops.Length is 0 || source.Shops.Length > source.Capacity ||
             source.Shops.Any(s => s.Name.Length is 0 or > CheckoutOrdersV1.MaxShopName))
             return CapacityChangeQuoteErrors.Review;
-        return source.Trial || CompletePaid(source) ? null : CapacityChangeQuoteErrors.Review;
-    }
-
-    /// <summary>A paid term is priced only from complete purchase evidence on an intact calendar period.</summary>
-    private static bool CompletePaid(CapacityChangeSource s)
-    {
-        if (s is not { Basis: "Paid", Period: "Month" or "Year", AnchorLocal: { } local, Ordinal: { } ordinal,
-                MemberAllowance: > 0, PricePaise: >= 0, Currency: "INR", PlanVersionId: not null } ||
-            s.CalendarVersion != BillingCalendar.Version)
-            return false;
-        var anchor = new BillingAnchor(local, BillingCalendar.Zone, s.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year);
-        return BillingCalendar.TryBoundary(anchor, ordinal) == s.StartsAt && BillingCalendar.TryBoundary(anchor, ordinal + 1) == s.EndsAt;
+        return source.Trial || source is { MemberAllowance: > 0, PricePaise: >= 0, Currency: "INR", PlanVersionId: not null }
+            ? null : CapacityChangeQuoteErrors.Review;
     }
 
     private async Task<PublishedPlanTermsV1?> TargetAsync(VerifiedBillingDelegation proof, Guid version, CancellationToken ct) =>

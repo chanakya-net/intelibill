@@ -12,7 +12,7 @@ import { CheckoutService } from '../checkout/checkout.service';
 import type { PublishedPlan } from '../plans/billing-plans.service';
 import { BillingAccountService } from '../services/billing-account.service';
 import { formatBillingInstant, type SubscriptionTermStatus } from '../status/subscription-status.models';
-import { CapacityChangeQuoteDrafts } from './capacity-change-quote-drafts';
+import { CapacityChangeQuoteDrafts, InvalidCapacityChangeDraft } from './capacity-change-quote-drafts';
 import {
   CapacityChangeQuoteService, matchesRequest, type CapacityChangeQuote, type CapacityChangeShop, type CreateCapacityChangeQuote,
 } from './capacity-change-quote.service';
@@ -60,6 +60,10 @@ export class CapacityChangePreviewComponent {
   protected readonly view = signal<PreviewView>({ kind: 'hidden' });
   protected readonly planId = signal<string | null>(null);
   protected readonly capacity = signal(0);
+  protected readonly selectedPlan = computed(() => {
+    const view = this.view();
+    return view.kind === 'form' ? view.plans.find(plan => plan.versionId === this.planId()) : undefined;
+  });
   private generation = 0;
 
   private readonly scope = computed<CheckoutScope | null>(() => {
@@ -98,24 +102,39 @@ export class CapacityChangePreviewComponent {
     this.view.set({ kind: 'loading' });
     try {
       const plans = (await this.checkout.plans(() => generation === this.generation))
-        .filter(plan => plan.membersPerShop >= (this.term().memberAllowance ?? 0));
+        .filter(plan => plan.membersPerShop >= (this.term().memberAllowance ?? 0) &&
+          (plan.extraShopsOffered || plan.includedShops >= this.minimumCapacity(plan)));
       if (generation !== this.generation) return;
-      this.planId.set(plans[0]?.versionId ?? null);
-      this.capacity.set(Math.max(this.term().purchasedCapacity + 1, plans[0]?.includedShops ?? 0));
       this.view.set({ kind: 'form', plans });
+      this.capacity.set(0);
+      this.selectPlan(plans[0]?.versionId ?? null);
     } catch (error) {
       if (generation === this.generation) this.fail(error);
     }
   }
 
+  protected minimumCapacity(plan: PublishedPlan | undefined): number {
+    const term = this.term();
+    const allowsSameSlots = term.basis === 'Trial' || (plan?.membersPerShop ?? 0) > (term.memberAllowance ?? 0);
+    return Math.max(term.purchasedCapacity + (allowsSameSlots ? 0 : 1), plan?.includedShops ?? 0);
+  }
+
+  protected selectPlan(id: string | null) {
+    this.planId.set(id);
+    const plan = this.selectedPlan();
+    if (!plan) return;
+    this.capacity.set(plan.extraShopsOffered ? Math.max(this.capacity(), this.minimumCapacity(plan)) : plan.includedShops);
+  }
+
   protected async preview() {
     const scope = this.scope();
     const term = this.term();
-    const plan = this.planId();
-    if (!scope || !plan) return;
+    const plan = this.selectedPlan();
+    const capacity = this.capacity();
+    if (!scope || !plan || !Number.isSafeInteger(capacity) || capacity < this.minimumCapacity(plan)) return;
     const generation = ++this.generation;
     const command: CreateCapacityChangeQuote = {
-      operationKey: crypto.randomUUID(), targetPlanVersionId: plan, targetCapacity: this.capacity(),
+      operationKey: crypto.randomUUID(), targetPlanVersionId: plan.versionId, targetCapacity: capacity,
       observedCapacity: term.purchasedCapacity, observedPaidThrough: term.paidThrough,
     };
     this.view.set({ kind: 'loading' });
@@ -133,15 +152,32 @@ export class CapacityChangePreviewComponent {
     const view = this.view();
     const term = this.term();
     if (!scope) return;
-    const draft = this.drafts.read(scope, term.termId);
-    if (draft) await this.drafts.discard(scope, term.termId, draft.command.operationKey);
-    if (view.kind === 'quote' || view.kind === 'failed') await this.open();
+    const generation = ++this.generation;
+    try {
+      await this.drafts.discard(scope, term.termId, this.savedKey(scope, term.termId));
+      if (generation === this.generation && (view.kind === 'quote' || view.kind === 'failed')) await this.open();
+    } catch (error) {
+      if (generation === this.generation) this.fail(error);
+    }
+  }
+
+  private savedKey(scope: CheckoutScope, term: string): string | undefined {
+    try {
+      return this.drafts.read(scope, term)?.command.operationKey;
+    } catch (error) {
+      if (!(error instanceof InvalidCapacityChangeDraft)) throw error;
+      return undefined;
+    }
   }
 
   private async send(scope: CheckoutScope, term: SubscriptionTermStatus, command: CreateCapacityChangeQuote,
     current: () => boolean) {
     this.view.set({ kind: 'loading' });
-    const quote = await this.api.create(scope, term.termId, command);
+    const quote = await this.api.create(scope, term.termId, command).catch(async error => {
+      if (error instanceof HttpErrorResponse && [400, 403, 404, 409].includes(error.status))
+        await this.drafts.discard(scope, term.termId, command.operationKey);
+      throw error;
+    });
     if (!current()) return;
     if (!matchesRequest(quote, scope, term.termId, command)) throw new Error('Capacity quote does not match its request');
     const shops = await this.api.shops(scope, quote, current);
