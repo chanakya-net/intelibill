@@ -61,7 +61,7 @@ public sealed partial class P0608Tests
         Assert.Equal(HttpStatusCode.BadRequest, fractional.StatusCode);
 
         // Invalid reasons and empty identities.
-        foreach (var badReason in new[] { "", "   ", new string('x', RefundRequestsV1.MaxReasonLength + 1), "line1\nline2" })
+        foreach (var badReason in new[] { "", "   ", new string('x', RefundRequestsV1.MaxReasonLength + 1), "line1\nline2", "bad\u0085control" })
         {
             using var bad = await PostRefundAsync(package.Payer.Client, package.Account,
                 RequestBody(purchase.OrderId, confirmation, 1000L, badReason));
@@ -152,5 +152,30 @@ public sealed partial class P0608Tests
             RequestBody(purchase.Quote.OrderId, confirmation, purchase.Quote.AmountPaise, "Manual receipt refund request"));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(1L, await fixture.CountAsync("refund_requests", "manual_receipt_id IS NOT NULL AND attempt_id IS NULL"));
+    }
+
+    [Fact]
+    public async Task CompactUtf8OversizedReasonReturnsBadRequestAndMaxMultilingualReasonPasses()
+    {
+        await using var fixture = await StartAsync(database, RequestedInstant);
+        var package = await fixture.PackageAsync(1, ["Multilingual Shop"]);
+        var (purchase, _) = await PurchaseAsync(package, "Month");
+        var confirmation = await ConfirmationIdAsync(package.Payer.Client, package.Account, purchase.OrderId);
+
+        var oversizedReason = new string('अ', 700);
+        var oversizedJson = $$"""{"operationKey":"{{Guid.NewGuid():D}}","orderId":"{{purchase.OrderId:D}}","confirmationId":"{{confirmation:D}}","amountPaise":1000,"reason":"{{oversizedReason}}"}""";
+        Assert.True(Encoding.UTF8.GetByteCount(oversizedJson) <= RefundRequestsV1.MaxCreateBytes);
+        using var oversizedContent = new StringContent(oversizedJson, Encoding.UTF8, "application/json");
+        using var oversized = await package.Payer.Client.PostAsync(RefundsPath(package.Account), oversizedContent);
+        Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
+        Assert.Equal(RefundRequestsV1.Invalid, await P0206Fixture.CodeAsync(oversized));
+        Assert.Equal(0L, await fixture.CountAsync("refund_requests"));
+
+        var maxMultilingual = new string('अ', RefundRequestsV1.MaxReasonLength);
+        var validJson = $$"""{"operationKey":"{{Guid.NewGuid():D}}","orderId":"{{purchase.OrderId:D}}","confirmationId":"{{confirmation:D}}","amountPaise":1000,"reason":"{{maxMultilingual}}"}""";
+        using var validContent = new StringContent(validJson, Encoding.UTF8, "application/json");
+        using var valid = await package.Payer.Client.PostAsync(RefundsPath(package.Account), validContent);
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        Assert.Equal(1L, await fixture.CountAsync("refund_requests"));
     }
 }

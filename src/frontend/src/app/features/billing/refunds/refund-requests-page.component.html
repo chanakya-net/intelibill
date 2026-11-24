@@ -10,7 +10,7 @@
     {{ 'billing.refunds.noAccessChangeNotice' | transloco }}
   </p>
 
-  @if (errorKey(); as key) {
+  @if (displayErrorKey(); as key) {
     <p role="alert" class="ib-error-banner" data-testid="refund-request-error">{{ key | transloco }}</p>
   }
 
@@ -20,9 +20,29 @@
     </p>
   }
 
+  @if (unreadableDraft()) {
+    <section class="ib-panel" role="alert" data-testid="refund-request-unreadable">
+      <p>{{ 'billing.refunds.unreadableDraftNotice' | transloco }}</p>
+      <button class="ib-btn-secondary" type="button" data-testid="refund-request-clear-unreadable"
+        (click)="clearUnreadableDraft()">
+        {{ 'billing.refunds.clearUnreadableDraft' | transloco }}
+      </button>
+    </section>
+  }
+
   @if (pendingDraft(); as draft) {
     <section class="ib-panel" data-testid="refund-request-pending">
-      <p>{{ 'billing.refunds.pendingRetryNotice' | transloco }}</p>
+      <p data-testid="refund-pending-notice">
+        {{ (pendingConflict() ? 'billing.refunds.pendingConflictNotice' : 'billing.refunds.pendingRetryNotice') | transloco }}
+      </p>
+      <dl class="refunds-page__meta">
+        <dt>{{ 'billing.refunds.confirmationLabel' | transloco }}</dt>
+        <dd data-testid="refund-pending-confirmation">{{ draft.confirmationId }}</dd>
+        <dt>{{ 'billing.refunds.requestedAmountLabel' | transloco }}</dt>
+        <dd data-testid="refund-pending-amount">{{ rupees(draft.amountPaise) | localeMoney }}</dd>
+        <dt>{{ 'billing.refunds.reasonLabel' | transloco }}</dt>
+        <dd data-testid="refund-pending-reason">{{ draft.reason }}</dd>
+      </dl>
       <button class="ib-btn-primary" type="button" data-testid="refund-request-retry"
         [disabled]="submitting()" (click)="retryPending()">
         {{ 'billing.refunds.retry' | transloco }}
@@ -46,7 +66,7 @@
         <input id="refund-amount-input" name="amount" type="text" inputmode="decimal"
           data-testid="refund-request-amount"
           [ngModel]="amountInput()" (ngModelChange)="amountInput.set($event)"
-          [disabled]="submitting() || pendingDraft() !== null" required />
+          [disabled]="formLocked()" required />
       </label>
 
       <label for="refund-reason-input">
@@ -54,7 +74,7 @@
         <textarea id="refund-reason-input" name="reason" rows="3"
           data-testid="refund-request-reason" [attr.maxlength]="maxReasonLength"
           [ngModel]="reasonInput()" (ngModelChange)="reasonInput.set($event)"
-          [disabled]="submitting() || pendingDraft() !== null" required></textarea>
+          [disabled]="formLocked()" required></textarea>
       </label>
 
       <button class="ib-btn-primary" type="submit" data-testid="refund-request-submit" [disabled]="!canSubmit()">
@@ -68,9 +88,7 @@
 
     @if (loading() && items().length === 0) {
       <p role="status">{{ 'common.loading' | transloco }}</p>
-    } @else if (items().length === 0) {
-      <p data-testid="refund-request-empty">{{ 'billing.refunds.empty' | transloco }}</p>
-    } @else {
+    } @else if (items().length > 0) {
       <ul class="refunds-page__list" data-testid="refund-request-list">
         @for (item of items(); track item.refundRequestId) {
           <li class="ib-panel refunds-page__card" data-testid="refund-request-row"
@@ -98,6 +116,8 @@
           {{ 'billing.refunds.more' | transloco }}
         </button>
       }
+    } @else if (listLoaded() && !listErrorKey()) {
+      <p data-testid="refund-request-empty">{{ 'billing.refunds.empty' | transloco }}</p>
     }
   </section>
 </section>

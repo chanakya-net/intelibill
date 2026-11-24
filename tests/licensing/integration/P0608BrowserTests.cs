@@ -59,8 +59,6 @@ public sealed class P0608BrowserTests(LicensingPostgreSqlFixture database, ITest
         await browser.Process.WaitForExitAsync(ct);
         var report = await stdout + await stderr;
         output.WriteLine(report);
-        var raw = Path.Combine(evidence, "playwright");
-        if (Directory.Exists(raw)) Directory.Delete(raw, recursive: true);
         await File.WriteAllTextAsync(Path.Combine(evidence, "playwright.log"), report + $"\nexit={browser.Process.ExitCode}\n", ct);
         Assert.True(browser.Process.ExitCode == 0 && report.Contains("1 passed", StringComparison.Ordinal)
             && !report.Contains("skipped", StringComparison.OrdinalIgnoreCase), report);

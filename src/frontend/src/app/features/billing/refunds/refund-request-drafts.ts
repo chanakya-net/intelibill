@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { isUuid, type CheckoutScope } from '../checkout/checkout.models';
 import {
-  normalizeRefundReason, REFUND_MAX_PAISE, type CreateRefundRequest,
+  normalizeRefundReason, REFUND_MAX_PAISE, refundCommandsMatch, type CreateRefundRequest,
 } from './refund-request.models';
 
 /**
@@ -11,6 +11,12 @@ import {
 export interface RefundRequestDraft {
   readonly schemaVersion: 1;
   readonly command: CreateRefundRequest;
+}
+
+export interface PrepareRefundDraftResult {
+  readonly draft: RefundRequestDraft;
+  readonly existing: boolean;
+  readonly matchesRequest: boolean;
 }
 
 export class InvalidRefundRequestDraft extends Error {}
@@ -36,20 +42,22 @@ export class RefundRequestDrafts {
     if (value?.schemaVersion !== 1 || !c || !isUuid(c.operationKey) || !isUuid(c.orderId) ||
       !isUuid(c.confirmationId) || c.confirmationId !== confirmation ||
       !Number.isSafeInteger(c.amountPaise) || c.amountPaise <= 0 || c.amountPaise > REFUND_MAX_PAISE ||
-      normalizeRefundReason(c.reason) !== c.reason)
+      typeof c.reason !== 'string' || normalizeRefundReason(c.reason) !== c.reason)
       throw new InvalidRefundRequestDraft();
     return value;
   }
 
-  /** Saves the command unless one is already pending for this confirmation; returns whichever is saved. */
-  prepare(scope: CheckoutScope, confirmation: string, command: CreateRefundRequest): Promise<RefundRequestDraft> {
+  /** Saves the command unless one is already pending for this confirmation; flags whether an existing draft matches. */
+  prepare(scope: CheckoutScope, confirmation: string, command: CreateRefundRequest): Promise<PrepareRefundDraftResult> {
     const key = this.key(scope, confirmation);
     return navigator.locks.request(key, () => {
       const saved = this.read(scope, confirmation);
-      if (saved) return saved;
+      if (saved) {
+        return { draft: saved, existing: true, matchesRequest: refundCommandsMatch(saved.command, command) };
+      }
       const draft: RefundRequestDraft = { schemaVersion: 1, command };
       localStorage.setItem(key, JSON.stringify(draft));
-      return draft;
+      return { draft, existing: false, matchesRequest: true };
     });
   }
 

@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using Intelibill.Infrastructure.Billing;
 using Intelibill.Shared.Contracts.V1;
 
@@ -5,6 +7,7 @@ namespace Intelibill.Api.Unit.Tests.Infrastructure.Billing;
 
 public sealed class MerchantRefundRequestRelayTests
 {
+    private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
     [Fact]
     public void RecognizedStatusesPassAndUnrecognizedStatusesAreRejected()
     {
@@ -57,6 +60,56 @@ public sealed class MerchantRefundRequestRelayTests
         }).ToArray();
         Assert.True(MerchantBillingClient.IsRefundPageValid(new(account, full, full[^1].RefundRequestId), account, null));
         Assert.False(MerchantBillingClient.IsRefundPageValid(new(account, full, full[0].RefundRequestId), account, null));
+    }
+
+    [Fact]
+    public void DeserializedUpstreamNullItemAndMissingOrNullReasonAreRejectedWithoutThrowing()
+    {
+        var account = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var confirmationId = Guid.NewGuid();
+        Assert.False(MerchantBillingClient.IsRefundRequestValid(null, account));
+        Assert.False(MerchantBillingClient.IsRefundRequestValid(Item(account) with { Reason = null! }, account));
+
+        var nullItemPage = JsonSerializer.Deserialize<RefundRequestPageV1>(
+            $$"""{"schemaVersion":1,"accountId":"{{account:D}}","items":[null],"nextCursor":null}""", WebJson);
+        Assert.False(MerchantBillingClient.IsRefundPageValid(nullItemPage, account, null));
+
+        var nullReasonJson = $$"""
+            {"schemaVersion":1,"refundRequestId":"{{requestId:D}}","accountId":"{{account:D}}","orderId":"{{orderId:D}}",
+             "confirmationId":"{{confirmationId:D}}","status":"Requested","amountPaise":4500,"paymentAmountPaise":12000,
+             "currency":"INR","reason":null,"requestedAt":"2028-01-31T04:30:00Z"}
+            """;
+        var omittedReasonJson = $$"""
+            {"schemaVersion":1,"refundRequestId":"{{requestId:D}}","accountId":"{{account:D}}","orderId":"{{orderId:D}}",
+             "confirmationId":"{{confirmationId:D}}","status":"Requested","amountPaise":4500,"paymentAmountPaise":12000,
+             "currency":"INR","requestedAt":"2028-01-31T04:30:00Z"}
+            """;
+
+        Assert.False(MerchantBillingClient.IsRefundRequestValid(
+            JsonSerializer.Deserialize<RefundRequestV1>(nullReasonJson, WebJson), account));
+        Assert.False(MerchantBillingClient.IsRefundRequestValid(
+            JsonSerializer.Deserialize<RefundRequestV1>(omittedReasonJson, WebJson), account));
+        Assert.False(MerchantBillingClient.IsRefundPageValid(JsonSerializer.Deserialize<RefundRequestPageV1>(
+            $$"""{"schemaVersion":1,"accountId":"{{account:D}}","items":[{{nullReasonJson}}],"nextCursor":null}""", WebJson), account, null));
+        Assert.False(MerchantBillingClient.IsRefundPageValid(JsonSerializer.Deserialize<RefundRequestPageV1>(
+            $$"""{"schemaVersion":1,"accountId":"{{account:D}}","items":[{{omittedReasonJson}}],"nextCursor":null}""", WebJson), account, null));
+    }
+
+    [Fact]
+    public void CreateBodyLimitRejectsEscapedExpansionAboveMaxCreateBytesAndAllowsMaxMultilingualReason()
+    {
+        var oversizedReason = new string('अ', 700);
+        var oversizedRequest = new CreateRefundRequestV1(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1000L, oversizedReason);
+        Assert.True(Encoding.UTF8.GetByteCount(oversizedReason) < RefundRequestsV1.MaxCreateBytes);
+        Assert.False(MerchantBillingClient.TrySerializeCreateRefundRequest(oversizedRequest, out var oversizedBody));
+        Assert.True(oversizedBody.Length > RefundRequestsV1.MaxCreateBytes);
+
+        var maxMultilingual = new CreateRefundRequestV1(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1000L,
+            new string('अ', RefundRequestsV1.MaxReasonLength));
+        Assert.True(MerchantBillingClient.TrySerializeCreateRefundRequest(maxMultilingual, out var validBody));
+        Assert.True(validBody.Length <= RefundRequestsV1.MaxCreateBytes);
     }
 
     private static RefundRequestV1 Item(Guid? account = null) => new(

@@ -68,7 +68,7 @@ export function normalizeRefundReason(value: unknown): string | null {
   if (trimmed.length === 0 || trimmed.length > REFUND_MAX_REASON_LENGTH) return null;
   for (let i = 0; i < trimmed.length; i++) {
     const code = trimmed.charCodeAt(i);
-    if (code < 0x20 || code === 0x7f) return null;
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return null;
   }
   return trimmed;
 }
@@ -129,4 +129,37 @@ export function matchesRefundCommand(item: RefundRequestItem, account: string, c
   return item.accountId === account && item.orderId === command.orderId &&
     item.confirmationId === command.confirmationId && item.amountPaise === command.amountPaise &&
     item.reason === normalizeRefundReason(command.reason);
+}
+
+export function refundCommandsMatch(a: CreateRefundRequest, b: CreateRefundRequest): boolean {
+  return a.orderId === b.orderId && a.confirmationId === b.confirmationId &&
+    a.amountPaise === b.amountPaise && a.reason === b.reason;
+}
+
+const errorCodeMap: Readonly<Record<string, string>> = {
+  'Billing.RefundRequestInvalid': 'invalid',
+  'Billing.RefundAmountInvalid': 'amountInvalid',
+  'Billing.RefundPaymentNotFound': 'notFound',
+  'Billing.OperationPayloadMismatch': 'mismatch',
+};
+
+/**
+ * Returns true only when the server proved this operation key did not commit (or belongs to a different payload).
+ * Route-level 404s, transport failures, and 403 denials on retries of ambiguous operations keep the saved key.
+ */
+export function isAuthoritativeRefundRefusal(status: number, code: string | null, ambiguous: boolean): boolean {
+  if (status === 400) {
+    return code === 'Billing.RefundRequestInvalid' || code === 'Billing.RefundAmountInvalid' || !ambiguous;
+  }
+  if (status === 404) return code === 'Billing.RefundPaymentNotFound';
+  if (status === 409) return code === 'Billing.OperationPayloadMismatch';
+  if (status === 403) return !ambiguous;
+  return false;
+}
+
+export function mapRefundErrorKey(status: number | null, code: string | null, hasPending: boolean): string {
+  const mapped = code ? errorCodeMap[code] : undefined;
+  if (mapped) return 'billing.refunds.errors.' + mapped;
+  if (status === 403) return 'billing.refunds.errors.denied';
+  return hasPending ? 'billing.refunds.errors.unknown' : 'billing.refunds.errors.unavailable';
 }

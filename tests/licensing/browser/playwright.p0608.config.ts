@@ -1,11 +1,12 @@
+import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
 
-const evidence = process.env['P0608_EVIDENCE_DIR'];
-if (!evidence) throw new Error('Set P0608_EVIDENCE_DIR.');
+const scratch = process.env['P0608_TEMPORARY'];
+if (!scratch) throw new Error('Set P0608_TEMPORARY.');
 
 export default defineConfig({
   testMatch: 'p06-08-refund-request.spec.ts',
-  outputDir: evidence + '/playwright',
+  outputDir: join(scratch, 'playwright'),
   forbidOnly: true,
   workers: 1,
   retries: 0,

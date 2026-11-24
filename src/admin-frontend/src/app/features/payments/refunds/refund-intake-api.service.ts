@@ -59,6 +59,11 @@ export interface RefundIntakePage {
 
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
+export function canonicalAccountId(value: string): string | null {
+  const trimmed = value.trim();
+  return uuid.test(trimmed) ? trimmed.toLowerCase() : null;
+}
+
 function isValidItem(value: unknown, account: string): value is RefundIntakeItem {
   if (!value || typeof value !== 'object') return false;
   const r = value as Record<string, unknown>;
@@ -87,21 +92,23 @@ export class RefundIntakeApi {
   private readonly http = inject(HttpClient);
 
   async list(account: string, session: string, after?: string): Promise<RefundIntakePage> {
+    const canonical = canonicalAccountId(account);
+    if (!canonical) throw new Error('Invalid billing account ID');
     const raw = await firstValueFrom(this.http.get<unknown>(
-      `/api/admin/accounts/${encodeURIComponent(account)}/refund-requests`,
+      `/api/admin/accounts/${encodeURIComponent(canonical)}/refund-requests`,
       { headers: { 'X-Admin-Session': session }, params: after ? { after } : {} },
     ));
     if (!raw || typeof raw !== 'object') throw new Error('Invalid refund intake response');
     const page = raw as Record<string, unknown>;
     const items = page['items'];
     const cursor = page['nextCursor'];
-    if (page['schemaVersion'] !== 1 || page['accountId'] !== account || !Array.isArray(items) ||
-      items.length > 25 || !items.every(item => isValidItem(item, account)) ||
+    if (page['schemaVersion'] !== 1 || page['accountId'] !== canonical || !Array.isArray(items) ||
+      items.length > 25 || !items.every(item => isValidItem(item, canonical)) ||
       (cursor !== null && (typeof cursor !== 'string' || !uuid.test(cursor))))
       throw new Error('Invalid refund intake page');
     return {
       schemaVersion: 1,
-      accountId: account,
+      accountId: canonical,
       items: items as RefundIntakeItem[],
       nextCursor: cursor as string | null,
     };

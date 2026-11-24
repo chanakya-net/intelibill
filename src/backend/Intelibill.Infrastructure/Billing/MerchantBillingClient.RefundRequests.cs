@@ -9,18 +9,29 @@ namespace Intelibill.Infrastructure.Billing;
 internal sealed partial class MerchantBillingClient : IMerchantRefundRequests
 {
     public Task<ErrorOr<RefundRequestV1>> CreateRefundRequestAsync(MerchantBillingCaller caller, Guid account,
-        CreateRefundRequestV1 request, CancellationToken ct) =>
-        RunAsync<RefundRequestV1>(caller, new(RefundRequestsV1.Create, HttpMethod.Post, RefundRequestsV1.Path(account),
-            account, JsonSerializer.SerializeToUtf8Bytes(request, Json)), RefundRequestsV1.MaxRequestBytes,
+        CreateRefundRequestV1 request, CancellationToken ct)
+    {
+        if (!TrySerializeCreateRefundRequest(request, out var body))
+            return Task.FromResult<ErrorOr<RefundRequestV1>>(InvalidRefundRequestError());
+
+        return RunAsync<RefundRequestV1>(caller, new(RefundRequestsV1.Create, HttpMethod.Post, RefundRequestsV1.Path(account),
+            account, body), RefundRequestsV1.MaxRequestBytes,
             async (response, token) =>
             {
                 var created = await ReadJsonAsync<RefundRequestV1>(response, token);
                 var normalized = RefundRequestsV1.NormalizeReason(request.Reason);
-                return created is not null && IsRefundRequestValid(created, account) &&
-                    created.OrderId == request.OrderId && created.ConfirmationId == request.ConfirmationId &&
+                return IsRefundRequestValid(created, account) &&
+                    created!.OrderId == request.OrderId && created.ConfirmationId == request.ConfirmationId &&
                     created.AmountPaise == request.AmountPaise && normalized is not null && created.Reason == normalized
                     ? created : Unavailable("InvalidRefundRequest");
             }, ct);
+    }
+
+    internal static bool TrySerializeCreateRefundRequest(CreateRefundRequestV1 request, out byte[] body)
+    {
+        body = JsonSerializer.SerializeToUtf8Bytes(request, Json);
+        return body.Length <= RefundRequestsV1.MaxCreateBytes;
+    }
 
     public Task<ErrorOr<RefundRequestPageV1>> ListRefundRequestsAsync(MerchantBillingCaller caller, Guid account,
         Guid? after, CancellationToken ct) =>
@@ -33,12 +44,12 @@ internal sealed partial class MerchantBillingClient : IMerchantRefundRequests
             }, ct);
 
     /// <summary>Structural trust boundary for a relayed refund request: must belong to this account and stay valid.</summary>
-    internal static bool IsRefundRequestValid(RefundRequestV1 r, Guid account) =>
-        r.SchemaVersion == 1 && r.RefundRequestId != Guid.Empty && r.AccountId == account &&
+    internal static bool IsRefundRequestValid(RefundRequestV1? r, Guid account) =>
+        r is not null && r.SchemaVersion == 1 && r.RefundRequestId != Guid.Empty && r.AccountId == account &&
         r.OrderId != Guid.Empty && r.ConfirmationId != Guid.Empty && RefundRequestsV1.States.Contains(r.Status) &&
         r.PaymentAmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise &&
         r.AmountPaise is > 0 && r.AmountPaise <= r.PaymentAmountPaise &&
-        r.Currency == "INR" && RefundRequestsV1.NormalizeReason(r.Reason) == r.Reason &&
+        r.Currency == "INR" && r.Reason is not null && RefundRequestsV1.NormalizeReason(r.Reason) == r.Reason &&
         EntitlementSnapshotsV1.IsInstant(r.RequestedAt);
 
     internal static bool IsRefundPageValid(RefundRequestPageV1? page, Guid account, Guid? after)
@@ -62,10 +73,12 @@ internal sealed partial class MerchantBillingClient : IMerchantRefundRequests
         return page.NextCursor is null || (items.Length == RefundRequestsV1.PageSize && page.NextCursor == previousId);
     }
 
+    private static Error InvalidRefundRequestError() => Error.Validation(RefundRequestsV1.Invalid,
+        "Provide a valid operation key, payment confirmation reference and refund reason.");
+
     private Error MapRefundRequestFailure(HttpStatusCode status, string? code) => (status, code) switch
     {
-        (HttpStatusCode.BadRequest, RefundRequestsV1.Invalid) => Error.Validation(code,
-            "Provide a valid operation key, payment confirmation reference and refund reason."),
+        (HttpStatusCode.BadRequest, RefundRequestsV1.Invalid) => InvalidRefundRequestError(),
         (HttpStatusCode.BadRequest, RefundRequestsV1.AmountInvalid) => Error.Validation(code,
             "Enter a positive whole-paise refund amount up to the verified payment amount."),
         (HttpStatusCode.NotFound, RefundRequestsV1.PaymentNotFound) => Error.NotFound(code,

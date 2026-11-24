@@ -5,10 +5,8 @@ import { ButtonDirective } from 'primeng/button';
 import { formatIstExact } from '../../accounts/account-status-api.service';
 import { AdminSessionService } from '../../auth/admin-session.service';
 import {
-  REFUND_INTAKE_STATUS_META, RefundIntakeApi, type RefundIntakeItem, type RefundIntakeStatus,
+  canonicalAccountId, REFUND_INTAKE_STATUS_META, RefundIntakeApi, type RefundIntakeItem, type RefundIntakeStatus,
 } from './refund-intake-api.service';
-
-const identifier = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 @Component({
   selector: 'adm-refund-intake-page',
@@ -25,7 +23,7 @@ export class RefundIntakePageComponent {
   private readonly router = inject(Router);
   private readonly params = toSignal(this.route.queryParamMap);
 
-  protected readonly account = computed(() => this.params()?.get('account') ?? '');
+  protected readonly account = computed(() => canonicalAccountId(this.params()?.get('account') ?? '') ?? '');
   protected readonly allowed = computed(() => this.session.capabilities().includes('billing'));
   protected readonly items = signal<readonly RefundIntakeItem[]>([]);
   protected readonly nextCursor = signal<string | null>(null);
@@ -58,12 +56,13 @@ export class RefundIntakePageComponent {
 
   protected search(event: Event, account: string) {
     event.preventDefault();
-    const trimmed = account.trim();
-    if (!identifier.test(trimmed)) {
+    const canonical = canonicalAccountId(account);
+    if (!canonical) {
       this.error.set('Enter a valid billing account ID.');
       return;
     }
-    void this.router.navigate([], { relativeTo: this.route, queryParams: { account: trimmed } });
+    this.error.set('');
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { account: canonical } });
   }
 
   protected loadMore() {
@@ -83,7 +82,7 @@ export class RefundIntakePageComponent {
     this.loaded.set(false);
     this.busy.set(false);
     this.error.set('');
-    if (!this.allowed() || !identifier.test(this.account())) return;
+    if (!this.allowed() || !this.account()) return;
     void this.fetchPage(undefined, false);
   }
 
@@ -91,7 +90,7 @@ export class RefundIntakePageComponent {
     const admin = this.session.adminId();
     const session = this.session.sessionId();
     const account = this.account();
-    if (!admin || !session || !this.allowed() || !identifier.test(account)) return;
+    if (!admin || !session || !this.allowed() || !account) return;
     const generation = this.generation;
     const current = () => generation === this.generation && this.allowed() &&
       this.account() === account && this.session.adminId() === admin && this.session.sessionId() === session;

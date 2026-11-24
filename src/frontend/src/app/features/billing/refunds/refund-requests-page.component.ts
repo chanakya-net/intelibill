@@ -13,17 +13,16 @@ import { PaymentConfirmationService } from '../payments/payment-confirmation.ser
 import { formatBillingInstant } from '../status/subscription-status.models';
 import { InvalidRefundRequestDraft, RefundRequestDrafts } from './refund-request-drafts';
 import {
-  formatPaiseAsInput, normalizeRefundReason, parseInrToPaise, REFUND_MAX_REASON_LENGTH, REFUND_STATUS_COPY,
+  formatPaiseAsInput, isAuthoritativeRefundRefusal, mapRefundErrorKey, normalizeRefundReason,
+  parseInrToPaise, REFUND_MAX_REASON_LENGTH, REFUND_STATUS_COPY,
   type CreateRefundRequest, type RefundRequestItem, type RefundRequestStatus,
 } from './refund-request.models';
 import { RefundRequestService } from './refund-request.service';
 
-const errorCodeMap: Readonly<Record<string, string>> = {
-  'Billing.RefundRequestInvalid': 'invalid',
-  'Billing.RefundAmountInvalid': 'amountInvalid',
-  'Billing.RefundPaymentNotFound': 'notFound',
-  'Billing.OperationPayloadMismatch': 'mismatch',
-};
+type ReadDraftState =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unreadable' }
+  | { readonly kind: 'saved'; readonly command: CreateRefundRequest };
 
 @Component({
   selector: 'app-refund-requests-page',
@@ -69,14 +68,19 @@ export class RefundRequestsPageComponent {
   protected readonly maxReasonLength = REFUND_MAX_REASON_LENGTH;
   protected readonly items = signal<readonly RefundRequestItem[]>([]);
   protected readonly nextCursor = signal<string | null>(null);
+  protected readonly listLoaded = signal(false);
+  protected readonly listErrorKey = signal<string | null>(null);
   protected readonly payment = signal<PaymentConfirmation | null>(null);
   protected readonly pendingDraft = signal<CreateRefundRequest | null>(null);
+  protected readonly pendingConflict = signal(false);
+  protected readonly unreadableDraft = signal(false);
   protected readonly amountInput = signal('');
   protected readonly reasonInput = signal('');
   protected readonly loading = signal(false);
   protected readonly submitting = signal(false);
   protected readonly errorKey = signal<string | null>(null);
   protected readonly submittedNotice = signal(false);
+  protected readonly displayErrorKey = computed(() => this.errorKey() ?? this.listErrorKey());
   private generation = 0;
 
   constructor() {
@@ -105,8 +109,12 @@ export class RefundRequestsPageComponent {
     return formatBillingInstant(value, this.locale.currentLanguage(), true) ?? value;
   }
 
+  protected formLocked(): boolean {
+    return this.submitting() || this.pendingDraft() !== null || this.unreadableDraft();
+  }
+
   protected canSubmit(): boolean {
-    if (this.submitting() || this.pendingDraft() !== null) return false;
+    if (this.formLocked()) return false;
     const payment = this.payment();
     if (!payment) return false;
     const paise = parseInrToPaise(this.amountInput());
@@ -118,7 +126,7 @@ export class RefundRequestsPageComponent {
     const payment = this.payment();
     const paise = parseInrToPaise(this.amountInput());
     const reason = normalizeRefundReason(this.reasonInput());
-    if (!scope || !payment || paise === null || paise > payment.amountPaise || !reason || this.submitting()) {
+    if (!scope || !payment || paise === null || paise > payment.amountPaise || !reason || this.formLocked()) {
       this.errorKey.set('billing.refunds.errors.invalid');
       return;
     }
@@ -134,12 +142,21 @@ export class RefundRequestsPageComponent {
     this.errorKey.set(null);
     this.submittedNotice.set(false);
     try {
-      const saved = await this.drafts.prepare(scope, payment.confirmationId, command);
+      const prepared = await this.drafts.prepare(scope, payment.confirmationId, command);
       if (!current()) return;
-      this.pendingDraft.set(saved.command);
-      await this.dispatch(scope, saved.command, current);
+      if (prepared.existing && !prepared.matchesRequest) {
+        this.bindPendingDraft(prepared.draft.command, true);
+        return;
+      }
+      this.bindPendingDraft(prepared.draft.command, false);
+      await this.dispatch(scope, prepared.draft.command, current, prepared.existing);
     } catch (error) {
-      if (current()) this.handleError(error);
+      if (!current()) return;
+      if (error instanceof InvalidRefundRequestDraft) {
+        this.unreadableDraft.set(true);
+        return;
+      }
+      this.handleError(error);
     }
   }
 
@@ -148,7 +165,20 @@ export class RefundRequestsPageComponent {
     const draft = this.pendingDraft();
     if (!scope || !draft || this.submitting()) return;
     const generation = this.generation;
-    await this.dispatch(scope, draft, () => generation === this.generation);
+    await this.dispatch(scope, draft, () => generation === this.generation, true);
+  }
+
+  protected async clearUnreadableDraft() {
+    const scope = this.scope();
+    const confirmation = this.confirmationId();
+    if (!scope || !confirmation || !this.unreadableDraft()) return;
+    const generation = this.generation;
+    await this.drafts.discard(scope, confirmation);
+    if (generation !== this.generation) return;
+    this.unreadableDraft.set(false);
+    this.errorKey.set(null);
+    const verified = this.payment();
+    if (verified) this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
   }
 
   protected async loadMore() {
@@ -157,14 +187,14 @@ export class RefundRequestsPageComponent {
     if (!scope || !cursor || this.loading()) return;
     const generation = this.generation;
     this.loading.set(true);
-    this.errorKey.set(null);
+    this.listErrorKey.set(null);
     try {
       const page = await this.api.list(scope, cursor);
       if (generation !== this.generation) return;
       this.mergeItems(page.items, false);
       this.nextCursor.set(page.nextCursor);
     } catch (error) {
-      if (generation === this.generation) this.handleError(error);
+      if (generation === this.generation) this.listErrorKey.set(this.mapError(error, false));
     } finally {
       if (generation === this.generation) this.loading.set(false);
     }
@@ -173,66 +203,107 @@ export class RefundRequestsPageComponent {
   private async load(scope: CheckoutScope | null, order: string | null, confirmation: string | null) {
     const generation = ++this.generation;
     const current = () => generation === this.generation;
+    this.resetState();
+    if (!scope) return;
+    await Promise.all([
+      this.loadList(scope, current),
+      order && confirmation ? this.loadTarget(scope, order, confirmation, current) : Promise.resolve(),
+    ]);
+  }
+
+  private resetState() {
     this.items.set([]);
     this.nextCursor.set(null);
+    this.listLoaded.set(false);
+    this.listErrorKey.set(null);
     this.payment.set(null);
     this.pendingDraft.set(null);
+    this.pendingConflict.set(false);
+    this.unreadableDraft.set(false);
+    this.amountInput.set('');
+    this.reasonInput.set('');
+    this.loading.set(false);
+    this.submitting.set(false);
     this.errorKey.set(null);
     this.submittedNotice.set(false);
-    this.submitting.set(false);
-    if (!scope) return;
+  }
+
+  private async loadList(scope: CheckoutScope, current: () => boolean) {
     this.loading.set(true);
     try {
       const page = await this.api.list(scope);
       if (!current()) return;
       this.items.set(page.items);
       this.nextCursor.set(page.nextCursor);
-      if (order && confirmation) {
-        await this.loadTargetPayment(scope, order, confirmation, current);
-        if (!current()) return;
-        const saved = this.readDraftSafely(scope, confirmation);
-        if (saved) {
-          this.pendingDraft.set(saved.command);
-          await this.dispatch(scope, saved.command, current);
-        }
-      }
+      this.listLoaded.set(true);
     } catch (error) {
-      if (current()) this.handleError(error);
+      if (current()) this.listErrorKey.set(this.mapError(error, false));
     } finally {
       if (current()) this.loading.set(false);
     }
   }
 
+  private async loadTarget(scope: CheckoutScope, order: string, confirmation: string, current: () => boolean) {
+    const draftState = this.readDraftSafely(scope, confirmation);
+    if (draftState.kind === 'unreadable') {
+      this.unreadableDraft.set(true);
+    } else if (draftState.kind === 'saved') {
+      this.bindPendingDraft(draftState.command, false);
+    }
+    try {
+      await this.loadTargetPayment(scope, order, confirmation, current);
+    } catch (error) {
+      if (current()) this.handleError(error);
+      return;
+    }
+    if (!current() || draftState.kind !== 'saved') return;
+    await this.dispatch(scope, draftState.command, current, true);
+  }
+
   private async loadTargetPayment(scope: CheckoutScope, order: string, confirmation: string, current: () => boolean) {
     let after: string | undefined;
-    for (let page = 0; page < 10; page++) {
+    const seenCursors = new Set<string>();
+    for (;;) {
       const rows = await this.confirmations.list(scope, order, after);
       if (!current()) return;
       const match = rows.find(row => row.confirmationId === confirmation);
       if (match) {
         this.payment.set(match);
-        if (!this.amountInput()) this.amountInput.set(formatPaiseAsInput(match.amountPaise));
+        if (!this.pendingDraft() && !this.unreadableDraft()) {
+          this.amountInput.set(formatPaiseAsInput(match.amountPaise));
+        }
         return;
       }
       if (rows.length < CONFIRMATION_PAGE_SIZE) break;
-      after = rows.at(-1)?.confirmationId;
+      const next = rows.at(-1)?.confirmationId;
+      if (!next || seenCursors.has(next)) {
+        this.errorKey.set('billing.refunds.errors.unavailable');
+        return;
+      }
+      seenCursors.add(next);
+      after = next;
     }
     if (current()) this.errorKey.set('billing.refunds.errors.notFound');
   }
 
-  private readDraftSafely(scope: CheckoutScope, confirmation: string) {
+  private readDraftSafely(scope: CheckoutScope, confirmation: string): ReadDraftState {
     try {
-      return this.drafts.read(scope, confirmation);
+      const saved = this.drafts.read(scope, confirmation);
+      return saved ? { kind: 'saved', command: saved.command } : { kind: 'none' };
     } catch (error) {
-      if (error instanceof InvalidRefundRequestDraft) {
-        void this.drafts.discard(scope, confirmation);
-        return null;
-      }
+      if (error instanceof InvalidRefundRequestDraft) return { kind: 'unreadable' };
       throw error;
     }
   }
 
-  private async dispatch(scope: CheckoutScope, command: CreateRefundRequest, current: () => boolean) {
+  private bindPendingDraft(command: CreateRefundRequest, conflict: boolean) {
+    this.pendingDraft.set(command);
+    this.pendingConflict.set(conflict);
+    this.amountInput.set(formatPaiseAsInput(command.amountPaise));
+    this.reasonInput.set(command.reason);
+  }
+
+  private async dispatch(scope: CheckoutScope, command: CreateRefundRequest, current: () => boolean, ambiguous: boolean) {
     this.submitting.set(true);
     this.errorKey.set(null);
     try {
@@ -240,13 +311,21 @@ export class RefundRequestsPageComponent {
       await this.drafts.discard(scope, command.confirmationId, command.operationKey);
       if (!current()) return;
       this.pendingDraft.set(null);
+      this.pendingConflict.set(false);
       this.reasonInput.set('');
+      const verified = this.payment();
+      if (verified) this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
       this.submittedNotice.set(true);
       this.mergeItems([created], true);
     } catch (error) {
-      if (error instanceof HttpErrorResponse && [400, 403, 404, 409].includes(error.status)) {
+      const http = error instanceof HttpErrorResponse ? error : null;
+      const code = typeof http?.error?.code === 'string' ? http.error.code : null;
+      if (http && isAuthoritativeRefundRefusal(http.status, code, ambiguous)) {
         await this.drafts.discard(scope, command.confirmationId, command.operationKey);
-        if (current()) this.pendingDraft.set(null);
+        if (current()) {
+          this.pendingDraft.set(null);
+          this.pendingConflict.set(false);
+        }
       }
       if (current()) this.handleError(error);
     } finally {
@@ -268,17 +347,12 @@ export class RefundRequestsPageComponent {
   }
 
   private handleError(error: unknown) {
-    if (error instanceof HttpErrorResponse) {
-      const code = typeof error.error?.code === 'string' ? errorCodeMap[error.error.code] : undefined;
-      if (code) {
-        this.errorKey.set('billing.refunds.errors.' + code);
-        return;
-      }
-      if (error.status === 403) {
-        this.errorKey.set('billing.refunds.errors.denied');
-        return;
-      }
-    }
-    this.errorKey.set(this.pendingDraft() ? 'billing.refunds.errors.unknown' : 'billing.refunds.errors.unavailable');
+    this.errorKey.set(this.mapError(error, this.pendingDraft() !== null));
+  }
+
+  private mapError(error: unknown, hasPending: boolean): string {
+    const http = error instanceof HttpErrorResponse ? error : null;
+    const code = typeof http?.error?.code === 'string' ? http.error.code : null;
+    return mapRefundErrorKey(http?.status ?? null, code, hasPending);
   }
 }
