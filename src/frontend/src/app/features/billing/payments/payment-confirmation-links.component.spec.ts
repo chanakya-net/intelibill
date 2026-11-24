@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import en from '../../../../../public/assets/i18n/en-IN.json';
@@ -23,6 +24,7 @@ function setup(document: () => Promise<Blob>, list = async (_scope?: unknown, _o
     imports: [TranslocoTestingModule.forRoot({ langs: { 'en-IN': en },
       translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' }, preloadLangs: true })],
     providers: [
+      provideRouter([]),
       { provide: ShopContextService, useValue: { scope } },
       { provide: PaymentConfirmationService, useValue: { list, document } },
       { provide: BlobDownloadService, useValue: { download } },

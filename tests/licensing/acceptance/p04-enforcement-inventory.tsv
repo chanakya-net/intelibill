@@ -182,6 +182,7 @@ route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/co
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/after/{after:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/{id:guid}/document	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/operations/{operation:guid}	Billing	M01/M13	protected/request
@@ -303,6 +304,7 @@ route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/a
 route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/simulator/capture	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/verify	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/ownership-transfers	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes	Billing	M01/M13	protected/request

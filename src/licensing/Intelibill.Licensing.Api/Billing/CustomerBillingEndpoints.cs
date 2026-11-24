@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Licensing.Api.Restrictions;
 using Intelibill.Licensing.Api.Payments;
+using Intelibill.Licensing.Api.Refunds;
 using Intelibill.Licensing.Api.Subscriptions;
 using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Api.Status;
@@ -50,6 +51,7 @@ internal static class CustomerBillingEndpoints
         app.MapCustomerCheckout(policy);
         app.MapCustomerPayments(policy);
         app.MapCustomerCapacityChangeQuotes(policy);
+        app.MapCustomerRefundRequests(policy);
     }
 
     private static async Task<IResult> GetAccessAsync(

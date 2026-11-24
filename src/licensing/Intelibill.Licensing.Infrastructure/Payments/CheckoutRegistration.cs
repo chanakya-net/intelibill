@@ -28,6 +28,15 @@ internal static class CheckoutRegistration
             provider.GetRequiredService<Application.Catalogue.ICataloguePublicationApproval>(), CheckoutClock(provider)));
         services.AddPayments();
         services.AddCapacityChangeQuotes();
+        services.AddRefundRequests();
+    }
+
+    private static void AddRefundRequests(this IServiceCollection services)
+    {
+        services.AddScoped<Application.Refunds.IRefundRequestStore, Refunds.RefundRequestStore>();
+        services.AddScoped<Application.Refunds.ReadRefundRequestsHandler>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<Application.Refunds.CreateRefundRequestHandler>(
+            provider, CheckoutClock(provider)));
     }
 
     // Capacity previews share the checkout clock and quote lifetime, and the provider selection of new attempts.
