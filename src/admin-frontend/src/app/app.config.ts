@@ -56,6 +56,12 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.PaymentReviewPageComponent),
       },
       {
+        path: 'payments/refunds',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/payments/refunds/refund-intake-page.component')
+          .then((m) => m.RefundIntakePageComponent),
+      },
+      {
         path: 'payments',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/payments/manual-payment-page.component')

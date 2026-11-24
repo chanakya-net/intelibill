@@ -3976,6 +3976,53 @@
         "mismatch": "This request was already used with different details. Request a new preview.",
         "unavailable": "The preview could not be loaded right now. Try again shortly."
       }
+    },
+    "refunds": {
+      "link": "Refund requests",
+      "requestFromConfirmation": "Request a refund",
+      "heading": "Refund requests",
+      "description": "Submit a refund request for a verified payment confirmation and track its recorded status.",
+      "noAccessChangeNotice": "A refund request does not approve a refund, move money, or change your subscription term or shop access.",
+      "submitted": "Refund request recorded. It has not been approved yet and your access has not changed.",
+      "pendingRetryNotice": "Your refund request did not receive a final answer. Retry to send the same request without creating a duplicate.",
+      "pendingConflictNotice": "An earlier unconfirmed refund request for this payment confirmation is already saved. Review and retry that saved request before submitting a different one.",
+      "unreadableDraftNotice": "A saved refund request on this device for this payment confirmation could not be read. Check the recorded refund requests below before clearing it so you do not create a duplicate.",
+      "clearUnreadableDraft": "Clear unreadable saved request",
+      "retry": "Retry saved request",
+      "formHeading": "Request a refund",
+      "confirmationLabel": "Payment confirmation",
+      "verifiedAmountLabel": "Verified payment amount",
+      "amountLabel": "Requested amount (INR)",
+      "reasonLabel": "Reason for refund",
+      "submit": "Submit refund request",
+      "listHeading": "Recorded refund requests",
+      "empty": "No refund requests have been recorded for this billing account.",
+      "requestedAmountLabel": "Requested amount",
+      "requestedAtLabel": "Requested at",
+      "more": "Load more refund requests",
+      "statuses": {
+        "Requested": "Requested",
+        "Pending": "Pending provider",
+        "Confirmed": "Refund confirmed",
+        "Failed": "Refund failed",
+        "Unknown": "Status unknown"
+      },
+      "statusDetails": {
+        "Requested": "Your request is recorded for review. It is not approved, no money has moved, and access is unchanged.",
+        "Pending": "An approved refund is waiting for confirmation from the original payment provider.",
+        "Confirmed": "The original payment provider confirmed the refund.",
+        "Failed": "The refund attempt failed at the original payment provider. Contact support for follow-up.",
+        "Unknown": "The provider outcome is uncertain and is being reconciled through the original payment provider."
+      },
+      "errors": {
+        "invalid": "Enter a valid verified payment reference and refund reason.",
+        "amountInvalid": "Enter a positive amount in INR up to the verified payment amount.",
+        "notFound": "That verified payment confirmation was not found for this billing account.",
+        "mismatch": "This request key was already used with different details. Review the form and try again.",
+        "denied": "You do not have permission to manage refund requests for this billing account.",
+        "unknown": "The request outcome is unknown. Retry the saved request to avoid creating a duplicate.",
+        "unavailable": "Refund requests could not be loaded or saved right now. Try again shortly."
+      }
     }
   }
 }

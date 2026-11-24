@@ -6,6 +6,10 @@ export const billingRoutes: Routes = [
     loadComponent: () => import('./checkout/checkout-page.component').then(m => m.CheckoutPageComponent),
   },
   {
+    path: 'accounts/:accountId/refunds',
+    loadComponent: () => import('./refunds/refund-requests-page.component').then(m => m.RefundRequestsPageComponent),
+  },
+  {
     path: 'trial',
     loadComponent: () => import('./trial/shop-trial-page.component').then(m => m.ShopTrialPageComponent),
   },

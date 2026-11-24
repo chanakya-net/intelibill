@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonDirective } from 'primeng/button';
 import { ShopContextService } from '../../../core/context/shop-context.service';
@@ -8,7 +9,7 @@ import { CONFIRMATION_PAGE_SIZE, type PaymentConfirmation } from './payment-conf
 
 @Component({
   selector: 'app-payment-confirmation-links',
-  imports: [TranslocoPipe, ButtonDirective],
+  imports: [RouterLink, TranslocoPipe, ButtonDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `section { display: grid; gap: 0.5rem; overflow-wrap: anywhere; }`,
   template: `
@@ -20,6 +21,11 @@ import { CONFIRMATION_PAGE_SIZE, type PaymentConfirmation } from './payment-conf
         <button pButton type="button" data-testid="confirmation-download" [disabled]="busy()"
           [label]="'billing.checkout.payment.confirmation.download' | transloco"
           (click)="download(row)"></button>
+        <a data-testid="confirmation-request-refund"
+          [routerLink]="['/billing/accounts', account(), 'refunds']"
+          [queryParams]="{ order: order(), confirmation: row.confirmationId }">
+          {{ 'billing.refunds.requestFromConfirmation' | transloco }}
+        </a>
         <small>{{ row.source }} · {{ row.confirmationId }}</small>
       }
       @if (hasMore()) {

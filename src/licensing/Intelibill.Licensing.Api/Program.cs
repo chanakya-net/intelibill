@@ -2,6 +2,7 @@ using Intelibill.Licensing.Api.Restrictions;
 using Intelibill.Licensing.Api.Entitlements;
 using Intelibill.Licensing.Api.Trials;
 using Intelibill.Licensing.Api.Payments;
+using Intelibill.Licensing.Api.Refunds;
 using Intelibill.Licensing.Api.Billing;
 using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Api.Audit;
@@ -102,6 +103,7 @@ public sealed class Program
         app.MapReopenings();
         app.MapAdminManualPayments();
         app.MapAdminPaymentConfirmations();
+        app.MapAdminRefundRequests();
         app.MapPaymentProviders();
         app.MapAdminPaymentReviews();
         app.MapGatewayWebhooks();
