@@ -81,7 +81,7 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
         if (prior.Basis != "Paid" || prior.Period != request.Period || prior.Capacity != capacity ||
             prior.CalendarVersion != BillingCalendar.Version || prior.AccessPolicyVersion != GracePolicy.Version ||
             (prior.StartsAt > now && !prior.Renewed) || prior.CancellationRevision % 2 == 1 ||
-            source.Shops.Any(s => s.CoverageEndsAt != prior.EndsAt))
+            source.Shops.Any(s => !ValidCoverageEnd(s, prior)))
             return null;
 
         var anchor = new BillingAnchor(prior.AnchorLocal, BillingCalendar.Zone, period);
@@ -96,4 +96,9 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             return null;
         return decision;
     }
+
+    private static bool ValidCoverageEnd(CheckoutSourceShop shop, CheckoutRenewalSource prior) =>
+        prior.RefundAccessEndsAt is null
+            ? shop.CoverageEndsAt == prior.EndsAt
+            : shop.CoverageEndsAt is { } end && end > prior.StartsAt && end <= prior.EndsAt;
 }

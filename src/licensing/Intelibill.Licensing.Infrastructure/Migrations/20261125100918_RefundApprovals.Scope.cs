@@ -31,4 +31,49 @@ public sealed partial class RefundApprovals
                     AND r.state IN ('Scheduled', 'Funded', 'Applying', 'NeedsResolution', 'NeedsReview'))
         $$;
         """;
+
+    private const string AffiliationCoverageGuard = """
+        CREATE OR REPLACE FUNCTION public.guard_shop_affiliation_coverage() RETURNS trigger
+        LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+        BEGIN
+            PERFORM pg_advisory_xact_lock(hashtextextended('b' || NEW.account_id::text, 0));
+            IF NOT EXISTS (SELECT FROM public.shop_affiliation_requests r
+                    LEFT JOIN public.subscription_coverage_terms t
+                        ON t.account_id = r.account_id AND t.term_id = r.term_id
+                    WHERE r.account_id = NEW.account_id AND r.shop_id = NEW.shop_id AND r.request_id = NEW.request_id
+                    AND r.term_id IS NOT DISTINCT FROM NEW.term_id
+                    AND r.created_at <= NEW.accepted_at AND NEW.accepted_at < r.expires_at
+                    AND ((NEW.term_id IS NULL AND r.reviewed_refund_paid_through IS NULL)
+                        OR (NEW.term_id IS NOT NULL AND t.term_id IS NOT NULL
+                            AND r.reviewed_refund_paid_through IS NOT DISTINCT FROM (
+                                SELECT new_paid_through FROM public.refund_boundary(t.account_id, t.term_id))
+                            AND NEW.coverage_ends_at = coalesce(r.reviewed_refund_paid_through, t.ends_at)
+                            AND t.starts_at <= NEW.applied_at AND NEW.applied_at < NEW.coverage_ends_at
+                            AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)))) THEN
+                RAISE EXCEPTION 'Shop affiliation selection is invalid' USING ERRCODE = '23514';
+            END IF;
+            RETURN NEW;
+        END $$;
+        """;
+
+    private const string RestoreAffiliationCoverageGuard = """
+        CREATE OR REPLACE FUNCTION public.guard_shop_affiliation_coverage() RETURNS trigger
+        LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+        BEGIN
+            PERFORM pg_advisory_xact_lock(hashtextextended('b' || NEW.account_id::text, 0));
+            IF NOT EXISTS (SELECT FROM public.shop_affiliation_requests r
+                    WHERE r.account_id = NEW.account_id AND r.shop_id = NEW.shop_id AND r.request_id = NEW.request_id
+                    AND r.term_id IS NOT DISTINCT FROM NEW.term_id
+                    AND r.created_at <= NEW.accepted_at AND NEW.accepted_at < r.expires_at)
+                OR (NEW.term_id IS NOT NULL AND NOT EXISTS (
+                    SELECT FROM public.subscription_coverage_terms t
+                    WHERE t.account_id = NEW.account_id AND t.term_id = NEW.term_id
+                    AND t.starts_at <= NEW.applied_at AND NEW.coverage_ends_at = t.ends_at
+                    AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)
+                )) THEN
+                RAISE EXCEPTION 'Shop affiliation selection is invalid' USING ERRCODE = '23514';
+            END IF;
+            RETURN NEW;
+        END $$;
+        """;
 }

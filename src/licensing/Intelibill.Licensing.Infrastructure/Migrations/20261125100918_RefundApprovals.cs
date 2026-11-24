@@ -25,6 +25,7 @@ public sealed partial class RefundApprovals : Migration
         migrationBuilder.Sql(Policies);
         migrationBuilder.Sql(ApprovalGuards);
         migrationBuilder.Sql(Scope);
+        migrationBuilder.Sql(AffiliationCoverageGuard);
         migrationBuilder.Sql(DecisionGuards);
         migrationBuilder.Sql(ScheduledCapacityReductions.FulfilmentCompleteness(refundBoundaries: true));
     }
@@ -158,6 +159,7 @@ public sealed partial class RefundApprovals : Migration
     protected override void Down(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.Sql(ScheduledCapacityReductions.FulfilmentCompleteness());
+        migrationBuilder.Sql(RestoreAffiliationCoverageGuard);
         migrationBuilder.Sql("""
         LOCK TABLE public.refund_approvals, public.refund_access_decisions IN ACCESS EXCLUSIVE MODE;
         ALTER TABLE public.refund_approvals NO FORCE ROW LEVEL SECURITY;
