@@ -31,6 +31,7 @@
   }
   @case ('purchase') {
     <section class="ib-panel">
+      @if (current.awaitingPayment) { <p role="status">{{ 'billing.checkout.payment.pending' | transloco }}</p> }
       @if (current.unavailable) { <p role="alert">{{ 'billing.checkout.errors.unknown' | transloco }}</p> }
       <a [routerLink]="['/billing/accounts', account(), 'checkout']" [queryParams]="{ order: current.quoteId }"
         data-testid="capacity-order">{{ 'billing.checkout.title' | transloco }} · {{ current.quoteId }}</a>

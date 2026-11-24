@@ -86,26 +86,30 @@ internal sealed partial class PaymentStore
 
     public async Task<StoredManualReceipt?> FindManualAsync(Guid account, Guid key, bool byOperation, CancellationToken ct)
     {
-        var row = await db.Database.SqlQuery<ManualReceiptRow>($"""
-            SELECT receipt_id, order_id, operation_key, admin_id, mfa_verified_at, received_at, verified_at, amount_paise, currency,
-                receiving_account_id, configuration_version, evidence_policy_version, environment, review_reason, term_id, protected_payload
-            FROM public.manual_payment_receipts WHERE account_id = {account}
-                AND CASE WHEN {byOperation} THEN operation_key = {key} ELSE receipt_id = {key} END
-            """).SingleOrDefaultAsync(ct);
+        var rows = ManualReceiptRows(account, includeEvidence: true);
+        var row = await (byOperation ? rows.Where(r => r.OperationKey == key) : rows.Where(r => r.ReceiptId == key))
+            .SingleOrDefaultAsync(ct);
         return row is null ? null : new(row.OrderId, row.ToReceipt(), row.ProtectedPayload);
     }
 
     public async Task<IReadOnlyList<ManualPaymentReceipt>> ListManualAsync(Guid account, Guid order, CancellationToken ct)
     {
-        var rows = await db.Database.SqlQuery<ManualReceiptRow>($"""
-            SELECT receipt_id, order_id, operation_key, admin_id, mfa_verified_at, received_at, verified_at, amount_paise, currency,
-                receiving_account_id, configuration_version, evidence_policy_version, environment, review_reason, term_id,
-                ''::text AS protected_payload
-            FROM public.manual_payment_receipts WHERE account_id = {account} AND order_id = {order}
-            ORDER BY verified_at DESC, receipt_id LIMIT 40
-            """).ToListAsync(ct);
+        var rows = await ManualReceiptRows(account, includeEvidence: false).Where(r => r.OrderId == order)
+            .OrderByDescending(r => r.VerifiedAt).ThenBy(r => r.ReceiptId).Take(40).ToListAsync(ct);
         return rows.Select(row => row.ToReceipt()).ToArray();
     }
+
+    private IQueryable<ManualReceiptRow> ManualReceiptRows(Guid account, bool includeEvidence) =>
+        db.Database.SqlQuery<ManualReceiptRow>($"""
+            SELECT r.receipt_id,r.order_id,r.operation_key,r.admin_id,r.mfa_verified_at,r.received_at,r.verified_at,
+                r.amount_paise,r.currency,r.receiving_account_id,r.configuration_version,r.evidence_policy_version,r.environment,
+                CASE i.state WHEN 'Applied' THEN NULL WHEN 'NeedsReview' THEN i.reason ELSE r.review_reason END AS review_reason,
+                CASE WHEN i.state='Applied' THEN i.term_id ELSE r.term_id END AS term_id,
+                CASE WHEN {includeEvidence} THEN r.protected_payload ELSE '' END AS protected_payload
+            FROM public.manual_payment_receipts r LEFT JOIN public.capacity_increases i
+                ON i.account_id=r.account_id AND i.order_id=r.order_id AND i.receipt_id=r.receipt_id
+            WHERE r.account_id={account}
+            """);
 
     public Task UseManualReceiptAsync(Guid receipt, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""

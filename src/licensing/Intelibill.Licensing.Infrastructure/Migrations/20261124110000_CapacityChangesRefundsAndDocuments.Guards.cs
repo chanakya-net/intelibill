@@ -28,7 +28,13 @@ public sealed partial class CapacityChangesRefundsAndDocuments
         CREATE CONSTRAINT TRIGGER capacity_quote_shop_sealed AFTER INSERT ON public.capacity_change_quote_shops
             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.require_capacity_quote_seal();
 
-        CREATE FUNCTION public.guard_capacity_quote() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+        """ + HeaderGuard("t.capacity") + """
+        CREATE TRIGGER capacity_quote_guard BEFORE INSERT ON public.capacity_change_quotes
+            FOR EACH ROW EXECUTE FUNCTION public.guard_capacity_quote();
+        """;
+
+    internal static string HeaderGuard(string effectiveCapacity) => $$"""
+        CREATE OR REPLACE FUNCTION public.guard_capacity_quote() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE named bigint;
         DECLARE hash text;
         BEGIN
@@ -42,7 +48,7 @@ public sealed partial class CapacityChangesRefundsAndDocuments
                     LEFT JOIN public.trial_history h ON h.account_id = t.account_id AND h.term_id = t.term_id
                     LEFT JOIN LATERAL (SELECT e.ends_at FROM public.trial_extensions e
                         WHERE e.account_id = h.account_id AND e.shop_id = h.shop_id ORDER BY e.revision DESC LIMIT 1) e ON true
-                    WHERE t.account_id = NEW.account_id AND t.term_id = NEW.term_id AND t.capacity = NEW.prior_capacity
+                    WHERE t.account_id = NEW.account_id AND t.term_id = NEW.term_id AND {{effectiveCapacity}} = NEW.prior_capacity
                         AND t.starts_at = NEW.interval_starts_at AND coalesce(e.ends_at, t.ends_at) = NEW.paid_through)
                 OR EXISTS (SELECT FROM public.payment_fulfilments f
                     WHERE f.account_id = NEW.account_id AND f.predecessor_term_id = NEW.term_id)
@@ -77,7 +83,5 @@ public sealed partial class CapacityChangesRefundsAndDocuments
             END IF;
             RETURN NEW;
         END $$;
-        CREATE TRIGGER capacity_quote_guard BEFORE INSERT ON public.capacity_change_quotes
-            FOR EACH ROW EXECUTE FUNCTION public.guard_capacity_quote();
         """;
 }

@@ -20,7 +20,7 @@ public sealed partial class P0501LicensingTests
         "shop_license_states", "license_grant_evidence", "entitlement_messages", "account_license_restrictions",
         "shop_closure_consents", "invoice_leases", "offline_license_grants", "offline_license_permits",
         "offline_license_verification_keys", "offline_submissions", "reconciliation_issues",
-        "license_history_review_observations", "\"__EFMigrationsHistory\"",
+        "applied_shop_capacity", "capacity_reservation_receipts", "license_history_review_observations", "\"__EFMigrationsHistory\"",
     ];
 
     /// <summary>
@@ -139,7 +139,11 @@ public sealed partial class P0501LicensingTests
     private static Task AssignOwnerAsync(string dbConn, string role)
     {
         var alters = string.Concat(RestrictedOwnerTables.Select(t => $"ALTER TABLE public.{t} OWNER TO {role};"));
-        return ExecuteSqlAsync(dbConn, $"GRANT CREATE ON SCHEMA public TO {role};{alters}");
+        return ExecuteSqlAsync(dbConn, $"""
+            GRANT CREATE ON SCHEMA public TO {role};
+            {alters}
+            ALTER FUNCTION public.capacity_fence_shops(uuid,uuid) OWNER TO {role};
+            """);
     }
 
     private static async Task AssertRestrictedRoleCannotBypassRlsAsync(string restrictedConn)

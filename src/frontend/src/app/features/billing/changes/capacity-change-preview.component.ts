@@ -20,7 +20,7 @@ import {
 type PreviewView =
   | { readonly kind: 'hidden' | 'closed' | 'loading' }
   | { readonly kind: 'form'; readonly plans: readonly PublishedPlan[] }
-  | { readonly kind: 'purchase'; readonly quoteId: string; readonly canReplace: boolean; readonly unavailable?: boolean }
+  | { readonly kind: 'purchase'; readonly quoteId: string; readonly canReplace: boolean; readonly unavailable?: boolean; readonly awaitingPayment?: boolean }
   | { readonly kind: 'quote'; readonly previewKey: string; readonly quote: CapacityChangeQuote; readonly shops: readonly CapacityChangeShop[] }
   | { readonly kind: 'failed'; readonly code: string };
 
@@ -98,8 +98,10 @@ export class CapacityChangePreviewComponent {
           payment.fulfilment === 'NotFulfilled' && !payment.canStart;
         const order = unused ? await this.checkout.read(scope, draft.purchase.quoteId).catch(() => null) : null;
         const expiredUnused = order?.orderId === draft.purchase.quoteId && Date.now() >= Date.parse(order.expiresAt);
-        if (current() && (payment?.fulfilment === 'Fulfilled' || expiredUnused))
-          this.view.set({ kind: 'purchase', quoteId: draft.purchase.quoteId, canReplace: true });
+        const failed = payment?.payment === 'Failed' && payment.fulfilment === 'NotFulfilled' && !payment.manualPayment;
+        if (current()) this.view.set({ kind: 'purchase', quoteId: draft.purchase.quoteId,
+          canReplace: failed || payment?.fulfilment === 'Fulfilled' || expiredUnused,
+          awaitingPayment: payment?.payment === 'AwaitingPayment' });
       } else if (draft) await this.send(scope, term, draft.command, current);
       else this.view.set({ kind: 'closed' });
     } catch (error) {

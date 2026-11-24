@@ -82,6 +82,27 @@ public sealed partial class P0602Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(February29, status.GetProperty("paidThrough").GetDateTimeOffset());
         Assert.Equal(original, await P0308Tests.TermRowAsync(fixture, term));
         Assert.Equal(1L, await fixture.CountAsync("payment_confirmations", $"order_id='{order.OrderId:D}'"));
+        if (expireAtBoundary) await AssertOnlineReviewReplayAsync(fixture, order);
+    }
+
+    private static async Task AssertOnlineReviewReplayAsync(P0308Fixture fixture, CheckoutQuoteV1 order)
+    {
+        var delivery = fixture.Checkout.Delivery;
+        var eventId = await fixture.ScalarAsync($"SELECT consume_event FROM capacity_increases WHERE order_id='{order.OrderId}'");
+        var bytes = (byte[])(await delivery.MerchantScalarAsync($"SELECT payload FROM entitlement_messages WHERE event_id='{eventId}'"))!;
+        using var signed = await delivery.Transport.SignedAsync(bytes, delivery.AuthClock, merchant: true, path: CapacityReservationV1.ReceiptPath);
+        using var replay = await delivery.LicensingApi.SendAsync(signed);
+        Assert.Equal(HttpStatusCode.NoContent, replay.StatusCode);
+        var orderFilter = $"order_id='{order.OrderId}'";
+        Assert.Equal(1L, await fixture.CountAsync("payment_events", $"{orderFilter} AND kind='PaidNeedsReview'"));
+        using var finance = await P0306Tests.SignInBillingAsync(fixture.Checkout);
+        using var reviews = await finance.SendAsync(HttpMethod.Get, $"/api/admin/accounts/{order.AccountId}/payment-reviews");
+        reviews.EnsureSuccessStatusCode();
+        var item = Assert.Single((await reviews.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray());
+        Assert.Equal("ReservationExpired", item.GetProperty("classification").GetString());
+        Assert.Equal(order.OrderId, item.GetProperty("orderId").GetGuid());
+        Assert.Equal(await fixture.ScalarAsync($"SELECT attempt_id FROM verified_payments WHERE {orderFilter}"),
+            item.GetProperty("attemptId").GetGuid());
     }
 
     private static async Task<(Package Package, Guid Term, string Path, object Request)> PreviewAsync(P0308Fixture fixture)

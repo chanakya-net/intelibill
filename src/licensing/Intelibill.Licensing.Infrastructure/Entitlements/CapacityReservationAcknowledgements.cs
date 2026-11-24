@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Infrastructure.Entitlements;
 
-internal sealed class CapacityReservationAcknowledgements(LicensingDbContext db, CapacityIncreaseStore increases,
+internal sealed partial class CapacityReservationAcknowledgements(LicensingDbContext db, CapacityIncreaseStore increases,
     ICapacityChangeQuoteStore quotes, EntitlementPublisher publisher,
     [FromKeyedServices(CheckoutOrdersV1.Policy)] TimeProvider clock)
 {
@@ -58,11 +58,15 @@ internal sealed class CapacityReservationAcknowledgements(LicensingDbContext db,
             """, ct);
     }
 
-    private Task<int> SetDecisionAsync(CapacityReservationV1 c, string state, string? reason, CancellationToken ct) =>
-        db.Database.ExecuteSqlAsync($"""
+    private async Task SetDecisionAsync(CapacityReservationV1 c, string state, string? reason, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlAsync($"""
             UPDATE public.capacity_increases SET state={state},reason={reason}
                 WHERE account_id={c.AccountId} AND order_id={c.OrderId} AND state='Pending'
             """, ct);
+
+        if (reason is not null) await RecordReviewAsync(c, reason, ct);
+    }
 
     private sealed record SourceCommand(byte[] Payload, string Digest, string SourceHash, bool Suspended);
 }

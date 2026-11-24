@@ -1,4 +1,8 @@
+using System.Text.Json;
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Infrastructure.Licensing;
+using Intelibill.Shared.Contracts.V1;
+using Intelibill.Shared.Security;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -33,6 +37,37 @@ public sealed partial class P0401LicensingTests
             var lease = await EnterIsolatedAsync(binding.ShopId);
             Assert.Equal(Allowed, lease.Decision.Outcome);
             Assert.Equal(1L, lease.ShopRevision);
+        }
+
+        [Fact]
+        public async Task Downgrade_refuses_a_retained_merchant_capacity_receipt_as_restricted_owner()
+        {
+            await using var database = await IsolateDatabaseAsync(SeedCapacityReceiptAsync);
+            await using var restricted = Open(database.OwnerConnection);
+            Assert.Equal(0, await restricted.Database.SqlQuery<int>(
+                $"SELECT count(*)::int AS \"Value\" FROM public.capacity_reservation_receipts").SingleAsync(Ct));
+            var error = await Record.ExceptionAsync(() => restricted.GetService<IMigrator>().MigrateAsync(TrialPredecessor, Ct));
+            var refused = Assert.IsType<PostgresException>(error?.GetBaseException());
+            Assert.Equal("55000", refused.SqlState);
+            Assert.Equal("Retained merchant capacity decisions prevent downgrade", refused.MessageText);
+        }
+
+        private async Task SeedCapacityReceiptAsync()
+        {
+            var binding = await SeedAsync();
+            await using var db = CreateDb();
+            var now = _clock.GetUtcNow();
+            var digest = new string('a', 64);
+            var command = new CapacityReservationV1(1, Guid.NewGuid(), CapacityReservationV1.Reserve, Guid.NewGuid(),
+                binding.AccountId, binding.TermId, binding.ShopId, digest, 1, digest, 2, 3, 3, 4,
+                now.AddDays(-1), now.AddDays(1), now.AddMinutes(5), 0, 1, null);
+            var body = JsonSerializer.SerializeToUtf8Bytes(command, EntitlementSnapshotsV1.Json);
+            var proof = new VerifiedServiceAssertion(Guid.NewGuid(), "test-key", "test-public-key", now, now.AddMinutes(1),
+                SignedServiceAssertion.Digest(body), "fixture-verified-assertion");
+            var fence = new ShopLicenceFence(db, new LicenceActionPolicy(), _clock);
+            var store = new MerchantCapacityReservationStore(db, new EntitlementProjectionStore(db, _clock, fence), _clock, _clock);
+            var received = await store.ReceiveAsync(command, body, proof, Ct);
+            Assert.False(received.IsError, received.IsError ? received.FirstError.Code : null);
         }
 
         [Theory]
@@ -179,13 +214,14 @@ public sealed partial class P0401LicensingTests
             await transaction.CommitAsync(Ct);
         }
 
-        private async Task<IsolatedDatabase> IsolateDatabaseAsync()
+        private async Task<IsolatedDatabase> IsolateDatabaseAsync(Func<Task>? seed = null)
         {
             var name = "p0401_" + Guid.NewGuid().ToString("N");
             await SharedPostgres.StartAsync();
             await SharedPostgres.CreateFromTemplateAsync(name);
             _isolatedDatabase = name;
             var isolated = new IsolatedDatabase(name);
+            if (seed is not null) await seed();
             await isolated.CreateRestrictedOwnerAsync();
             return isolated;
         }
@@ -213,6 +249,8 @@ public sealed partial class P0401LicensingTests
                 await ExecuteAsync(SharedPostgres.ConnectionStringFor(name), $"""
                     GRANT CREATE ON SCHEMA public TO {_role};
                     {tables}
+                    ALTER TABLE public.applied_shop_capacity OWNER TO {_role};
+                    ALTER TABLE public.capacity_reservation_receipts OWNER TO {_role};
                     ALTER TABLE public.account_license_restrictions OWNER TO {_role};
                     ALTER TABLE public.shop_closure_consents OWNER TO {_role};
                     ALTER TABLE public.invoice_leases OWNER TO {_role};
@@ -223,6 +261,7 @@ public sealed partial class P0401LicensingTests
                     ALTER TABLE public.reconciliation_issues OWNER TO {_role};
                     ALTER TABLE public.license_history_review_observations OWNER TO {_role};
                     ALTER TABLE public."__EFMigrationsHistory" OWNER TO {_role};
+                    ALTER FUNCTION public.capacity_fence_shops(uuid, uuid) OWNER TO {_role};
                     ALTER FUNCTION public.take_merchant_licence_fence(uuid, uuid, boolean) OWNER TO {_role};
                     """);
             }

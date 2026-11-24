@@ -1,4 +1,5 @@
 using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Shared.Web.Delivery;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -63,10 +64,26 @@ public sealed partial class PaidCapacityIncreases : Migration
             CREATE TRIGGER retain_increase BEFORE DELETE OR TRUNCATE ON public.capacity_increases
                 FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
             """);
+        migrationBuilder.Sql("CREATE INDEX capacity_delivery_retry ON public.entitlement_outbox(next_attempt_at,event_id) WHERE status='DeadLetter'");
+        migrationBuilder.Sql(LeasedHttpOutboxSchema.Claim(true));
         migrationBuilder.Sql(PaymentGuards);
         migrationBuilder.Sql(Confirmation);
         migrationBuilder.Sql(Guard);
         migrationBuilder.Sql(CoverageGuard);
+        ConfigureReview(migrationBuilder);
+        ConfigureEffectiveCapacity(migrationBuilder);
+    }
+
+    private static void ConfigureEffectiveCapacity(MigrationBuilder builder)
+    {
+        static string Applied(string term) => $"""
+            (SELECT i.capacity FROM public.capacity_increases i WHERE i.account_id={term}.account_id AND i.term_id={term}.term_id
+                AND i.state='Applied' ORDER BY i.target_revision DESC LIMIT 1)
+            """;
+        builder.Sql(CapacityChangesRefundsAndDocuments.HeaderGuard($"coalesce({Applied("t")},t.capacity)"));
+        var predecessor = Applied("pc");
+        builder.Sql(UnmatchedPaymentReviews.FulfilmentCompleteness(true, $"coalesce({predecessor},pc.capacity)",
+            $"CASE WHEN {predecessor}>1 THEN 'Grouped' ELSE pc.mode END"));
     }
 
     private const string Confirmation = """
@@ -122,6 +139,11 @@ public sealed partial class PaidCapacityIncreases : Migration
                 RAISE EXCEPTION 'Retained capacity order prevents downgrade' USING ERRCODE='55000';
             END IF; END $$;
             ALTER TABLE public.checkout_orders FORCE ROW LEVEL SECURITY;
+            """);
+        RestoreReview(migrationBuilder);
+        migrationBuilder.Sql(CapacityChangesRefundsAndDocuments.HeaderGuard("t.capacity"));
+        migrationBuilder.Sql(UnmatchedPaymentReviews.FulfilmentCompleteness(true));
+        migrationBuilder.Sql("""
             DROP FUNCTION public.payment_confirmation_snapshot(uuid,uuid,uuid,uuid,uuid,timestamptz,text);
             ALTER FUNCTION public.payment_confirmation_before_increases(uuid,uuid,uuid,uuid,uuid,timestamptz,text)
                 RENAME TO payment_confirmation_snapshot;
@@ -141,6 +163,8 @@ public sealed partial class PaidCapacityIncreases : Migration
             ALTER TABLE public.manual_payment_receipts DROP CONSTRAINT manual_payment_receipts_review_reason_check,
                 ADD CHECK(review_reason IN ('DuplicateFunds','CoverageChanged','TermUnavailable','RestorationPending'));
             """);
+        migrationBuilder.Sql("DROP INDEX public.capacity_delivery_retry");
+        migrationBuilder.Sql(LeasedHttpOutboxSchema.Claim(false));
         migrationBuilder.Sql(PaidFreshStarts.PaymentGuards);
     }
 }

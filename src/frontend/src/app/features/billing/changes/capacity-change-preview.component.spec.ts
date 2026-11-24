@@ -51,7 +51,7 @@ function render(role: 'Owner' | 'Manager', create: CapacityChangeQuoteService['c
   const api = { create: vi.fn(create), shops: vi.fn(async () => shops),
     convert: vi.fn(async (_scope: unknown, _term: string, _order: string, _key: string, _hash: string) => {
       throw new HttpErrorResponse({ status: 503 });
-    }), status: vi.fn(async () => { throw new HttpErrorResponse({ status: 404 }); }) };
+    }), status: vi.fn(async (): Promise<unknown> => { throw new HttpErrorResponse({ status: 404 }); }) };
   TestBed.configureTestingModule({
     imports: [TranslocoTestingModule.forRoot({
       langs: { 'en-IN': en }, translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' }, preloadLangs: true,
@@ -268,6 +268,42 @@ describe('capacity change outcomes and draft recovery', () => {
     (reloaded.page.querySelector('section button') as HTMLButtonElement).click();
     await settle(reloaded.fixture);
     expect(reloaded.api.convert.mock.calls).toEqual(first.api.convert.mock.calls);
+  });
+
+  async function reloadPurchase(payment: string | number, fulfilment = 'NotFulfilled') {
+    const drafts = new CapacityChangeQuoteDrafts();
+    await drafts.prepare(ownerScope, termId, command);
+    const original = await drafts.purchase(ownerScope, termId, command.operationKey, quote().quoteId, quote().snapshotHash);
+    const result = render('Owner', async () => quote({ quoteId: crypto.randomUUID() }));
+    if (typeof payment === 'number') result.api.status.mockRejectedValue(new HttpErrorResponse({ status: payment }));
+    else result.api.status.mockResolvedValue({ payment, fulfilment, attemptId: crypto.randomUUID(), manualPayment: false });
+    await settle(result.fixture);
+    expect(result.api.status).toHaveBeenCalledWith(ownerScope, original.quoteId);
+    expect(result.page.querySelector('[data-testid="capacity-order"]')?.textContent).toContain(original.quoteId);
+    const restart = [...result.page.querySelectorAll('button')].find(button => button.textContent.includes(en.billing.changes.again));
+    return { ...result, drafts, restart, original };
+  }
+
+  it('starts over after definitive failure with fresh preview and purchase keys', async () => {
+    const { fixture, page, api, drafts, restart, original } = await reloadPurchase('Failed');
+    expect(restart).toBeDefined();
+    restart!.click();
+    await settle(fixture);
+    expect(drafts.read(ownerScope, termId)).toBeNull();
+    (page.querySelector('[data-testid="capacity-change-submit"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    (page.querySelector('[data-testid="capacity-purchase"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(api.create.mock.calls[0][2].operationKey).not.toBe(command.operationKey);
+    expect(api.convert.mock.calls[0][2]).not.toBe(original.quoteId);
+    expect(api.convert.mock.calls[0][3]).not.toBe(original.operationKey);
+  });
+
+  it.each([['Verified', 'Pending'], ['Verified', 'NeedsReview'], ['AwaitingPayment', 'NotFulfilled'],
+    [404, 'NotFulfilled'], [503, 'NotFulfilled']] as const)('retains purchase on %s / %s', async (payment, fulfilment) => {
+    const { drafts, original, restart } = await reloadPurchase(payment, fulfilment);
+    expect(restart).toBeUndefined();
+    expect(drafts.read(ownerScope, termId)?.purchase).toEqual(original);
   });
 
   it('clears corrupted storage when the owner requests a new preview', async () => {
