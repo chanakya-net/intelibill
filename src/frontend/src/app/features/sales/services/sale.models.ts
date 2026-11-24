@@ -320,6 +320,13 @@ export interface ReserveInvoiceLeaseRequest {
   readonly blockSize?: number | null;
 }
 
+export interface InvoiceLeaseLicenceEvidenceDto {
+  readonly version: number;
+  readonly grantId: string;
+  readonly grantSha256: string;
+  readonly keyId: string;
+}
+
 export interface InvoiceLeaseDto {
   readonly leaseId: string;
   readonly shopId: string;
@@ -335,6 +342,8 @@ export interface InvoiceLeaseDto {
   readonly expiresAt: string;
   /** The seller identity the lease froze; the device issues the range's documents under it. Absent from older servers. */
   readonly sellerProfile?: InvoiceSellerProfile | null;
+  /** Versioned reference to the server-side grant frozen at reservation. Absent on legacy/unanchored leases. */
+  readonly licenceEvidence?: InvoiceLeaseLicenceEvidenceDto | null;
 }
 
 export interface SaleItemDto {
@@ -789,6 +798,7 @@ export interface OfflineSalesSyncLineRequest {
 }
 
 export interface OfflineSaleSyncRequest extends TillSourceFields {
+  readonly licenceEvidence?: import('./offline-sale-core.types').OfflineSaleLicenceEvidence;
   readonly tillBusinessDate?: string;
   readonly tillCashierId?: string;
   readonly clientSaleId: string;

@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.OfflineReconciliation.Commands.ResolveReconciliationCase;
 
 /// <param name="OperationId">The idempotency key: a resend with the same key replays the committed answer.</param>
@@ -14,4 +16,5 @@ public sealed record ResolveReconciliationCaseCommand(
     string Action,
     string Reason,
     Guid? LinkedOperationId,
-    Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.TillReconciliationEvidence? TillReconciliationEvidence = null);
+    Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.TillReconciliationEvidence? TillReconciliationEvidence = null,
+    SessionClaims? Session = null);

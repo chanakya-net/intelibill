@@ -39,7 +39,8 @@ public sealed record OfflineSaleSyncCommand(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateOnly? TillBusinessDate = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? TillCashierId = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? TillCashierId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FrozenLicenceEvidence? LicenceEvidence = null);
 
 public sealed record OfflineSaleSyncLineCommand(
     string Barcode,

@@ -1,4 +1,9 @@
-import { formatOfflinePackVersion, offlineEnablementErrorKeyForReason, offlineEnablementProgressKey } from './manage-shop-offline.helper';
+import {
+  formatOfflinePackVersion,
+  getOfflinePermitDisplayState,
+  offlineEnablementErrorKeyForReason,
+  offlineEnablementProgressKey,
+} from './manage-shop-offline.helper';
 
 describe('offlineEnablementErrorKeyForReason', () => {
   it('explains a lease refused for the GST registration', () => {
@@ -50,5 +55,66 @@ describe('offline pack messages', () => {
       }),
     ).toBe('01234567');
     expect(formatOfflinePackVersion(null)).toBe('');
+  });
+});
+
+describe('getOfflinePermitDisplayState', () => {
+  const baseSettings = {
+    shopId: 'shop-1',
+    deviceId: 'device-1',
+    label: 'Counter 1',
+    enabled: true,
+    enabledAt: '2026-11-20T12:00:00Z',
+    enabledByUserId: 'user-1',
+    enabledByUserName: 'Owner',
+    lastCompleteSnapshotAt: '2026-11-20T12:00:00Z',
+    lastApiVerifiedAt: '2026-11-20T12:00:00Z',
+    lastSnapshotWarningMarker: null,
+    lastReservedLease: {
+      leaseId: 'lease-1',
+      fiscalYear: '2026-27',
+      remainingCount: 200,
+      expiresAt: '2026-11-27T12:00:00Z',
+      licenceGrantId: 'grant-1',
+    },
+    lastOfflinePermit: {
+      leaseId: 'lease-1',
+      grantId: 'grant-1',
+      permitId: 'permit-1',
+      snapshotId: 'snap-1',
+      issuedAt: '2026-11-22T11:59:30.123456Z',
+      notBefore: '2026-11-22T11:59:30.123456Z',
+      validUntil: '2026-11-22T12:00:00.000000Z',
+      limitingReason: 'AuthorityFreshness',
+    },
+  };
+
+  it('returns deadline when permit matches the current anchored lease', () => {
+    expect(getOfflinePermitDisplayState(baseSettings)).toEqual({
+      kind: 'deadline',
+      validUntil: '2026-11-22T12:00:00.000000Z',
+    });
+  });
+
+  it('returns notReceived when lease is anchored but has no matching permit', () => {
+    expect(getOfflinePermitDisplayState({ ...baseSettings, lastOfflinePermit: null })).toEqual({ kind: 'notReceived' });
+    expect(
+      getOfflinePermitDisplayState({
+        ...baseSettings,
+        lastOfflinePermit: { ...baseSettings.lastOfflinePermit, leaseId: 'other-lease' },
+      }),
+    ).toEqual({ kind: 'notReceived' });
+  });
+
+  it('returns none for legacy leases and disabled devices', () => {
+    expect(
+      getOfflinePermitDisplayState({
+        ...baseSettings,
+        lastReservedLease: { leaseId: 'lease-1', fiscalYear: '2026-27', remainingCount: 200, expiresAt: '2026-11-27T12:00:00Z' },
+        lastOfflinePermit: null,
+      }),
+    ).toEqual({ kind: 'none' });
+    expect(getOfflinePermitDisplayState({ ...baseSettings, enabled: false })).toEqual({ kind: 'none' });
+    expect(getOfflinePermitDisplayState(null)).toEqual({ kind: 'none' });
   });
 });

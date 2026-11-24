@@ -42,7 +42,10 @@
             ],
             "styles": [
               "src/styles.css"
-            ]
+            ],
+            "define": {
+              "IB_OFFLINE_PERMIT_PUBLIC_KEYS": "{}"
+            }
           },
           "configurations": {
             "production": {

@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, InjectionToken, Injector, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, InjectionToken, Injector, effect, inject, signal, untracked } from '@angular/core';
 import { SwUpdate } from '@angular/service-worker';
 import { defer, firstValueFrom } from 'rxjs';
 
@@ -88,7 +88,7 @@ export const UPDATE_SCHEDULE_ENVIRONMENT = new InjectionToken<UpdateScheduleEnvi
  * On a device where some shop has offline billing enabled, the same schedule re-verifies the pack
  * (shown as "offline files incomplete" when it is not whole) and refreshes the active shop's data
  * snapshot once it is older than `SNAPSHOT_REFRESH_AGE_MS`, backing off after a refresh that fails
- * (`SNAPSHOT_RETRY_BASE_MS`, doubling up to `SNAPSHOT_RETRY_MAX_MS`). Invoice leases are left alone.
+ * (`SNAPSHOT_RETRY_BASE_MS`, doubling up to `SNAPSHOT_RETRY_MAX_MS`).
  * Does nothing without a service worker (development builds).
  * See docs/frontend-architecture.md § Offline Pack.
  */
@@ -159,6 +159,20 @@ export class OfflinePackUpdateService {
         void this.runCycle('timer');
       }
     }, UPDATE_CHECK_INTERVAL_MS);
+
+    // The browser's online event precedes the API probe. An offline reload can also have just run
+    // a throttled pack check. Check anchored authority when reachability actually returns.
+    let reachable = this.network.canReachApi();
+    effect(() => {
+      const wasReachable = reachable;
+      reachable = this.network.canReachApi();
+      if (!wasReachable && reachable) untracked(() => {
+        const shopId = this.auth.session()?.activeShopId;
+        if (shopId && this.settingsStorage.loadSettings(shopId)?.lastReservedLease?.licenceGrantId) {
+          void Promise.resolve(this.running).then(() => this.runCycle());
+        }
+      });
+    }, { injector: this.injector });
 
     this.destroyRef.onDestroy(() => {
       versions.unsubscribe();
@@ -256,6 +270,15 @@ export class OfflinePackUpdateService {
     const settings = this.settingsStorage.loadSettings(shopId);
     if (!settings?.enabled) {
       return;
+    }
+
+    if (settings.lastReservedLease?.licenceGrantId) {
+      try {
+        const { OfflinePermitRefreshService } = await import('../../features/sales/services/offline-permit-refresh.service');
+        if (await this.injector.get(OfflinePermitRefreshService).refresh(shopId)) return;
+      } catch {
+        // A permit check can fail independently of ordinary snapshot upkeep.
+      }
     }
 
     const now = this.schedule.now();

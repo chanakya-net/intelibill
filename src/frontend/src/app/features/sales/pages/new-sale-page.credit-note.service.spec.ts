@@ -329,7 +329,9 @@ describe('NewSalePageCreditNoteService', () => {
     service.paymentForm.controls.paidAmount.setValue(40);
     service.paymentForm.controls.dueAmount.setValue(10);
 
+    service.offlinePermitEndedAt.set('old deadline');
     service.resetTransientState();
+    expect(service.offlinePermitEndedAt()).toBe('');
 
     expect(service.creditNoteCode()).toBe('');
     expect(service.verifiedCreditNote()).toBeNull();

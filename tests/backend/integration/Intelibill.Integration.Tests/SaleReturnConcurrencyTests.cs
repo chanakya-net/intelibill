@@ -491,9 +491,17 @@ public sealed class SaleReturnConcurrencyTests(PostgreSqlTestFixture fixture) : 
 
         public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => inner.BeginTransactionAsync(cancellationToken);
 
+        public bool HasActiveTransaction => inner.HasActiveTransaction;
+
         public Task CommitTransactionAsync(CancellationToken cancellationToken = default) => inner.CommitTransactionAsync(cancellationToken);
 
         public Task RollbackTransactionAsync(CancellationToken cancellationToken = default) => inner.RollbackTransactionAsync(cancellationToken);
+
+        public Task CreateSavepointAsync(string name, CancellationToken cancellationToken = default) => inner.CreateSavepointAsync(name, cancellationToken);
+
+        public Task RollbackToSavepointAsync(string name, CancellationToken cancellationToken = default) => inner.RollbackToSavepointAsync(name, cancellationToken);
+
+        public Task ReleaseSavepointAsync(string name, CancellationToken cancellationToken = default) => inner.ReleaseSavepointAsync(name, cancellationToken);
     }
 
     // ── Seeding ─────────────────────────────────────────────────────────────────

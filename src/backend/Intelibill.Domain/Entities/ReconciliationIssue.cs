@@ -102,6 +102,12 @@ public sealed class ReconciliationIssue : BaseEntity
         OfflineSubmissionId = offlineSubmissionId;
     }
 
+    /// <summary>Advances the row version when a distinct observation changes what actions the case supports.</summary>
+    public void Touch(DateTimeOffset at)
+    {
+        UpdatedAt = new DateTimeOffset(at.UtcDateTime, TimeSpan.Zero);
+    }
+
     /// <summary>Escalates an open case. The case stays unresolved.</summary>
     public ErrorOr<Success> Escalate(Guid actorUserId, DateTimeOffset at)
     {

@@ -4,13 +4,19 @@ import type { OfflineExpiryLineEvidence } from '../../expiry/services/expiry.mod
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import {
-  InvoiceLeaseExhaustedError,
-  InvoiceLeaseExpiredError,
   InvoiceLeaseIndexedDbService,
-  InvoiceLeaseNotFoundError,
   type InvoiceLeaseSnapshot,
+  type InvoiceNumberClaim,
 } from '../../../core/storage/invoice-lease-indexeddb.service';
+import { OfflineIssuanceLock } from '../../../core/storage/offline-issuance-lock';
+import {
+  OfflineIssuanceAuthorityService,
+  type OfflineIssuanceInvocation,
+  type OfflineIssuanceQuestion,
+  type OfflineIssuanceRefusal,
+} from './offline-issuance-authority.service';
 import {
   OfflineSalesSnapshotIndexedDbService,
   type OfflineSellableBatchSnapshot,
@@ -25,12 +31,14 @@ import {
   OfflineSalePricingLineInput,
   OfflineQueuedSalePayload,
 } from './offline-sale-core.types';
-import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
+import { OfflineQueueWriteRefusedError, OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesShadowStockIndexedDbService } from './offline-sales-shadow-stock-indexeddb.service';
 import { fitsQuantityScale, normalizeQuantity } from '../../../shared/quantity/quantity-input';
 import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
 
 export interface OfflineFinalizeRequest {
+  readonly expectedEpoch?: number;
+  readonly expectedSessionId?: string | null;
   readonly tillEvidence?: Pick<
     OfflineQueuedSalePayload,
     'till' | 'tenderLines' | 'tillBusinessDate' | 'tillCashierId'
@@ -43,6 +51,8 @@ export interface OfflineFinalizeRequest {
 }
 
 export type OfflineFinalizeFailureReason =
+  /** Offline permission: forged, missing or out-of-scope permit; outside its signed window; clocks not trustworthy. */
+  | OfflineIssuanceRefusal
   | 'EXPIRY_REFRESH_REQUIRED'
   | 'EXPIRY_BLOCKED'
   | 'EXPIRY_ONLINE_APPROVAL_REQUIRED'
@@ -76,6 +86,8 @@ export type OfflineFinalizeResult =
       readonly ok: false;
       readonly reason: OfflineFinalizeFailureReason;
       readonly errorCode?: string;
+      /** With `OFFLINE_PERMIT_EXPIRED`: the verified, in-scope signed deadline to reconnect by. */
+      readonly reconnectBy?: string;
     };
 
 @Injectable({ providedIn: 'root' })
@@ -85,8 +97,35 @@ export class OfflineSaleFinalizationService {
   private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
   private readonly queueDb = inject(OfflineSalesQueueIndexedDbService);
   private readonly shadowDb = inject(OfflineSalesShadowStockIndexedDbService);
+  private readonly authority = inject(OfflineIssuanceAuthorityService);
+  private readonly issuanceLock = inject(OfflineIssuanceLock);
+  private readonly context = inject(ShopContextService);
 
+  /**
+   * Issues one offline invoice. The whole decision runs alone on this device for the shop (one exclusive lock), and
+   * the stored permission is verified twice: before a number is taken and again before the queue row is written.
+   */
   async finalizeAndQueue(request: OfflineFinalizeRequest): Promise<OfflineFinalizeResult> {
+    // Captured before the first await: a scope that changes later is never mistaken for the one that asked.
+    const invocation = this.authority.capture(request.shopId);
+    const detach = new AbortController();
+    const unregister = this.context.onDetach(() => detach.abort());
+    try {
+      const outcome = await this.issuanceLock.runExclusive(request.shopId, () =>
+        this.finalizeExclusive(request, invocation, detach.signal),
+      );
+      // Without safe serialization two tabs could take one number; nothing is issued, other offline features go on.
+      return outcome.acquired ? outcome.value : { ok: false, reason: 'INVOICE_UNAVAILABLE' };
+    } finally {
+      unregister();
+    }
+  }
+
+  private async finalizeExclusive(
+    request: OfflineFinalizeRequest,
+    invocation: OfflineIssuanceInvocation | null,
+    detached: AbortSignal,
+  ): Promise<OfflineFinalizeResult> {
     const owner = this.auth.session();
     const issuedByUserId = owner?.user.id || null;
     const ownerShopId = owner?.activeShopId ?? null;
@@ -102,6 +141,14 @@ export class OfflineSaleFinalizationService {
         ownerShopId !== request.shopId)
     )
       return { ok: false, reason: 'TILL_CONTEXT_INVALID' };
+    if (!issuedByUserId || ownerShopId !== request.shopId) return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+    if (
+      !invocation || detached.aborted || !this.authority.isCurrent(invocation) ||
+      (request.expectedEpoch !== undefined && request.expectedEpoch !== invocation.epoch) ||
+      (request.expectedSessionId !== undefined && request.expectedSessionId !== invocation.sessionId)
+    ) {
+      return { ok: false, reason: 'OFFLINE_PERMIT_INVALID' };
+    }
     const snapshot = await this.snapshotDb.getUsableSnapshotInfo(request.shopId);
     if (!snapshot?.completedAt) return { ok: false, reason: 'SNAPSHOT_STALE' };
 
@@ -110,8 +157,22 @@ export class OfflineSaleFinalizationService {
       return { ok: false, reason: 'SNAPSHOT_STALE' };
     }
 
-    if (snapshot.schemaVersion !== 4 || !isValidShopZone(snapshot.businessTimeZoneId) || !snapshot.catalogVersion || !issuedByUserId || ownerShopId !== request.shopId)
+    if (snapshot.schemaVersion !== 4 || !isValidShopZone(snapshot.businessTimeZoneId) || !snapshot.catalogVersion)
       return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+    // First guard: the stored permit, its signature, this owner and the clocks, before any number is taken.
+    const question: OfflineIssuanceQuestion = {
+      shopId: request.shopId,
+      deviceId: request.deviceId,
+      fiscalYear: request.fiscalYear,
+      soldAt: request.pricingInput.soldAt,
+      snapshotId: snapshot.snapshotId,
+      snapshotCompletedAt: snapshot.completedAt,
+      tillSessionId: frozenTill.till?.sessionId ?? null,
+    };
+    if (!(await this.settleInterruptedClaim(request))) return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
+    const permission = await this.authority.authorize(invocation, question);
+    if (!permission.ok) return this.permissionRefusal(permission);
+
     const businessDate = shopBusinessDate(request.pricingInput.soldAt, snapshot.businessTimeZoneId);
     const expiryProofs = new Map<string, OfflineExpiryLineEvidence>();
     const batches = await this.snapshotDb.getUsableBatches(request.shopId);
@@ -157,13 +218,9 @@ export class OfflineSaleFinalizationService {
       const batch = byBatchId.get(inventoryBatchId);
       if (!batch) return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
 
-      const available = await this.shadowDb.ensureQuantity(
-        request.shopId,
-        request.deviceId,
-        inventoryBatchId,
-        batch.availableQuantity!,
-      );
-      if (Math.min(available, batch.availableQuantity!) < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
+      const captured = batch.availableQuantity!;
+      const available = await this.shadowDb.getQuantity(request.shopId, request.deviceId, inventoryBatchId);
+      if (Math.min(available ?? captured, captured) < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
     }
 
     for (const line of request.pricingInput.lines) {
@@ -214,30 +271,33 @@ export class OfflineSaleFinalizationService {
     const clientSaleId = crypto.randomUUID();
     const idempotencyKey = `offline-sale-${clientSaleId}`;
 
+    const refusal = this.authority.refusalNow(invocation, permission, question.soldAt);
+    if (refusal) return this.permissionRefusal(refusal);
+
     let invoiceNumber: string;
     let consumedLeaseNextNumber: number;
     let consumedLease: InvoiceLeaseSnapshot;
     let remainingInvoiceCount = 0;
     try {
-      const consumed = await this.leaseDb.consumeNextInvoiceNumber(
-        request.shopId,
-        request.deviceId,
-        request.fiscalYear,
-      );
+      const consumed = await this.leaseDb.consumeNextInvoiceNumber(request.shopId, request.deviceId, request.fiscalYear, {
+        leaseId: permission.lease.leaseId,
+        nextNumber: permission.lease.nextNumber,
+        signedPermit: permission.signedPermit,
+        clientSaleId,
+      });
       invoiceNumber = consumed.invoiceNumber;
       consumedLeaseNextNumber = consumed.lease.nextNumber;
       consumedLease = consumed.lease;
       remainingInvoiceCount = consumed.remainingCount;
-    } catch (error) {
-      if (
-        error instanceof InvoiceLeaseNotFoundError ||
-        error instanceof InvoiceLeaseExpiredError ||
-        error instanceof InvoiceLeaseExhaustedError
-      ) {
-        return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
-      }
+    } catch {
+      // Not found, expired, exhausted, or no longer the lease that was verified: nothing was taken.
       return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
     }
+    const claim: InvoiceNumberClaim = {
+      leaseId: permission.lease.leaseId,
+      number: permission.lease.nextNumber,
+      clientSaleId,
+    };
 
     // The document is frozen once, here, under the identity the lease froze: the server issues its own copy from the
     // same profile on sync, and no later shop or customer edit reaches a reprint. A sale that cannot be issued gives
@@ -245,7 +305,7 @@ export class OfflineSaleFinalizationService {
     const sellerProfile = consumedLease.sellerProfile;
     const fiscalYearStart = fiscalYearStartOf(consumedLease.fiscalYear ?? request.fiscalYear);
     if (!sellerProfile || fiscalYearStart === null) {
-      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber, claim);
       return { ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' };
     }
 
@@ -259,7 +319,7 @@ export class OfflineSaleFinalizationService {
       pricing: priced,
     });
     if (!built.ok) {
-      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber, claim);
       return { ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: built.errorCode };
     }
 
@@ -278,30 +338,71 @@ export class OfflineSaleFinalizationService {
       customerPhone: request.pricingInput.customerPhone,
       ...(issuedByUserId ? { issuedByUserId } : {}),
       document: { ...built.draft, number: invoiceNumber },
+      licenceEvidence: permission.evidence,
     };
 
     if (
       (this.auth.session()?.user.id || null) !== issuedByUserId ||
       (this.auth.session()?.activeShopId ?? null) !== ownerShopId
     ) {
-      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber, claim);
       throw new Error('Offline invoice owner changed before persistence.');
     }
+
+    // Second guard: everything is read and verified again, against the very lease the number came from.
+    const current = await this.snapshotDb.getUsableSnapshotInfo(request.shopId);
+    const recheck =
+      current?.snapshotId === snapshot.snapshotId && !detached.aborted
+        ? await this.authority.authorize(invocation, {
+            ...question,
+            expected: {
+              leaseId: claim.leaseId,
+              signedPermit: permission.signedPermit,
+              nextNumber: consumedLeaseNextNumber,
+            },
+          })
+        : ({ ok: false, reason: 'OFFLINE_PERMIT_INVALID' } as const);
+    if (!recheck.ok) {
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber, claim);
+      return this.permissionRefusal(recheck);
+    }
+
+    let queueRefusal: ReturnType<OfflineIssuanceAuthorityService['refusalNow']> = null;
     try {
-      await this.queueDb.savePendingSale({
-        shopId: request.shopId,
-        deviceId: request.deviceId,
-        clientSaleId,
-        idempotencyKey,
-        invoiceNumber,
-        soldAt: request.pricingInput.soldAt,
-        payload,
-      });
+      await this.queueDb.savePendingSale(
+        {
+          shopId: request.shopId,
+          deviceId: request.deviceId,
+          clientSaleId,
+          idempotencyKey,
+          invoiceNumber,
+          soldAt: request.pricingInput.soldAt,
+          payload,
+        },
+        {
+          // Synchronous, inside the queue write: owner, session and signed window, with no await before the insert.
+          stillAllowed: () => {
+            queueRefusal = this.authority.refusalNow(invocation, recheck, question.soldAt);
+            return queueRefusal === null;
+          },
+          signal: detached,
+        },
+      );
     } catch (error) {
-      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber, claim);
+      if (error instanceof OfflineQueueWriteRefusedError) {
+        return this.permissionRefusal(queueRefusal ?? { reason: 'OFFLINE_PERMIT_INVALID' });
+      }
       throw error;
     }
 
+    // The row is durable: the number is issued whatever happens next, so its claim is settled before anything else.
+    // A claim that cannot be cleared now is settled, cursor untouched, before the next number is taken.
+    await this.leaseDb.settleClaim(request.shopId, request.deviceId, request.fiscalYear, clientSaleId).catch(() => undefined);
+
+    for (const batchId of requestedByBatch.keys()) {
+      await this.shadowDb.ensureQuantity(request.shopId, request.deviceId, batchId, byBatchId.get(batchId)!.availableQuantity!);
+    }
     for (const line of request.pricingInput.lines) {
       if (line.lineType === 'service') continue;
       await this.shadowDb.reduceQuantity(
@@ -315,16 +416,45 @@ export class OfflineSaleFinalizationService {
     return { ok: true, payload, remainingInvoiceCount };
   }
 
+  /** Gives back exactly the number this sale took: same lease, same cursor, same claim. Anything else stays. */
   private async releaseInvoiceNumber(
     request: OfflineFinalizeRequest,
     consumedLeaseNextNumber: number,
+    claim: InvoiceNumberClaim,
   ): Promise<void> {
     await this.leaseDb.rollbackConsumedInvoiceNumber(
       request.shopId,
       request.deviceId,
       request.fiscalYear,
       consumedLeaseNextNumber,
+      claim,
     );
+  }
+
+  /**
+   * An issuance that was cut off (tab closed, crash) leaves its claim on the lease. Whether or not its queue row made
+   * it to disk, that number is never handed out again: the claim is settled with the cursor left advanced. If the
+   * queue cannot be read, the outcome is unknown and nothing new is issued.
+   */
+  private async settleInterruptedClaim(request: OfflineFinalizeRequest): Promise<boolean> {
+    try {
+      const pending = await this.leaseDb.loadPendingClaim(request.shopId, request.deviceId, request.fiscalYear);
+      if (!pending) return true;
+      await this.queueDb.getQueuedSale(request.shopId, request.deviceId, pending.clientSaleId);
+      await this.leaseDb.settleClaim(request.shopId, request.deviceId, request.fiscalYear, pending.clientSaleId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private permissionRefusal(decision: {
+    readonly reason: OfflineIssuanceRefusal;
+    readonly validUntil?: string;
+  }): OfflineFinalizeResult {
+    return decision.validUntil
+      ? { ok: false, reason: decision.reason, reconnectBy: decision.validUntil }
+      : { ok: false, reason: decision.reason };
   }
 
   private buildServicePricingLine(

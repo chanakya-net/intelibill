@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
@@ -24,6 +25,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
 
         var result = await Bus.InvokeAsync<ErrorOr<InvoiceLeaseDto>>(
             new ReserveInvoiceLeaseCommand(
@@ -31,7 +34,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 ActiveShopId!.Value,
                 request.DeviceId,
                 request.BlockSize,
-                SessionId),
+                SessionId,
+                session),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -100,7 +104,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                         i.HsnCode, ExpiryEvidence: i.ExpiryEvidence is null ? null : new OfflineExpiryLineEvidence(i.ExpiryEvidence.EvidenceId, i.ExpiryEvidence.CatalogVersion, i.ExpiryEvidence.PolicyVersion,
                             i.ExpiryEvidence.BusinessDate, i.ExpiryEvidence.ExpiryDate, i.ExpiryEvidence.DecisionCode!))).ToList(),
                     s.CalculationVersion,
-                    s.IssuedByUserId, s.Till, s.TenderLines, s.TillBusinessDate, s.TillCashierId))
+                    s.IssuedByUserId, s.Till, s.TenderLines, s.TillBusinessDate, s.TillCashierId, s.LicenceEvidence))
                     .ToList()),
             cancellationToken);
 

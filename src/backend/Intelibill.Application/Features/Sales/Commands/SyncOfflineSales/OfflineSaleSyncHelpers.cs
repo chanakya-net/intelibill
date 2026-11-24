@@ -72,7 +72,7 @@ internal static class OfflineSaleSyncHelpers
     internal static OfflineSaleSyncResultDto BuildNeedsReviewResult(
         string clientSaleId,
         Error error,
-        Guid reviewCaseId,
+        Guid? reviewCaseId,
         IReadOnlyList<OfflineArithmeticMismatch>? mismatches = null) =>
         new(clientSaleId, StatusNeedsReview, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)])
         {
@@ -85,7 +85,8 @@ internal static class OfflineSaleSyncHelpers
     /// the jsonb envelope (or any text column), so the save would fail for the whole batch.
     /// </summary>
     internal static bool ContainsUnstorableText(OfflineSaleSyncCommand sale) =>
-        !StorableText.IsStorable(sale.ClientSaleId)
+        sale.LicenceEvidence is { IsStorable: false }
+        || !StorableText.IsStorable(sale.ClientSaleId)
         || !StorableText.IsStorable(sale.InvoiceNumber)
         || !StorableText.IsStorable(sale.CustomerName)
         || !StorableText.IsStorable(sale.CustomerPhone)

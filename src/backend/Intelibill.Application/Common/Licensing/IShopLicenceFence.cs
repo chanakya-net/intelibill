@@ -15,12 +15,23 @@ public interface IShopLicenceFence
 public readonly record struct ShopLicenceLease(Guid ShopId, Guid? AccountId, long? AccountRevision, long? ShopRevision,
     LicenceDecision Decision)
 {
+    public long? ReleasedAccountRestriction { get; init; }
+    public long? ReleasedShopRestriction { get; init; }
+    public bool UndatedTradingRestriction { get; init; }
+
     public string? EffectiveSuspension { get; init; }
 
     /// <summary>Active-member seats per shop from the fenced projection; null when unknown or unprojected.</summary>
     public int? MemberAllowance { get; init; }
 
     public Func<LicenceDecision>? Reevaluate { get; init; }
+
+    /// <summary>The binding and retained proofs behind the fenced heads; null when the shop is unprojected.</summary>
+    public Guid? AffiliationRequestId { get; init; }
+
+    public Guid? AccountEvidenceId { get; init; }
+
+    public Guid? ShopEvidenceId { get; init; }
 
     // The same projection is fenced for the transaction, but time can advance while acquiring business locks.
     public LicenceDecision CurrentDecision() => Reevaluate?.Invoke() ?? Decision;

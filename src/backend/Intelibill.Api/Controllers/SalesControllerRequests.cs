@@ -1,4 +1,5 @@
 using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Enums;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
@@ -63,7 +64,8 @@ public sealed record OfflineSaleSyncRequest(
     TillPostingContext? Till = null,
     IReadOnlyList<TenderLine>? TenderLines = null,
     DateOnly? TillBusinessDate = null,
-    Guid? TillCashierId = null);
+    Guid? TillCashierId = null,
+    FrozenLicenceEvidence? LicenceEvidence = null);
 
 public sealed record OfflineSaleSyncLineRequest(
     string Barcode,

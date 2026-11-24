@@ -68,13 +68,11 @@ public sealed class OfflineExpiryAuthority(IOfflineExpiryEvidenceRepository evid
     public async Task<bool> VerifiesPostedSaleAsync(OfflineSubmission submission, Sale sale, CancellationToken ct)
     {
         if (sale.ShopId != submission.ShopId || sale.RequestHash != submission.PayloadHash || sale.DeviceId != submission.DeviceId || sale.ClientSaleId != submission.ClientSaleId) return false;
-        OfflineSaleSyncCommand? payload;
-        try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); } catch (System.Text.Json.JsonException) { return false; }
-        if (payload?.Items is null || payload.Items.Any(x => x is null) || payload.Items.Where(x => !x.IsServiceLine).Any(x => x.ExpiryEvidence is null) ||
+        var payload = OfflineSubmissionPayload.TryReadValidated(submission.ShopId, submission);
+        if (payload is null || payload.Items.Where(x => !x.IsServiceLine).Any(x => x.ExpiryEvidence is null) ||
             payload.ClientSaleId?.Trim() != submission.ClientSaleId || payload.InvoiceNumber?.Trim() != submission.InvoiceNumber ||
             payload.SoldAt.UtcTicks / 10 != submission.ClaimedSoldAt.UtcTicks / 10 || sale.SoldAt.UtcTicks / 10 != submission.ClaimedSoldAt.UtcTicks / 10 ||
-            sale.InvoiceNumber != submission.InvoiceNumber ||
-            OfflineSaleSyncIdempotencyHasher.ComputeHash(submission.ShopId, submission.DeviceId, payload) != submission.PayloadHash) return false;
+            sale.InvoiceNumber != submission.InvoiceNumber) return false;
         // Identity and hash checks above bind the original instant to the posted sale. PostgreSQL
         // truncates timestamp columns to microseconds; the JSON payload retains all original ticks.
         var validated = await ValidateFrozenAsync(submission.ShopId, payload, submission.ReceivedAt > payload.SoldAt ? submission.ReceivedAt : payload.SoldAt, ct);

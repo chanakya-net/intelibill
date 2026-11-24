@@ -12,6 +12,7 @@ import { NetworkStatusService } from '../services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../storage/offline-sales-device-settings.storage';
 import { OfflineSalesSnapshotIndexedDbService } from '../storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineSalesSnapshotSyncService } from '../../features/sales/services/offline-sales-snapshot-sync.service';
+import { OfflinePermitRefreshService } from '../../features/sales/services/offline-permit-refresh.service';
 import { OfflinePackService } from './offline-pack.service';
 import {
   OfflinePackUpdateService,
@@ -60,6 +61,7 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
     loadSettings: vi.fn(() => settings.current),
     updateSettings: vi.fn((_shopId: string, update: (value: unknown) => unknown) => update(settings.current)),
   };
+  const refresh = vi.fn(async () => false);
   const snapshotSync = { syncForShop: vi.fn(async () => undefined) };
   const snapshotDb = { getUsableSnapshotInfo: vi.fn(async () => ({ snapshotId: 's-2', completedAt: '2026-11-10T12:00:00.000Z' })) };
 
@@ -100,6 +102,7 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
   };
 
   const providers: unknown[] = [
+    { provide: OfflinePermitRefreshService, useValue: { refresh } },
     { provide: OfflinePackService, useValue: pack },
     { provide: NetworkStatusService, useValue: network },
     { provide: ShopContextService, useValue: shopContext },
@@ -125,7 +128,7 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
     shopContext,
     appReload,
     settings,
-    snapshotSync,
+    refresh, snapshotSync,
     listeners,
     timers,
     doc,
@@ -302,6 +305,23 @@ describe('OfflinePackUpdateService', () => {
     expect(harness.swUpdate.activateUpdate).not.toHaveBeenCalled();
     expect(harness.appReload.reloadPage).not.toHaveBeenCalled();
     expect(harness.service.applying()).toBe(false);
+  });
+
+  it.each(['handled', 'skipped', 'error'])('runs anchored upkeep on API recovery (%s)', async outcome => {
+    const h = setup();
+    Object.assign(h.settings.current, { lastReservedLease: { licenceGrantId: 'grant' }, lastCompleteSnapshotAt: null });
+    h.pack.deviceNeedsPack.mockReturnValue(true);
+    h.canReachApi.set(false);
+    h.service.start();
+    TestBed.tick();
+    await vi.waitFor(() => expect(h.pack.refreshStatus).toHaveBeenCalledOnce());
+    if (outcome === 'error') h.refresh.mockRejectedValue(new Error('unavailable'));
+    else h.refresh.mockResolvedValue(outcome === 'handled');
+    h.canReachApi.set(true);
+    TestBed.tick();
+    await vi.waitFor(() => expect(h.refresh).toHaveBeenCalledWith('shop-1'));
+    await settled();
+    expect(h.snapshotSync.syncForShop).toHaveBeenCalledTimes(outcome === 'handled' ? 0 : 1);
   });
 
   it('leaves the pack and the snapshot alone on a device without offline billing', async () => {

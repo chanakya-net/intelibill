@@ -5,6 +5,7 @@ import { SESSION_PORT } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
 import { adminGrants, manageAdminAccess, type AdminGrant } from './features/admin-users/admin-capabilities-api.service';
 import { statusReaders } from './features/accounts/account-status-api.service';
+import { devicePermitReaders } from './features/accounts/device-permit-api.service';
 import { identityAuditCapability } from './features/audit/admin-audit-api.service';
 import { licensingManager } from './features/catalogue/catalogue-api.service';
 import { AdminSessionService } from './features/auth/admin-session.service';
@@ -33,6 +34,8 @@ export class LandingPageComponent {
   protected readonly licensingManager = licensingManager;
   protected readonly canReadStatus = computed(() =>
     this.capabilities().some(grant => (statusReaders as readonly string[]).includes(grant)));
+  protected readonly canReadDevicePermitsOnly = computed(() => !this.canReadStatus()
+    && this.capabilities().some(grant => (devicePermitReaders as readonly string[]).includes(grant)));
 
   protected capabilityLabel(capability: string) {
     return adminGrants[capability as AdminGrant] ?? capability;

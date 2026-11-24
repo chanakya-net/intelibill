@@ -63,3 +63,26 @@ export function offlineEnablementProgressKey(step: string | null | undefined): s
 export function formatOfflinePackVersion(status: OfflinePackStatus | null | undefined): string {
   return status?.buildId ? status.buildId.slice(0, 8) : '';
 }
+
+export type OfflinePermitDisplayState =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'deadline'; readonly validUntil: string }
+  | { readonly kind: 'notReceived' };
+
+/** Decides whether Manage shop renders an exact IST reconnect deadline, a not-received hint, or nothing. */
+export function getOfflinePermitDisplayState(
+  settings: OfflineSalesDeviceSettings | null,
+): OfflinePermitDisplayState {
+  if (!settings?.enabled || !settings.lastReservedLease) return { kind: 'none' };
+  const lease = settings.lastReservedLease;
+  const permit = settings.lastOfflinePermit ?? null;
+  if (
+    permit &&
+    permit.leaseId === lease.leaseId &&
+    (!lease.licenceGrantId || permit.grantId === lease.licenceGrantId) &&
+    permit.validUntil
+  ) {
+    return { kind: 'deadline', validUntil: permit.validUntil };
+  }
+  return lease.licenceGrantId ? { kind: 'notReceived' } : { kind: 'none' };
+}

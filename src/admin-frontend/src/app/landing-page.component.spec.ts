@@ -72,4 +72,17 @@ describe('provider console landing', () => {
     const other = render('none', ['support', 'platform-owner']);
     expect(other.page.querySelector('a[href="/catalogue"]')).toBeNull();
   });
+
+  it('links device permissions on /accounts for Security Administrator alone without offering commercial status', () => {
+    const security = render('none', ['security-administrator']);
+    const link = security.page.querySelector('a[href="/accounts"]');
+    expect(link?.textContent).toContain('Device permissions');
+    expect(security.page.textContent).not.toContain('Account access status');
+    TestBed.resetTestingModule();
+    const platform = render('none', ['platform-owner']);
+    expect(platform.page.querySelector('a[href="/accounts"]')).toBeNull();
+    TestBed.resetTestingModule();
+    const support = render('none', ['support']);
+    expect(support.page.querySelector('a[href="/accounts"]')?.textContent).toContain('Account access status');
+  });
 });

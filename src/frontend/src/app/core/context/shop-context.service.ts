@@ -234,7 +234,7 @@ export class ShopContextService {
   }
 }
 
-function readRestriction(owner: ScopeOwner | null): string | null {
+export function readRestriction(owner: ScopeOwner | null): string | null {
   try {
     if (!owner?.shopId) return null;
     const marker = localStorage.getItem(shopRestrictionKey(owner));

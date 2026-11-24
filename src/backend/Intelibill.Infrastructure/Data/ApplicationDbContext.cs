@@ -40,6 +40,7 @@ public class ApplicationDbContext(
     public DbSet<SaleCancellationLine> SaleCancellationLines => Set<SaleCancellationLine>();
     public DbSet<SaleItem> SaleItems => Set<SaleItem>();
     public DbSet<ReconciliationIssue> ReconciliationIssues => Set<ReconciliationIssue>();
+    public DbSet<LicenseHistoryReviewObservation> LicenseHistoryReviewObservations => Set<LicenseHistoryReviewObservation>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
     public DbSet<SaleReturnSettlement> SaleReturnSettlements => Set<SaleReturnSettlement>();

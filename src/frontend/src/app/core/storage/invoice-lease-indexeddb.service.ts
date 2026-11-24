@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 
-import type { InvoiceSellerProfile } from '../../features/sales/services/sale.models';
+import type { InvoiceLeaseLicenceEvidenceDto, InvoiceSellerProfile } from '../../features/sales/services/sale.models';
+import type { StoredOfflineLicencePermit } from '../../features/sales/utils/offline-licence-permit';
+import { underOfflineAuthorityLock } from './offline-issuance-lock';
 
 export const INVOICE_LEASE_RENEWAL_THRESHOLD = 25;
 
@@ -22,12 +24,31 @@ export interface InvoiceLeaseSnapshot {
    * stored before documents were issued offline, which cannot issue until the device is enabled again.
    */
   readonly sellerProfile?: InvoiceSellerProfile | null;
+  /** Versioned reference to the server-side grant frozen when this lease was reserved. */
+  readonly licenceEvidence?: InvoiceLeaseLicenceEvidenceDto | null;
+  /** Latest verified offline licence permit bound to this lease. */
+  readonly offlinePermit?: StoredOfflineLicencePermit | null;
 }
 
 export interface InvoiceLeaseConsumptionResult {
   readonly invoiceNumber: string;
   readonly lease: InvoiceLeaseSnapshot;
   readonly remainingCount: number;
+}
+
+/** The exact stored authority a number may be taken under; anything else in the record refuses the allocation. */
+export interface InvoiceNumberGuard {
+  readonly leaseId: string;
+  readonly nextNumber: number;
+  readonly signedPermit: string;
+  readonly clientSaleId: string;
+}
+
+/** A number taken for one sale and not yet settled by a durable queue row. */
+export interface InvoiceNumberClaim {
+  readonly leaseId: string;
+  readonly number: number;
+  readonly clientSaleId: string;
 }
 
 interface InvoiceLeaseRecord {
@@ -37,6 +58,16 @@ interface InvoiceLeaseRecord {
   readonly fiscalYear: string;
   readonly lease: InvoiceLeaseSnapshot;
   readonly updatedAt: string;
+  readonly replacementFiscalYear?: string;
+  /** Present from allocation until the sale's queue row is durable or the number is given back. */
+  readonly claim?: InvoiceNumberClaim | null;
+}
+
+export class InvoiceLeaseChangedError extends Error {
+  constructor(message = 'Invoice lease changed since it was verified.') {
+    super(message);
+    this.name = 'InvoiceLeaseChangedError';
+  }
 }
 
 export class InvoiceLeaseExpiredError extends Error {
@@ -71,6 +102,11 @@ export class InvoiceLeaseIndexedDbService {
       return;
     }
 
+    // Replacing a lease waits for an issuance in flight in any tab, so a number is never taken from a swapped lease.
+    await underOfflineAuthorityLock(lease.shopId, () => this.putLease(lease));
+  }
+
+  private async putLease(lease: InvoiceLeaseSnapshot): Promise<void> {
     const database = await this.openDatabase();
     const record: InvoiceLeaseRecord = {
       key: this.buildKey(lease.shopId, lease.deviceId, lease.fiscalYear),
@@ -83,14 +119,14 @@ export class InvoiceLeaseIndexedDbService {
 
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(this.storeName, 'readwrite');
-      const request = transaction.objectStore(this.storeName).put(record);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = transaction.onerror = () => reject(transaction.error ?? new Error('Lease write aborted.'));
+      transaction.objectStore(this.storeName).put(record);
     });
   }
 
-  async loadLease(shopId: string, deviceId: string, fiscalYear: string): Promise<InvoiceLeaseSnapshot | null> {
+  /** Refresh alone follows a retired fiscal row when settings still name the lease replaced there. */
+  async loadLease(shopId: string, deviceId: string, fiscalYear: string, followReplacementOf?: string): Promise<InvoiceLeaseSnapshot | null> {
     if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') {
       return null;
     }
@@ -104,13 +140,136 @@ export class InvoiceLeaseIndexedDbService {
       request.onerror = () => reject(request.error);
     });
 
+    if (record?.replacementFiscalYear && record.lease.leaseId === followReplacementOf) {
+      return this.loadLease(shopId, deviceId, record.replacementFiscalYear);
+    }
     return record ? this.normalizeLease(record.lease) : null;
   }
 
+  /**
+   * Stores a verified permit inside its matching lease record in one read-modify-write transaction.
+   * Refuses mismatched lease/grant evidence and keeps the later issuedAt when a newer permit is already stored.
+   */
+  async attachPermit(
+    shopId: string,
+    deviceId: string,
+    fiscalYear: string,
+    permit: StoredOfflineLicencePermit,
+  ): Promise<StoredOfflineLicencePermit | null> {
+    return underOfflineAuthorityLock(shopId, () => this.attachPermitUnderLock(shopId, deviceId, fiscalYear, permit));
+  }
+
+  /** Caller holds the shop authority lock, including during snapshot promotion. */
+  async attachPermitUnderLock(
+    shopId: string,
+    deviceId: string,
+    fiscalYear: string,
+    permit: StoredOfflineLicencePermit,
+  ): Promise<StoredOfflineLicencePermit | null> {
+    if (!shopId || !deviceId || !fiscalYear || !permit || typeof indexedDB === 'undefined') return null;
+    const database = await this.openDatabase();
+    return await new Promise<StoredOfflineLicencePermit | null>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readwrite');
+      let result: StoredOfflineLicencePermit | null = null;
+      transaction.oncomplete = () => resolve(result);
+      transaction.onabort = transaction.onerror = () => reject(transaction.error ?? new Error('Permit write aborted.'));
+      const store = transaction.objectStore(this.storeName);
+      const request = store.get(this.buildKey(shopId, deviceId, fiscalYear));
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const record = request.result as InvoiceLeaseRecord | undefined;
+        if (!record || record.replacementFiscalYear) {
+          return;
+        }
+
+        const lease = this.normalizeLease(record.lease);
+        if (
+          lease.leaseId !== permit.leaseId ||
+          lease.licenceEvidence?.version !== 1 ||
+          lease.licenceEvidence.grantId !== permit.grantId ||
+          lease.licenceEvidence.grantSha256 !== permit.grantSha256
+        ) {
+          return;
+        }
+
+        // Canonical UTC microsecond strings sort identically to chronological order.
+        if (lease.offlinePermit && (permit.issuedAt < lease.offlinePermit.issuedAt ||
+            permit.authorityVerifiedAt < lease.offlinePermit.authorityVerifiedAt ||
+            (permit.issuedAt === lease.offlinePermit.issuedAt && permit.signedPermit !== lease.offlinePermit.signedPermit))) {
+          return;
+        }
+
+        const updatedRecord: InvoiceLeaseRecord = {
+          ...record,
+          lease: this.normalizeLease({ ...lease, offlinePermit: permit }),
+          updatedAt: new Date().toISOString(),
+        };
+        store.put(updatedRecord);
+        result = permit;
+      };
+    });
+  }
+
+  /** Under the issuance lock. A consumed number is fine, an unsettled claim or replaced permit is not. */
+  async replaceVerifiedLeaseUnderLock(
+    previous: InvoiceLeaseSnapshot, next: InvoiceLeaseSnapshot, isCurrent: () => boolean,
+  ): Promise<boolean> {
+    const database = await this.openDatabase();
+    const key = this.buildKey(previous.shopId, previous.deviceId, previous.fiscalYear);
+    const nextKey = this.buildKey(next.shopId, next.deviceId, next.fiscalYear);
+    return new Promise<boolean>((resolve, reject) => {
+      const tx = database.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      let swapped = false;
+      tx.oncomplete = () => resolve(swapped);
+      tx.onabort = () => reject(tx.error ?? new Error('Lease replacement aborted.'));
+      const read = store.get(key);
+      read.onsuccess = () => {
+        const row = read.result as InvoiceLeaseRecord | undefined;
+        if (!row || row.claim || row.lease.leaseId !== previous.leaseId || !previous.offlinePermit ||
+            row.lease.offlinePermit?.signedPermit !== previous.offlinePermit.signedPermit || !isCurrent()) return;
+        const updated: InvoiceLeaseRecord = { key: nextKey, shopId: next.shopId, deviceId: next.deviceId,
+          fiscalYear: next.fiscalYear, lease: this.normalizeLease(next), updatedAt: new Date().toISOString() };
+        if (key === nextKey) {
+          store.put(updated);
+          swapped = true;
+          return;
+        }
+        const destination = store.get(nextKey);
+        destination.onsuccess = () => {
+          const existing = destination.result as InvoiceLeaseRecord | undefined;
+          if (!isCurrent() || existing?.claim || existing?.replacementFiscalYear) return;
+          const lease = this.rolloverDestination(existing?.lease, next);
+          if (!lease) return;
+          store.put({ ...row, replacementFiscalYear: next.fiscalYear, lease: { ...row.lease, offlinePermit: null } });
+          store.put({ ...updated, lease });
+          swapped = true;
+        };
+      };
+    });
+  }
+
+  private rolloverDestination(existing: InvoiceLeaseSnapshot | undefined, next: InvoiceLeaseSnapshot): InvoiceLeaseSnapshot | null {
+    if (!existing) return this.normalizeLease(next);
+    if (existing.leaseId !== next.leaseId) {
+      return existing.prefix === next.prefix && existing.rangeEnd >= next.rangeStart ? null : this.normalizeLease(next);
+    }
+    if (existing.prefix !== next.prefix || existing.rangeStart !== next.rangeStart || existing.rangeEnd !== next.rangeEnd ||
+        (existing.offlinePermit && existing.offlinePermit.signedPermit !== next.offlinePermit?.signedPermit)) return null;
+    return this.normalizeLease({ ...next, nextNumber: Math.max(existing.nextNumber, next.nextNumber) });
+  }
+
+  /**
+   * Takes the next number. With a `guard`, the stored lease, cursor and permit bytes must be exactly the ones the
+   * caller verified, the claim is recorded in the same transaction, and the answer waits for that transaction to
+   * be durable.
+   */
   async consumeNextInvoiceNumber(
     shopId: string,
     deviceId: string,
-    fiscalYear: string
+    fiscalYear: string,
+    guard?: InvoiceNumberGuard,
   ): Promise<InvoiceLeaseConsumptionResult> {
     if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') {
       throw new InvoiceLeaseNotFoundError();
@@ -131,6 +290,16 @@ export class InvoiceLeaseIndexedDbService {
         }
 
         const lease = this.normalizeLease(record.lease);
+        if (
+          guard &&
+          (lease.leaseId !== guard.leaseId ||
+            lease.nextNumber !== guard.nextNumber ||
+            lease.offlinePermit?.signedPermit !== guard.signedPermit)
+        ) {
+          reject(new InvoiceLeaseChangedError());
+          return;
+        }
+
         if (this.isExpired(lease)) {
           reject(new InvoiceLeaseExpiredError());
           return;
@@ -151,17 +320,54 @@ export class InvoiceLeaseIndexedDbService {
           ...record,
           lease: updatedLease,
           updatedAt: new Date().toISOString(),
+          ...(guard
+            ? { claim: { leaseId: lease.leaseId, number: lease.nextNumber, clientSaleId: guard.clientSaleId } }
+            : {}),
         };
+        const consumed = { invoiceNumber, lease: updatedLease, remainingCount: updatedLease.remainingCount };
 
         const putRequest = store.put(updatedRecord);
         putRequest.onerror = () => reject(putRequest.error);
-        putRequest.onsuccess = () =>
-          resolve({
-            invoiceNumber,
-            lease: updatedLease,
-            remainingCount: updatedLease.remainingCount,
-          });
+        if (guard) {
+          transaction.oncomplete = () => resolve(consumed);
+          transaction.onabort = () => reject(transaction.error ?? putRequest.error);
+        } else {
+          putRequest.onsuccess = () => resolve(consumed);
+        }
       };
+    });
+  }
+
+  /** The number claim left on the record, if any: an issuance that was interrupted before it settled. */
+  async loadPendingClaim(shopId: string, deviceId: string, fiscalYear: string): Promise<InvoiceNumberClaim | null> {
+    if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') return null;
+    const database = await this.openDatabase();
+    return await new Promise<InvoiceNumberClaim | null>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readonly');
+      const request = transaction.objectStore(this.storeName).get(this.buildKey(shopId, deviceId, fiscalYear));
+      request.onsuccess = () => resolve((request.result as InvoiceLeaseRecord | undefined)?.claim ?? null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Clears the claim of one sale, leaving the cursor advanced: the number stays used. Called once the sale's queue
+   * row is durable, and for an interrupted claim, whose number is never handed out again.
+   */
+  async settleClaim(shopId: string, deviceId: string, fiscalYear: string, clientSaleId: string): Promise<void> {
+    if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') return;
+    const database = await this.openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.get(this.buildKey(shopId, deviceId, fiscalYear));
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const record = request.result as InvoiceLeaseRecord | undefined;
+        if (record?.claim?.clientSaleId === clientSaleId) store.put({ ...record, claim: null } satisfies InvoiceLeaseRecord);
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error);
     });
   }
 
@@ -169,7 +375,8 @@ export class InvoiceLeaseIndexedDbService {
     shopId: string,
     deviceId: string,
     fiscalYear: string,
-    consumedLeaseNextNumber: number
+    consumedLeaseNextNumber: number,
+    claim?: InvoiceNumberClaim,
   ): Promise<InvoiceLeaseSnapshot | null> {
     if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') {
       throw new InvoiceLeaseNotFoundError();
@@ -178,6 +385,9 @@ export class InvoiceLeaseIndexedDbService {
     const database = await this.openDatabase();
     return await new Promise<InvoiceLeaseSnapshot | null>((resolve, reject) => {
       const transaction = database.transaction(this.storeName, 'readwrite');
+      let result: InvoiceLeaseSnapshot | null = null;
+      transaction.oncomplete = () => resolve(result);
+      transaction.onabort = transaction.onerror = () => reject(transaction.error ?? new Error('Lease rollback aborted.'));
       const store = transaction.objectStore(this.storeName);
       const request = store.get(this.buildKey(shopId, deviceId, fiscalYear));
 
@@ -191,7 +401,18 @@ export class InvoiceLeaseIndexedDbService {
 
         const lease = this.normalizeLease(record.lease);
         if (lease.nextNumber !== consumedLeaseNextNumber || consumedLeaseNextNumber <= lease.rangeStart) {
-          resolve(lease);
+          result = lease;
+          return;
+        }
+        // Only the exact lease, cursor and claim of the refused sale are restored; anything else is left as found.
+        if (
+          claim &&
+          (lease.leaseId !== claim.leaseId ||
+            record.claim?.leaseId !== claim.leaseId ||
+            record.claim.number !== claim.number ||
+            record.claim.clientSaleId !== claim.clientSaleId)
+        ) {
+          result = lease;
           return;
         }
 
@@ -200,13 +421,13 @@ export class InvoiceLeaseIndexedDbService {
           nextNumber: consumedLeaseNextNumber - 1,
         });
 
-        const putRequest = store.put({
+        store.put({
           ...record,
           lease: restoredLease,
           updatedAt: new Date().toISOString(),
+          ...(claim ? { claim: null } : {}),
         } satisfies InvoiceLeaseRecord);
-        putRequest.onerror = () => reject(putRequest.error);
-        putRequest.onsuccess = () => resolve(restoredLease);
+        result = restoredLease;
       };
     });
   }

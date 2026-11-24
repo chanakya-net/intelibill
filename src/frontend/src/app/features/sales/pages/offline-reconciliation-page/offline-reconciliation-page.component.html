@@ -504,6 +504,330 @@
             </div>
           }
 
+          @if (detail.licenceHistory; as lh) {
+            <section
+              class="detail-block licence-history"
+              aria-labelledby="licence-history-title"
+            >
+              <div class="licence-history-head">
+                <div>
+                  <h3 id="licence-history-title" class="detail-block-title">
+                    {{ 'sales.offlineReconciliation.detail.licenceHistory.title' | transloco }}
+                  </h3>
+                  <p class="panel-hint">
+                    {{ 'sales.offlineReconciliation.detail.licenceHistory.hint' | transloco }}
+                  </p>
+                </div>
+                <button
+                  pButton
+                  type="button"
+                  class="reload-licence-history-btn"
+                  icon="pi pi-refresh"
+                  severity="secondary"
+                  [outlined]="true"
+                  [label]="'sales.offlineReconciliation.resolve.reloadCase' | transloco"
+                  [disabled]="isOffline() || detailState() === 'loading'"
+                  (click)="reloadCase()"
+                ></button>
+              </div>
+
+              <dl class="detail-grid licence-history-summary">
+                <div class="detail-field">
+                  <dt>
+                    {{
+                      'sales.offlineReconciliation.detail.licenceHistory.currentAssessment'
+                        | transloco
+                    }}
+                  </dt>
+                  <dd class="licence-history-current-reason">
+                    {{ licenceHistoryReasonKey(lh.currentReasonCode) | transloco }}
+                    <span class="detail-sub licence-history-current-subreason">{{
+                      licenceHistorySubreasonKey(lh.currentSubreason) | transloco
+                    }}</span>
+                  </dd>
+                </div>
+                <div class="detail-field">
+                  <dt>
+                    {{
+                      'sales.offlineReconciliation.detail.licenceHistory.permittedOutcome'
+                        | transloco
+                    }}
+                  </dt>
+                  <dd class="licence-history-outcome">
+                    @if (lh.linkEligible) {
+                      {{
+                        'sales.offlineReconciliation.detail.licenceHistory.outcomeLinkReady'
+                          | transloco
+                      }}
+                    } @else if (lh.retryEligible) {
+                      {{
+                        'sales.offlineReconciliation.detail.licenceHistory.outcomeRetryReady'
+                          | transloco
+                      }}
+                    } @else {
+                      {{
+                        'sales.offlineReconciliation.detail.licenceHistory.outcomeHeld' | transloco
+                      }}
+                    }
+                  </dd>
+                </div>
+                <div class="detail-field">
+                  <dt>
+                    {{
+                      'sales.offlineReconciliation.detail.licenceHistory.firstReceived' | transloco
+                    }}
+                  </dt>
+                  <dd>
+                    @if (lh.firstReceivedAt) {
+                      {{ lh.firstReceivedAt | localeInstant }}
+                    } @else {
+                      {{ 'sales.offlineReconciliation.notRecorded' | transloco }}
+                    }
+                  </dd>
+                </div>
+                <div class="detail-field">
+                  <dt>
+                    {{
+                      'sales.offlineReconciliation.detail.licenceHistory.permitWindow' | transloco
+                    }}
+                  </dt>
+                  <dd>
+                    @if (lh.permitNotBefore && lh.permitValidUntil) {
+                      {{
+                        'sales.offlineReconciliation.detail.leaseWindowValue'
+                          | transloco
+                            : {
+                                from: (lh.permitNotBefore | localeInstant),
+                                to: (lh.permitValidUntil | localeInstant),
+                              }
+                      }}
+                    } @else {
+                      {{ 'sales.offlineReconciliation.notRecorded' | transloco }}
+                    }
+                  </dd>
+                </div>
+                @if (lh.sourceCompletionCutoff) {
+                  <div class="detail-field">
+                    <dt>
+                      {{
+                        'sales.offlineReconciliation.detail.licenceHistory.sourceCutoff' | transloco
+                      }}
+                    </dt>
+                    <dd>{{ lh.sourceCompletionCutoff | localeInstant }}</dd>
+                  </div>
+                }
+                @if (lh.claimedPermitId || lh.retainedPermitId) {
+                  <div class="detail-field">
+                    <dt>
+                      {{
+                        'sales.offlineReconciliation.detail.licenceHistory.permitIds' | transloco
+                      }}
+                    </dt>
+                    <dd class="mono">
+                      <span>{{
+                        'sales.offlineReconciliation.detail.licenceHistory.claimedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.claimedPermitId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                      <span class="detail-sub">{{
+                        'sales.offlineReconciliation.detail.licenceHistory.retainedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.retainedPermitId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                    </dd>
+                  </div>
+                }
+                @if (lh.claimedGrantId || lh.retainedGrantId) {
+                  <div class="detail-field">
+                    <dt>
+                      {{ 'sales.offlineReconciliation.detail.licenceHistory.grantIds' | transloco }}
+                    </dt>
+                    <dd class="mono">
+                      <span>{{
+                        'sales.offlineReconciliation.detail.licenceHistory.claimedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.claimedGrantId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                      <span class="detail-sub">{{
+                        'sales.offlineReconciliation.detail.licenceHistory.retainedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.retainedGrantId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                    </dd>
+                  </div>
+                }
+                @if (lh.claimedLeaseId || lh.originalLeaseId) {
+                  <div class="detail-field">
+                    <dt>
+                      {{ 'sales.offlineReconciliation.detail.licenceHistory.leaseIds' | transloco }}
+                    </dt>
+                    <dd class="mono">
+                      <span>{{
+                        'sales.offlineReconciliation.detail.licenceHistory.claimedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.claimedLeaseId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                      <span class="detail-sub">{{
+                        'sales.offlineReconciliation.detail.licenceHistory.retainedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.originalLeaseId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                    </dd>
+                  </div>
+                }
+                @if (lh.claimedKeyId || lh.retainedKeyId) {
+                  <div class="detail-field">
+                    <dt>
+                      {{ 'sales.offlineReconciliation.detail.licenceHistory.keyIds' | transloco }}
+                    </dt>
+                    <dd class="mono">
+                      <span>{{
+                        'sales.offlineReconciliation.detail.licenceHistory.claimedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.claimedKeyId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                      <span class="detail-sub">{{
+                        'sales.offlineReconciliation.detail.licenceHistory.retainedValue'
+                          | transloco
+                            : {
+                                value:
+                                  lh.retainedKeyId ??
+                                  ('sales.offlineReconciliation.notRecorded' | transloco),
+                              }
+                      }}</span>
+                    </dd>
+                  </div>
+                }
+                @if (lh.claimedSnapshotId) {
+                  <div class="detail-field">
+                    <dt>
+                      {{
+                        'sales.offlineReconciliation.detail.licenceHistory.snapshotId' | transloco
+                      }}
+                    </dt>
+                    <dd class="mono">{{ lh.claimedSnapshotId }}</dd>
+                  </div>
+                }
+              </dl>
+
+              <div class="licence-history-observations">
+                <h4 class="licence-history-subtitle">
+                  {{
+                    'sales.offlineReconciliation.detail.licenceHistory.observationsTitle'
+                      | transloco
+                  }}
+                </h4>
+                @if (!lh.hasStoredObservations) {
+                  <p class="panel-hint observations-unknown" role="note">
+                    {{
+                      'sales.offlineReconciliation.detail.licenceHistory.observationsUnknown'
+                        | transloco
+                    }}
+                  </p>
+                } @else {
+                  <ol class="observation-list">
+                    @for (obs of lh.observations; track $index) {
+                      <li class="observation-item">
+                        <div class="event-head">
+                          <strong>{{ licenceHistoryReasonKey(obs.reasonCode) | transloco }}</strong>
+                          <span class="detail-sub">{{ obs.observedAt | localeInstant }}</span>
+                        </div>
+                        <p class="event-reason">
+                          {{ licenceHistorySubreasonKey(obs.subreason) | transloco }}
+                        </p>
+                        @if (obs.comparedField) {
+                          <div class="detail-sub">
+                            {{
+                              'sales.offlineReconciliation.detail.licenceHistory.comparedFieldValue'
+                                | transloco
+                                  : {
+                                      field: (licenceHistoryFieldKey(obs.comparedField) | transloco),
+                                    }
+                            }}
+                          </div>
+                        }
+                        @if (obs.windowStart && obs.windowEnd) {
+                          <div class="detail-sub">
+                            {{
+                              'sales.offlineReconciliation.detail.licenceHistory.observedWindowValue'
+                                | transloco
+                                  : {
+                                      from: (obs.windowStart | localeInstant),
+                                      to: (obs.windowEnd | localeInstant),
+                                    }
+                            }}
+                          </div>
+                        }
+                        @if (obs.sourceCompletionCutoff) {
+                          <div class="detail-sub">
+                            {{
+                              'sales.offlineReconciliation.detail.licenceHistory.observedCutoffValue'
+                                | transloco: { date: (obs.sourceCompletionCutoff | localeInstant) }
+                            }}
+                          </div>
+                        }
+                        @if (
+                          obs.observedAccountRevision !== null || obs.observedShopRevision !== null
+                        ) {
+                          <div class="detail-sub">
+                            {{
+                              'sales.offlineReconciliation.detail.licenceHistory.observedRevisions'
+                                | transloco
+                                  : {
+                                      account:
+                                        obs.observedAccountRevision ??
+                                        ('sales.offlineReconciliation.notRecorded' | transloco),
+                                      shop:
+                                        obs.observedShopRevision ??
+                                        ('sales.offlineReconciliation.notRecorded' | transloco),
+                                    }
+                            }}
+                          </div>
+                        }
+                        @if (obs.competingSubmissionId) {
+                          <div class="detail-sub mono">
+                            {{
+                              'sales.offlineReconciliation.detail.licenceHistory.competingReceipt'
+                                | transloco: { id: obs.competingSubmissionId }
+                            }}
+                          </div>
+                        }
+                      </li>
+                    }
+                  </ol>
+                }
+              </div>
+            </section>
+          }
+
           @if (detail.tillLatePosting; as late) {
             <section>
               <h3>{{ 'tills.supplements' | transloco }}</h3>

@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Licensing.Offline;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -37,18 +38,26 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     private const string SnapshotStreamFailedCode = "OfflineSnapshot.StreamFailed";
     private const string SnapshotStreamFailedMessage = "The offline snapshot could not be completed. Try again later.";
     private readonly IOfflineSalesSnapshotStreamingService _offlineSnapshotStreamingService;
+    private readonly OfflineSnapshotPermitStreamer _offlineSnapshotPermitStream;
     private readonly ISafeDiagnosticWriter _diagnostics;
     public SalesController(
         IMessageBus bus,
         IOfflineSalesSnapshotStreamingService offlineSnapshotStreamingService,
+        OfflineSnapshotPermitStreamer offlineSnapshotPermitStream,
         ISafeDiagnosticWriter diagnostics) : base(bus)
     {
         _offlineSnapshotStreamingService = offlineSnapshotStreamingService;
+        _offlineSnapshotPermitStream = offlineSnapshotPermitStream;
         _diagnostics = diagnostics;
     }
     [HttpGet("offline-snapshot/stream")]
     [LicenceAction(LicenceAction.NewTrading)]
-    public async Task StreamOfflineSnapshot(CancellationToken cancellationToken)
+    public async Task StreamOfflineSnapshot(
+        [FromQuery] Guid? leaseId = null,
+        [FromQuery] Guid? grantId = null,
+        [FromQuery] string? deviceId = null,
+        [FromQuery] Guid? tillSessionId = null,
+        CancellationToken cancellationToken = default)
     {
         if (UserId is null)
         {
@@ -60,6 +69,28 @@ public sealed partial class SalesController : AuthenticatedControllerBase
             Response.StatusCode = 400;
             return;
         }
+
+        var hasAnyBinding = leaseId.HasValue || grantId.HasValue || deviceId is not null;
+        var isBound = leaseId.HasValue && grantId.HasValue && deviceId is not null;
+        if (hasAnyBinding &&
+            (!isBound || leaseId == Guid.Empty || grantId == Guid.Empty || string.IsNullOrWhiteSpace(deviceId) ||
+             (tillSessionId.HasValue && tillSessionId.Value == Guid.Empty)))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        SessionClaims? session = null;
+        if (isBound)
+        {
+            session = SessionClaims.TryRead(User);
+            if (session is null)
+            {
+                Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+        }
+
         var validation = await _offlineSnapshotStreamingService.ValidateAccessAsync(
             UserId.Value,
             ActiveShopId.Value,
@@ -70,8 +101,24 @@ public sealed partial class SalesController : AuthenticatedControllerBase
             return;
         }
 
-        var snapshotId = Guid.NewGuid();
-        var startedAt = DateTimeOffset.UtcNow;
+        Guid snapshotId;
+        IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> records;
+        if (isBound)
+        {
+            var bound = _offlineSnapshotPermitStream.Start(
+                session!, grantId!.Value, leaseId!.Value, deviceId!, tillSessionId);
+            snapshotId = bound.SnapshotId;
+            records = bound.StreamAsync(cancellationToken);
+        }
+        else
+        {
+            snapshotId = Guid.NewGuid();
+            records = _offlineSnapshotStreamingService.StreamAsync(
+                ActiveShopId.Value,
+                snapshotId,
+                DateTimeOffset.UtcNow,
+                cancellationToken);
+        }
 
         Response.ContentType = "application/x-ndjson; charset=utf-8";
         Response.Headers.CacheControl = "no-store";
@@ -79,11 +126,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         var buffer = new NdjsonResponseBuffer(Response);
         try
         {
-            await foreach (var record in _offlineSnapshotStreamingService.StreamAsync(
-                               ActiveShopId.Value,
-                               snapshotId,
-                               startedAt,
-                               cancellationToken))
+            await foreach (var record in records)
             {
                 var line = JsonSerializer.Serialize(record, record.GetType(), NdjsonOptions);
                 await buffer.WriteAsync(line, cancellationToken);

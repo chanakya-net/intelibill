@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { of } from 'rxjs';
 import { ShopTillSettingsService } from '../services/shop-till-settings.service';
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
@@ -43,6 +44,7 @@ describe('ManageShopOverlayComponent', () => {
 
   let storedSettings: OfflineSalesDeviceSettings | null = null;
   const offlineDeviceStorage = {
+    saved: signal(null),
     getOrCreateDeviceId: vi.fn(() => 'device-1'),
     loadSettings: vi.fn((shopId: string) => {
       storedSettings ??= {
@@ -423,6 +425,79 @@ describe('ManageShopOverlayComponent', () => {
     component.offlineDeviceSettings.set(storedSettings);
     canReachApiSignal.set(false);
     expect(component.offlineReadinessState()).toBe('enabled');
+  });
+
+  it('shows exact IST reconnect deadline for a stored permit, not-received hint for anchored lease without permit, and nothing for legacy lease', () => {
+    const { component, fixture } = setup();
+    component.activeStep.set(3);
+
+    // Legacy lease: no permit row rendered.
+    component.offlineDeviceSettings.set({
+      ...(offlineDeviceStorage.loadSettings('shop-1') as OfflineSalesDeviceSettings),
+      enabled: true,
+      lastReservedLease: { leaseId: 'lease-1', fiscalYear: '2026-27', remainingCount: 100, expiresAt: '2026-11-29T12:00:00Z' },
+      lastOfflinePermit: null,
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.offline-permit-row')).toBeNull();
+
+    // Anchored lease without a permit: shows not-received hint.
+    component.offlineDeviceSettings.set({
+      ...(offlineDeviceStorage.loadSettings('shop-1') as OfflineSalesDeviceSettings),
+      enabled: true,
+      lastReservedLease: {
+        leaseId: 'lease-1',
+        fiscalYear: '2026-27',
+        remainingCount: 100,
+        expiresAt: '2026-11-29T12:00:00Z',
+        licenceGrantId: 'grant-1',
+      },
+      lastOfflinePermit: null,
+    });
+    fixture.detectChanges();
+    const hintRow = fixture.nativeElement.querySelector('.offline-permit-row') as HTMLElement | null;
+    expect(hintRow?.textContent).toContain('offlineSalesDevice.permit.notReceived');
+
+    // Anchored lease with matching permit: shows exact IST deadline (and never the limiting reason).
+    component.offlineDeviceSettings.set({
+      ...(offlineDeviceStorage.loadSettings('shop-1') as OfflineSalesDeviceSettings),
+      enabled: true,
+      lastReservedLease: {
+        leaseId: 'lease-1',
+        fiscalYear: '2026-27',
+        remainingCount: 100,
+        expiresAt: '2026-11-29T12:00:00Z',
+        licenceGrantId: 'grant-1',
+      },
+      lastOfflinePermit: {
+        leaseId: 'lease-1',
+        grantId: 'grant-1',
+        permitId: 'permit-1',
+        snapshotId: 'snap-1',
+        issuedAt: '2026-11-22T11:59:30.123456Z',
+        notBefore: '2026-11-22T11:59:30.123456Z',
+        validUntil: '2026-11-22T12:00:00.000000Z',
+        limitingReason: 'AuthorityFreshness',
+      },
+    });
+    fixture.detectChanges();
+    const deadlineRow = fixture.nativeElement.querySelector('.offline-permit-row') as HTMLElement | null;
+    expect(deadlineRow?.textContent).toContain('IST');
+    expect(deadlineRow?.textContent).not.toContain('AuthorityFreshness');
+
+    for (const notice of ['verified', 'unverified', 'restricted', 'suspended'] as const) {
+      component.offlineDeviceSettings.update(current => ({ ...current!, permitRefreshNotice: notice,
+        permitAuthorityVerifiedAt: '2026-11-22T11:58:20.000000Z' }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('offlineSalesDevice.permit.' + notice);
+      expect(fixture.nativeElement.querySelector('.offline-authority-row')?.textContent).toContain('IST');
+    }
+    const context = TestBed.inject(ShopContextService);
+    vi.spyOn(context, 'scope').mockReturnValue({ shopId: 'shop-1', userId: 'user-1', epoch: 1 });
+    vi.spyOn(context, 'dataRestricted').mockReturnValue(true);
+    component.offlineDeviceSettings.update(current => ({ ...current!, enabled: false }));
+    expect(component.offlinePermitNotice()).toBeUndefined();
+    expect(component.permitLastVerifiedLabel()).toBe('');
   });
 
 });

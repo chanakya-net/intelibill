@@ -1392,6 +1392,7 @@
             "invoiceNumberAlreadyUsed": "Invoice number is already used by another sale",
             "idempotencyConflict": "A different bill was already synced under this ID",
             "unknown": "Held for review",
+            "licenceHistory": "Original offline licence evidence requires review",
             "historicalLeaseReviewRequired": "Reached the server after its invoice range expired",
             "issuedAfterLeaseExpiry": "Billed after its invoice range expired",
             "issueTimeBeforeLease": "Billed before its invoice range was reserved",
@@ -1407,7 +1408,14 @@
             "discountVariance": "Billed discount differs from the current rules",
             "validationVariance": "An invoice detail failed a server check",
             "stockShortage": "More stock was billed than was available",
-            "documentNotIssued": "Posted without a GST document: the shop's GST registration did not allow one for this sale."
+            "documentNotIssued": "Posted without a GST document: the shop's GST registration did not allow one for this sale.",
+            "licenceHistoryUnsupported": "Offline licence evidence format or version is not supported",
+            "licenceHistoryInvalid": "Offline licence evidence could not be verified",
+            "licenceHistoryOutsideWindow": "Billed outside the proven offline permit window",
+            "licenceHistoryRestrictionConflict": "Licence restriction conflicts with the billing time",
+            "licenceHistoryMissing": "Required offline licence evidence is missing",
+            "licenceHistoryConflictingReceipt": "A different invoice copy was already received for this bill",
+            "licenceHistorySupported": "Original offline licence evidence is verified"
           }
         },
         "openConsole": "Open reconciliation console"
@@ -1532,6 +1540,10 @@
         "blockSnapshotTooOld": "Offline sales blocked: snapshot is over 48 hours old.",
         "blockDeviceNotEnabled": "Offline sales are not enabled for this device.",
         "blockAuthGraceInvalid": "Offline session has expired. Please reconnect to continue.",
+        "blockPermitInvalid": "This device has no valid offline permission for this sale. Reconnect to the internet to verify it, then try again. Your cart is kept.",
+        "blockPermitExpired": "Offline permission for this device has ended. Reconnect to the internet to continue billing. Your cart is kept.",
+        "blockClockInconsistent": "This device's clock does not match its earlier readings, so offline billing is paused. Correct the date and time, reconnect to the internet to verify, then try again. Your cart is kept.",
+        "permitEndedAt": "Offline permission ended: {{deadline}}",
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockQuantityPrecision": "This offline catalog sells an item in whole units only. Refresh the offline catalog while online to sell part quantities.",
@@ -2199,7 +2211,8 @@
         "unknown": "Other",
         "documentReview": "GST document review",
         "expiryReview": "Expiry evidence review",
-        "closedPeriodReview": "Closed period review"
+        "closedPeriodReview": "Closed period review",
+        "licenseHistoryReview": "Licence history review"
       },
       "detail": {
         "title": "Case details",
@@ -2265,7 +2278,95 @@
         },
         "eventsTitle": "Audit trail",
         "noEvents": "No action has been taken on this case yet.",
-        "linkedOperation": "Linked operation {{id}}"
+        "linkedOperation": "Linked operation {{id}}",
+        "licenceHistory": {
+          "title": "Licence history evidence",
+          "hint": "Original invoice contents and recorded conflict observations stay read-only. Only evidence-backed actions are offered.",
+          "currentAssessment": "Current assessment",
+          "permittedOutcome": "Permitted outcome",
+          "outcomeLinkReady": "Matching posted sale found; linking is available",
+          "outcomeRetryReady": "Original historical proof verified; posting under the original number is available",
+          "outcomeHeld": "Evidence does not prove posting; only escalation is available while open",
+          "firstReceived": "First received",
+          "permitWindow": "Permit validity window",
+          "sourceCutoff": "Source completion cutoff",
+          "permitIds": "Permit ID",
+          "grantIds": "Grant ID",
+          "leaseIds": "Lease ID",
+          "keyIds": "Signing key ID",
+          "snapshotId": "Snapshot ID",
+          "claimedValue": "Claimed: {{value}}",
+          "retainedValue": "Retained: {{value}}",
+          "observationsTitle": "Recorded conflict observations",
+          "observationsUnknown": "Detailed conflict observations were not recorded when this earlier case was opened.",
+          "comparedFieldValue": "Checked field: {{field}}",
+          "observedWindowValue": "Observed window: {{from}} to {{to}}",
+          "observedCutoffValue": "Source cutoff: {{date}}",
+          "observedRevisions": "Observed revisions: account {{account}}, shop {{shop}}",
+          "competingReceipt": "Competing receipt: {{id}}",
+          "subreasons": {
+            "supported": "Original offline licence evidence is verified.",
+            "securitySuspended": "Account or shop is under a security suspension.",
+            "licenceDenied": "Current shop licence state blocks this action.",
+            "envelopeMissing": "The original stored invoice envelope is missing.",
+            "payloadCorrupted": "The stored invoice contents do not match their original digest.",
+            "leaseMissing": "No invoice number reservation was found for this device.",
+            "undatedTradingRestriction": "An undated trading restriction prevents proving this billing time.",
+            "competingReceipt": "Another differently hashed submission exists for this invoice.",
+            "evidenceMissingOnAnchoredLease": "This lease issued offline permits, so a permit proof is required.",
+            "observeOnlyUnproven": "Existing history holds require positive proof even in observe-only mode.",
+            "leaseReserverUnproven": "The invoice reservation belongs to a different user.",
+            "outsideLeaseWindow": "The billing time falls outside the invoice reservation window.",
+            "restrictionReleasedAfterIssue": "A restriction was released after this invoice was billed.",
+            "soldAtAtOrAfterCutoff": "The billing time is on or after the restriction cutoff.",
+            "cutoffUnknown": "The restriction cutoff time is unknown.",
+            "historicalCoverageUnproven": "Retained commercial records do not prove coverage at the billing time.",
+            "historicalRestrictionConflict": "Retained commercial records show a restriction covering the billing time.",
+            "evidenceMalformed": "The submitted licence evidence object is malformed.",
+            "evidenceVersionUnsupported": "The submitted licence evidence version is not supported.",
+            "snapshotIdInvalid": "The snapshot reference in the licence evidence is missing or invalid.",
+            "leaseMismatch": "The licence evidence names a different invoice reservation.",
+            "issuerMismatch": "The issuer recorded on the invoice does not match the attributed user.",
+            "permitNotMatched": "The submitted permit does not match the permit retained by the server.",
+            "keyMismatch": "The signing key reference does not match the retained permit.",
+            "signatureMismatch": "The submitted signed permit does not match the retained permit.",
+            "tillSessionMismatch": "The till session does not match the retained permit.",
+            "actorScopeMismatch": "The user, device, or session does not match the retained permit scope.",
+            "grantNotMatched": "The submitted grant does not match the retained offline grant.",
+            "affiliationMismatch": "The grant belongs to a different account or shop affiliation.",
+            "grantDigestMismatch": "The grant digest does not match the retained offline grant.",
+            "soldAtBeforePermit": "The billing time is earlier than the permit start time.",
+            "soldAtAtOrAfterPermitEnd": "The billing time is on or after the permit expiry time.",
+            "firstReceiptBeforePermit": "First receipt time is earlier than the permit start time.",
+            "soldAtAfterFirstReceiptSkew": "The billing time is too far ahead of first receipt.",
+            "verificationKeyUnavailable": "The archived signing key is currently unavailable for verification.",
+            "signatureInvalid": "The offline permit signature failed verification.",
+            "claimMismatch": "Verified permit claims do not match the stored invoice scope.",
+            "restrictionReleasedAfterPermit": "A restriction was released after this permit was issued.",
+            "unknown": "Additional licence review detail is unavailable."
+          },
+          "fields": {
+            "version": "Evidence version",
+            "licenceEvidence": "Licence evidence",
+            "snapshotId": "Snapshot ID",
+            "leaseId": "Lease ID",
+            "issuedByUserId": "Recorded issuer",
+            "permitId": "Permit ID",
+            "grantId": "Grant ID",
+            "keyId": "Signing key ID",
+            "signedPermit": "Signed permit",
+            "tillSessionId": "Till session",
+            "scope": "Device and user scope",
+            "grantSha256": "Grant digest",
+            "soldAt": "Billing time",
+            "firstReceivedAt": "First received time",
+            "restriction": "Licence restriction",
+            "sourceCompletionCutoff": "Source completion cutoff",
+            "payloadHash": "Invoice digest",
+            "payloadJson": "Stored invoice payload",
+            "unknown": "Other evidence field"
+          }
+        }
       },
       "actions": {
         "retryHistoricalLease": "Post under the original invoice number",
@@ -2358,7 +2459,8 @@
         "bundleTooLarge": "This bundle is too large. A bundle can hold at most 100 invoices and 2 MB.",
         "leaseNotOwned": "The invoice number was not reserved for the bundle's device.",
         "issuerMismatch": "The recorded issuer has never been a member of this shop.",
-        "notAuthorized": "Only an active owner or manager can import a support bundle."
+        "notAuthorized": "Only an active owner or manager can import a support bundle.",
+        "licenceSecuritySuspended": "This shop is under a security suspension and cannot process recovery actions."
       }
     },
     "cancellation": {
@@ -2656,6 +2758,15 @@
       "enableFailed": "Offline setup failed. Please retry.",
       "appPackIncomplete": "The app files for offline use could not be downloaded completely. Stay online and retry.",
       "appPackStorageLow": "Not enough free storage on this device for the offline files. Free some space and retry."
+    },
+    "permit": {
+      "lastVerified": "Authority last verified",
+      "verified": "Offline permission renewed for future invoices.",
+      "unverified": "Permission could not be renewed. The previous deadline still applies.",
+      "restricted": "Trading is restricted. Offline permission was not renewed.",
+      "suspended": "Security suspension is active. Offline permission was not renewed.",
+      "reconnectBy": "Reconnect by",
+      "notReceived": "Not received yet — refresh while online"
     }
   },
   "purchaseOrders": {
@@ -3607,7 +3718,10 @@
       "consentInvalid": "This request requires current, unrevoked consent.",
       "reviewPending": "Saved operations changed in another tab. Review the current status before continuing.",
       "storageUnavailable": "The browser could not save or recover your request.",
-      "mode": { "Independent": "Independent", "Grouped": "Grouped" },
+      "mode": {
+        "Independent": "Independent",
+        "Grouped": "Grouped"
+      },
       "status": {
         "AwaitingConsent": "Awaiting shop owner consent",
         "Granted": "Consent granted",

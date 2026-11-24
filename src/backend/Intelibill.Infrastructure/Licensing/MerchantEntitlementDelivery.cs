@@ -24,6 +24,7 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
         {
             "Acknowledgement" => EntitlementSnapshotsV1.AcknowledgementPath,
             "Reconciliation" => EntitlementSnapshotsV1.ReconciliationPath,
+            OfflineDeviceObservationsV1.Kind => OfflineDeviceObservationsV1.Path,
             _ => null,
         };
         if (transport.Origin is not { } origin || path is null ||

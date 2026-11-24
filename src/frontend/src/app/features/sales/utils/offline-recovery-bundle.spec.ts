@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
+import vectors from '../../../../../../../tests/contracts/licensing/p05-06-legacy-queue-vectors.json';
 import type { OfflineQueuedSalePayload, OfflineQueuedSaleRecord, OfflineSaleQueueStatus } from '../services/offline-sale-core.types';
 import { buildSyncRequestFromQueuedSale } from './offline-sale-sync.mapper';
 import { buildSupportBundle, type SupportBundle } from './offline-recovery-bundle';
@@ -79,6 +80,16 @@ describe('buildSupportBundle', () => {
     expect(bundle.text).not.toMatch(/token|session|refresh|password/i);
   });
 
+  it('covers the queued licence evidence with the recovery checksum', async () => {
+    const original = rec('permit-sale', 'NeedsReview', 'issuer');
+    const licenceEvidence = { version: 1 as const, permitId: 'permit', grantId: 'grant', grantSha256: 'digest',
+      leaseId: 'lease', snapshotId: 'snapshot', keyId: 'key', signedPermit: 'local.fixture.signature' };
+    const [bundle] = await buildSupportBundle([{ ...original, payload: { ...original.payload, licenceEvidence } }], context);
+    expect(JSON.parse(bundle.text).invoices[0].licenceEvidence).toEqual(licenceEvidence);
+    expect(checksumOf(bundle)).toBe(bundle.checksum);
+    expect(JSON.parse((await single()).text).invoices[0]).not.toHaveProperty('licenceEvidence');
+  });
+
   it('names a single file after the device and export minute', async () => {
     const bundle = await single();
     expect(bundle.fileName).toBe('offline-recovery-dev-1-202611030905.json');
@@ -152,5 +163,52 @@ describe('buildSupportBundle', () => {
       expect(part.clientSaleIds.length).toBeLessThanOrEqual(100);
       expect(new TextEncoder().encode(part.text).length).toBeLessThanOrEqual(1_900_000);
     }
+  });
+
+  it('exports byte-exact invoices and checksums for both historical producer vectors and preserves whitespace sensitivity (P05-06)', async () => {
+    const legacy7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
+    const legacy671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as OfflineQueuedSaleRecord;
+    const vectorCtx = {
+      shopId: vectors.scope.shopId,
+      deviceId: vectors.scope.deviceId,
+      exportedAt: vectors.scope.exportedAt,
+    };
+
+    const [part7ff1] = await buildSupportBundle([legacy7ff1], vectorCtx);
+    expect(part7ff1.checksum).toBe(vectors.unversionedPreDocument.expectedBundleChecksum);
+    expect(part7ff1.text).toContain('"invoices":' + vectors.unversionedPreDocument.expectedBundleInvoicesJson + '}');
+
+    const [part671d] = await buildSupportBundle([{ ...legacy671d, status: 'Syncing' }], vectorCtx);
+    expect(part671d.checksum).toBe(vectors.v1FrozenDocument.expectedBundleChecksum);
+    expect(part671d.text).toBe(vectors.v1FrozenDocument.exportedBundleText);
+
+    const [combined] = await buildSupportBundle([legacy7ff1, legacy671d], vectorCtx);
+    expect(combined.checksum).toBe(vectors.combinedExport.expectedBundleChecksum);
+    expect(combined.text).toContain('"invoices":' + vectors.combinedExport.expectedBundleInvoicesJson + '}');
+
+    // Sparse unversioned row must match archived 7ff1de03f / 671d51df3 bundle checksum without synthesizing nulls (R001).
+    const sparsePayload = { ...legacy7ff1.payload } as Record<string, unknown>;
+    delete sparsePayload['customerId'];
+    delete sparsePayload['customerName'];
+    delete sparsePayload['customerPhone'];
+    const sparseLine = { ...legacy7ff1.payload.pricing.lines[0] } as Record<string, unknown>;
+    delete sparseLine['configuredRuleId'];
+    delete sparseLine['hsnCode'];
+    delete sparseLine['lineType'];
+    delete sparseLine['serviceId'];
+    const [sparsePart] = await buildSupportBundle(
+      [{ ...legacy7ff1, payload: { ...(sparsePayload as unknown as OfflineQueuedSalePayload), pricing: { ...legacy7ff1.payload.pricing, lines: [sparseLine as unknown as OfflineQueuedSalePayload['pricing']['lines'][0]] } } }],
+      vectorCtx,
+    );
+    expect(sparsePart.checksum).toBe(vectors.sparseUnversionedControl.expectedSparseBundleChecksum);
+
+    // Synthetic whitespace-sensitive v1 bundle control: raw array text determines the checksum.
+    const wsControl = vectors.syntheticPrettyWhitespaceControl;
+    const rawDigest = createHash('sha256').update(wsControl.invoicesRawJson, 'utf8').digest('hex');
+    expect(rawDigest).toBe(wsControl.checksum);
+    const alteredDigest = createHash('sha256')
+      .update(wsControl.invoicesRawJson.replace('\n', '\n '), 'utf8')
+      .digest('hex');
+    expect(alteredDigest).not.toBe(wsControl.checksum);
   });
 });

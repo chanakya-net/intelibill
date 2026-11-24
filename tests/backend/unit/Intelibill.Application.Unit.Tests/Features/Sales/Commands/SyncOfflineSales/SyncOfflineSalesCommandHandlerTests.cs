@@ -88,7 +88,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 _shopRepository,
                 _varianceAnalyzer,
                 new BusinessClock(_clock),
-                _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority),
+                _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority, Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>(), Substitute.For<IOfflineLicenceHistoryAuthority>()),
             _unitOfWork,
             _clock);
 
@@ -1285,7 +1285,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 Assert.Equal(secondSale.ClientSaleId, second.ClientSaleId);
                 Assert.Equal("created", second.Status);
             });
-        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -1338,7 +1338,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 Assert.Equal(secondSale.ClientSaleId, second.ClientSaleId);
                 Assert.Equal("created", second.Status);
             });
-        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -1373,7 +1373,7 @@ public class SyncOfflineSalesCommandHandlerTests
         var syncResult = Assert.Single(result.Value.Results);
         Assert.Equal("NeedsReview", syncResult.Status);
         Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code);
-        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -1718,7 +1718,7 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
         var poster = new OfflineSalePoster(
-            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority);
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority, Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>(), Substitute.For<IOfflineLicenceHistoryAuthority>());
 
         var outcome = await poster.StageAsync(
             new OfflineSalePostingRequest(
@@ -1869,7 +1869,7 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     private OfflineSalePoster Poster() =>
-        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority);
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority, Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>(), Substitute.For<IOfflineLicenceHistoryAuthority>());
 
     private static OfflineSalePostingRequest PostingRequest(Guid shopId, OfflineSaleSyncCommand sale, InvoiceLease lease) =>
         new(shopId, "device-1", sale.ClientSaleId, sale, "hash", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now, new Dictionary<Guid, DiscountRule>(), lease);
@@ -2071,8 +2071,8 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(_recordedSubmissions.Single().InvoiceNumber, issue.InvoiceNumber);
         Assert.All(_invoiceLeaseRepository.ReceivedCalls(), call => Assert.Equal(nameof(IInvoiceLeaseRepository.FindReservedRangeAsync), call.GetMethodInfo().Name));
         await AssertNothingPostedAsync();
-        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackToSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -2097,7 +2097,7 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(openCase.Id, result.ReviewCaseId);
         Assert.Empty(issues);
         await AssertNothingPostedAsync();
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CreateSavepointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _postingPeriods.DidNotReceive().AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
     }
 
@@ -2454,5 +2454,407 @@ public class SyncOfflineSalesCommandHandlerTests
         await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
         await _customerLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_PendingRecoveryReviewUnderEnforcedLicence_HoldsWithoutPosting()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var sale = CreateSale("offline-recovery-hold", items: [CreateLine(batch.Id)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, CreateInventory(shopId, item.Id));
+
+        ReconciliationIssue? pending = null;
+        StubRecordedEnvelope(candidate =>
+        {
+            pending = ReconciliationIssue.Create(
+                shopId, null, candidate.ClientSaleId, deviceId, ReconciliationIssueType.RecoveryReview,
+                Errors.OfflineReconciliation.RecoveryReviewRequired.Code,
+                Errors.OfflineReconciliation.RecoveryReviewRequired.Description,
+                actorId, invoiceNumber: candidate.InvoiceNumber, offlineSubmissionId: candidate.Id);
+            _reconciliationIssueRepository.FindUnresolvedPrePostingByEnvelopeAsync(shopId, candidate.Id, Arg.Any<CancellationToken>())
+                .Returns(pending);
+            return candidate;
+        });
+
+        var enforcedFence = Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>();
+        enforcedFence.EnterAsync(shopId, Intelibill.Application.Common.Licensing.LicenceAction.Recovery, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Intelibill.Application.Common.Licensing.ShopLicenceLease>>(
+                new Intelibill.Application.Common.Licensing.ShopLicenceLease(shopId, null, null, null,
+                    new(Intelibill.Application.Common.Licensing.LicenceOutcome.Allowed, true))));
+        var handler = new SyncOfflineSalesCommandHandler(
+            _userRepository, _shopRepository, _invoiceLeaseRepository, _offlineSubmissionRepository,
+            _saleRepository, _discountRuleRepository, _varianceAnalyzer, _reconciliationIssueRepository,
+            new OfflineSalePoster(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository,
+                _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock),
+                _postingPeriods, BusinessTestDoubles.DisabledTillPosting(), Substitute.For<ITillRepository>(),
+                Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority, enforcedFence,
+                Substitute.For<IOfflineLicenceHistoryAuthority>()),
+            _unitOfWork, _clock, enforcedFence);
+
+        var response = await handler.HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(response.IsError);
+        var row = Assert.Single(response.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Equal(pending!.Id, row.ReviewCaseId);
+        Assert.Equal(Errors.OfflineReconciliation.RecoveryReviewRequired.Code, Assert.Single(row.Errors).Code);
+        await AssertNothingPostedAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_RetainedEnvelopeWithMutatedServiceSemantics_HoldsAsEvidenceInvalid()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var sale = CreateSale("offline-retained-service-tamper", items: [CreateLine(batch.Id)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, CreateInventory(shopId, item.Id));
+
+        var mutated = sale with { Items = [sale.Items[0] with { LineType = "Service", ServiceId = Guid.NewGuid() }] };
+        StubRecordedEnvelope(candidate => OfflineSubmission.Record(
+            candidate.ShopId, candidate.DeviceId, candidate.ClientSaleId, candidate.InvoiceNumber,
+            candidate.PayloadHash, OfflineSubmissionPayload.Serialize(mutated),
+            candidate.ClaimedSoldAt, candidate.ReceivedAt.AddMinutes(-5), candidate.Source,
+            candidate.SubmittedByUserId, candidate.AssertedIssuerUserId, candidate.OriginalIssuerUserId,
+            candidate.OriginalLeaseId, candidate.RecoveryOperationId));
+
+        var response = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(response.IsError);
+        var row = Assert.Single(response.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, Assert.Single(row.Errors).Code);
+        await AssertNothingPostedAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_MaterializedFreshReceipt_ServiceLineWithoutServiceId_ReturnsFailedResult()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var serviceLine = CreateServiceLine(serviceId: null);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", paidAmount: 590m, items: [serviceLine]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        var materialized = StubMaterializedFreshEnvelope();
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("failed", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.ServiceIdRequired.Code);
+        AssertMaterializedDistinctInstances(materialized);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MaterializedFreshReceipt_ServiceOnlyOfflineSale_CreatesSaleWithoutStockAdjustment()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var serviceId = Guid.NewGuid();
+        var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, Guid.NewGuid());
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", paidAmount: 590m, items: [CreateServiceLine(serviceId)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubServiceOrMixedLineValidation(shopId, service);
+        var materialized = StubMaterializedFreshEnvelope();
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("created", syncResult.Status);
+        AssertMaterializedDistinctInstances(materialized);
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MaterializedFreshReceipt_MixedSale_OnlyAdjustsStockForGoodsLines()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var serviceId = Guid.NewGuid();
+        var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, Guid.NewGuid());
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 10m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 10m);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", paidAmount: 708m, items: [CreateLine(batch.Id), CreateServiceLine(serviceId)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubServiceOrMixedLineValidation(shopId, service, item, batch, inventory);
+        var materialized = StubMaterializedFreshEnvelope();
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("created", syncResult.Status);
+        AssertMaterializedDistinctInstances(materialized);
+        await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MaterializedFreshReceipt_WithTamperedUnhashedLineSemantics_HoldsAsEvidenceInvalid()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var sale = CreateSale("offline-fresh-tamper", items: [CreateLine(batch.Id)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, CreateInventory(shopId, item.Id));
+
+        var mutated = sale with { Items = [sale.Items[0] with { LineType = "Service", ServiceId = Guid.NewGuid() }] };
+        var materialized = StubMaterializedFreshEnvelope(_ => OfflineSubmissionPayload.Serialize(mutated));
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("NeedsReview", syncResult.Status);
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, Assert.Single(syncResult.Errors).Code);
+        AssertMaterializedDistinctInstances(materialized);
+        await AssertNothingPostedAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_RedeliveredDirectServiceAndMixedCommands_ReturnDuplicateWithoutAddedReviews()
+    {
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, actorId);
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 10m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 10m);
+        var serviceSale = CreateSale("direct-svc-redeliver", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
+        var mixedSale = CreateSale("direct-mixed-redeliver", invoiceNumber: "INV-2025-26-000002", paidAmount: 708m,
+            items: [CreateLine(batch.Id), CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubServiceOrMixedLineValidation(shopId, service, item, batch, inventory);
+        var postedByClientId = CapturePostedSalesByClientId(shopId);
+        StubPersistentConflictEnvelopes();
+
+        var first = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [serviceSale, mixedSale]), CancellationToken.None);
+        Assert.False(first.IsError);
+        Assert.Equal(["created", "created"], first.Value.Results.Select(r => r.Status).ToArray());
+        var expectedSaleIds = new[] { postedByClientId[serviceSale.ClientSaleId].Id, postedByClientId[mixedSale.ClientSaleId].Id };
+        _reconciliationIssueRepository.ClearReceivedCalls();
+
+        var replay = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [serviceSale, mixedSale]), CancellationToken.None);
+        Assert.False(replay.IsError);
+        Assert.Equal(["duplicate", "duplicate"], replay.Value.Results.Select(r => r.Status).ToArray());
+        Assert.Equal(expectedSaleIds, replay.Value.Results.Select(r => Assert.NotNull(r.SaleId)).ToArray());
+        Assert.All(replay.Value.Results, r => Assert.Null(r.ReviewCaseId));
+        await _saleRepository.Received(2).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.DidNotReceive().AddAsync(Arg.Any<ReconciliationIssue>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_RedeliveredDirectServiceCommand_ByDifferentUser_HoldsAsProvenanceReview()
+    {
+        var (shopId, issuerId, otherUserId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, issuerId);
+        var sale = CreateSale("direct-svc-issuer-check", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = issuerId };
+        ArrangeMemberWithLease(shopId, issuerId, deviceId);
+        _userRepository.GetByIdWithDetailsAsync(otherUserId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
+        StubServiceOrMixedLineValidation(shopId, service);
+        CapturePostedSalesByClientId(shopId);
+        StubPersistentConflictEnvelopes();
+
+        var first = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(issuerId, shopId, deviceId, [sale]), CancellationToken.None);
+        Assert.Equal("created", Assert.Single(first.Value.Results).Status);
+
+        var replay = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(otherUserId, shopId, deviceId, [sale]), CancellationToken.None);
+        var row = Assert.Single(replay.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Null(row.SaleId);
+        Assert.Equal(Errors.OfflineReconciliation.IssuerNotSubmitter.Code, Assert.Single(row.Errors).Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_RedeliveredDirectServiceCommand_WithPriorHistoryCase_PreservesHistoryHold()
+    {
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, actorId);
+        var sale = CreateSale("direct-svc-history-hold", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubServiceOrMixedLineValidation(shopId, service);
+        CapturePostedSalesByClientId(shopId);
+        var storedByKey = StubPersistentConflictEnvelopes();
+
+        var first = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+        Assert.Equal("created", Assert.Single(first.Value.Results).Status);
+        var persisted = Assert.Single(storedByKey.Values);
+        var priorHistory = ReconciliationIssue.Create(
+            shopId, persisted.SaleId, persisted.ClientSaleId, deviceId, ReconciliationIssueType.LicenseHistoryReview,
+            Errors.OfflineLicenceHistory.EvidenceUnsupported.Code, "Prior history hold", actorId,
+            invoiceNumber: persisted.InvoiceNumber, offlineSubmissionId: persisted.Id);
+        _reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(shopId, persisted.Id, false, Arg.Any<CancellationToken>())
+            .Returns(priorHistory);
+
+        var replay = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+        var row = Assert.Single(replay.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Equal(priorHistory.Id, row.ReviewCaseId);
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceUnsupported.Code, Assert.Single(row.Errors).Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_RedeliveredDirectServiceCommand_WithMutatedUnhashedServiceId_HoldsAsEvidenceInvalid()
+    {
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, actorId);
+        var sale = CreateSale("direct-svc-unhashed-mut", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubServiceOrMixedLineValidation(shopId, service);
+        CapturePostedSalesByClientId(shopId);
+        StubPersistentConflictEnvelopes();
+
+        var first = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+        Assert.Equal("created", Assert.Single(first.Value.Results).Status);
+
+        var mutated = sale with { Items = [sale.Items[0] with { ServiceId = Guid.NewGuid() }] };
+        var replay = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [mutated]), CancellationToken.None);
+        var row = Assert.Single(replay.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Null(row.SaleId);
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, Assert.Single(row.Errors).Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_RecoveryOriginatedEnvelopeWithTamperedServiceLine_HoldsAsEvidenceInvalidEvenOnDirectSync()
+    {
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var sale = CreateSale("direct-svc-recovery-tamper", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubRecordedEnvelope(candidate => OfflineSubmission.Record(
+            candidate.ShopId, candidate.DeviceId, candidate.ClientSaleId, candidate.InvoiceNumber,
+            candidate.PayloadHash, candidate.PayloadJson, candidate.ClaimedSoldAt, candidate.ReceivedAt.AddMinutes(-5),
+            OfflineSubmissionSource.Recovery, candidate.SubmittedByUserId, candidate.AssertedIssuerUserId,
+            candidate.OriginalIssuerUserId, candidate.OriginalLeaseId, "op-recovery"));
+
+        var response = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+        var row = Assert.Single(response.Value.Results);
+        Assert.Equal("NeedsReview", row.Status);
+        Assert.Equal(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, Assert.Single(row.Errors).Code);
+        await AssertNothingPostedAsync();
+    }
+
+    private Dictionary<string, Sale> CapturePostedSalesByClientId(Guid shopId)
+    {
+        var posted = new Dictionary<string, Sale>(StringComparer.Ordinal);
+        _saleRepository.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var created = call.ArgAt<Sale>(0);
+                if (created.ClientSaleId is not null) posted[created.ClientSaleId] = created;
+                return Task.CompletedTask;
+            });
+        _saleRepository.GetByClientSaleIdAsync(shopId, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(posted.GetValueOrDefault(call.ArgAt<string>(2))));
+        return posted;
+    }
+
+    private Dictionary<(Guid ShopId, string DeviceId, string ClientSaleId, string Hash), OfflineSubmission> StubPersistentConflictEnvelopes()
+    {
+        var byKey = new Dictionary<(Guid, string, string, string), OfflineSubmission>();
+        var byId = new Dictionary<Guid, OfflineSubmission>();
+        StubRecordedEnvelope(candidate =>
+        {
+            var key = (candidate.ShopId, candidate.DeviceId, candidate.ClientSaleId, candidate.PayloadHash);
+            if (!byKey.TryGetValue(key, out var existing))
+            {
+                existing = CloneWithSameId(candidate, candidate.PayloadJson);
+                byKey[key] = existing;
+                byId[existing.Id] = existing;
+            }
+            return CloneWithSameId(existing, existing.PayloadJson);
+        });
+        _offlineSubmissionRepository.GetTrackedByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var (shopId, id) = (call.ArgAt<Guid>(0), call.ArgAt<Guid>(1));
+                return Task.FromResult(byId.TryGetValue(id, out var row) && row.ShopId == shopId ? row : null);
+            });
+        return byKey;
+    }
+
+    private static OfflineSaleSyncLineCommand CreateServiceLine(Guid? serviceId) =>
+        new("SVC-001", "", "Repair Service", 1m, 0m, 500m, 0m, 18m, false, Guid.Empty,
+            500m, 0m, 0m, 500m, 90m, 590m, null, null, InstantDiscountType.None, 0m, null,
+            LineType: "Service", ServiceId: serviceId);
+
+    private void StubServiceOrMixedLineValidation(
+        Guid shopId,
+        Service service,
+        Item? item = null,
+        InventoryBatch? batch = null,
+        Domain.Entities.Inventory? inventory = null)
+    {
+        _saleRepository.GetByClientSaleIdAsync(shopId, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((Sale?)null);
+        _saleLineValidator.ValidateLinesAsync(
+                shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+            .Returns(call =>
+            {
+                var commands = call.ArgAt<IReadOnlyList<RecordSaleItemCommand>>(1);
+                var lines = commands.Select<RecordSaleItemCommand, ValidatedSaleLine>(cmd =>
+                    cmd.LineType == SaleLineType.Service
+                        ? new ValidatedSaleLine(cmd, SaleLineType.Service, null, null, null, service, false)
+                        : new ValidatedSaleLine(cmd, item!, batch!, inventory!, false)).ToList();
+                var itemNames = item is null ? new Dictionary<Guid, string>() : new Dictionary<Guid, string> { [item.Id] = item.Name };
+                return Task.FromResult<ErrorOr<SaleLineValidationResult>>(new SaleLineValidationResult(lines, itemNames));
+            });
+    }
+
+    private List<(OfflineSubmission Candidate, OfflineSubmission Recorded, OfflineSubmission? Tracked)> StubMaterializedFreshEnvelope(
+        Func<OfflineSubmission, string>? trackedPayloadOverride = null)
+    {
+        var rows = new List<(OfflineSubmission Candidate, OfflineSubmission Recorded, OfflineSubmission? Tracked)>();
+        var byId = new Dictionary<Guid, OfflineSubmission>();
+        StubRecordedEnvelope(candidate =>
+        {
+            var recorded = CloneWithSameId(candidate, candidate.PayloadJson);
+            byId[recorded.Id] = recorded;
+            rows.Add((candidate, recorded, null));
+            return recorded;
+        });
+        _offlineSubmissionRepository.GetTrackedByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var shopId = call.ArgAt<Guid>(0);
+                var id = call.ArgAt<Guid>(1);
+                if (!byId.TryGetValue(id, out var recorded) || recorded.ShopId != shopId)
+                    return Task.FromResult<OfflineSubmission?>(null);
+                var tracked = CloneWithSameId(recorded, trackedPayloadOverride?.Invoke(recorded) ?? recorded.PayloadJson);
+                var idx = rows.FindIndex(r => r.Recorded.Id == id);
+                if (idx >= 0) rows[idx] = (rows[idx].Candidate, rows[idx].Recorded, tracked);
+                return Task.FromResult<OfflineSubmission?>(tracked);
+            });
+        return rows;
+    }
+
+    private static OfflineSubmission CloneWithSameId(OfflineSubmission source, string payloadJson)
+    {
+        var copy = OfflineSubmission.Record(
+            source.ShopId, source.DeviceId, source.ClientSaleId, source.InvoiceNumber,
+            source.PayloadHash, payloadJson, source.ClaimedSoldAt, source.ReceivedAt, source.Source,
+            source.SubmittedByUserId, source.AssertedIssuerUserId, source.OriginalIssuerUserId,
+            source.OriginalLeaseId, source.RecoveryOperationId);
+        typeof(global::Intelibill.Domain.Common.BaseEntity).GetProperty(nameof(global::Intelibill.Domain.Common.BaseEntity.Id))!.SetValue(copy, source.Id);
+        return copy;
+    }
+
+    private static void AssertMaterializedDistinctInstances(
+        List<(OfflineSubmission Candidate, OfflineSubmission Recorded, OfflineSubmission? Tracked)> rows)
+    {
+        var (candidate, recorded, tracked) = Assert.Single(rows);
+        Assert.NotNull(tracked);
+        Assert.Equal(candidate.Id, recorded.Id);
+        Assert.Equal(candidate.Id, tracked!.Id);
+        Assert.False(ReferenceEquals(candidate, recorded));
+        Assert.False(ReferenceEquals(candidate, tracked));
+        Assert.False(ReferenceEquals(recorded, tracked));
     }
 }
