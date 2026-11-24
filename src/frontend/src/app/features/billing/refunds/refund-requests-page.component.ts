@@ -8,21 +8,17 @@ import { ShopContextService } from '../../../core/context/shop-context.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { isUuid, type CheckoutScope } from '../checkout/checkout.models';
-import { CONFIRMATION_PAGE_SIZE, type PaymentConfirmation } from '../payments/payment-confirmation.models';
+import type { PaymentConfirmation } from '../payments/payment-confirmation.models';
 import { PaymentConfirmationService } from '../payments/payment-confirmation.service';
 import { formatBillingInstant } from '../status/subscription-status.models';
 import { InvalidRefundRequestDraft, RefundRequestDrafts } from './refund-request-drafts';
 import {
-  formatPaiseAsInput, isAuthoritativeRefundRefusal, mapRefundErrorKey, normalizeRefundReason,
-  parseInrToPaise, REFUND_MAX_REASON_LENGTH, REFUND_STATUS_COPY,
+  formatPaiseAsInput, mapRefundErrorKey, normalizeRefundReason,
+  parseInrToPaise, REFUND_MAX_REASON_LENGTH, refundRefusalKind, REFUND_STATUS_COPY,
   type CreateRefundRequest, type RefundRequestItem, type RefundRequestStatus,
 } from './refund-request.models';
 import { RefundRequestService } from './refund-request.service';
-
-type ReadDraftState =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'unreadable' }
-  | { readonly kind: 'saved'; readonly command: CreateRefundRequest };
+import { findRefundTargetPayment } from './refund-target-payment';
 
 @Component({
   selector: 'app-refund-requests-page',
@@ -142,43 +138,40 @@ export class RefundRequestsPageComponent {
     this.errorKey.set(null);
     this.submittedNotice.set(false);
     try {
-      const prepared = await this.drafts.prepare(scope, payment.confirmationId, command);
+      const prepared = await this.drafts.prepare(scope, command);
       if (!current()) return;
       if (prepared.existing && !prepared.matchesRequest) {
         this.bindPendingDraft(prepared.draft.command, true);
         return;
       }
       this.bindPendingDraft(prepared.draft.command, false);
-      await this.dispatch(scope, prepared.draft.command, current, prepared.existing);
+      await this.dispatch(scope, prepared.draft.command, current);
     } catch (error) {
-      if (!current()) return;
-      if (error instanceof InvalidRefundRequestDraft) {
-        this.unreadableDraft.set(true);
-        return;
-      }
-      this.handleError(error);
+      if (current()) this.handleError(error);
     }
   }
 
   protected async retryPending() {
     const scope = this.scope();
     const draft = this.pendingDraft();
-    if (!scope || !draft || this.submitting()) return;
+    const payment = this.payment();
+    // A saved command is only ever resent against the receipt this member can currently read.
+    if (!scope || !draft || this.submitting() || !payment ||
+      payment.orderId !== draft.orderId || payment.confirmationId !== draft.confirmationId) return;
     const generation = this.generation;
-    await this.dispatch(scope, draft, () => generation === this.generation, true);
+    await this.dispatch(scope, draft, () => generation === this.generation);
   }
 
   protected async clearUnreadableDraft() {
     const scope = this.scope();
-    const confirmation = this.confirmationId();
-    if (!scope || !confirmation || !this.unreadableDraft()) return;
+    const verified = this.payment();
+    if (!scope || !verified || !this.unreadableDraft()) return;
     const generation = this.generation;
-    await this.drafts.discard(scope, confirmation);
+    await this.drafts.discardUnreadable(scope, verified.confirmationId, verified.orderId);
     if (generation !== this.generation) return;
     this.unreadableDraft.set(false);
     this.errorKey.set(null);
-    const verified = this.payment();
-    if (verified) this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
+    this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
   }
 
   protected async loadMore() {
@@ -233,7 +226,10 @@ export class RefundRequestsPageComponent {
     try {
       const page = await this.api.list(scope);
       if (!current()) return;
-      this.items.set(page.items);
+      // Rows already shown were acknowledged by a create after this read began; a page that predates them
+      // must not erase them.
+      const listed = new Set(page.items.map(item => item.refundRequestId));
+      this.items.set([...page.items, ...this.items().filter(item => !listed.has(item.refundRequestId))]);
       this.nextCursor.set(page.nextCursor);
       this.listLoaded.set(true);
     } catch (error) {
@@ -243,57 +239,36 @@ export class RefundRequestsPageComponent {
     }
   }
 
+  /**
+   * Saved commands stay untouched in storage, hidden and unsent, until the member's current read of the
+   * receipt succeeds for this scope, order and confirmation.
+   */
   private async loadTarget(scope: CheckoutScope, order: string, confirmation: string, current: () => boolean) {
-    const draftState = this.readDraftSafely(scope, confirmation);
-    if (draftState.kind === 'unreadable') {
-      this.unreadableDraft.set(true);
-    } else if (draftState.kind === 'saved') {
-      this.bindPendingDraft(draftState.command, false);
-    }
     try {
-      await this.loadTargetPayment(scope, order, confirmation, current);
+      const lookup = await findRefundTargetPayment(this.confirmations, scope, order, confirmation, current);
+      if (lookup.kind === 'stale' || !current()) return;
+      if (lookup.kind !== 'found') {
+        this.errorKey.set(lookup.kind === 'missing'
+          ? 'billing.refunds.errors.notFound' : 'billing.refunds.errors.unavailable');
+        return;
+      }
+      const saved = this.bindVerifiedTarget(scope, lookup.payment);
+      if (saved) await this.dispatch(scope, saved, current);
     } catch (error) {
       if (current()) this.handleError(error);
-      return;
     }
-    if (!current() || draftState.kind !== 'saved') return;
-    await this.dispatch(scope, draftState.command, current, true);
   }
 
-  private async loadTargetPayment(scope: CheckoutScope, order: string, confirmation: string, current: () => boolean) {
-    let after: string | undefined;
-    const seenCursors = new Set<string>();
-    for (;;) {
-      const rows = await this.confirmations.list(scope, order, after);
-      if (!current()) return;
-      const match = rows.find(row => row.confirmationId === confirmation);
-      if (match) {
-        this.payment.set(match);
-        if (!this.pendingDraft() && !this.unreadableDraft()) {
-          this.amountInput.set(formatPaiseAsInput(match.amountPaise));
-        }
-        return;
-      }
-      if (rows.length < CONFIRMATION_PAGE_SIZE) break;
-      const next = rows.at(-1)?.confirmationId;
-      if (!next || seenCursors.has(next)) {
-        this.errorKey.set('billing.refunds.errors.unavailable');
-        return;
-      }
-      seenCursors.add(next);
-      after = next;
+  /** Opens the form for a verified receipt and returns the saved command to resend for it, if any. */
+  private bindVerifiedTarget(scope: CheckoutScope, payment: PaymentConfirmation): CreateRefundRequest | null {
+    this.payment.set(payment);
+    const saved = this.drafts.read(scope, payment.confirmationId, payment.orderId);
+    if (!saved) {
+      this.amountInput.set(formatPaiseAsInput(payment.amountPaise));
+      return null;
     }
-    if (current()) this.errorKey.set('billing.refunds.errors.notFound');
-  }
-
-  private readDraftSafely(scope: CheckoutScope, confirmation: string): ReadDraftState {
-    try {
-      const saved = this.drafts.read(scope, confirmation);
-      return saved ? { kind: 'saved', command: saved.command } : { kind: 'none' };
-    } catch (error) {
-      if (error instanceof InvalidRefundRequestDraft) return { kind: 'unreadable' };
-      throw error;
-    }
+    this.bindPendingDraft(saved.command, false);
+    return saved.command;
   }
 
   private bindPendingDraft(command: CreateRefundRequest, conflict: boolean) {
@@ -303,34 +278,48 @@ export class RefundRequestsPageComponent {
     this.reasonInput.set(command.reason);
   }
 
-  private async dispatch(scope: CheckoutScope, command: CreateRefundRequest, current: () => boolean, ambiguous: boolean) {
+  private async dispatch(scope: CheckoutScope, command: CreateRefundRequest, current: () => boolean) {
     this.submitting.set(true);
     this.errorKey.set(null);
     try {
+      if (!await this.drafts.beginDelivery(scope, command)) {
+        // Another tab settled this command; show what the server now holds instead of sending again.
+        if (current()) this.clearPendingDraft();
+        if (current()) await this.loadList(scope, current);
+        return;
+      }
       const created = await this.api.create(scope, command);
-      await this.drafts.discard(scope, command.confirmationId, command.operationKey);
+      await this.drafts.release(scope, command);
       if (!current()) return;
-      this.pendingDraft.set(null);
-      this.pendingConflict.set(false);
-      this.reasonInput.set('');
-      const verified = this.payment();
-      if (verified) this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
+      this.clearPendingDraft();
       this.submittedNotice.set(true);
       this.mergeItems([created], true);
     } catch (error) {
-      const http = error instanceof HttpErrorResponse ? error : null;
-      const code = typeof http?.error?.code === 'string' ? http.error.code : null;
-      if (http && isAuthoritativeRefundRefusal(http.status, code, ambiguous)) {
-        await this.drafts.discard(scope, command.confirmationId, command.operationKey);
-        if (current()) {
-          this.pendingDraft.set(null);
-          this.pendingConflict.set(false);
-        }
-      }
-      if (current()) this.handleError(error);
+      const outcome = await this.releaseAfterRefusal(scope, command, error).catch((failure: unknown) => failure);
+      if (!current()) return;
+      if (outcome === true) this.clearPendingDraft(false);
+      this.handleError(typeof outcome === 'boolean' ? error : outcome);
     } finally {
       if (current()) this.submitting.set(false);
     }
+  }
+
+  /** Gives the key up only when the refusal proves that no delivery of it committed. */
+  private async releaseAfterRefusal(scope: CheckoutScope, command: CreateRefundRequest, error: unknown) {
+    const http = error instanceof HttpErrorResponse ? error : null;
+    if (!http) return false;
+    const code = typeof http.error?.code === 'string' ? http.error.code : null;
+    const kind = refundRefusalKind(http.status, code);
+    return kind !== 'inconclusive' && await this.drafts.release(scope, command, kind === 'soleDelivery');
+  }
+
+  private clearPendingDraft(resetForm = true) {
+    this.pendingDraft.set(null);
+    this.pendingConflict.set(false);
+    if (!resetForm) return;
+    this.reasonInput.set('');
+    const verified = this.payment();
+    if (verified) this.amountInput.set(formatPaiseAsInput(verified.amountPaise));
   }
 
   private mergeItems(incoming: readonly RefundRequestItem[], prependNew: boolean) {
@@ -347,6 +336,12 @@ export class RefundRequestsPageComponent {
   }
 
   private handleError(error: unknown) {
+    if (error instanceof InvalidRefundRequestDraft) {
+      // Storage no longer holds a readable command for this receipt; nothing saved is shown or sent.
+      this.clearPendingDraft(this.pendingDraft() !== null);
+      this.unreadableDraft.set(true);
+      return;
+    }
     this.errorKey.set(this.mapError(error, this.pendingDraft() !== null));
   }
 

@@ -62,9 +62,15 @@ export const REFUND_STATUS_COPY: Readonly<Record<RefundRequestStatus, { readonly
   },
 };
 
+// Refund request V1 trims with .NET string.Trim() (char.IsWhiteSpace). String.prototype.trim() differs: it also
+// removes U+FEFF, which V1 records, and keeps U+0085, which V1 removes.
+const V1_EDGE_SPACE = '\\t-\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';
+const v1EdgeSpace = new RegExp(`^[${V1_EDGE_SPACE}]+|[${V1_EDGE_SPACE}]+$`, 'g');
+
+/** Normalizes a reason exactly as the V1 server contract does; null when the server would refuse it. */
 export function normalizeRefundReason(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
+  const trimmed = value.replace(v1EdgeSpace, '');
   if (trimmed.length === 0 || trimmed.length > REFUND_MAX_REASON_LENGTH) return null;
   for (let i = 0; i < trimmed.length; i++) {
     const code = trimmed.charCodeAt(i);
@@ -143,18 +149,23 @@ const errorCodeMap: Readonly<Record<string, string>> = {
   'Billing.OperationPayloadMismatch': 'mismatch',
 };
 
+export type RefundRefusalKind = 'definitive' | 'soleDelivery' | 'inconclusive';
+
 /**
- * Returns true only when the server proved this operation key did not commit (or belongs to a different payload).
- * Route-level 404s, transport failures, and 403 denials on retries of ambiguous operations keep the saved key.
+ * Says what a failed create proves about its operation key.
+ * definitive: licensing judged this exact payload, so no delivery of the key can have committed.
+ * soleDelivery: refused before replay (403, uncoded 400); proves nothing committed only when no other delivery
+ * of the key was ever started, which the durable draft decides.
+ * inconclusive: route-level 404s, transport and server failures keep the saved key.
  */
-export function isAuthoritativeRefundRefusal(status: number, code: string | null, ambiguous: boolean): boolean {
+export function refundRefusalKind(status: number | null, code: string | null): RefundRefusalKind {
   if (status === 400) {
-    return code === 'Billing.RefundRequestInvalid' || code === 'Billing.RefundAmountInvalid' || !ambiguous;
+    return code === 'Billing.RefundRequestInvalid' || code === 'Billing.RefundAmountInvalid'
+      ? 'definitive' : 'soleDelivery';
   }
-  if (status === 404) return code === 'Billing.RefundPaymentNotFound';
-  if (status === 409) return code === 'Billing.OperationPayloadMismatch';
-  if (status === 403) return !ambiguous;
-  return false;
+  if (status === 404 && code === 'Billing.RefundPaymentNotFound') return 'definitive';
+  if (status === 409 && code === 'Billing.OperationPayloadMismatch') return 'definitive';
+  return status === 403 ? 'soleDelivery' : 'inconclusive';
 }
 
 export function mapRefundErrorKey(status: number | null, code: string | null, hasPending: boolean): string {

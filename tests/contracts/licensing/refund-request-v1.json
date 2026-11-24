@@ -26,6 +26,25 @@
     "reason": "Duplicate shop setup before go-live",
     "expectedHash": "d6a16af0d35db2e501770c4ae1cb7223207b4816d54e13b1426938ee7f457a73"
   },
+  "reasonNormalization": {
+    "description": "V1 trims with .NET string.Trim() (char.IsWhiteSpace) and refuses char.IsControl. Every consumer must agree: normalized is the recorded text, null is a refusal.",
+    "vectors": [
+      { "name": "plain", "input": "Duplicate shop setup", "normalized": "Duplicate shop setup" },
+      { "name": "edge spaces", "input": "  Duplicate shop setup\t", "normalized": "Duplicate shop setup" },
+      { "name": "leading U+FEFF is recorded", "input": "\uFEFFDuplicate shop setup", "normalized": "\uFEFFDuplicate shop setup" },
+      { "name": "trailing U+FEFF is recorded", "input": "Duplicate shop setup\uFEFF ", "normalized": "Duplicate shop setup\uFEFF" },
+      { "name": "U+FEFF alone is recorded", "input": "\uFEFF", "normalized": "\uFEFF" },
+      { "name": "edge U+0085 is trimmed", "input": "\u0085Duplicate shop setup\u0085", "normalized": "Duplicate shop setup" },
+      { "name": "edge U+00A0 and U+3000 are trimmed", "input": "\u00A0Duplicate shop setup\u3000", "normalized": "Duplicate shop setup" },
+      { "name": "edge U+200B is recorded", "input": "\u200BDuplicate shop setup", "normalized": "\u200BDuplicate shop setup" },
+      { "name": "multilingual", "input": "दोहरा भुगतान 🙏", "normalized": "दोहरा भुगतान 🙏" },
+      { "name": "embedded U+0085 is refused", "input": "Duplicate\u0085shop setup", "normalized": null },
+      { "name": "embedded line feed is refused", "input": "Duplicate\nshop setup", "normalized": null },
+      { "name": "edge U+001F is refused", "input": "Duplicate shop setup\u001F", "normalized": null },
+      { "name": "embedded U+009F is refused", "input": "Duplicate\u009Fshop setup", "normalized": null },
+      { "name": "blank is refused", "input": " \u2003\u0085 ", "normalized": null }
+    ]
+  },
   "customerFields": [
     "schemaVersion",
     "refundRequestId",

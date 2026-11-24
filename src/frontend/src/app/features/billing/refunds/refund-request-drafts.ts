@@ -11,6 +11,11 @@ import {
 export interface RefundRequestDraft {
   readonly schemaVersion: 1;
   readonly command: CreateRefundRequest;
+  /**
+   * Deliveries of this key started from any tab, counted under the draft lock before each send.
+   * Absent on a draft saved before the counter existed, which is treated as already delivered.
+   */
+  readonly deliveries?: number;
 }
 
 export interface PrepareRefundDraftResult {
@@ -23,13 +28,18 @@ export class InvalidRefundRequestDraft extends Error {}
 
 const prefix = 'intelibill.billing.refund-request.v1:';
 
+function isCount(value: unknown): boolean {
+  return value === undefined || (Number.isSafeInteger(value) && (value as number) >= 0);
+}
+
 @Injectable({ providedIn: 'root' })
 export class RefundRequestDrafts {
   key(scope: CheckoutScope, confirmation: string): string {
     return prefix + JSON.stringify([scope.userId, scope.shopId, scope.account, confirmation]);
   }
 
-  read(scope: CheckoutScope, confirmation: string): RefundRequestDraft | null {
+  /** Reads the command saved for this receipt; data that is malformed or names another order is unreadable. */
+  read(scope: CheckoutScope, confirmation: string, order: string): RefundRequestDraft | null {
     const raw = localStorage.getItem(this.key(scope, confirmation));
     if (raw === null) return null;
     let value: RefundRequestDraft;
@@ -39,8 +49,8 @@ export class RefundRequestDrafts {
       throw new InvalidRefundRequestDraft();
     }
     const c = value?.command;
-    if (value?.schemaVersion !== 1 || !c || !isUuid(c.operationKey) || !isUuid(c.orderId) ||
-      !isUuid(c.confirmationId) || c.confirmationId !== confirmation ||
+    if (value?.schemaVersion !== 1 || !c || !isUuid(c.operationKey) || c.orderId !== order ||
+      c.confirmationId !== confirmation || !isCount(value.deliveries) ||
       !Number.isSafeInteger(c.amountPaise) || c.amountPaise <= 0 || c.amountPaise > REFUND_MAX_PAISE ||
       typeof c.reason !== 'string' || normalizeRefundReason(c.reason) !== c.reason)
       throw new InvalidRefundRequestDraft();
@@ -48,29 +58,58 @@ export class RefundRequestDrafts {
   }
 
   /** Saves the command unless one is already pending for this confirmation; flags whether an existing draft matches. */
-  prepare(scope: CheckoutScope, confirmation: string, command: CreateRefundRequest): Promise<PrepareRefundDraftResult> {
-    const key = this.key(scope, confirmation);
+  prepare(scope: CheckoutScope, command: CreateRefundRequest): Promise<PrepareRefundDraftResult> {
+    const key = this.key(scope, command.confirmationId);
     return navigator.locks.request(key, () => {
-      const saved = this.read(scope, confirmation);
+      const saved = this.read(scope, command.confirmationId, command.orderId);
       if (saved) {
         return { draft: saved, existing: true, matchesRequest: refundCommandsMatch(saved.command, command) };
       }
-      const draft: RefundRequestDraft = { schemaVersion: 1, command };
+      const draft: RefundRequestDraft = { schemaVersion: 1, command, deliveries: 0 };
       localStorage.setItem(key, JSON.stringify(draft));
       return { draft, existing: false, matchesRequest: true };
     });
   }
 
-  /** Discards a matching saved command, or malformed data when resetting explicitly. */
-  discard(scope: CheckoutScope, confirmation: string, operationKey?: string): Promise<void> {
+  /**
+   * Durably counts a delivery before it is sent. False when the saved command is gone or carries another key,
+   * so nothing may be sent: another tab already settled it.
+   */
+  beginDelivery(scope: CheckoutScope, command: CreateRefundRequest): Promise<boolean> {
+    const key = this.key(scope, command.confirmationId);
+    return navigator.locks.request(key, () => {
+      const saved = this.read(scope, command.confirmationId, command.orderId);
+      if (saved?.command.operationKey !== command.operationKey) return false;
+      const counted: RefundRequestDraft = { ...saved, deliveries: (saved.deliveries ?? 1) + 1 };
+      localStorage.setItem(key, JSON.stringify(counted));
+      return true;
+    });
+  }
+
+  /**
+   * Removes the saved command for this key and reports whether it is now gone. With onlyIfSoleDelivery the
+   * command is kept whenever a second delivery was ever started, since that one may have committed.
+   */
+  release(scope: CheckoutScope, command: CreateRefundRequest, onlyIfSoleDelivery = false): Promise<boolean> {
+    const key = this.key(scope, command.confirmationId);
+    return navigator.locks.request(key, () => {
+      const saved = this.read(scope, command.confirmationId, command.orderId);
+      if (saved?.command.operationKey !== command.operationKey) return true;
+      if (onlyIfSoleDelivery && saved.deliveries !== 1) return false;
+      localStorage.removeItem(key);
+      return true;
+    });
+  }
+
+  /** Explicit reset: removes saved data only when it cannot be read as a command for this receipt. */
+  discardUnreadable(scope: CheckoutScope, confirmation: string, order: string): Promise<void> {
     const key = this.key(scope, confirmation);
     return navigator.locks.request(key, () => {
       try {
-        const saved = this.read(scope, confirmation);
-        if (saved && saved.command.operationKey === operationKey) localStorage.removeItem(key);
+        this.read(scope, confirmation, order);
       } catch (error) {
         if (!(error instanceof InvalidRefundRequestDraft)) throw error;
-        if (operationKey === undefined) localStorage.removeItem(key);
+        localStorage.removeItem(key);
       }
     });
   }

@@ -231,7 +231,7 @@ describe('merchant refund request draft recovery', () => {
     const create = vi.fn();
     configure(create);
     const drafts = TestBed.inject(RefundRequestDrafts);
-    expect(() => drafts.read(draftScope, confirmation)).toThrow(InvalidRefundRequestDraft);
+    expect(() => drafts.read(draftScope, confirmation, order)).toThrow(InvalidRefundRequestDraft);
 
     const { page, settle } = mount();
     await settle();

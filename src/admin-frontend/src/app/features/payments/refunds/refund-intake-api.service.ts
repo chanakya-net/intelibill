@@ -64,6 +64,23 @@ export function canonicalAccountId(value: string): string | null {
   return uuid.test(trimmed) ? trimmed.toLowerCase() : null;
 }
 
+// Refund request V1 trims with .NET string.Trim() (char.IsWhiteSpace). String.prototype.trim() differs: it also
+// removes U+FEFF, which V1 records, and keeps U+0085, which V1 removes.
+const V1_EDGE_SPACE = '\\t-\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';
+const v1EdgeSpace = new RegExp(`^[${V1_EDGE_SPACE}]+|[${V1_EDGE_SPACE}]+$`, 'g');
+
+/** Normalizes a reason exactly as the V1 server contract does; null when the server would never record it. */
+export function normalizeRefundIntakeReason(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.replace(v1EdgeSpace, '');
+  if (trimmed.length === 0 || trimmed.length > 500) return null;
+  for (let i = 0; i < trimmed.length; i++) {
+    const code = trimmed.charCodeAt(i);
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return null;
+  }
+  return trimmed;
+}
+
 function isValidItem(value: unknown, account: string): value is RefundIntakeItem {
   if (!value || typeof value !== 'object') return false;
   const r = value as Record<string, unknown>;
@@ -79,7 +96,7 @@ function isValidItem(value: unknown, account: string): value is RefundIntakeItem
     typeof r['amountPaise'] === 'number' && Number.isSafeInteger(r['amountPaise']) &&
     r['amountPaise'] > 0 && r['amountPaise'] <= (r['paymentAmountPaise'] as number) &&
     r['currency'] === 'INR' &&
-    typeof r['reason'] === 'string' && r['reason'].trim().length > 0 &&
+    typeof r['reason'] === 'string' && normalizeRefundIntakeReason(r['reason']) === r['reason'] &&
     typeof r['requestedAt'] === 'string' && Number.isFinite(Date.parse(r['requestedAt'])) &&
     typeof r['providerId'] === 'string' && r['providerId'].length > 0 &&
     typeof r['providerAccountId'] === 'string' && r['providerAccountId'].length > 0 &&
