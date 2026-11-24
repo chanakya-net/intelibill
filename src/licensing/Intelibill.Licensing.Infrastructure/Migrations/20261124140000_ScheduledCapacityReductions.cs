@@ -36,6 +36,7 @@ public sealed partial class ScheduledCapacityReductions : Migration
             """);
         migrationBuilder.Sql(LeasedHttpOutboxSchema.Claim(true, recoverReductions: true));
         migrationBuilder.Sql(DueFunction);
+        migrationBuilder.Sql(ReductionSettlementFunction);
         migrationBuilder.Sql(ReductionGuards);
         migrationBuilder.Sql(CheckoutOrderGuard);
         migrationBuilder.Sql(PaymentGuards);
@@ -74,6 +75,7 @@ public sealed partial class ScheduledCapacityReductions : Migration
             ALTER FUNCTION public.payment_confirmation_before_reductions(uuid,uuid,uuid,uuid,uuid,timestamptz,text)
                 RENAME TO payment_confirmation_snapshot;
             DROP FUNCTION public.due_scheduled_capacity_reductions(timestamptz);
+            DROP FUNCTION public.reduction_review_settled(uuid, uuid);
             DROP TABLE public.scheduled_capacity_reduction_resolutions,
                 public.scheduled_capacity_reduction_shops,
                 public.scheduled_capacity_reductions,
@@ -103,6 +105,27 @@ public sealed partial class ScheduledCapacityReductions : Migration
             ORDER BY r.effective_at, r.schedule_id LIMIT 50
         $$;
         REVOKE ALL ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) FROM PUBLIC;
+        """;
+
+    // Account-scoped boolean check used by checkout and fulfilment guards without exposing review records.
+    private const string ReductionSettlementFunction = """
+        CREATE FUNCTION public.reduction_review_settled(p_account uuid, p_schedule uuid) RETURNS boolean
+        LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
+            SELECT p_account = nullif(current_setting('app.billing_account_id', true), '')::uuid
+                AND has_table_privilege(session_user, 'public.scheduled_capacity_reductions', 'SELECT')
+                AND EXISTS (
+                    SELECT FROM public.scheduled_capacity_reductions r
+                    JOIN public.unmatched_payments c
+                        ON c.account_id = r.account_id AND c.order_id = r.order_id
+                        AND ((r.attempt_id IS NOT NULL AND c.attempt_id = r.attempt_id)
+                            OR (r.receipt_id IS NOT NULL AND c.manual_receipt_id = r.receipt_id))
+                    JOIN public.payment_review_decisions d
+                        ON d.account_id = c.account_id AND d.case_id = c.case_id
+                    WHERE r.account_id = p_account AND r.schedule_id = p_schedule
+                        AND r.state = 'NeedsReview'
+                        AND d.action IN ('RecordNoAccessDecision', 'ReferForRefundReview')
+                )
+        $$;
         """;
 
     private const string Tables = """

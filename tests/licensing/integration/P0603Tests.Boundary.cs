@@ -95,4 +95,70 @@ public sealed partial class P0603Tests
         await PayAsync(package, nextRenewal);
         Assert.Equal(3L, await fixture.CountAsync("subscription_coverage_terms"));
     }
+
+    [Fact]
+    public async Task ReductionAppliesAtRenewalAfterPaidCapacityIncreaseWhenIncreaseSnapshotLags()
+    {
+        await using var fixture = await StartAsync(database, January31);
+        var package = await fixture.PackageAsync(2, ShopNames);
+        var (_, term) = await PurchaseAsync(package, "Month");
+        var delivery = fixture.Checkout.Delivery;
+        await delivery.ScanAsync(true);
+        await delivery.DrainAsync(true);
+        await delivery.DrainAsync(false);
+
+        // Apply a #910 paid capacity increase (3 -> 4 slots) and drain Reserve/Consume receipts,
+        // leaving the post-apply #910 Snapshot for Shops[1] delayed until after renewal.
+        var successorPlan = await RepriceAsync(fixture, package, 18000L);
+        fixture.At(February14);
+        using var incQuoted = await PostQuoteAsync(package, term, Request(successorPlan, 4, 3, February29));
+        incQuoted.EnsureSuccessStatusCode();
+        var incQuote = await incQuoted.Content.ReadFromJsonAsync<JsonElement>();
+        var incPath = $"{QuotesPath(package.Account, term)}/{incQuote.GetProperty("quoteId").GetGuid():D}/order";
+        using var incConverted = await package.Payer.Client.PostAsJsonAsync(incPath,
+            new { operationKey = Guid.NewGuid(), snapshotHash = incQuote.GetProperty("snapshotHash").GetString() });
+        incConverted.EnsureSuccessStatusCode();
+        var incOrder = await AcceptAsync(package, (await incConverted.Content.ReadFromJsonAsync<CheckoutQuoteV1>())!);
+        await PayAsync(package, incOrder);
+        await delivery.DrainAsync(true);
+        await delivery.DrainAsync(false);
+        await delivery.DrainAsync(true);
+        await delivery.DrainAsync(false);
+        Assert.Equal(4, (await AccountTermAsync(package, term)).GetProperty("purchasedCapacity").GetInt32());
+
+        // Hold back Shops[1]'s #910 snapshot so merchant shop_license_states still shows shop_capacity = 3.
+        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, $"""
+            UPDATE public.entitlement_outbox o
+            SET next_attempt_at = '{February29.AddDays(2):O}'::timestamptz
+            FROM public.entitlement_messages m
+            WHERE m.event_id = o.event_id
+                AND o.account_id = '{package.Account:D}' AND o.shop_id = '{package.Shops[1].ShopId:D}'
+                AND m.kind = 'Snapshot' AND o.status = 'Pending'
+            """);
+        Assert.Equal(3, await delivery.MerchantScalarAsync(
+            $"SELECT shop_capacity FROM public.shop_license_states WHERE shop_id = '{package.Shops[1].ShopId:D}'"));
+
+        // Preview, schedule, fund and apply a #911 reduction (4 -> 1) over the increased term.
+        var solo = await PublishReductionPlanAsync(fixture, "single-shop", "Solo After Increase", 1, 3, 6000L);
+        var preview = await CreatePreviewAsync(package, term, solo, 1, 4, 5, February29);
+        Assert.Equal(4, preview.PriorCapacity);
+        Assert.Equal(3, preview.SlotsRemoved);
+        var schedule = await ScheduleAsync(package, term, preview, [package.Shops[0].ShopId]);
+        var order = await AcceptAsync(package, await CreateReductionOrderAsync(package, term, schedule));
+        await PayAsync(package, order);
+
+        fixture.At(February29);
+        await DrainReductionAsync(delivery, rounds: 4);
+
+        var applied = await ReadScheduleAsync(package, term);
+        Assert.Equal("Applied", applied.State);
+        Assert.NotNull(applied.AppliedTermId);
+        Assert.Equal(2L, await fixture.CountAsync("subscription_coverage_terms"));
+        Assert.Equal("Active", await delivery.MerchantScalarAsync(
+            $"SELECT state FROM public.shop_license_states WHERE shop_id = '{package.Shops[0].ShopId:D}'"));
+        Assert.Equal(applied.AppliedTermId!.Value, await delivery.MerchantScalarAsync(
+            $"SELECT term_id FROM public.shop_license_states WHERE shop_id = '{package.Shops[0].ShopId:D}'"));
+        Assert.Equal("Expired", await delivery.MerchantScalarAsync(
+            $"SELECT state FROM public.shop_license_states WHERE shop_id = '{package.Shops[1].ShopId:D}'"));
+    }
 }

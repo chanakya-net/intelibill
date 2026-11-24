@@ -265,4 +265,54 @@ describe('capacity reduction preview', () => {
     await rejected;
     http.verify();
   });
+
+  it('clears a stale schedule draft and renders expired error when fallback schedule submission fails with 409', async () => {
+    const scope = { userId: 'u1', shopId: 's1', account };
+    const drafts = new CapacityReductionDrafts();
+    const saved = await drafts.saveSchedule(scope, termId, {
+      operationKey: '99999999-9999-4999-8999-999999999998',
+      previewId: previewSample().previewId,
+      previewSnapshotHash: previewSample().snapshotHash,
+      retainedShopIds: [shopA],
+      customerTermsVersion: 'terms-1',
+      refundPolicyVersion: 'refund-1',
+      confirmed: true,
+    });
+    const { fixture, page, api } = render('Owner', {
+      recoverSchedule: vi.fn(async () => { throw new HttpErrorResponse({ status: 404 }); }),
+      schedule: vi.fn(async () => {
+        throw new HttpErrorResponse({ status: 409, error: { code: 'Billing.CapacityReductionExpired' } });
+      }),
+    });
+    await settle(fixture);
+
+    expect(api.recoverSchedule).toHaveBeenCalledWith(scope, termId, saved.operationKey);
+    expect(api.schedule).toHaveBeenCalledWith(scope, termId, saved);
+    expect(drafts.read(scope, termId)?.schedule).toBeUndefined();
+    expect(page.querySelector('[data-testid="reduction-failed"]')?.textContent)
+      .toContain(en.billing.reductions.errors.expired);
+  });
+
+  it('rejects an invalid schedule payload on fallback recovery without clearing the draft or rendering scheduled', async () => {
+    const scope = { userId: 'u1', shopId: 's1', account };
+    const drafts = new CapacityReductionDrafts();
+    await drafts.saveSchedule(scope, termId, {
+      operationKey: '99999999-9999-4999-8999-999999999997',
+      previewId: previewSample().previewId,
+      previewSnapshotHash: previewSample().snapshotHash,
+      retainedShopIds: [shopA],
+      customerTermsVersion: 'terms-1',
+      refundPolicyVersion: 'refund-1',
+      confirmed: true,
+    });
+    const { fixture, page } = render('Owner', {
+      recoverSchedule: vi.fn(async () => { throw new HttpErrorResponse({ status: 404 }); }),
+      schedule: vi.fn(async () => scheduleSample({ termId: '00000000-0000-4000-8000-000000000001' })),
+    });
+    await settle(fixture);
+
+    expect(page.querySelector('[data-testid="reduction-scheduled"]')).toBeNull();
+    expect(page.querySelector('[data-testid="reduction-failed"]')).not.toBeNull();
+    expect(drafts.read(scope, termId)?.schedule).toBeDefined();
+  });
 });

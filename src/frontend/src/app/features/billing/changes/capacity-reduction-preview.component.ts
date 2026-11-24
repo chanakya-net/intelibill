@@ -223,13 +223,8 @@ export class CapacityReductionPreviewComponent {
     this.busy.set(true);
     try {
       const saved = await this.drafts.saveSchedule(scope, preview.termId, command);
-      const schedule = await this.api.schedule(scope, preview.termId, saved).catch(async error => {
-        if (error instanceof HttpErrorResponse && [400, 403, 404, 409].includes(error.status))
-          await this.drafts.clearSection(scope, preview.termId, 'schedule');
-        throw error;
-      });
+      const schedule = await this.submitSchedule(scope, preview.termId, saved);
       if (!current()) return;
-      if (!isValidSchedule(schedule, scope, preview.termId)) throw new Error('Invalid scheduled reduction');
       await this.drafts.clearSection(scope, preview.termId, 'preview');
       await this.drafts.clearSection(scope, preview.termId, 'schedule');
       await this.showSchedule(scope, schedule, current);
@@ -313,20 +308,31 @@ export class CapacityReductionPreviewComponent {
     this.view.set({ kind: 'loading' });
     try {
       const recovered = await this.api.recoverSchedule(scope, termId, command.operationKey);
-      if (current() && isValidSchedule(recovered, scope, termId)) {
-        await this.drafts.clearSection(scope, termId, 'schedule');
-        await this.drafts.clearSection(scope, termId, 'preview');
-        await this.showSchedule(scope, recovered, current);
-        return;
-      }
+      if (!current()) return;
+      if (!isValidSchedule(recovered, scope, termId)) throw new Error('Invalid scheduled reduction');
+      await this.drafts.clearSection(scope, termId, 'schedule');
+      await this.drafts.clearSection(scope, termId, 'preview');
+      await this.showSchedule(scope, recovered, current);
+      return;
     } catch (error) {
       if (!(error instanceof HttpErrorResponse && error.status === 404)) throw error;
     }
-    const schedule = await this.api.schedule(scope, termId, command);
+    if (!current()) return;
+    const schedule = await this.submitSchedule(scope, termId, command);
     if (!current()) return;
     await this.drafts.clearSection(scope, termId, 'schedule');
     await this.drafts.clearSection(scope, termId, 'preview');
     await this.showSchedule(scope, schedule, current);
+  }
+
+  private async submitSchedule(scope: CheckoutScope, termId: string, command: ScheduleCapacityReduction) {
+    const schedule = await this.api.schedule(scope, termId, command).catch(async error => {
+      if (error instanceof HttpErrorResponse && [400, 403, 404, 409].includes(error.status))
+        await this.drafts.clearSection(scope, termId, 'schedule');
+      throw error;
+    });
+    if (!isValidSchedule(schedule, scope, termId)) throw new Error('Invalid scheduled reduction');
+    return schedule;
   }
 
   private async sendPreview(scope: CheckoutScope, term: SubscriptionTermStatus, command: CreateCapacityReductionPreview,

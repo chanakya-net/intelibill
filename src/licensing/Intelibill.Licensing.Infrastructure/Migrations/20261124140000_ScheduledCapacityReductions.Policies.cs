@@ -64,6 +64,10 @@ public sealed partial class ScheduledCapacityReductions
             DO $$ BEGIN
                 EXECUTE format('CREATE POLICY reduction_due_worker ON public.scheduled_capacity_reductions
                     FOR SELECT TO %I USING (true)', current_user);
+                EXECUTE format('CREATE POLICY reduction_settlement_case_read ON public.unmatched_payments
+                    FOR SELECT TO %I USING (true)', current_user);
+                EXECUTE format('CREATE POLICY reduction_settlement_decision_read ON public.payment_review_decisions
+                    FOR SELECT TO %I USING (true)', current_user);
             END $$;
             CREATE POLICY reduction_read ON public.scheduled_capacity_reductions FOR SELECT USING (
                 account_id = {Account} AND ({LiveOwner("scheduled_capacity_reductions")}
@@ -206,6 +210,8 @@ public sealed partial class ScheduledCapacityReductions
             DROP POLICY reduction_inbox_facts_insert ON public.subscription_term_facts;
             DROP POLICY reduction_inbox_event_insert ON public.payment_events;
             DROP POLICY reduction_review_insert ON public.unmatched_payments;
+            DROP POLICY reduction_settlement_case_read ON public.unmatched_payments;
+            DROP POLICY reduction_settlement_decision_read ON public.payment_review_decisions;
             DROP POLICY shop_status_fresh_read ON public.paid_fresh_starts;
             DROP POLICY shop_status_fulfilment_read ON public.payment_fulfilments;
             """);

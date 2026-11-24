@@ -78,6 +78,9 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
                 WHERE requested.account_id = {account} AND requested.order_id = {order} AND a.order_id <> {order}
                   AND NOT EXISTS (SELECT FROM public.capacity_increases i WHERE i.account_id=a.account_id AND i.order_id=a.order_id
                       AND i.attempt_id=a.attempt_id AND i.state='Applied')
+                  AND NOT EXISTS (SELECT FROM public.scheduled_capacity_reductions sr WHERE sr.account_id = a.account_id
+                      AND sr.order_id = a.order_id AND sr.attempt_id = a.attempt_id
+                      AND public.reduction_review_settled(sr.account_id, sr.schedule_id))
                   AND NOT EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.attempt_id = a.attempt_id)
                   AND (NOT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id AND e.kind = 'CheckoutFailed')
                        OR EXISTS (SELECT FROM public.verified_payments v WHERE v.attempt_id = a.attempt_id)))
@@ -87,6 +90,9 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
                     WHERE requested.account_id = {account} AND requested.order_id = {order} AND h.order_id <> {order}
                         AND NOT EXISTS (SELECT FROM public.capacity_increases i WHERE i.account_id=h.account_id AND i.order_id=h.order_id
                             AND i.receipt_id=h.receipt_id AND i.state='Applied')
+                        AND NOT EXISTS (SELECT FROM public.scheduled_capacity_reductions sr WHERE sr.account_id = h.account_id
+                            AND sr.order_id = h.order_id AND sr.receipt_id = h.receipt_id
+                            AND public.reduction_review_settled(sr.account_id, sr.schedule_id))
                         AND h.review_reason IS NOT NULL AND NOT EXISTS (SELECT FROM public.payment_fulfilments f
                             WHERE f.account_id = h.account_id AND f.order_id = h.order_id)) AS "Value"
             """).SingleAsync(ct);

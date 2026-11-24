@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
+using Intelibill.Licensing.Application.Payments;
 using Intelibill.Shared.Contracts.V1;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0601Tests;
@@ -153,6 +154,11 @@ public sealed partial class P0603Tests
         Assert.Equal("Scheduled", (await ReadScheduleAsync(package, term)).State);
         Assert.Equal(1L, await fixture.CountAsync("subscription_coverage_terms"));
         Assert.Equal(1L, await fixture.CountAsync("unmatched_payments", $"order_id = '{order.OrderId:D}' AND classification = 'TermUnavailable'"));
+
+        // An unfailed payment attempt on the Scheduled reduction order still blocks post-grace RestoredAccess.
+        using var blockedAfterCapture = await TryRenewalQuoteAsync(package, term, "Month");
+        Assert.Equal(HttpStatusCode.Conflict, blockedAfterCapture.StatusCode);
+        Assert.Equal(CheckoutOrdersV1.SourceChanged, await P0206Fixture.CodeAsync(blockedAfterCapture));
     }
 
     [Fact]
@@ -185,5 +191,99 @@ public sealed partial class P0603Tests
         var atBoundary = await AccountTermAsync(package, term);
         Assert.Equal("Expired", atBoundary.GetProperty("state").GetString());
         Assert.Equal(JsonValueKind.Null, atBoundary.GetProperty("graceEndsAt").ValueKind);
+    }
+
+    [Fact]
+    public async Task PostGraceRestoredAccessSucceedsAfterUnpaidScheduledReductionExpires()
+    {
+        await using var fixture = await StartAsync(database, January31);
+        var package = await fixture.PackageAsync(2, ShopNames);
+        var (_, term) = await PurchaseAsync(package, "Month");
+        var solo = await PublishReductionPlanAsync(fixture, "single-shop", "Solo Unpaid Expired", 1, 3, 6000L);
+        fixture.At(February14);
+
+        var preview = await CreatePreviewAsync(package, term, solo, 1, 3, 5, February29);
+        var schedule = await ScheduleAsync(package, term, preview, [package.Shops[0].ShopId]);
+
+        // Inside the grace window, ordinary PriorPaidThrough renewal remains fenced by the scheduled reduction.
+        var graceEnd = February29.AddDays(7);
+        fixture.At(graceEnd.AddTicks(-10));
+        using var inGraceBlocked = await TryRenewalQuoteAsync(package, term, "Month");
+        Assert.Equal(HttpStatusCode.Conflict, inGraceBlocked.StatusCode);
+        Assert.Equal(CheckoutOrdersV1.SourceChanged, await P0206Fixture.CodeAsync(inGraceBlocked));
+
+        // After graceEnd, reduction orders are closed and ordinary RestoredAccess purchase succeeds.
+        fixture.At(graceEnd);
+        using var closedReductionOrder = await package.Payer.Client.PostAsJsonAsync(
+            $"{ReductionsPath(package.Account, term)}/{schedule.ScheduleId:D}/order",
+            new CreateReductionOrderV1(Guid.NewGuid(), schedule.SnapshotHash));
+        Assert.Equal(HttpStatusCode.Conflict, closedReductionOrder.StatusCode);
+
+        var restoredQuote = await AcceptAsync(package, await RenewalQuoteAsync(package, term, "Month"));
+        Assert.Equal("RestoredAccess", restoredQuote.StartRule);
+        Assert.Equal(0, restoredQuote.GraceDaysIncluded);
+        Assert.Equal(2, restoredQuote.ShopCount);
+
+        var paid = await PayAsync(package, restoredQuote);
+        P0302Fixture.AssertStatus(paid, "Verified", "Fulfilled", "Applying");
+        Assert.Equal(graceEnd, paid.GetProperty("termStartsAt").GetDateTimeOffset());
+        Assert.Equal(2L, await fixture.CountAsync("subscription_coverage_terms"));
+        Assert.Equal(1L, await fixture.CountAsync("paid_fresh_starts",
+            $"order_id = '{restoredQuote.OrderId:D}' AND kind = 'RestoredAccess'"));
+    }
+
+    [Fact]
+    public async Task PostGraceRestoredAccessSucceedsAfterNeedsReviewReductionIsSettledByFinance()
+    {
+        await using var fixture = await StartAsync(database, January31);
+        var package = await fixture.PackageAsync(2, ShopNames);
+        var (_, term) = await PurchaseAsync(package, "Month");
+        var delivery = fixture.Checkout.Delivery;
+        await delivery.ScanAsync(true);
+        await delivery.DrainAsync(true);
+        await delivery.DrainAsync(false);
+
+        var solo = await PublishReductionPlanAsync(fixture, "single-shop", "Solo Settled Review", 1, 3, 6000L);
+        fixture.At(February14);
+        var preview = await CreatePreviewAsync(package, term, solo, 1, 3, 5, February29);
+        var schedule = await ScheduleAsync(package, term, preview, [package.Shops[0].ShopId]);
+        var redOrder = await AcceptAsync(package, await CreateReductionOrderAsync(package, term, schedule));
+        await PayAsync(package, redOrder);
+
+        // Suspend Shops[1] so the funded reduction enters NeedsReview at renewal, then release before post-grace restoration.
+        using var security = await P0417Tests.SignInAsync(delivery, "security-administrator");
+        var restrictionsPath = $"/api/admin/accounts/{package.Account:D}/restrictions";
+        var restrictionId = await P0404Tests.SuspendAsync(security, restrictionsPath, "Shop", package.Shops[1].ShopId, "Trading");
+        fixture.At(February29);
+        await DrainReductionAsync(delivery);
+        Assert.Equal("NeedsReview", (await ReadScheduleAsync(package, term)).State);
+
+        var graceEnd = February29.AddDays(7);
+        fixture.At(graceEnd);
+        await P0404Tests.SubmitReleaseAsync(security, $"{restrictionsPath}/{restrictionId:D}/release");
+
+        // While the NeedsReview case is unsettled, RestoredAccess remains blocked.
+        using var unsettledBlocked = await TryRenewalQuoteAsync(package, term, "Month");
+        Assert.Equal(HttpStatusCode.Conflict, unsettledBlocked.StatusCode);
+        Assert.Equal(CheckoutOrdersV1.SourceChanged, await P0206Fixture.CodeAsync(unsettledBlocked));
+
+        // Once finance settles the unmatched case with ReferForRefundReview, post-grace RestoredAccess succeeds.
+        using var finance = await P0306Tests.SignInBillingAsync(fixture.Checkout);
+        var reviewsPath = $"/api/admin/accounts/{package.Account:D}/payment-reviews";
+        using var reviews = await finance.SendAsync(HttpMethod.Get, reviewsPath);
+        reviews.EnsureSuccessStatusCode();
+        var reviewCase = Assert.Single((await reviews.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray());
+        var caseId = reviewCase.GetProperty("caseId").GetGuid();
+        using var decided = await P0212Fixture.PostAsync(finance, $"{reviewsPath}/{caseId:D}/decisions",
+            new ReviewPaymentCommand(Guid.NewGuid(), 0, "ReferForRefundReview", "Settle stale reduction payment", "FIXTURE-911"));
+        Assert.Equal(HttpStatusCode.Created, decided.StatusCode);
+
+        var restoredQuote = await AcceptAsync(package, await RenewalQuoteAsync(package, term, "Month"));
+        Assert.Equal("RestoredAccess", restoredQuote.StartRule);
+        var paid = await PayAsync(package, restoredQuote);
+        P0302Fixture.AssertStatus(paid, "Verified", "Fulfilled", "Applying");
+        Assert.Equal(2L, await fixture.CountAsync("subscription_coverage_terms"));
+        Assert.Equal(1L, await fixture.CountAsync("paid_fresh_starts",
+            $"order_id = '{restoredQuote.OrderId:D}' AND kind = 'RestoredAccess'"));
     }
 }

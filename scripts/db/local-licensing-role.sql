@@ -175,6 +175,9 @@ DO $$ BEGIN
   IF to_regprocedure('public.due_entitlement_verification(timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO intelibill_licensing_app;
   END IF;
+  IF to_regprocedure('public.due_scheduled_capacity_reductions(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO intelibill_licensing_app;
+  END IF;
   IF to_regprocedure('public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO intelibill_licensing_app;
   END IF;

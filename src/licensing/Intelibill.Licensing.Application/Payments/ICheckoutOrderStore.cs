@@ -7,12 +7,14 @@ public sealed record CheckoutSourceShop(Guid ShopId, string Name, Guid RequestId
     DateTimeOffset AppliedAt, DateTimeOffset? CoverageEndsAt);
 
 /// <summary>
-/// The latest (unsuperseded) paid period a renewal extends. <c>Mode</c> and <c>Renewed</c> (a paid renewal
-/// successor or a recorded fresh start, which may still start in the future) are deliberately outside the V1 source digest.
+/// The latest (unsuperseded) paid period a renewal extends. <c>Mode</c>, <c>Renewed</c> (a paid renewal
+/// successor or a recorded fresh start, which may still start in the future) and <c>BlocksRestoredAccess</c>
+/// are deliberately outside the V1 source digest.
 /// </summary>
 public sealed record CheckoutRenewalSource(DateTimeOffset StartsAt, DateTimeOffset EndsAt, int Capacity, string Basis,
     string Period, DateTime AnchorLocal, int Ordinal, string CalendarVersion, string AccessPolicyVersion, int CancellationRevision,
-    string Mode = "Grouped", bool Renewed = false, long CapacityRevision = 0, Guid? ActiveReductionId = null);
+    string Mode = "Grouped", bool Renewed = false, long CapacityRevision = 0, Guid? ActiveReductionId = null,
+    bool BlocksRestoredAccess = false);
 
 public sealed record CheckoutTrialSource(Guid ShopId, Guid TermId, int Revision, DateTimeOffset EndsAt);
 

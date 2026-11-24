@@ -34,9 +34,10 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
                 return CheckoutOrderErrors.Invalid;
 
             var source = await store.SourceAsync(account, request.TermId, request.ShopIds!, token);
-            if (source?.Prior?.ActiveReductionId is not null)
-                return CheckoutOrderErrors.Changed;
             var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
+            if (source?.Prior is { ActiveReductionId: not null } priorTerm &&
+                (priorTerm.BlocksRestoredAccess || now < priorTerm.EndsAt + GracePolicy.EligiblePaidGrace))
+                return CheckoutOrderErrors.Changed;
             if (source is null || BuildQuote(account, offer, request, source, now) is not { } quote)
                 return CheckoutOrderErrors.Invalid;
             await store.SaveAsync(quote, source, proof.ActorId, request.OperationKey, hash, proof.ReplayId, token);
@@ -78,7 +79,6 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
         if (source.Prior is not { } prior)
             return RenewalPolicy.DetermineTerm(new(period, now, RoundFreshStartUp: true));
         if (prior.Basis != "Paid" || prior.Period != request.Period || prior.Capacity != capacity ||
-            prior.ActiveReductionId is not null ||
             prior.CalendarVersion != BillingCalendar.Version || prior.AccessPolicyVersion != GracePolicy.Version ||
             (prior.StartsAt > now && !prior.Renewed) || prior.CancellationRevision % 2 == 1 ||
             source.Shops.Any(s => s.CoverageEndsAt != prior.EndsAt))
@@ -89,7 +89,11 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             BillingCalendar.TryBoundary(anchor, prior.Ordinal + 1) != prior.EndsAt ||
             BillingCalendar.TryBoundary(anchor, prior.Ordinal + 2) is null)
             return null;
-        return RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
+        var decision = RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
             RestoredAccessAt: now, RoundFreshStartUp: true));
+        if (prior.ActiveReductionId is not null &&
+            (decision.Start != RenewalStart.RestoredAccess || prior.BlocksRestoredAccess))
+            return null;
+        return decision;
     }
 }

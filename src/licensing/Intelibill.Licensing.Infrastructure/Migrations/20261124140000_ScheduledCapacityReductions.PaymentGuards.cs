@@ -271,7 +271,9 @@ public sealed partial class ScheduledCapacityReductions
                                     AND sc.mode = CASE WHEN {{appliedPrior}} > 1 THEN 'Grouped' ELSE pc.mode END
                                     AND NOT EXISTS (SELECT FROM public.scheduled_capacity_reductions r
                                         WHERE r.account_id = NEW.account_id AND r.term_id = NEW.predecessor_term_id
-                                            AND r.state IN ('Funded', 'Applying', 'NeedsResolution', 'NeedsReview'))
+                                            AND (r.state IN ('Funded', 'Applying', 'NeedsResolution')
+                                                OR (r.state = 'NeedsReview' AND (fresh_kind IS DISTINCT FROM 'RestoredAccess'
+                                                    OR NOT public.reduction_review_settled(r.account_id, r.schedule_id)))))
                                     AND (SELECT count(*) FROM public.payment_fulfilment_shops l
                                         WHERE l.account_id = NEW.account_id AND l.order_id = NEW.order_id)
                                         = (SELECT count(*) FROM public.shop_affiliations a

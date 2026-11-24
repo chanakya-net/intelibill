@@ -146,7 +146,14 @@ public sealed class AddMerchantReductionReservations : Migration
             account_restriction text)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
             SELECT s.shop_id, s.affiliation_request_id, s.state, s.starts_at, s.access_ends_at,
-                s.shop_capacity,
+                coalesce((SELECT (convert_from(r.command, 'UTF8')::jsonb->>'capacity')::int
+                    FROM public.applied_shop_capacity a
+                    JOIN public.capacity_reservation_receipts r
+                        ON r.event_id = a.applied_event AND r.account_id = a.account_id
+                    WHERE a.shop_id = s.shop_id AND a.account_id = s.account_id AND a.term_id = s.term_id
+                        AND a.affiliation_id = s.affiliation_request_id
+                    ORDER BY a.revision DESC LIMIT 1),
+                    s.shop_capacity) AS capacity,
                 coalesce((SELECT a.members FROM public.applied_shop_capacity a
                     WHERE a.shop_id = s.shop_id AND a.account_id = s.account_id AND a.term_id = s.term_id
                         AND a.affiliation_id = s.affiliation_request_id ORDER BY a.revision DESC LIMIT 1),
