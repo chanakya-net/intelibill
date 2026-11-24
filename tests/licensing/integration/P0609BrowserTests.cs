@@ -10,9 +10,9 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// <summary>
 /// Shipping admin and merchant web builds in Chromium against the real licensing and merchant APIs on real PostgreSQL.
 /// Development simulator receipt fixture only: nothing is dispatched to a payment provider and no live provider is
-/// verified. Phase one approves and recovers a dropped response; phase two runs after MFA is five minutes old.
+/// verified. Exercise dropped-response recovery, MFA expiry and a depleted receipt across paged intake.
 /// </summary>
-public sealed class P0609BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
+public sealed partial class P0609BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
     private const string Configuration = "../../tests/licensing/browser/playwright.p0609.config.ts";
@@ -42,7 +42,8 @@ public sealed class P0609BrowserTests(LicensingPostgreSqlFixture database, ITest
         var later = await P0609Tests.RequestRefundAsync(package, purchase.OrderId, confirmation, 1500L,
             "Second branch never opened");
         var before = await P0608Tests.SnapshotAsync(fixture, package, term);
-        var seed = await P0306Tests.EnrollBillingAsync(fixture.Checkout, P0306Tests.BillingEmail);
+        const string colleague = "other.refunds@example.test";
+        var (seed, secondSeed) = await EnrollOperatorsAsync(fixture, colleague);
 
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(12));
         var ct = deadline.Token;
@@ -64,6 +65,8 @@ public sealed class P0609BrowserTests(LicensingPostgreSqlFixture database, ITest
 
         // Phase one: preview, approve, lose only the committed response in transit, reload and recover by key.
         await WriteSecretsAsync(scratch, "sessions.json", fixture, package, seed, ct);
+        await WriteSecretsAsync(scratch, "second.json", fixture, package, secondSeed, ct, colleague);
+        P0609Tests.SetCredentialTime(fixture, fixture.Hosts.Fixture.Clock.GetUtcNow());
         await PlaywrightAsync(adminRoot, targets, "approve", evidence, ct);
         Assert.Equal(1L, await fixture.CountAsync("refund_approvals", $"refund_request_id = '{request:D}' AND amount_paise = 4500"));
         Assert.Equal(1L, await fixture.CountAsync("refund_access_decisions", "treatment = 'Preserve'"));
@@ -73,10 +76,28 @@ public sealed class P0609BrowserTests(LicensingPostgreSqlFixture database, ITest
         // Phase two: the same session exactly five minutes after MFA must sign in again before any preview.
         fixture.Hosts.Fixture.Clock.Now = fixture.Hosts.Fixture.Clock.Now.AddMinutes(5);
         await WriteSecretsAsync(scratch, "sessions-mfa.json", fixture, package, seed, ct);
+        P0609Tests.SetCredentialTime(fixture, fixture.Hosts.Fixture.Clock.GetUtcNow());
         await PlaywrightAsync(adminRoot, targets, "mfa", evidence, ct);
         Assert.Equal(1L, await fixture.CountAsync("refund_approvals"));
         Assert.Equal(before, await P0608Tests.SnapshotAsync(fixture, package, term));
+        await PrepareLedgerAsync(fixture, package, purchase.OrderId, confirmation, targets);
+        await PlaywrightAsync(adminRoot, targets, "ledger", evidence, ct);
+        Assert.Equal(3L, await fixture.CountAsync("refund_approvals"));
+        Assert.Equal(3L, await fixture.CountAsync("refund_access_decisions"));
+        Assert.Equal(12000m, await fixture.ScalarAsync("SELECT sum(amount_paise) FROM public.refund_approvals"));
         await RecordAsync(fixture, evidence, merchantRoot, adminRoot, request, before == after, ct);
+    }
+
+    private static async Task<(string Seed, string ColleagueSeed)> EnrollOperatorsAsync(P0308Fixture fixture, string colleague)
+    {
+        var catalogue = fixture.Checkout.Trial.Catalogue;
+        using var owner = await catalogue.SignInOwnerAsync();
+        var secondSeed = await catalogue.EnrollOperatorAsync(owner, colleague);
+        await P0206Fixture.GrantAsync(owner, colleague, "billing");
+        var seed = await catalogue.EnrollOperatorAsync(owner, P0306Tests.BillingEmail);
+        await P0206Fixture.GrantAsync(owner, P0306Tests.BillingEmail, "billing");
+        catalogue.Clock.Advance(TimeSpan.FromSeconds(30));
+        return (seed, secondSeed);
     }
 
     private async Task PlaywrightAsync(string root, Dictionary<string, string> targets, string phase, string evidence,
@@ -103,14 +124,14 @@ public sealed class P0609BrowserTests(LicensingPostgreSqlFixture database, ITest
     }
 
     private static async Task WriteSecretsAsync(string scratch, string name, P0308Fixture fixture, Package package,
-        string seed, CancellationToken ct)
+        string seed, CancellationToken ct, string email = P0306Tests.BillingEmail)
     {
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         await using var file = new FileStream(Path.Combine(scratch, name), options);
         await JsonSerializer.SerializeAsync(file, new
         {
-            admin = P0306Tests.BillingEmail,
+            admin = email,
             adminPassword = P0114Tests.InviteePassword,
             seed,
             adminTime = fixture.Hosts.Fixture.Clock.GetUtcNow().ToUnixTimeSeconds(),
@@ -145,8 +166,8 @@ public sealed class P0609BrowserTests(LicensingPostgreSqlFixture database, ITest
             commercialAndShopFactsEqualBeforeAndAfter = accessUnchanged,
             merchantBuildId = ngsw.RootElement.GetProperty("appData").GetProperty("buildId").GetString(),
             adminIndexSha,
-            command = "bun x playwright test --config " + Configuration + " --grep @approve | @mfa",
-            passed = 2,
+            command = "bun x playwright test --config " + Configuration + " --grep @approve | @mfa | @ledger",
+            passed = 3,
             skipped = 0,
             boundary = "Development simulator receipt fixture and shipping local merchant/admin builds only; no provider dispatch and no live payment provider verification.",
         }, Indented), ct);

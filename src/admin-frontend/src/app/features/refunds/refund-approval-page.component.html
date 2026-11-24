@@ -130,8 +130,8 @@
             <dd data-testid="refund-approval-access">
               @switch (reviewed.access.treatment) {
                 @case ('Preserve') { Access is preserved. No shop, term, member or restriction changes. }
-                @case ('EndAt') { Access ends for the named shops at {{ instant(reviewed.access.effectiveAt) }}. Nothing remains after that instant, grace included. }
-                @case ('TermAdjustment') { Paid-through moves to {{ instant(reviewed.access.effectiveAt) }} for the named shops; access then ends at {{ instant(reviewed.access.newAccessEndsAt) }}. }
+                @case ('EndAt') { Access ends under this paid term at {{ instant(reviewed.access.effectiveAt) }}, including its grace. }
+                @case ('TermAdjustment') { Paid-through moves to {{ instant(reviewed.access.effectiveAt) }} for this paid term. Its coverage ends at {{ instant(reviewed.access.newAccessEndsAt) }}. }
               }
             </dd>
             @if (reviewed.access.termId) {
@@ -140,10 +140,16 @@
               <dt>Access ends</dt>
               <dd>{{ instant(reviewed.access.previousAccessEndsAt) }} → {{ instant(reviewed.access.newAccessEndsAt) }}</dd>
             }
+            @if (reviewed.access.treatment !== 'Preserve') {
+              <dt>Other access</dt><dd>Independent grants, closures and suspensions still apply. Disconnected devices may use an existing permit until its deadline.</dd>
+            }
             <dt>Named shops</dt>
             <dd>
               @for (shop of reviewed.access.shops; track shop.shopId) {
-                <div data-testid="refund-approval-shop">{{ shop.shopName }}@if (shop.restricted) { (currently suspended — the suspension is not changed) }</div>
+                <div data-testid="refund-approval-shop">{{ shop.shopName }}@if (shop.restricted) { (currently suspended) }@if (shop.closed) { (closed) }
+                  @if (shop.scheduledRestrictionAt) { (suspension scheduled for {{ instant(shop.scheduledRestrictionAt) }}) }
+                  @if (shop.courtesyEndsAt) { (separate complimentary coverage through {{ instant(shop.courtesyEndsAt) }}) }
+                </div>
               } @empty {
                 This payment funded no current term: there is no shop access to change.
               }

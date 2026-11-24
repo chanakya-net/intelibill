@@ -103,7 +103,7 @@ public sealed partial class P0403Tests
         Assert.Equal(effectiveAt, latest.Account.Suspension?.EffectiveAt);
     }
 
-    private static async Task<Guid> ApplySuspensionAsync(P0110CookieBrowser security, Guid account, string scope, Guid? shopId, string mode,
+    internal static async Task<Guid> ApplySuspensionAsync(P0110CookieBrowser security, Guid account, string scope, Guid? shopId, string mode,
         DateTimeOffset? effectiveAt = null)
     {
         var path = $"/api/admin/accounts/{account:D}/restrictions";

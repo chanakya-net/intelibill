@@ -22,9 +22,9 @@ internal static class AdminRefundRequestEndpoints
     }
 
     private static async Task<IResult> IntakeAsync(
-        HttpContext context, Guid account, Guid? after, ReadRefundRequestsHandler handler) =>
+        HttpContext context, Guid account, Guid? after, Guid? request, ReadRefundRequestsHandler handler) =>
         AdminManualPaymentEndpoints.Caller(context) is { } caller
-            ? AdminManualPaymentEndpoints.Respond(context, await handler.IntakeAsync(caller, account, after, context.RequestAborted))
+            ? AdminManualPaymentEndpoints.Respond(context, await handler.IntakeAsync(caller, account, after, context.RequestAborted, request))
             : AdminManualPaymentEndpoints.SessionEnded(context);
 
     private static async Task<IResult> PreviewAsync(HttpContext context, Guid account, Guid request,
@@ -35,8 +35,13 @@ internal static class AdminRefundRequestEndpoints
         if (AdminManualPaymentEndpoints.Caller(context) is not { } caller)
             return AdminManualPaymentEndpoints.SessionEnded(context);
         var body = await CatalogueDraftEndpoints.ReadAsync<PreviewRefundApproval>(context, RefundApprovalRules.MaxCommandBytes);
-        return body.Refusal ?? AdminManualPaymentEndpoints.Respond(context,
-            await handler.PreviewAsync(caller, account, request, body.Value, context.RequestAborted));
+        if (body.Refusal is not null) return body.Refusal;
+        var result = await handler.PreviewAsync(caller, account, request, body.Value, context.RequestAborted);
+        if (result.IsError && result.FirstError.Metadata?.GetValueOrDefault("remainingAmountPaise") is long remaining)
+            return Results.Problem(statusCode: 409, title: result.FirstError.Description,
+                extensions: new Dictionary<string, object?> { ["code"] = result.FirstError.Code,
+                    ["traceId"] = context.TraceIdentifier, ["remainingAmountPaise"] = remaining });
+        return AdminManualPaymentEndpoints.Respond(context, result);
     }
 
     // The write is never cancelled by a dropped connection: a committed approval stays recoverable by its key.

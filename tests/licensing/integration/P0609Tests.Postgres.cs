@@ -180,9 +180,10 @@ public sealed partial class P0609Tests
     private sealed class SqlScope(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid account,
         Guid adminId, Guid sessionId, DateTime mfaVerifiedAt) : IAsyncDisposable
     {
-        internal static async Task<SqlScope> OpenAsync(P0308Fixture fixture, Guid account, bool admin = true)
+        internal static async Task<SqlScope> OpenAsync(P0308Fixture fixture, Guid account, bool admin = true, Guid? actorOverride = null, Guid? session = null)
         {
-            const string latest = "FROM public.admin_sessions ORDER BY mfa_verified_at DESC LIMIT 1";
+            var latest = session is { } id ? $"FROM public.admin_sessions WHERE id='{id:D}'"
+                : "FROM public.admin_sessions ORDER BY mfa_verified_at DESC LIMIT 1";
             var adminId = (Guid)(await fixture.ScalarAsync($"SELECT admin_id {latest}"))!;
             var sessionId = (Guid)(await fixture.ScalarAsync($"SELECT id {latest}"))!;
             var mfa = (DateTime)(await fixture.ScalarAsync($"SELECT mfa_verified_at {latest}"))!;
@@ -194,7 +195,7 @@ public sealed partial class P0609Tests
                 SELECT set_config('app.billing_account_id', $1, true), set_config('app.manual_admin_id', $2, true),
                     set_config('app.manual_session_id', $3, true)
                 """, connection, transaction);
-            foreach (var value in new[] { account.ToString("D"), admin ? adminId.ToString("D") : "", admin ? sessionId.ToString("D") : "" })
+            foreach (var value in new[] { account.ToString("D"), admin ? (actorOverride ?? adminId).ToString("D") : "", admin ? sessionId.ToString("D") : "" })
                 scope.Parameters.AddWithValue(value);
             await scope.ExecuteNonQueryAsync();
             return new(connection, transaction, account, adminId, sessionId, mfa);
@@ -229,12 +230,37 @@ public sealed partial class P0609Tests
         {
             await using var insert = new NpgsqlCommand("""
                 INSERT INTO public.refund_access_decisions (account_id, decision_id, approval_id, refund_request_id,
-                    treatment, shop_count, shops, decided_at)
-                SELECT a.account_id, gen_random_uuid(), a.approval_id, a.refund_request_id, 'Preserve', 0, '[]'::jsonb, a.decided_at
-                FROM public.refund_approvals a WHERE a.approval_id = $1 AND a.refund_request_id = $2
+                    treatment, term_id, previous_paid_through, previous_access_ends_at, new_paid_through,
+                    new_access_ends_at, shop_count, shops, decided_at)
+                SELECT a.account_id, gen_random_uuid(), a.approval_id, a.refund_request_id, 'Preserve', t.term_id,
+                    t.ends_at, t.ends_at + interval '168 hours', t.ends_at, t.ends_at + interval '168 hours',
+                    scope.count, scope.shops, a.decided_at
+                FROM public.refund_approvals a JOIN public.payment_fulfilments f USING (account_id, order_id)
+                JOIN public.subscription_coverage_terms t USING (account_id, term_id)
+                CROSS JOIN LATERAL (SELECT count(*)::int, jsonb_agg(jsonb_build_object('shopId', x.shop_id,
+                    'shopName', x.shop_name, 'restricted', x.restricted, 'closed', x.closed,
+                    'scheduledRestrictionAt', x.scheduled_restriction_at, 'courtesyEndsAt', x.courtesy_ends_at)
+                    ORDER BY x.shop_id) AS shops FROM public.refund_target_shops(a.account_id,t.term_id,a.decided_at) x) scope
+                WHERE a.approval_id = $1 AND a.refund_request_id = $2
                 """, connection, transaction);
             insert.Parameters.AddWithValue(approval);
             insert.Parameters.AddWithValue(request);
+            Assert.Equal(1, await insert.ExecuteNonQueryAsync());
+        }
+
+        internal async Task EndAsync(Guid approval, Guid term, long revision, DateTimeOffset paid,
+            DateTimeOffset until, DateTimeOffset end, string shops)
+        {
+            await using var insert = new NpgsqlCommand("""
+                INSERT INTO public.refund_access_decisions(account_id, decision_id, approval_id, refund_request_id,
+                    treatment, term_id, term_revision, previous_paid_through, previous_access_ends_at,
+                    effective_at, new_paid_through, new_access_ends_at, shop_count, shops, decided_at)
+                SELECT a.account_id, gen_random_uuid(), a.approval_id, a.refund_request_id, 'EndAt', $2, $3,
+                    $4, $5, $6, least($6,$4), $6, jsonb_array_length($7::jsonb), $7::jsonb, a.decided_at
+                FROM public.refund_approvals a WHERE a.approval_id=$1
+                """, connection, transaction);
+            foreach (var value in new object[] { approval, term, revision, paid, until, end, shops })
+                insert.Parameters.AddWithValue(value);
             Assert.Equal(1, await insert.ExecuteNonQueryAsync());
         }
 

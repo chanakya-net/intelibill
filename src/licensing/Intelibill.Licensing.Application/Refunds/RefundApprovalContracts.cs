@@ -34,8 +34,8 @@ public static class RefundApprovalErrors
     public static Error PreviewStale => Error.Conflict("Refund.PreviewStale",
         "The payment or its access changed after this preview. Review the current preview.");
     public static Error AlreadyDecided => Error.Conflict("Refund.AlreadyDecided", "This refund request already has a decision.");
-    public static Error AmountExceeds => Error.Conflict("Refund.AmountExceedsRemaining",
-        "The amount exceeds the request or what remains refundable on the verified payment.");
+    public static Error AmountExceeds(long remaining) => Error.Conflict("Refund.AmountExceedsRemaining",
+        "The amount exceeds the request or what remains refundable on the verified payment.", new() { ["remainingAmountPaise"] = remaining });
     public static Error TreatmentUnavailable => Error.Conflict("Refund.AccessTreatmentUnavailable",
         "This access treatment cannot apply to the payment's current term at that instant.");
 }
@@ -56,14 +56,15 @@ public sealed record ApproveRefund(
     [property: JsonPropertyName("reason")] string? Reason,
     [property: JsonPropertyName("treatment")] string? Treatment,
     [property: JsonPropertyName("effectiveAt")] DateTimeOffset? EffectiveAt,
-    [property: JsonPropertyName("expectedVersion")] long ExpectedVersion,
+    [property: JsonPropertyName("expectedVersion")] long? ExpectedVersion,
     [property: JsonPropertyName("impactDigest")] string? ImpactDigest,
     [property: JsonPropertyName("confirmed")] bool Confirmed)
 {
     public override string ToString() => "[REDACTED]";
 }
 
-public sealed record RefundAccessShop(Guid ShopId, string ShopName, bool Restricted);
+public sealed record RefundAccessShop(Guid ShopId, string ShopName, bool Restricted,
+    DateTimeOffset? ScheduledRestrictionAt, bool Closed, DateTimeOffset? CourtesyEndsAt);
 
 /// <summary>The named access effect of one treatment on the term the payment funded; instants are exact UTC.</summary>
 public sealed record RefundAccessImpact(string Treatment, Guid? TermId, RefundAccessShop[] Shops, DateTimeOffset? EffectiveAt,
@@ -76,6 +77,8 @@ public sealed record RefundApprovalPreview(Guid AccountId, Guid RefundRequestId,
     string ProviderAccountId, string Environment, string ConfigurationVersion, string RefundPolicyVersion,
     long ReceiptVersion, string ImpactDigest, RefundAccessImpact Access)
 {
+    [JsonIgnore] public DateTimeOffset ReviewedAt { get; init; }
+    [JsonIgnore] public RefundAccessTarget? Target { get; init; }
     public int SchemaVersion { get; init; } = 1;
     public override string ToString() => "[REDACTED]";
 }
@@ -104,7 +107,8 @@ public sealed record RefundReceiptLedger(long Revision, long OccupiedPaise);
 /// <summary>The term this payment funded, its current named shops and the commitments that block an effect.</summary>
 public sealed record RefundAccessTarget(TermFactsRow Term, RefundTargetShop[] Shops, long TermRevision, bool Committed);
 
-public sealed record RefundTargetShop(Guid ShopId, Guid RequestId, string ShopName, bool Restricted);
+public sealed record RefundTargetShop(Guid ShopId, Guid RequestId, string ShopName, bool Restricted,
+    DateTimeOffset? ScheduledRestrictionAt, bool Closed, DateTimeOffset? CourtesyEndsAt);
 
 public sealed record StoredRefundApproval(RefundApprovalReceipt Receipt, string PayloadHash);
 
@@ -116,7 +120,7 @@ public interface IRefundApprovalStore
     Task<RefundApprovalSource?> SourceAsync(Guid account, Guid request, CancellationToken ct);
     Task LockReceiptAsync(Guid confirmation, CancellationToken ct);
     Task<RefundReceiptLedger> LedgerAsync(Guid account, Guid confirmation, CancellationToken ct);
-    Task<RefundAccessTarget?> TargetAsync(RefundApprovalSource source, CancellationToken ct);
+    Task<RefundAccessTarget?> TargetAsync(RefundApprovalSource source, DateTimeOffset at, CancellationToken ct);
     Task<StoredRefundApproval?> FindAsync(Guid account, Guid operationKey, CancellationToken ct);
     Task SaveAsync(NewRefundApproval approval, CancellationToken ct);
 }

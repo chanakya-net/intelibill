@@ -33,7 +33,8 @@ describe('approvalPreviewAndScopedRecovery', () => {
     });
     // Only an undecided request offers the approval; a decided one never does.
     expect(links[0]?.getAttribute('href')).toBe(approvalPath);
-    expect(links[1]).toBeNull();
+    expect(intake.nativeElement.querySelector('[data-testid="refund-intake-view"]')?.getAttribute('href'))
+      .toBe(approvalPath.replace('000001/approve', '000002/approve'));
     TestBed.resetTestingModule();
     expect(await loadApprovalPage()).not.toBeNull();
   });
@@ -82,10 +83,11 @@ describe('approvalPreviewAndScopedRecovery', () => {
     expect(sent.request.headers.get('X-Admin-CSRF')).toBe('csrf');
     expect(sent.request.headers.get('X-Admin-Session')).toBe('session-1');
     // The exact command was durable before the request left.
-    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: command });
+    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: expect.objectContaining(command) });
 
     sent.flush(receipt(command['operationKey'] as string), { status: 201, statusText: 'Created' });
     const saved = await harness.shown('refund-approval-receipt');
+    expect(harness.find('refund-approval-status')?.textContent).toContain('Pending');
     expect(saved.textContent).toContain('₹45.00');
     expect(saved.textContent).toContain('₹75.00');
     expect(saved.textContent).toContain('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
@@ -135,7 +137,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
       harness.update();
       expect(harness.page.querySelector('[role="alert"]')?.textContent).toContain('original key is kept');
     });
-    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: command });
+    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: expect.objectContaining(command) });
 
     harness.find<HTMLButtonElement>('refund-approval-retry')!.click();
     const retried = await harness.post('/approvals');
@@ -146,7 +148,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
   });
 
   it('shows another tab’s unresolved approval after reload and sends nothing new', async () => {
-    const original = { operationKey: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', amountPaise: 4500, reason: 'Original reason',
+    const original = { operationKey: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', amountPaise: 4500, reason: 'Duplicate branch purchased before go-live',
       treatment: 'Preserve', effectiveAt: null, expectedVersion: 0, impactDigest: preview.impactDigest, confirmed: true };
     const harness = await open({ pending: original });
     const pending = await harness.shown('refund-approval-pending');
@@ -157,6 +159,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
     harness.find<HTMLButtonElement>('refund-approval-check')!.click();
     (await harness.take('GET', `/approvals/operations/${original.operationKey}`)).flush(receipt(original.operationKey));
     await harness.shown('refund-approval-receipt');
+    expect(harness.find('refund-approval-status')?.textContent).toContain('Pending');
     harness.http.verify();
   });
 
@@ -168,7 +171,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
     const command = sent.request.body as Record<string, unknown>;
     sent.flush(receipt(command['operationKey'] as string, { adminId: otherAccount }));
     await harness.shown('refund-approval-pending');
-    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: command });
+    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: expect.objectContaining(command) });
     expect(harness.find('refund-approval-receipt')).toBeNull();
   });
 
@@ -181,7 +184,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
     await harness.shown('refund-approval-pending');
     const link = await harness.shown('refund-approval-sign-in');
     expect(link.getAttribute('href')).toBe(`/auth/sign-in?refundAccount=${account}&refundRequest=${request}`);
-    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: sent.request.body });
+    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: expect.objectContaining(sent.request.body) });
   });
 
   it.each(['account', 'admin', 'session'] as const)(
@@ -200,7 +203,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
       harness.update();
       // The late answer neither shows a receipt in the new scope nor settles the original command.
       expect(harness.find('refund-approval-receipt')).toBeNull();
-      expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: command });
+      expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: expect.objectContaining(command) });
       if (scope !== 'session') expect(harness.find('refund-approval-pending')).toBeNull();
     },
   );
@@ -212,4 +215,92 @@ describe('approvalPreviewAndScopedRecovery', () => {
     expect(harness.find('refund-approval-form')).toBeNull();
     expect(base).toContain(account);
   });
+});
+
+describe('supported adjustment amounts', () => {
+  it.each([['9999999999.99', true], ['10000000000.00', true], ['10000000000.01', false]] as const)(
+    'allows a preview for %s only within the payment ceiling', async (rupees, valid) => {
+      const harness = await open();
+      await harness.shown('refund-approval-form');
+      harness.set('#refund-approval-amount', rupees);
+      harness.set('#refund-approval-reason', 'Approved correction');
+      harness.choose('Preserve');
+      expect(harness.find<HTMLButtonElement>('refund-approval-preview')!.disabled).toBe(!valid);
+    });
+});
+
+describe('approval evidence', () => {
+  it.each([4000, 0])('displays the first refused proposal’s remaining %i paise', async remaining => {
+    const harness = await open();
+    await harness.shown('refund-approval-form');
+    harness.set('#refund-approval-amount', '70.00');
+    harness.set('#refund-approval-reason', 'Reviewed adjustment');
+    harness.choose('Preserve');
+    harness.find<HTMLButtonElement>('refund-approval-preview')!.click();
+    (await harness.post('/approval-preview')).flush({ code: 'Refund.AmountExceedsRemaining', remainingAmountPaise: remaining },
+      { status: 409, statusText: 'Conflict' });
+    expect((await harness.shown('refund-approval-error')).textContent).toContain(remaining === 0 ? '₹0.00' : '₹40.00');
+    expect(submitButton(harness)).toBeNull();
+    harness.http.verify();
+  });
+
+  it.each(['reason', 'receiptVersion', 'orderId', 'confirmationId', 'remainingBeforePaise', 'remainingAfterPaise', 'effectiveAt'])(
+    'retains the original key when recovered %s differs', async field => {
+      const key = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+      const original = { operationKey: key, amountPaise: 4500, reason: 'Finance adjustment',
+        treatment: 'EndAt', effectiveAt: '2028-02-10T04:30:00.000Z', expectedVersion: 0, impactDigest: preview.impactDigest, confirmed: true };
+      const harness = await open({ pending: original });
+      await harness.shown('refund-approval-pending');
+      harness.find<HTMLButtonElement>('refund-approval-check')!.click();
+      const values: Record<string, unknown> = { reason: 'Another reason', receiptVersion: 2, orderId: otherAccount,
+        confirmationId: otherAccount, remainingBeforePaise: 10000, remainingAfterPaise: 1 };
+      const at = field === 'effectiveAt' ? '2028-02-10T04:30:00.000001Z' : original.effectiveAt;
+      (await harness.take('GET', '/approvals/operations/' + key)).flush(receipt(key, { reason: original.reason,
+        access: { ...preview.access, treatment: original.treatment, effectiveAt: at, newPaidThrough: at, newAccessEndsAt: at },
+        ...(field in values ? { [field]: values[field] } : {}) }));
+      expect((await harness.shown('refund-approval-error')).textContent).toContain('outcome is unknown');
+      expect(harness.find('refund-approval-receipt')).toBeNull();
+      expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: original });
+    });
+
+  it('keeps the approval unresolved if a receipt names a different paid term', async () => {
+    const harness = await open();
+    await reviewed(harness);
+    submitButton(harness)!.click();
+    const sent = await harness.post('/approvals');
+    sent.flush(receipt(sent.request.body.operationKey, { access: { ...preview.access, termId: otherAccount } }));
+    expect((await harness.shown('refund-approval-error')).textContent).toContain('outcome is unknown');
+    expect(harness.find('refund-approval-receipt')).toBeNull();
+    expect(harness.records.get(harness.key)).toEqual({ revision: 0, pending: expect.objectContaining(sent.request.body) });
+  });
+
+  it('refuses a preview for another effective instant', async () => {
+    const harness = await open();
+    await harness.shown('refund-approval-form');
+    harness.set('#refund-approval-amount', '45.00');
+    harness.set('#refund-approval-reason', 'Reason');
+    harness.choose('EndAt');
+    harness.set('#refund-approval-effective', '2028-02-10T10:00:00');
+    harness.find<HTMLButtonElement>('refund-approval-preview')!.click();
+    const at = '2028-02-10T04:30:00.000001Z';
+    (await harness.post('/approval-preview')).flush({ ...preview, access: { ...preview.access,
+      treatment: 'EndAt', effectiveAt: at, newPaidThrough: at, newAccessEndsAt: at } });
+    await harness.shown('refund-approval-error');
+    expect(submitButton(harness)).toBeNull();
+  });
+});
+
+it('recovers the original key while scoped intake is unavailable', async () => {
+  const original = { operationKey: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', amountPaise: 4500,
+    reason: 'Duplicate branch purchased before go-live', treatment: 'Preserve', effectiveAt: null,
+    expectedVersion: 0, impactDigest: preview.impactDigest, confirmed: true, reviewedPayment: {
+      orderId: item.orderId, confirmationId: item.confirmationId, verifiedAmountPaise: item.paymentAmountPaise,
+      requestedAmountPaise: item.amountPaise, remainingAmountPaise: 12000 } };
+  const harness = await open({ pending: original, unavailable: true });
+  expect(harness.find('refund-approval-form')).toBeNull();
+  harness.find<HTMLButtonElement>('refund-approval-check')!.click();
+  (await harness.take('GET', '/approvals/operations/' + original.operationKey)).flush(receipt(original.operationKey));
+  await harness.shown('refund-approval-receipt');
+  expect(harness.records.get(harness.key)).toEqual({ revision: 1 });
+  harness.http.verify();
 });

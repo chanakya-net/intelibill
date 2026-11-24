@@ -18,7 +18,7 @@ public sealed class ReadRefundRequestsHandler(
             await store.PageAsync(account, after, token), ct);
 
     public Task<ErrorOr<RefundIntakePage>> IntakeAsync(
-        AdminSessionCaller caller, Guid account, Guid? after, CancellationToken ct) =>
+        AdminSessionCaller caller, Guid account, Guid? after, CancellationToken ct, Guid? request = null) =>
         admins.InManualScopeAsync<RefundIntakePage>(caller, account, Guid.Empty, recentMfa: false, lockAccount: false,
-            async (_, token) => await store.IntakeAsync(account, after, token), ct);
+            async (_, token) => await store.IntakeAsync(account, after, token, request), ct);
 }

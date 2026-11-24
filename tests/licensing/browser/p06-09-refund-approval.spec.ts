@@ -100,7 +100,11 @@ async function reviewPreserve(operator: Page) {
 /** A second tab after reload sees the same frozen intent and recovers the committed receipt by its original key. */
 async function recoverInSecondTab(context: BrowserContext, key: string, saved: Record<string, unknown>) {
   const second = await context.newPage();
-  await second.goto(approvePage(request));
+  await second.goto(admin);
+  await second.getByRole('link', { name: 'Refund requests', exact: true }).click();
+  await second.getByTestId('refund-intake-account').fill(account);
+  await second.getByTestId('refund-intake-search').click();
+  await second.locator(`[data-refund-id="${request}"]`).getByTestId('refund-intake-view').click();
   await expect(second.getByTestId('refund-approval-operation')).toHaveText(key);
   await expect(second.getByTestId('refund-approval-form')).toHaveCount(0);
   const lookup = second.waitForResponse(r => r.request().method() === 'GET' && r.url().endsWith(`${approvals}/operations/${key}`));
@@ -112,7 +116,30 @@ async function recoverInSecondTab(context: BrowserContext, key: string, saved: R
   const receipt = second.getByTestId('refund-approval-receipt');
   for (const text of ['₹45.00', '₹75.00', String(saved['reservationId']), String(saved['accessDecisionId'])])
     await expect(receipt).toContainText(text);
+  await expect(second.getByTestId('refund-approval-status')).toHaveText('Pending provider');
   await checkViewports(second, 'admin-approval-receipt');
+  return second;
+}
+
+async function dropCommittedResponse(operator: Page) {
+  // The real API commits the approval; only its answer is lost on the way back to Chromium.
+  let committed: { status: number; cacheControl: string; body: Record<string, unknown> } | null = null;
+  await operator.route('**' + approvals, async route => {
+    if (route.request().method() !== 'POST' || committed) return route.continue();
+    const response = await route.fetch();
+    committed = { status: response.status(), cacheControl: response.headers()['cache-control'], body: await response.json() };
+    await route.abort('connectionreset');
+  });
+  await operator.getByTestId('refund-approval-submit').click();
+  // The unknown-outcome message is the settled state; the pending panel alone also shows while the request is in flight.
+  await expect(operator.getByTestId('refund-approval-error')).toContainText('outcome is unknown');
+  await expect(operator.getByTestId('refund-approval-pending')).toBeVisible();
+  expect(committed!.status).toBe(201);
+  expect(committed!.cacheControl).toContain('no-store');
+  const key = (await operator.getByTestId('refund-approval-operation').textContent())!.trim();
+  expect(committed!.body['operationKey']).toBe(key);
+  await checkViewports(operator, 'admin-approval-unknown');
+  return { key, committed: committed! };
 }
 
 test('@approve finance previews, approves, loses the response and recovers the approval', async ({ browser }) => {
@@ -131,44 +158,41 @@ test('@approve finance previews, approves, loses the response and recovers the a
 
   await reviewPreserve(operator);
 
-  // The real API commits the approval; only its answer is lost on the way back to Chromium.
-  let committed: { status: number; cacheControl: string; body: Record<string, unknown> } | null = null;
-  await operator.route('**' + approvals, async route => {
-    if (route.request().method() !== 'POST' || committed) return route.continue();
-    const response = await route.fetch();
-    committed = { status: response.status(), cacheControl: response.headers()['cache-control'], body: await response.json() };
-    await route.abort('connectionreset');
-  });
-  await operator.getByTestId('refund-approval-submit').click();
-  // The unknown-outcome message is the settled state; the pending panel alone also shows while the request is in flight.
-  await expect(operator.getByTestId('refund-approval-error')).toContainText('outcome is unknown');
-  await expect(operator.getByTestId('refund-approval-pending')).toBeVisible();
-  expect(committed!.status).toBe(201);
-  expect(committed!.cacheControl).toContain('no-store');
-  const key = (await operator.getByTestId('refund-approval-operation').textContent())!.trim();
-  expect(committed!.body['operationKey']).toBe(key);
-  await checkViewports(operator, 'admin-approval-unknown');
+  const { key, committed } = await dropCommittedResponse(operator);
 
-  await recoverInSecondTab(context, key, committed!.body);
+  const savedDevice = await context.storageState({ indexedDB: true });
+  const other = await browser.newContext({ ...options, storageState: { cookies: [],
+    origins: savedDevice.origins.map(origin => ({ ...origin, localStorage: [] })) } });
+  const colleague = await other.newPage();
+  await colleague.goto(admin + '/auth/sign-in');
+  await submitSignIn(colleague, secretsOf('second.json'));
+  await expect(colleague).not.toHaveURL(/sign-in/);
+  await colleague.goto(approvePage(request));
+  await expect(colleague.getByTestId('refund-approval-decided')).toBeVisible();
+  await expect(colleague.getByTestId('refund-approval-operation')).toHaveCount(0);
+  await other.close();
+  await operator.close();
+  const returned = await recoverInSecondTab(context, key, committed.body);
 
-  // The first tab learns the outcome on reload; the intake shows the decided request and offers no second approval.
-  await operator.reload();
-  await expect(operator.getByTestId('refund-approval-decided')).toBeVisible();
-  await operator.goto(`${admin}/payments/refunds?account=${account}`);
-  await expect(row.getByTestId('refund-intake-status')).toHaveText('Pending provider');
-  await expect(row.getByTestId('refund-intake-approve')).toHaveCount(0);
-  await expect(operator.locator(`[data-refund-id="${laterRequest}"]`).getByTestId('refund-intake-approve')).toBeVisible();
-  await checkViewports(operator, 'admin-intake-pending');
+  // Reloading after recovery shows the authoritative decision; the intake shows the decided request and offers no second approval.
+  await returned.reload();
+  await expect(returned.getByTestId('refund-approval-decided')).toBeVisible();
+  await returned.goto(`${admin}/payments/refunds?account=${account}`);
+  const decidedRow = returned.locator(`[data-refund-id="${request}"]`);
+  await expect(decidedRow.getByTestId('refund-intake-status')).toHaveText('Pending provider');
+  await expect(decidedRow.getByTestId('refund-intake-approve')).toHaveCount(0);
+  await expect(returned.locator(`[data-refund-id="${laterRequest}"]`).getByTestId('refund-intake-approve')).toBeVisible();
+  await checkViewports(returned, 'admin-intake-pending');
   await context.storageState({ path: join(scratch, 'admin-state.json') });
 
   const customer = await merchantSeesPending(await browser.newContext(options), secrets);
   writeFileSync(join(evidence, 'browser-observations.json'), JSON.stringify({
-    refundRequestId: request, operationKey: key, previewStatus: 200, approvalStatus: committed!.status,
+    refundRequestId: request, operationKey: key, previewStatus: 200, approvalStatus: committed.status,
     approvalResponseDroppedInTransit: true, recoveryStatus: 200, recoveredReceiptEqualsCommitted: true,
-    receipt: { approvalId: committed!.body['approvalId'], reservationId: committed!.body['reservationId'],
-      accessDecisionId: committed!.body['accessDecisionId'], approvedAmountPaise: committed!.body['approvedAmountPaise'],
-      remainingAfterPaise: committed!.body['remainingAfterPaise'], adminId: committed!.body['adminId'],
-      treatment: (committed!.body['access'] as Record<string, unknown>)['treatment'] },
+    receipt: { approvalId: committed.body['approvalId'], reservationId: committed.body['reservationId'],
+      accessDecisionId: committed.body['accessDecisionId'], approvedAmountPaise: committed.body['approvedAmountPaise'],
+      remainingAfterPaise: committed.body['remainingAfterPaise'], adminId: committed.body['adminId'],
+      treatment: (committed.body['access'] as Record<string, unknown>)['treatment'] },
     figures: { verified: 12000, requested: 6000, approved: 4500, remaining: 7500 },
     merchant: { status: customer.status, amountPaise: customer.amountPaise },
     boundary: 'Development simulator receipt fixture and shipping local builds; real local APIs and PostgreSQL; no provider dispatch.',
@@ -215,4 +239,39 @@ test('@mfa five-minute-old MFA must sign in again before previewing a named acce
       shops: access.shops.map((shop: { shopName: string }) => shop.shopName) },
     approvalsSent: 0,
   }, null, 2));
+  await context.storageState({ path: join(scratch, 'fresh-admin.json') });
+});
+
+async function reserve(page: Page, id: string, rupees: string) {
+  await page.goto(approvePage(id));
+  await fillApproval(page, rupees, 'Preserve');
+  expect((await preview(page, id)).status()).toBe(200);
+  await page.locator('#refund-approval-confirm').check();
+  await page.getByTestId('refund-approval-submit').click();
+  await expect(page.getByTestId('refund-approval-receipt')).toBeVisible();
+  await expect(page.getByTestId('refund-approval-status')).toHaveText('Pending provider');
+}
+
+test('@ledger shows depleted balances and opens a request beyond the first thousand', async ({ browser }) => {
+  const context = await browser.newContext({ ...options, storageState: join(scratch, 'fresh-admin.json') });
+  const page = await context.newPage();
+  const id = required('EXCESS');
+  await reserve(page, required('FIRST_HOLD'), '35.00');
+  await page.goto(approvePage(id));
+  for (const remaining of ['₹40.00', '₹0.00']) {
+    await fillApproval(page, '70.00', 'Preserve');
+    expect((await preview(page, id)).status()).toBe(409);
+    await expect(page.getByRole('alert')).toContainText(remaining);
+    await expect(page.getByTestId('refund-approval-submit')).toHaveCount(0);
+    if (remaining === '₹0.00') break;
+    await reserve(page, required('LAST_HOLD'), '40.00');
+    await page.goto(`${admin}/payments/refunds?account=${account}`);
+    for (let index = 1; index <= 40; index++) {
+      await expect(page.getByTestId('refund-intake-row')).toHaveCount(index * 25);
+      await page.getByTestId('refund-intake-more').click();
+    }
+    await page.locator(`[data-refund-id="${id}"]`).getByTestId('refund-intake-approve').click();
+    await expect(page).toHaveURL(approvePage(id));
+  }
+  await checkViewports(page, 'admin-exhausted-receipt');
 });

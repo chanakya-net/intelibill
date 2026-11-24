@@ -40,7 +40,7 @@ internal sealed class RefundApprovalStore(LicensingDbContext db, SubscriptionAcc
             FROM public.refund_approvals a WHERE a.account_id = {account} AND a.confirmation_id = {confirmation}
             """).SingleAsync(ct);
 
-    public async Task<RefundAccessTarget?> TargetAsync(RefundApprovalSource source, CancellationToken ct)
+    public async Task<RefundAccessTarget?> TargetAsync(RefundApprovalSource source, DateTimeOffset at, CancellationToken ct)
     {
         var account = source.AccountId;
         var funded = await db.Database.SqlQuery<Guid?>($"""
@@ -55,29 +55,12 @@ internal sealed class RefundApprovalStore(LicensingDbContext db, SubscriptionAcc
         if (funded is not { } term || await reader.ReadTermAsync(account, term, ct) is not { } row) return null;
 
         var shops = await db.Database.SqlQuery<RefundTargetShop>($"""
-            SELECT covered.shop_id, covered.request_id, covered.shop_name, EXISTS (
-                SELECT FROM public.active_operational_restrictions x
-                WHERE x.account_id = {account} AND (x.shop_id = covered.shop_id OR x.shop_id IS NULL)) AS restricted
-            FROM (
-                SELECT a.shop_id, a.request_id, a.shop_name FROM public.shop_affiliations a
-                WHERE a.account_id = {account} AND a.term_id = {term}
-                UNION
-                SELECT a.shop_id, a.request_id, a.shop_name FROM public.payment_fulfilment_shops p
-                JOIN public.shop_affiliations a ON a.account_id = p.account_id AND a.shop_id = p.shop_id
-                    AND a.request_id = p.affiliation_request_id
-                WHERE p.account_id = {account} AND p.term_id = {term}
-            ) covered ORDER BY covered.shop_id
+            SELECT * FROM public.refund_target_shops({account}, {term}, {at}) ORDER BY shop_id
             """).ToArrayAsync(ct);
         var state = await db.Database.SqlQuery<TargetState>($"""
             SELECT coalesce((SELECT max(d.term_revision) FROM public.refund_access_decisions d
                     WHERE d.account_id = {account} AND d.term_id = {term}), 0)::bigint AS term_revision,
-                (EXISTS (SELECT FROM public.payment_fulfilments s
-                        WHERE s.account_id = {account} AND s.predecessor_term_id = {term})
-                    OR EXISTS (SELECT FROM public.capacity_increases i
-                        WHERE i.account_id = {account} AND i.term_id = {term} AND i.state = 'Pending')
-                    OR EXISTS (SELECT FROM public.scheduled_capacity_reductions sr
-                        WHERE sr.account_id = {account} AND sr.term_id = {term}
-                            AND sr.state IN ('Scheduled', 'Funded', 'Applying', 'NeedsResolution', 'NeedsReview'))) AS committed
+                public.refund_term_committed({account}, {term}) AS committed
             """).SingleAsync(ct);
         return new(row, shops, state.TermRevision, state.Committed);
     }

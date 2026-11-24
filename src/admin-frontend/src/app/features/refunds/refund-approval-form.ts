@@ -4,7 +4,7 @@ export const TREATMENT_CHOICES: readonly { readonly value: RefundTreatment; read
   { value: 'Preserve', label: 'Preserve access',
     detail: 'Record the refund only. No shop, term, member or restriction changes.' },
   { value: 'EndAt', label: 'End remaining access at a stated instant',
-    detail: 'The named shops keep access until that instant and nothing after it, grace included.' },
+    detail: 'End this paid term, including grace, at the selected instant.' },
   { value: 'TermAdjustment', label: 'Adjust the paid-through date',
     detail: 'Replace the term’s paid-through boundary with the stated instant; ordinary rules follow from it.' },
 ];
@@ -26,10 +26,10 @@ const reasons: Readonly<Record<string, string>> = {
 
 /** Whole paise from a rupee amount with at most two decimals; null for anything else or zero. */
 export function parseRupees(value: string): number | null {
-  const match = /^(\d{1,10})(?:\.(\d{1,2}))?$/.exec(value.trim());
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
   if (!match) return null;
   const paise = Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
-  return paise > 0 ? paise : null;
+  return Number.isSafeInteger(paise) && paise > 0 && paise <= 1_000_000_000_000 ? paise : null;
 }
 
 /** An India Standard Time wall-clock entry (<c>YYYY-MM-DDTHH:mm[:ss]</c>) as an exact UTC instant. */

@@ -10,7 +10,7 @@ import {
   canonicalAccountId, normalizeRefundIntakeReason, REFUND_INTAKE_STATUS_META, RefundIntakeApi, type RefundIntakeItem,
 } from '../payments/refunds/refund-intake-api.service';
 import {
-  RefundApprovalApi, type ApproveRefundCommand, type RefundApprovalPreview, type RefundApprovalReceipt,
+  RefundApprovalApi, sameAccess, sameInstant, type ApproveRefundCommand, type RefundApprovalPreview, type RefundApprovalReceipt,
   type RefundPreviewInput, type RefundTreatment,
 } from './refund-approval-api.service';
 import { RefundApprovalDrafts } from './refund-approval-drafts';
@@ -118,7 +118,12 @@ export class RefundApprovalPageComponent {
     if (!input || !this.decidable()) return;
     void this.run(async invocation => {
       const preview = await this.api.preview(invocation, input);
-      if (invocation.current() && this.input() === input) this.preview.set(preview);
+      if (!invocation.current() || this.input() !== input) return;
+      const item = this.item();
+      if (!item || preview.orderId !== item.orderId || preview.confirmationId !== item.confirmationId ||
+        preview.verifiedAmountPaise !== item.paymentAmountPaise || preview.requestedAmountPaise !== item.amountPaise)
+        throw new Error('Unexpected payment in refund preview');
+      this.preview.set(preview);
     });
   }
 
@@ -129,7 +134,10 @@ export class RefundApprovalPageComponent {
     if (!preview || !input || !reason || !this.confirmed() || !this.decidable()) return;
     const command: ApproveRefundCommand = {
       operationKey: crypto.randomUUID(), ...input, reason, expectedVersion: preview.receiptVersion,
-      impactDigest: preview.impactDigest, confirmed: true,
+      impactDigest: preview.impactDigest, confirmed: true, reviewedAccess: preview.access,
+      reviewedPayment: { orderId: preview.orderId, confirmationId: preview.confirmationId,
+        verifiedAmountPaise: preview.verifiedAmountPaise, requestedAmountPaise: preview.requestedAmountPaise,
+        remainingAmountPaise: preview.remainingAmountPaise },
     };
     void this.run(async invocation => {
       // Durable before it is sent: a reload or another tab sees this exact command, never a new key.
@@ -161,26 +169,37 @@ export class RefundApprovalPageComponent {
   }
 
   private async load(invocation: Invocation) {
-    let cursor: string | undefined;
-    let found: RefundIntakeItem | null = null;
-    for (let page = 0; page < 40 && !found; page++) {
-      const listed = await this.intake.list(invocation.account, invocation.session, cursor);
-      if (!invocation.current()) return;
-      found = listed.items.find(item => item.refundRequestId === invocation.request) ?? null;
-      if (!listed.nextCursor) break;
-      cursor = listed.nextCursor;
-    }
     const draft = await this.drafts.read(this.scope(invocation));
     if (!invocation.current()) return;
     this.revision = draft.revision;
     this.pending.set(draft.pending ?? null);
-    this.item.set(found);
+    const listed = await this.intake.list(invocation.account, invocation.session, undefined, invocation.request);
+    if (!invocation.current()) return;
+    this.item.set(listed.items.find(item => item.refundRequestId === invocation.request) ?? null);
     this.loaded.set(true);
   }
 
   private async send(invocation: Invocation, command: ApproveRefundCommand, lookup: boolean) {
-    const result = lookup ? await this.api.recover(invocation, command.operationKey)
-      : await this.api.approve(invocation, command);
+    let result: RefundApprovalReceipt;
+    try {
+      result = lookup ? await this.api.recover(invocation, command.operationKey)
+        : await this.api.approve(invocation, command);
+    } catch (error) {
+      if (invocation.current()) await this.refuse(invocation, error, !lookup);
+      return;
+    }
+    if (!invocation.current()) return;
+    const payment = command.reviewedPayment;
+    const item = this.item();
+    if (result.orderId !== (payment?.orderId ?? item?.orderId) ||
+      result.confirmationId !== (payment?.confirmationId ?? item?.confirmationId) ||
+      result.verifiedAmountPaise !== (payment?.verifiedAmountPaise ?? item?.paymentAmountPaise) ||
+      result.requestedAmountPaise !== (payment?.requestedAmountPaise ?? item?.amountPaise) ||
+      (payment && result.remainingBeforePaise !== payment.remainingAmountPaise) ||
+      (command.reviewedAccess && !sameAccess(result.access, command.reviewedAccess)) ||
+      !sameInstant(result.access.effectiveAt, command.effectiveAt) ||
+      result.reason !== command.reason || result.receiptVersion !== command.expectedVersion + 1)
+      throw new Error('Unexpected reviewed refund receipt');
     if (result.operationKey !== command.operationKey || result.adminId !== invocation.admin
       || result.approvedAmountPaise !== command.amountPaise || result.access.treatment !== command.treatment)
       throw new Error('Unexpected refund approval identity');
@@ -190,6 +209,7 @@ export class RefundApprovalPageComponent {
     this.revision++;
     this.pending.set(null);
     this.receipt.set(result);
+    this.item.update(item => item ? { ...item, status: result.status } : null);
   }
 
   private scope(invocation: Invocation) {
@@ -218,11 +238,11 @@ export class RefundApprovalPageComponent {
     }
   }
 
-  private async refuse(invocation: Invocation, error: unknown) {
+  private async refuse(invocation: Invocation, error: unknown, approvalResponse = false) {
     const code = error instanceof HttpErrorResponse ? problemCode(error.error) : null;
     const pending = this.pending();
     // A typed refusal under the frozen key proves nothing was recorded: release it and require a new preview.
-    if (pending && code && RELEASING_REFUSALS.has(code)) {
+    if (approvalResponse && pending && code && RELEASING_REFUSALS.has(code)) {
       try {
         await this.drafts.settle(this.scope(invocation), pending.operationKey);
       } catch {
@@ -236,7 +256,10 @@ export class RefundApprovalPageComponent {
     if (!invocation.current()) return;
     this.unreview();
     this.reauthenticate.set(code === 'ManualPayment.RecentMfaRequired');
-    this.error.set(refusalMessage(code, !!this.pending(), !!pending));
+    const remaining = error instanceof HttpErrorResponse ? error.error?.remainingAmountPaise : null;
+    const balance = code === 'Refund.AmountExceedsRemaining' && Number.isSafeInteger(remaining) && remaining >= 0
+      ? ` Remaining refundable: ${this.money(remaining)}.` : '';
+    this.error.set(refusalMessage(code, !!this.pending(), !!pending) + balance);
     if (code === 'Refund.AlreadyDecided' && this.item())
       this.item.set({ ...this.item()!, status: 'Pending' });
   }

@@ -68,7 +68,7 @@ internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequest
         return new(account, items, rows.Count > items.Length ? items[^1].RefundRequestId : null);
     }
 
-    public async Task<RefundIntakePage> IntakeAsync(Guid account, Guid? after, CancellationToken ct)
+    public async Task<RefundIntakePage> IntakeAsync(Guid account, Guid? after, CancellationToken ct, Guid? request = null)
     {
         var rows = await db.Database.SqlQuery<IntakeRow>($"""
             SELECT refund_request_id, account_id, order_id, confirmation_id, actor_id,
@@ -78,7 +78,7 @@ internal sealed class RefundRequestStore(LicensingDbContext db) : IRefundRequest
                 amount_paise, payment_amount_paise, currency, reason, requested_at,
                 provider_id, provider_account_id, environment, configuration_version
             FROM public.refund_requests r
-            WHERE account_id = {account}
+            WHERE account_id = {account} AND ({request}::uuid IS NULL OR refund_request_id = {request})
                 AND ({after}::uuid IS NULL OR (requested_at, refund_request_id) > (
                     SELECT requested_at, refund_request_id FROM public.refund_requests
                     WHERE account_id = {account} AND refund_request_id = {after}))

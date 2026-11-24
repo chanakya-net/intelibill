@@ -24,6 +24,11 @@ public sealed partial class RefundApprovals
             prior bigint;
             occupied bigint;
         BEGIN
+            IF NEW.admin_id IS DISTINCT FROM nullif(current_setting('app.manual_admin_id', true), '')::uuid
+                OR NEW.session_id IS DISTINCT FROM nullif(current_setting('app.manual_session_id', true), '')::uuid
+                OR NEW.mfa_verified_at IS DISTINCT FROM public.live_refund_session() THEN
+                RAISE EXCEPTION 'Live Billing authorization required' USING ERRCODE = '42501';
+            END IF;
             PERFORM public.lock_refund_receipt(NEW.confirmation_id);
             IF NOT EXISTS (
                 SELECT FROM public.refund_requests r
@@ -74,6 +79,10 @@ public sealed partial class RefundApprovals
         SET search_path = pg_catalog AS $$
         DECLARE
             approval record;
+            funded uuid;
+            expected_count integer;
+            actual_paid timestamptz;
+            actual_end timestamptz;
             prior bigint;
         BEGIN
             SELECT a.order_id, a.attempt_id, a.manual_receipt_id INTO approval FROM public.refund_approvals a
@@ -83,32 +92,48 @@ public sealed partial class RefundApprovals
             IF NOT FOUND THEN
                 RAISE EXCEPTION 'Access decision must be recorded with its refund approval' USING ERRCODE = '23514';
             END IF;
-            IF NEW.term_id IS NOT NULL AND NOT EXISTS (
-                SELECT FROM public.payment_fulfilments f
-                WHERE f.account_id = NEW.account_id AND f.order_id = approval.order_id AND f.term_id = NEW.term_id
-                    AND (f.attempt_id = approval.attempt_id OR f.manual_receipt_id = approval.manual_receipt_id)
-            ) AND NOT EXISTS (
-                SELECT FROM public.capacity_increases i
-                WHERE i.account_id = NEW.account_id AND i.order_id = approval.order_id AND i.term_id = NEW.term_id
-                    AND i.state = 'Applied'
-                    AND (i.attempt_id = approval.attempt_id OR i.receipt_id = approval.manual_receipt_id)
+            -- Normal writers already hold this account fence. A direct writer may hold a receipt lock,
+            -- so never wait in the opposite order.
+            IF NOT pg_try_advisory_xact_lock(hashtextextended('b' || NEW.account_id::text, 0)) THEN
+                RAISE EXCEPTION 'Refund account is busy' USING ERRCODE = '55P03';
+            END IF;
+            SELECT coalesce((SELECT f.term_id FROM public.payment_fulfilments f
+                WHERE f.account_id = NEW.account_id AND f.order_id = approval.order_id
+                    AND (f.attempt_id = approval.attempt_id OR f.manual_receipt_id = approval.manual_receipt_id)),
+                (SELECT i.term_id FROM public.capacity_increases i WHERE i.account_id = NEW.account_id
+                    AND i.order_id = approval.order_id AND i.state = 'Applied'
+                    AND (i.attempt_id = approval.attempt_id OR i.receipt_id = approval.manual_receipt_id))) INTO funded;
+            IF funded IS DISTINCT FROM NEW.term_id THEN
+                RAISE EXCEPTION 'Decision must identify its funded term' USING ERRCODE = '23514';
+            END IF;
+            SELECT count(*) INTO expected_count FROM public.refund_target_shops(NEW.account_id, funded, NEW.decided_at);
+            IF NEW.shop_count <> expected_count OR EXISTS (
+                SELECT x.shop_id, x.shop_name, x.restricted, x.closed, x.scheduled_restriction_at, x.courtesy_ends_at
+                FROM public.refund_target_shops(NEW.account_id, funded, NEW.decided_at) x
+                EXCEPT ALL
+                SELECT j."shopId", j."shopName", j.restricted, j.closed, j."scheduledRestrictionAt", j."courtesyEndsAt"
+                FROM jsonb_to_recordset(NEW.shops) j("shopId" uuid, "shopName" text, restricted boolean, closed boolean,
+                    "scheduledRestrictionAt" timestamptz, "courtesyEndsAt" timestamptz)
             ) THEN
-                RAISE EXCEPTION 'Access decision must name the term this payment funded' USING ERRCODE = '23514';
+                RAISE EXCEPTION 'Decision must name the current funded shops' USING ERRCODE = '23514';
             END IF;
             IF NEW.treatment = 'Preserve' THEN
                 RETURN NEW;
             END IF;
-            SELECT coalesce(max(d.term_revision), 0) INTO prior FROM public.refund_access_decisions d
-                WHERE d.account_id = NEW.account_id AND d.term_id = NEW.term_id;
-            IF NEW.term_revision <> prior + 1 OR NOT EXISTS (
-                SELECT FROM public.subscription_coverage_terms t
-                JOIN public.subscription_term_facts f USING (account_id, term_id)
-                WHERE t.account_id = NEW.account_id AND t.term_id = NEW.term_id AND f.basis = 'Paid'
-                    AND NEW.effective_at > t.starts_at AND NEW.previous_paid_through <= t.ends_at
-            ) OR EXISTS (
-                SELECT FROM public.payment_fulfilments s
-                WHERE s.account_id = NEW.account_id AND s.predecessor_term_id = NEW.term_id
-            ) THEN
+            SELECT coalesce(d.term_revision, 0), coalesce(d.new_paid_through, t.ends_at),
+                coalesce(d.new_access_ends_at, CASE WHEN c.kind = 'ScheduleCancellation' THEN t.ends_at
+                    ELSE t.ends_at + interval '168 hours' END)
+            INTO prior, actual_paid, actual_end
+            FROM public.subscription_coverage_terms t JOIN public.subscription_term_facts f USING (account_id, term_id)
+            LEFT JOIN LATERAL (SELECT * FROM public.refund_access_decisions d WHERE d.account_id = t.account_id
+                AND d.term_id = t.term_id AND d.term_revision IS NOT NULL ORDER BY d.term_revision DESC LIMIT 1) d ON true
+            LEFT JOIN LATERAL (SELECT kind FROM public.scheduled_subscription_changes c WHERE c.account_id = t.account_id
+                AND c.term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
+            WHERE t.account_id = NEW.account_id AND t.term_id = funded AND f.basis = 'Paid' AND NEW.effective_at > t.starts_at;
+            IF NOT FOUND OR NEW.term_revision <> prior + 1 OR NEW.previous_paid_through <> actual_paid
+                OR NEW.previous_access_ends_at <> actual_end OR public.refund_term_committed(NEW.account_id, funded)
+                OR (NEW.treatment = 'TermAdjustment' AND NEW.new_access_ends_at <> CASE WHEN actual_end > actual_paid
+                    THEN least(NEW.effective_at + interval '168 hours', actual_end) ELSE NEW.effective_at END) THEN
                 RAISE EXCEPTION 'Access decision must apply to the current unrenewed paid term' USING ERRCODE = '23514';
             END IF;
             RETURN NEW;

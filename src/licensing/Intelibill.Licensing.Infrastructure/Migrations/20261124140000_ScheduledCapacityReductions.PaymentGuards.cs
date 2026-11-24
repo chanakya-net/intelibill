@@ -183,8 +183,12 @@ public sealed partial class ScheduledCapacityReductions
         END $$;
         """;
 
-    private static string FulfilmentCompleteness()
+    internal static string FulfilmentCompleteness(bool refundBoundaries = false)
     {
+        const string originalEnd = "pc.ends_at + interval '168 hours'";
+        var restorationEnd = refundBoundaries
+            ? $"coalesce((SELECT d.new_access_ends_at FROM public.refund_access_decisions d WHERE d.account_id = pc.account_id AND d.term_id = pc.term_id AND d.term_revision IS NOT NULL ORDER BY d.term_revision DESC LIMIT 1), {originalEnd})"
+            : originalEnd;
         const string appliedPrior = """
             (SELECT i.capacity FROM public.capacity_increases i WHERE i.account_id = pc.account_id
                 AND i.term_id = pc.term_id AND i.state = 'Applied' ORDER BY i.target_revision DESC LIMIT 1)
@@ -249,8 +253,8 @@ public sealed partial class ScheduledCapacityReductions
                             AND sf.time_zone = pf.time_zone AND sf.billing_period = pf.billing_period
                             AND sf.calendar_version = pf.calendar_version
                             AND (CASE WHEN fresh_kind = 'RestoredAccess' THEN sf.period_ordinal = 0
-                                AND sc.starts_at >= pc.ends_at + interval '168 hours'
-                                AND NEW.payment_effective_at >= pc.ends_at + interval '168 hours'
+                                AND sc.starts_at >= {{restorationEnd}}
+                                AND NEW.payment_effective_at >= {{restorationEnd}}
                                 AND NEW.grace_days_included = 0
                                 ELSE sf.anchor_local = pf.anchor_local AND sf.period_ordinal = pf.period_ordinal + 1
                                     AND sc.starts_at = pc.ends_at END)

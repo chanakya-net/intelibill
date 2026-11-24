@@ -51,7 +51,8 @@ public sealed class ApproveRefundHandler(IManualPaymentStore admins, IRefundAppr
     {
         if (command is null || command.OperationKey == Guid.Empty
             || !RefundApprovalRules.HasDates(command.Treatment, command.EffectiveAt)
-            || command.AmountPaise is <= 0 or > CheckoutOrdersV1.MaxPaise || command.ExpectedVersion < 0
+            || command.AmountPaise is <= 0 or > CheckoutOrdersV1.MaxPaise || command.ExpectedVersion is null or < 0 || !command.Confirmed
+            || command.EffectiveAt is { } at && at != BillingAccountRules.StorageInstant(at)
             || !CheckoutOrdersV1.IsHash(command.ImpactDigest)
             || RefundRequestsV1.NormalizeReason(command.Reason) is not { } reason)
             return RefundApprovalErrors.Invalid;
@@ -62,29 +63,25 @@ public sealed class ApproveRefundHandler(IManualPaymentStore admins, IRefundAppr
             return prior.Receipt.RefundRequestId == request && prior.Receipt.AdminId == caller.AdminId
                 && prior.PayloadHash == hash ? new RefundApprovalOutcome(prior.Receipt, false)
                 : RefundApprovalErrors.PayloadMismatch;
-        if (!command.Confirmed) return RefundApprovalErrors.Invalid;
         if (await store.SourceAsync(account, request, ct) is not { } source) return RefundApprovalErrors.RequestMissing;
 
         // Lock the original payment first, then read its ledger in a subsequent statement.
         await store.LockReceiptAsync(source.ConfirmationId, ct);
+        var authorized = BillingAccountRules.StorageInstant(clocks.Session.GetUtcNow());
+        if (!new ProviderActor(caller.AdminId, mfa).HasRecentMfa(authorized)) return ManualPaymentErrors.RecentMfa;
         if ((await store.SourceAsync(account, request, ct))!.Decided) return RefundApprovalErrors.AlreadyDecided;
         var review = await ReviewAsync(source, command.AmountPaise, command.Treatment!, command.EffectiveAt, ct,
             command.ExpectedVersion, command.ImpactDigest);
         if (review.IsError) return review.Errors;
 
-        // Credential time judges MFA once more at the write: the wait behind the receipt lock may have outlived it.
-        var authorized = BillingAccountRules.StorageInstant(clocks.Session.GetUtcNow());
-        if (!new ProviderActor(caller.AdminId, mfa).HasRecentMfa(authorized)) return ManualPaymentErrors.RecentMfa;
-
         var preview = review.Value;
-        var decided = Now();
+        var decided = preview.ReviewedAt;
         var receipt = new RefundApprovalReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), account, request,
             source.OrderId, source.ConfirmationId, command.OperationKey, RefundRequestsV1.Pending, command.AmountPaise,
             source.RequestedAmountPaise, source.PaymentAmountPaise, preview.RemainingAmountPaise,
             preview.ProposedRemainingAmountPaise, source.Currency, preview.ReceiptVersion + 1, caller.AdminId, mfa,
             decided, reason, preview.Access);
-        var target = preview.Access.Treatment == RefundApprovalRules.Preserve
-            ? null : await store.TargetAsync(source, ct);
+        var target = preview.Access.Treatment == RefundApprovalRules.Preserve ? null : preview.Target;
         await store.SaveAsync(new(source, receipt, caller.SessionId, authorized, hash, preview.ImpactDigest,
             target?.TermRevision + 1), ct);
         if (target is not null)
@@ -98,21 +95,22 @@ public sealed class ApproveRefundHandler(IManualPaymentStore admins, IRefundAppr
         string? expectedDigest = null)
     {
         var ledger = await store.LedgerAsync(source.AccountId, source.ConfirmationId, ct);
-        var target = await store.TargetAsync(source, ct);
-        var access = RefundAccessPolicy.Impact(target, treatment, effectiveAt, Now());
+        var at = Now();
+        var target = await store.TargetAsync(source, at, ct);
+        var access = RefundAccessPolicy.Impact(target, treatment, effectiveAt, at);
         // A reviewed preview that no longer matches is stale before any amount or treatment judgement.
-        var digest = access is null ? null : RefundAccessPolicy.Digest(source, target, access);
+        var digest = access is null ? null : RefundAccessPolicy.Digest(source, target, access, amount, ledger);
         if (expectedVersion is { } version && (version != ledger.Revision || digest != expectedDigest))
             return RefundApprovalErrors.PreviewStale;
         if (access is null) return RefundApprovalErrors.TreatmentUnavailable;
 
         var remaining = source.PaymentAmountPaise - ledger.OccupiedPaise;
-        if (amount > source.RequestedAmountPaise || amount > remaining) return RefundApprovalErrors.AmountExceeds;
+        if (amount > source.RequestedAmountPaise || amount > remaining) return RefundApprovalErrors.AmountExceeds(remaining);
         return new RefundApprovalPreview(source.AccountId, source.RefundRequestId, source.OrderId, source.ConfirmationId,
             RefundRequestsV1.Requested, source.PaymentAmountPaise, source.RequestedAmountPaise, ledger.OccupiedPaise,
             remaining, amount, remaining - amount, source.Currency, source.AttemptId is null ? "Manual" : "Online",
             source.ProviderId, source.ProviderAccountId, source.Environment, source.ConfigurationVersion,
-            source.RefundPolicyVersion, ledger.Revision, digest!, access);
+            source.RefundPolicyVersion, ledger.Revision, digest!, access) { Target = target, ReviewedAt = at };
     }
 
     private DateTimeOffset Now() => BillingAccountRules.StorageInstant(clocks.Lifecycle.GetUtcNow());

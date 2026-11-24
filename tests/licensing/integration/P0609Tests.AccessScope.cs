@@ -80,7 +80,9 @@ public sealed partial class P0609Tests
     {
         await using var fixture = await StartAsync(database, Instant);
         var package = await fixture.PackageAsync(2, P0608Tests.ShopNames);
-        var (_, term) = await PurchaseAsync(package, "Month");
+        var (purchase, term) = await PurchaseAsync(package, "Month");
+        var originalConfirmation = await P0608Tests.ConfirmationIdAsync(package.Payer.Client, package.Account, purchase.OrderId);
+        var originalRequest = await RequestRefundAsync(package, purchase.OrderId, originalConfirmation, 500);
         var successor = await P0601Tests.RepriceAsync(fixture, package, 18000L);
         fixture.At(P0601Tests.February14);
         var quote = await ReadAsync(await P0601Tests.PostQuoteAsync(package, term,
@@ -93,16 +95,21 @@ public sealed partial class P0609Tests
         var delivery = fixture.Checkout.Delivery;
         await delivery.ScanAsync(true);
         await P0608Tests.DrainAsync(fixture);
+        using var billing = await P0306Tests.SignInBillingAsync(fixture.Checkout);
+        var at = P0601Tests.February14.AddDays(5);
+        var previous = await PreviewAsync(billing, package.Account, originalRequest, 500, "EndAt", at);
+        var originalShops = previous.GetProperty("access").GetProperty("shops").GetRawText();
         await PayAsync(package, order);
+        Assert.Equal(1L, await fixture.CountAsync("capacity_increases", "state='Pending'"));
+        await AssertEndRefusedAsync(fixture, package.Account, originalRequest, term, 1, P0601Tests.February29,
+            P0601Tests.February29.AddDays(7), at, originalShops);
+
         await P0608Tests.DrainAsync(fixture);
         await P0608Tests.DrainAsync(fixture);
         Assert.Equal(1L, await fixture.CountAsync("capacity_increases", "state = 'Applied'"));
         var confirmation = (Guid)(await fixture.ScalarAsync(
             $"SELECT confirmation_id FROM public.payment_confirmations WHERE order_id = '{order.OrderId:D}'"))!;
         var request = await RequestRefundAsync(package, order.OrderId, confirmation, order.AmountPaise);
-        using var billing = await P0306Tests.SignInBillingAsync(fixture.Checkout);
-        var at = P0601Tests.February14.AddDays(5);
-
         // The increase payment funded the existing term: an explicit end names that term and its current shops.
         var preview = await PreviewAsync(billing, package.Account, request, order.AmountPaise, "EndAt", at);
         Assert.Equal(term, preview.GetProperty("access").GetProperty("termId").GetGuid());
@@ -114,5 +121,44 @@ public sealed partial class P0609Tests
         // The applied capacity and the purchased calendar are retained; only access ends at the reviewed instant.
         Assert.Equal(1L, await fixture.CountAsync("capacity_increases", "state = 'Applied'"));
         Assert.Equal(at, (await P0601Tests.AccountTermAsync(package, term)).GetProperty("accessEndsAt").GetDateTimeOffset());
+        await AssertChainedRuntimeDecisionAsync(fixture, package, billing, originalRequest, term, at);
+    }
+
+    private static async Task AssertChainedRuntimeDecisionAsync(P0308Fixture fixture, Package package,
+        P0110CookieBrowser billing, Guid originalRequest, Guid term, DateTimeOffset at)
+    {
+        var end = at.AddDays(-1);
+        var reviewed = await PreviewAsync(billing, package.Account, originalRequest, 500, "EndAt", end);
+        var impact = reviewed.GetProperty("access");
+        Assert.Equal(at, impact.GetProperty("previousPaidThrough").GetDateTimeOffset());
+        Assert.Equal(at, impact.GetProperty("previousAccessEndsAt").GetDateTimeOffset());
+        var shops = impact.GetProperty("shops");
+        Assert.Equal(package.Shops.Select(s => s.ShopId).Order(), shops.EnumerateArray().Select(s => s.GetProperty("shopId").GetGuid()).Order());
+        var names = shops.GetRawText();
+        await AssertEndRefusedAsync(fixture, package.Account, originalRequest, term, 2, at.AddDays(1), at.AddDays(1),
+            at.AddDays(1), names);
+        await AssertEndRefusedAsync(fixture, package.Account, originalRequest, term, 2, at, at, end,
+            $"[{shops[0].GetRawText()},{shops[0].GetRawText()}]");
+        await using var runtime = await SqlScope.OpenAsync(fixture, package.Account);
+        var id = await runtime.ApproveAsync(originalRequest, 500, 12000, 1);
+        await runtime.EndAsync(id, term, 2, at, at, end, names);
+        await runtime.CommitAsync();
+        Assert.Equal(2L, await fixture.CountAsync("refund_approvals"));
+        Assert.Equal(end, (await P0601Tests.AccountTermAsync(package, term)).GetProperty("accessEndsAt").GetDateTimeOffset());
+    }
+
+    private static async Task AssertEndRefusedAsync(P0308Fixture fixture, Guid account, Guid request, Guid term,
+        long revision, DateTimeOffset paid, DateTimeOffset until, DateTimeOffset end, string shops)
+    {
+        var before = await fixture.CountAsync("refund_approvals");
+        await using (var runtime = await SqlScope.OpenAsync(fixture, account))
+        {
+            var id = await runtime.ApproveAsync(request, 500, 12000, 1);
+            var refusal = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+                runtime.EndAsync(id, term, revision, paid, until, end, shops));
+            Assert.Equal("23514", refusal.SqlState);
+        }
+        Assert.Equal(before, await fixture.CountAsync("refund_approvals"));
+        Assert.Equal(before, await fixture.CountAsync("refund_access_decisions"));
     }
 }

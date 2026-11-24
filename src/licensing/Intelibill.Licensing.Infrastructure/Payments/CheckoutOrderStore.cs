@@ -114,6 +114,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
     private Task<CheckoutRenewalSource?> ReadTermAsync(Guid account, Guid term, CancellationToken ct) =>
         db.Database.SqlQuery<CheckoutRenewalSource>($"""
             SELECT t.starts_at AS starts_at, t.ends_at AS ends_at, coalesce(i.capacity,t.capacity) AS capacity,
+                   rd.new_access_ends_at AS refund_access_ends_at, coalesce(rd.term_revision,0) AS refund_revision,
                    f.basis AS basis, f.billing_period AS period, f.anchor_local AS anchor_local,
                    f.period_ordinal AS ordinal, f.calendar_version AS calendar_version,
                    f.access_policy_version AS access_policy_version, coalesce((
@@ -145,11 +146,12 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
             FROM public.subscription_coverage_terms t
             LEFT JOIN LATERAL (SELECT capacity,target_revision FROM public.capacity_increases WHERE account_id=t.account_id
                 AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
+            LEFT JOIN LATERAL (SELECT new_access_ends_at, term_revision FROM public.refund_access_decisions
+                WHERE account_id=t.account_id AND term_id=t.term_id AND term_revision IS NOT NULL
+                ORDER BY term_revision DESC LIMIT 1) rd ON true
             JOIN public.subscription_term_facts f USING (account_id, term_id)
             WHERE t.account_id = {account} AND t.term_id = {term} AND NOT EXISTS (SELECT FROM public.capacity_increases i
                 WHERE i.account_id=t.account_id AND i.term_id=t.term_id AND i.state='Pending')
-                AND NOT EXISTS (SELECT FROM public.refund_access_decisions rd
-                    WHERE rd.account_id = t.account_id AND rd.term_id = t.term_id AND rd.treatment <> 'Preserve')
                 AND NOT EXISTS (SELECT FROM public.payment_fulfilments s
                 WHERE s.account_id = t.account_id AND s.predecessor_term_id = t.term_id)
             """).SingleOrDefaultAsync(ct);

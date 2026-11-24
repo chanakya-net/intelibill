@@ -89,7 +89,7 @@ public sealed partial class P0602Tests
         return [.. ids];
     }
 
-    private static async Task<CheckoutQuoteV1> IncreaseSeatsAsync(P0308Fixture fixture, Package package, Guid term, DateTimeOffset end, int capacity = 4)
+    internal static async Task<CheckoutQuoteV1> IncreaseSeatsAsync(P0308Fixture fixture, Package package, Guid term, DateTimeOffset end, int capacity = 4)
     {
         var plan = (Guid)(await fixture.ScalarAsync($"SELECT plan_id FROM plan_versions WHERE id='{package.Plan}'"))!;
         var target = await P0301Tests.PublishPlanAsync(fixture.Checkout.Trial, plan, package.Plan, 6, 18000);

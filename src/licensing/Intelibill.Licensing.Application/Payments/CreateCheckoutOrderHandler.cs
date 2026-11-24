@@ -90,7 +90,7 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             BillingCalendar.TryBoundary(anchor, prior.Ordinal + 2) is null)
             return null;
         var decision = RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
-            RestoredAccessAt: now, RoundFreshStartUp: true));
+            RestoredAccessAt: now, RoundFreshStartUp: true, RefundAccessEndsAt: prior.RefundAccessEndsAt));
         if (prior.ActiveReductionId is not null &&
             (decision.Start != RenewalStart.RestoredAccess || prior.BlocksRestoredAccess))
             return null;

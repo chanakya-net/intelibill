@@ -24,10 +24,13 @@ public sealed partial class RefundApprovals : Migration
         migrationBuilder.Sql(Tables);
         migrationBuilder.Sql(Policies);
         migrationBuilder.Sql(ApprovalGuards);
+        migrationBuilder.Sql(Scope);
         migrationBuilder.Sql(DecisionGuards);
+        migrationBuilder.Sql(ScheduledCapacityReductions.FulfilmentCompleteness(refundBoundaries: true));
     }
 
     private const string Tables = """
+        ALTER TABLE public.shop_affiliation_requests ADD COLUMN reviewed_refund_paid_through timestamptz;
         CREATE TABLE public.refund_approvals (
             account_id uuid NOT NULL REFERENCES public.billing_accounts(id),
             approval_id uuid NOT NULL,
@@ -113,19 +116,37 @@ public sealed partial class RefundApprovals : Migration
         ALTER TABLE public.refund_approvals FORCE ROW LEVEL SECURITY;
         ALTER TABLE public.refund_access_decisions ENABLE ROW LEVEL SECURITY;
         ALTER TABLE public.refund_access_decisions FORCE ROW LEVEL SECURITY;
-        -- Private finance evidence: only a provider admin scope of the same account reads it.
+        CREATE FUNCTION public.refund_credential_now() RETURNS timestamptz
+        LANGUAGE sql VOLATILE SET search_path = pg_catalog AS $$ SELECT clock_timestamp() $$;
+        CREATE FUNCTION public.live_refund_session() RETURNS timestamptz
+        LANGUAGE sql VOLATILE SET search_path = pg_catalog AS $$
+            SELECT s.mfa_verified_at FROM public.admin_sessions s JOIN public.admin_identities a ON a.id = s.admin_id
+            CROSS JOIN (SELECT public.refund_credential_now() AS at) credential
+            WHERE s.id = {Session} AND a.id = {Admin} AND s.revoked_at IS NULL
+              AND s.mfa_verified_at <= credential.at AND credential.at < s.mfa_verified_at + interval '5 minutes'
+              AND credential.at < s.created_at + interval '12 hours' AND credential.at < s.last_seen_at + interval '30 minutes'
+              AND a.mfa_enrolled_at IS NOT NULL AND a.deactivated_at IS NULL AND (a.capabilities & 2) = 2
+        $$;
         CREATE POLICY finance_read ON public.refund_approvals FOR SELECT USING (
-            account_id = {Account} AND {Admin} IS NOT NULL AND {Session} IS NOT NULL);
+            account_id = {Account} AND public.live_refund_session() IS NOT NULL);
         CREATE POLICY finance_insert ON public.refund_approvals FOR INSERT WITH CHECK (
             account_id = {Account} AND admin_id = {Admin} AND session_id = {Session}
-            AND EXISTS (SELECT FROM public.admin_sessions s JOIN public.admin_identities a ON a.id = s.admin_id
-                WHERE s.id = refund_approvals.session_id AND a.id = refund_approvals.admin_id
-                    AND s.revoked_at IS NULL AND s.mfa_verified_at = refund_approvals.mfa_verified_at
-                    AND a.mfa_enrolled_at IS NOT NULL AND a.deactivated_at IS NULL AND (a.capabilities & 2) = 2));
-        -- Operational facts: the account, or a shop of that account reading the effect on its own status.
-        CREATE POLICY decision_read ON public.refund_access_decisions FOR SELECT USING (account_id = {Account} OR
-            treatment <> 'Preserve' AND EXISTS (SELECT FROM public.shop_affiliations a
-                WHERE a.account_id = refund_access_decisions.account_id AND a.shop_id = {Shop}));
+            AND mfa_verified_at = public.live_refund_session());
+        CREATE POLICY decision_read ON public.refund_access_decisions FOR SELECT USING (account_id = {Account});
+        -- The migration owner executes the narrow shop projection under forced RLS.
+        CREATE POLICY decision_projection ON public.refund_access_decisions FOR SELECT TO CURRENT_USER USING (true);
+        CREATE FUNCTION public.refund_boundary(scope_account uuid, scope_term uuid)
+        RETURNS TABLE (new_paid_through timestamptz, new_access_ends_at timestamptz)
+        LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
+            SELECT d.new_paid_through, d.new_access_ends_at FROM public.refund_access_decisions d
+            WHERE d.account_id = scope_account AND d.term_id = scope_term AND d.term_revision IS NOT NULL
+                AND (scope_account = {Account} OR EXISTS (
+                    SELECT FROM public.shop_affiliations a
+                    WHERE a.account_id = scope_account AND a.shop_id = {Shop} AND (a.term_id = scope_term OR EXISTS (
+                        SELECT FROM public.payment_fulfilment_shops p WHERE p.account_id = scope_account
+                            AND p.term_id = scope_term AND p.shop_id = a.shop_id AND p.affiliation_request_id = a.request_id))))
+            ORDER BY d.term_revision DESC LIMIT 1
+        $$;
         CREATE POLICY decision_insert ON public.refund_access_decisions FOR INSERT WITH CHECK (
             account_id = {Account} AND {Admin} IS NOT NULL AND {Session} IS NOT NULL);
         CREATE TRIGGER refund_approval_retained BEFORE UPDATE OR DELETE OR TRUNCATE ON public.refund_approvals
@@ -134,7 +155,10 @@ public sealed partial class RefundApprovals : Migration
             FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
         """;
 
-    protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql(ScheduledCapacityReductions.FulfilmentCompleteness());
+        migrationBuilder.Sql("""
         LOCK TABLE public.refund_approvals, public.refund_access_decisions IN ACCESS EXCLUSIVE MODE;
         ALTER TABLE public.refund_approvals NO FORCE ROW LEVEL SECURITY;
         ALTER TABLE public.refund_access_decisions NO FORCE ROW LEVEL SECURITY;
@@ -143,10 +167,15 @@ public sealed partial class RefundApprovals : Migration
                 RAISE EXCEPTION 'Retained refund approvals prevent downgrade' USING ERRCODE = '55000';
             END IF;
         END $$;
+        ALTER TABLE public.shop_affiliation_requests DROP COLUMN reviewed_refund_paid_through;
+        DROP FUNCTION public.refund_target_shops(uuid,uuid,timestamptz), public.refund_term_committed(uuid,uuid);
+        DROP FUNCTION public.refund_boundary(uuid, uuid);
         DROP TABLE public.refund_access_decisions;
         DROP TABLE public.refund_approvals;
+        DROP FUNCTION public.live_refund_session(), public.refund_credential_now();
         DROP FUNCTION public.guard_refund_approval(), public.require_refund_access_decision(),
             public.guard_refund_access_decision(), public.refund_receipt_occupied_paise(uuid, uuid),
             public.lock_refund_receipt(uuid);
         """);
+    }
 }

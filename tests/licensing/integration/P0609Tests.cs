@@ -15,6 +15,27 @@ public sealed partial class P0609Tests(LicensingPostgreSqlFixture database) : IC
     private const string Reason = "Duplicate branch purchased before go-live";
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
+    private static async Task<P0308Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset at,
+        IReadOnlyDictionary<string, string?>? settings = null)
+    {
+        var fixture = await P0308Fixture.StartAsync(database, at, settings);
+        var clock = fixture.Checkout.Trial.Catalogue.Clock;
+        SetCredentialTime(fixture, clock.GetUtcNow());
+        clock.Advanced += now => SetCredentialTime(fixture, now);
+        return fixture;
+    }
+
+    internal static void SetCredentialTime(P0308Fixture fixture, DateTimeOffset now)
+    {
+        using var connection = new Npgsql.NpgsqlConnection(fixture.Hosts.LicensingOwner.ConnectionString);
+        connection.Open();
+        using var command = new Npgsql.NpgsqlCommand($"""
+            CREATE OR REPLACE FUNCTION public.refund_credential_now() RETURNS timestamptz
+            LANGUAGE sql VOLATILE SET search_path = pg_catalog AS $$ SELECT '{now:O}'::timestamptz $$;
+            """, connection);
+        command.ExecuteNonQuery();
+    }
+
     [Fact]
     public async Task ApprovePartialWithPreserve()
     {

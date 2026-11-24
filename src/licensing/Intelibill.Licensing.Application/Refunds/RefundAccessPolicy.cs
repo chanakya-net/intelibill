@@ -16,7 +16,8 @@ public static class RefundAccessPolicy
     public static RefundAccessImpact? Impact(RefundAccessTarget? target, string treatment, DateTimeOffset? effectiveAt,
         DateTimeOffset now)
     {
-        var shops = target?.Shops.Select(shop => new RefundAccessShop(shop.ShopId, shop.ShopName, shop.Restricted)).ToArray() ?? [];
+        var shops = target?.Shops.Select(shop => new RefundAccessShop(shop.ShopId, shop.ShopName, shop.Restricted,
+            shop.ScheduledRestrictionAt, shop.Closed, shop.CourtesyEndsAt)).ToArray() ?? [];
         var facts = target is null ? null : SubscriptionStatusProjection.ToFacts(target.Term);
         // Evaluated at the decision instant; the boundaries themselves do not depend on it.
         var current = facts is { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid }
@@ -41,13 +42,16 @@ public static class RefundAccessPolicy
     }
 
     /// <summary>Binds the reviewed preview: the payment pin, policy, treatment, instants and the live named scope.</summary>
-    public static string Digest(RefundApprovalSource source, RefundAccessTarget? target, RefundAccessImpact access) =>
+    public static string Digest(RefundApprovalSource source, RefundAccessTarget? target, RefundAccessImpact access,
+        long amount, RefundReceiptLedger ledger) =>
         CheckoutOrdersV1.Digest(RefundApprovalRules.Policy, "impact", source.RefundRequestId, source.ConfirmationId,
+            amount, ledger.Revision, ledger.OccupiedPaise, source.PaymentAmountPaise - ledger.OccupiedPaise,
             source.PaymentAmountPaise, source.RequestedAmountPaise, source.ProviderId, source.ProviderAccountId,
             source.Environment, source.ConfigurationVersion, source.RefundPolicyVersion, access.Treatment, access.TermId,
             target?.TermRevision, Instant(access.EffectiveAt), Instant(access.PreviousPaidThrough),
             Instant(access.PreviousAccessEndsAt), Instant(access.NewPaidThrough), Instant(access.NewAccessEndsAt),
-            target?.Shops.Select(shop => new object[] { shop.ShopId, shop.RequestId, shop.ShopName, shop.Restricted }).ToArray());
+            target?.Shops.Select(shop => new object?[] { shop.ShopId, shop.RequestId, shop.ShopName, shop.Restricted,
+                Instant(shop.ScheduledRestrictionAt), shop.Closed, Instant(shop.CourtesyEndsAt) }).ToArray());
 
     private static string? Instant(DateTimeOffset? value) => value is { } at ? CheckoutOrdersV1.Instant(at) : null;
 }

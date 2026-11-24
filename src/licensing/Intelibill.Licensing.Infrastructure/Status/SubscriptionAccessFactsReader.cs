@@ -58,9 +58,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
                 WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
-            LEFT JOIN LATERAL (SELECT new_paid_through, new_access_ends_at FROM public.refund_access_decisions
-                WHERE account_id = t.account_id AND term_id = t.term_id AND treatment <> 'Preserve'
-                ORDER BY term_revision DESC LIMIT 1) rd ON true
+            LEFT JOIN LATERAL public.refund_boundary(t.account_id, t.term_id) rd ON true
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE a.shop_id = {shop}
@@ -219,9 +217,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
                 WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
-            LEFT JOIN LATERAL (SELECT new_paid_through, new_access_ends_at FROM public.refund_access_decisions
-                WHERE account_id = t.account_id AND term_id = t.term_id AND treatment <> 'Preserve'
-                ORDER BY term_revision DESC LIMIT 1) rd ON true
+            LEFT JOIN LATERAL public.refund_boundary(t.account_id, t.term_id) rd ON true
             LEFT JOIN public.complimentary_grants g ON g.term_id = t.term_id AND g.account_id = t.account_id
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true

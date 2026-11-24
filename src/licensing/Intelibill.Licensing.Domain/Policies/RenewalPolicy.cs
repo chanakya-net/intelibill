@@ -15,7 +15,8 @@ public sealed record RenewalInput(
     DateTimeOffset? VerifiedPaymentAt = null,
     bool AcceptedQuote = false,
     DateTimeOffset? RestoredAccessAt = null,
-    bool RoundFreshStartUp = false);
+    bool RoundFreshStartUp = false,
+    DateTimeOffset? RefundAccessEndsAt = null);
 
 public sealed record RenewalDecision(
     RenewalStart Start,
@@ -48,6 +49,12 @@ public static class RenewalPolicy
             || !BillingCalendar.IsSupported(anchor) || anchor.Period != input.Period
             || BillingCalendar.Boundary(anchor, ordinal + 1) != paidThrough)
             return RenewalDecision.Unresolved;
+
+        if (input.RefundAccessEndsAt is { } end)
+            return input.RestoredAccessAt is { } restart && restart >= end && input.FulfilledAt >= end
+                && !(input.VerifiedPaymentAt < end)
+                ? Fresh(input.Period, restart, input.RoundFreshStartUp) with { Start = RenewalStart.RestoredAccess }
+                : RenewalDecision.Unresolved;
 
         var graceEnd = paidThrough + GracePolicy.EligiblePaidGrace;
         if (input.FulfilledAt < graceEnd)

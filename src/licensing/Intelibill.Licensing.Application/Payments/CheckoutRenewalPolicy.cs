@@ -89,7 +89,7 @@ public static class CheckoutRenewalPolicy
                 RoundFreshStartUp: quote.FreshStart is not null)
             : new RenewalInput(period, now, SubscriptionBasis.Paid, prior.EndsAt,
                 new BillingAnchor(prior.AnchorLocal, BillingCalendar.Zone, period), prior.Ordinal,
-                VerifiedPaymentAt: effectiveAt, AcceptedQuote: true, RestoredAccessAt: now, RoundFreshStartUp: true);
+                VerifiedPaymentAt: effectiveAt, AcceptedQuote: true, RestoredAccessAt: now, RoundFreshStartUp: true, RefundAccessEndsAt: prior.RefundAccessEndsAt);
         var rule = restored ? RenewalStart.RestoredAccess : RenewalStart.Fulfilment;
         if (RenewalPolicy.DetermineTerm(input) is not { Anchor: { } anchor, Ordinal: 0,
             StartsAt: { } starts, EndsAt: { } ends } decision || decision.Start != rule)

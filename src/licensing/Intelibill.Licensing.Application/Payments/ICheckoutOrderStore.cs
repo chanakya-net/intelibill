@@ -14,7 +14,7 @@ public sealed record CheckoutSourceShop(Guid ShopId, string Name, Guid RequestId
 public sealed record CheckoutRenewalSource(DateTimeOffset StartsAt, DateTimeOffset EndsAt, int Capacity, string Basis,
     string Period, DateTime AnchorLocal, int Ordinal, string CalendarVersion, string AccessPolicyVersion, int CancellationRevision,
     string Mode = "Grouped", bool Renewed = false, long CapacityRevision = 0, Guid? ActiveReductionId = null,
-    bool BlocksRestoredAccess = false);
+    bool BlocksRestoredAccess = false, DateTimeOffset? RefundAccessEndsAt = null, long RefundRevision = 0);
 
 public sealed record CheckoutTrialSource(Guid ShopId, Guid TermId, int Revision, DateTimeOffset EndsAt);
 
@@ -36,6 +36,9 @@ public sealed record CheckoutSource(CheckoutSourceShop[] Shops, CheckoutRenewalS
             hash = CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "capacity-revision", hash, latest.CapacityRevision);
         if (Prior is { ActiveReductionId: { } reductionId })
             hash = CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "reduction-schedule", hash, reductionId);
+        if (Prior is { RefundAccessEndsAt: { } end } refunded)
+            hash = CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "refund-boundary", hash,
+                refunded.RefundRevision, CheckoutOrdersV1.Instant(end));
         return hash;
     }
 

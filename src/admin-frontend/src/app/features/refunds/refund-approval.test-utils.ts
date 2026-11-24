@@ -31,8 +31,8 @@ export const item = {
 const access = {
   treatment: 'Preserve', termId: term, effectiveAt: null,
   shops: [
-    { shopId: '99999999-9999-4999-8999-000000000001', shopName: 'Refund Central', restricted: false },
-    { shopId: '99999999-9999-4999-8999-000000000002', shopName: 'Refund East', restricted: true },
+    { shopId: '99999999-9999-4999-8999-000000000001', shopName: 'Refund Central', restricted: false, closed: false, scheduledRestrictionAt: null, courtesyEndsAt: null },
+    { shopId: '99999999-9999-4999-8999-000000000002', shopName: 'Refund East', restricted: true, closed: false, scheduledRestrictionAt: null, courtesyEndsAt: null },
   ],
   previousPaidThrough: paidThrough, previousAccessEndsAt: accessEnds, newPaidThrough: paidThrough, newAccessEndsAt: accessEnds,
 };
@@ -94,7 +94,7 @@ export async function loadApprovalPage(): Promise<Type<unknown> | null> {
   return route?.loadComponent ? await route.loadComponent() as Type<unknown> : null;
 }
 
-export async function open(options: { pending?: unknown; status?: string } = {}) {
+export async function open(options: { pending?: unknown; status?: string; unavailable?: boolean } = {}) {
   const component = await loadApprovalPage();
   expect(component, 'the approval route must exist').not.toBeNull();
   const records = installStorage();
@@ -137,8 +137,15 @@ export async function open(options: { pending?: unknown; status?: string } = {})
     update();
   };
   update();
-  (await take('GET', base)).flush({ schemaVersion: 1, accountId: account, nextCursor: null,
+  const detail = await take('GET', base);
+  expect(detail.request.params.get('request')).toBe(request);
+  if (options.unavailable) detail.flush({}, { status: 503, statusText: 'Unavailable' });
+  else detail.flush({ schemaVersion: 1, accountId: account, nextCursor: null,
     items: [{ ...item, status: options.status ?? 'Requested' }] });
+  await vi.waitFor(() => {
+    update();
+    expect(find(options.unavailable ? 'refund-approval-error' : 'refund-approval-status')).not.toBeNull();
+  });
   return { fixture, http, page, records, key, params, adminId, sessionId, update, take, post, find, shown, set, choose };
 }
 
