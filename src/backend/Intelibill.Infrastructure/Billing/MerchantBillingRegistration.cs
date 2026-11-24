@@ -35,6 +35,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<ShopLicenceFence>();
         services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
+        services.AddScoped<ICapacityReservationReceiver, MerchantCapacityReservationStore>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
         AddDeliveryKey(services, OfflinePermitContractV1.Section);

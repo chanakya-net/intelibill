@@ -16,6 +16,7 @@ internal static class CustomerCapacityChangeQuoteEndpoints
         var routes = app.MapGroup(MerchantBillingDelegationV1.AccountsPath +
             "/{account:guid}/subscriptions/{term:guid}/capacity-change-quotes").RequireAuthorization(policy);
         routes.MapPost("", CreateAsync);
+        routes.MapPost("/{quote:guid}/order", ConvertAsync);
         routes.MapGet("/{quote:guid}/shops", ShopsAsync);
         routes.MapGet("/{quote:guid}/shops/after/{after:guid}", ShopsAsync);
     }
@@ -31,6 +32,18 @@ internal static class CustomerCapacityChangeQuoteEndpoints
             return Invalid(context);
         var result = await handler.HandleAsync(proof, account, term, request, ct);
         return result.IsError ? CustomerBillingEndpoints.Failure(context, result.FirstError) : Results.Ok(result.Value.Quote);
+    }
+
+    private static async Task<IResult> ConvertAsync(HttpContext context, Guid account, Guid term, Guid quote,
+        ConvertCapacityQuoteHandler handler, CancellationToken ct)
+    {
+        var proof = context.Features.Get<VerifiedBillingDelegation>();
+        if (proof is null || proof.AccountId != account || !CustomerBillingEndpoints.MatchesBinding(context.Request,
+                proof, CheckoutOrdersV1.Create, HttpMethods.Post, CapacityChangeQuotesV1.OrderPath(account, term, quote)) ||
+            await CustomerBillingAccountEndpoints.ReadBoundBodyAsync<ConvertCapacityQuoteV1>(
+                context.Request, proof, CapacityChangeQuotesV1.MaxCreateBytes, ct) is not { } request)
+            return Invalid(context);
+        return Respond(context, await handler.HandleAsync(proof, account, term, quote, request, ct));
     }
 
     private static async Task<IResult> ShopsAsync(HttpContext context, Guid account, Guid term, Guid quote,

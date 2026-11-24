@@ -23,10 +23,10 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         var at = evaluatedAt ?? SubscriptionStatusProjection.EvaluationInstant(clock);
         var rows = await db.Database.SqlQuery<ShopRow>($"""
             SELECT a.account_id AS affiliation_account_id, t.term_id AS term_id, t.account_id AS account_id,
-                t.mode AS mode, t.capacity AS capacity, t.starts_at AS starts_at, t.ends_at AS ends_at,
+                CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, coalesce(i.capacity,t.capacity) AS capacity, t.starts_at AS starts_at, t.ends_at AS ends_at,
                 f.basis AS basis, f.billing_period AS billing_period, f.anchor_local AS anchor_local,
-                f.time_zone AS time_zone, f.period_ordinal AS period_ordinal, f.member_allowance AS member_allowance,
-                f.price_paise AS price_paise, f.currency AS currency, f.plan_version_id AS plan_version_id,
+                f.time_zone AS time_zone, f.period_ordinal AS period_ordinal, coalesce(i.members,f.member_allowance) AS member_allowance,
+                coalesce(i.gross,f.price_paise) AS price_paise, f.currency AS currency, coalesce(i.plan_version,f.plan_version_id) AS plan_version_id,
                 f.source_reference AS source_reference, f.development_fixture AS development_fixture,
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
                 e.ends_at AS extended_ends_at, x.paid_starts_at AS converted_paid_starts_at,
@@ -50,6 +50,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, p.term_id, a.term_id)
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
+            LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
+                WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
@@ -155,11 +157,11 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
 
     private IQueryable<TermRow> Terms(Guid account, Guid? term, Guid? after, int? take, Guid? paidShop = null) =>
         db.Database.SqlQuery<TermRow>($"""
-            SELECT t.term_id AS term_id, t.account_id AS account_id, t.mode AS mode, t.capacity AS capacity,
+            SELECT t.term_id AS term_id, t.account_id AS account_id, CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, coalesce(i.capacity,t.capacity) AS capacity,
                 t.starts_at AS starts_at, t.ends_at AS ends_at, f.basis AS basis, f.billing_period AS billing_period,
                 f.anchor_local AS anchor_local, f.time_zone AS time_zone, f.period_ordinal AS period_ordinal,
-                f.member_allowance AS member_allowance, f.price_paise AS price_paise, f.currency AS currency,
-                f.plan_version_id AS plan_version_id, f.source_reference AS source_reference,
+                coalesce(i.members,f.member_allowance) AS member_allowance, coalesce(i.gross,f.price_paise) AS price_paise, f.currency AS currency,
+                coalesce(i.plan_version,f.plan_version_id) AS plan_version_id, f.source_reference AS source_reference,
                 f.development_fixture AS development_fixture,
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
                 e.ends_at AS extended_ends_at,
@@ -183,6 +185,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN public.shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
+            LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
+                WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             LEFT JOIN public.complimentary_grants g ON g.term_id = t.term_id AND g.account_id = t.account_id
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes

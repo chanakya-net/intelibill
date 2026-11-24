@@ -65,12 +65,20 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             UndatedTradingRestriction = shop?.State == "Closed" ||
                 (shop?.State == "Suspended" && shop.SuspensionEffectiveAt is null) ||
                 (account?.Restriction == "Trading" && account.SuspensionEffectiveAt is null),
-            MemberAllowance = shop?.MemberAllowance,
+            MemberAllowance = shop is { TermId: { } term, EnforcementActivatedAt: not null } && action == LicenceAction.OperationalCapacity
+                ? await AppliedAllowanceAsync(shop, term, now, ct) ?? shop.MemberAllowance : shop?.MemberAllowance,
             AffiliationRequestId = shop?.AffiliationRequestId,
             AccountEvidenceId = account?.EvidenceId,
             ShopEvidenceId = shop?.EvidenceId,
         };
     }
+
+    private Task<int?> AppliedAllowanceAsync(ShopLicenseState shop, Guid term, DateTimeOffset now, CancellationToken ct) =>
+        db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_capacity WHERE shop_id={shop.ShopId}
+                AND account_id={shop.AccountId} AND term_id={term} AND affiliation_id={shop.AffiliationRequestId}
+                AND paid_through>{now} ORDER BY revision DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
 
     // The account head may rest on a sibling shop's evidence, which row security rightly hides from this shop.
     internal async Task<LicenseProofIssuance?> ReadProofIssuanceAsync(Guid shopId, CancellationToken ct) =>

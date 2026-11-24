@@ -49,6 +49,13 @@ public sealed partial class P0608Tests
             Assert.Equal("55000", Assert.IsType<PostgresException>(refused?.GetBaseException()).SqlState);
         }
 
+        // EF committed the empty capacity downgrade before the retained refund refused the next step.
+        Assert.True(await fixture.ScalarAsync("SELECT to_regclass('public.capacity_increases')::text") is null or DBNull);
+        // The current API reads the P06-02 capacity overlay. Restore its schema and runtime grants before serving it.
+        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
+            await context.GetService<IMigrator>().MigrateAsync();
+        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
+
         foreach (var statement in new[]
         {
             "UPDATE public.refund_requests SET amount_paise = 1",

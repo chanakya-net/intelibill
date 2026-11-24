@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { CheckoutPaymentService } from '../checkout/checkout-payment.service';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
 import { scopedRequestContext } from '../../../core/context/scoped-request';
-import { shopSetHash, type CheckoutScope } from '../checkout/checkout.models';
+import { shopSetHash, type Quote, type CheckoutScope } from '../checkout/checkout.models';
 
 /** Mirror of capacity-change-quote/1. The browser renders these frozen facts and never recalculates a charge. */
 export type CapacityChangeOutcome =
@@ -80,9 +81,17 @@ export function matchesRequest(quote: CapacityChangeQuote, scope: CheckoutScope,
 export class CapacityChangeQuoteService {
   private readonly http = inject(HttpClient);
 
+  private readonly payments = inject(CheckoutPaymentService);
+  status(scope: CheckoutScope, order: string) { return this.payments.read(scope, order); }
+
   create(scope: CheckoutScope, term: string, command: CreateCapacityChangeQuote): Promise<CapacityChangeQuote> {
     return firstValueFrom(this.http.post<CapacityChangeQuote>(this.path(scope, term), command,
       { context: scopedRequestContext(scope) }));
+  }
+
+  convert(scope: CheckoutScope, term: string, quoteId: string, operationKey: string, snapshotHash: string) {
+    return firstValueFrom(this.http.post<Quote>(this.path(scope, term) + '/' + encodeURIComponent(quoteId) + '/order',
+      { operationKey, snapshotHash }, { context: scopedRequestContext(scope) }));
   }
 
   /** Every frozen shop of the quote, page by page; the set must match the quote's count and hash. */

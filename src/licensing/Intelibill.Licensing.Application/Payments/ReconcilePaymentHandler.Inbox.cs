@@ -71,6 +71,8 @@ public sealed partial class ReconcilePaymentHandler
             var settled = await fulfil.ApplyAsync(attempt, payment, ct);
             if (settled.IsError)
                 return settled.Errors;
+            if (settled.Value == FulfilmentOutcome.Pending)
+                return VerifiedResolution(lease, payment.ProviderPaymentReference!, GatewayInboxOutcome.AlreadyVerified);
             if (settled.Value is FulfilmentOutcome.NeedsReview or FulfilmentOutcome.Fulfilled)
             {
                 var outcome = settled.Value == FulfilmentOutcome.Fulfilled

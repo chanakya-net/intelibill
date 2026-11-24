@@ -6,9 +6,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Payments;
 
-internal sealed partial class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrderStore
+internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Application.Subscriptions.ICapacityChangeQuoteStore changes) : ICheckoutOrderStore
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    public async Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct)
+    {
+        if (quote.Increase is null) return true;
+        if (quote.TermId is not { } term || await changes.SourceAsync(quote.AccountId, term, now, ct) is not
+            { CompleteEvidence: true, Superseded: false, Closed: false } live) return false;
+        var hash = live.Hash();
+        return await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.capacity_change_quotes WHERE account_id={quote.AccountId}
+                AND quote_id={quote.OrderId} AND term_id={term} AND source_hash={hash}
+                AND snapshot_hash={quote.Increase.QuoteHash} AND (snapshot->>'suspensionDisclosed')::bool={live.Suspended}) AS "Value"
+            """).SingleAsync(ct);
+    }
+
+    public Task<bool> IsIncreaseOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.capacity_change_quotes q JOIN public.billing_account_members m USING (account_id)
+                WHERE q.account_id = {account} AND q.quote_id = {order} AND q.actor_id = {actor}
+                    AND m.merchant_user_id = {actor} AND m.status = 1 AND m.role = 1) AS "Value"
+            """).SingleAsync(ct);
 
     public async Task<StoredCheckoutQuote?> FindAsync(Guid account, Guid id, bool byOperation, CancellationToken ct)
     {
@@ -86,18 +106,23 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db) : ICheck
     // Only the latest paid period is a renewal source: a term another fulfilment already extended is stale.
     private Task<CheckoutRenewalSource?> ReadTermAsync(Guid account, Guid term, CancellationToken ct) =>
         db.Database.SqlQuery<CheckoutRenewalSource>($"""
-            SELECT t.starts_at AS starts_at, t.ends_at AS ends_at, t.capacity AS capacity,
+            SELECT t.starts_at AS starts_at, t.ends_at AS ends_at, coalesce(i.capacity,t.capacity) AS capacity,
                    f.basis AS basis, f.billing_period AS period, f.anchor_local AS anchor_local,
                    f.period_ordinal AS ordinal, f.calendar_version AS calendar_version,
                    f.access_policy_version AS access_policy_version, coalesce((
                        SELECT max(c.revision) FROM public.scheduled_subscription_changes c
                        WHERE c.account_id = t.account_id AND c.term_id = t.term_id), 0) AS cancellation_revision,
-                   t.mode AS mode, EXISTS (SELECT FROM public.payment_fulfilments r WHERE r.account_id = t.account_id
+                   coalesce(i.target_revision,0) AS capacity_revision,
+                   CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, EXISTS (SELECT FROM public.payment_fulfilments r WHERE r.account_id = t.account_id
                        AND r.term_id = t.term_id AND (r.predecessor_term_id IS NOT NULL OR EXISTS (
                            SELECT FROM public.paid_fresh_starts x WHERE x.account_id = r.account_id AND x.order_id = r.order_id))) AS renewed
             FROM public.subscription_coverage_terms t
+            LEFT JOIN LATERAL (SELECT capacity,target_revision FROM public.capacity_increases WHERE account_id=t.account_id
+                AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             JOIN public.subscription_term_facts f USING (account_id, term_id)
-            WHERE t.account_id = {account} AND t.term_id = {term} AND NOT EXISTS (SELECT FROM public.payment_fulfilments s
+            WHERE t.account_id = {account} AND t.term_id = {term} AND NOT EXISTS (SELECT FROM public.capacity_increases i
+                WHERE i.account_id=t.account_id AND i.term_id=t.term_id AND i.state='Pending')
+                AND NOT EXISTS (SELECT FROM public.payment_fulfilments s
                 WHERE s.account_id = t.account_id AND s.predecessor_term_id = t.term_id)
             """).SingleOrDefaultAsync(ct);
 

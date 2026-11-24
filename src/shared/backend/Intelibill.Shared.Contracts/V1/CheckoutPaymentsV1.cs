@@ -10,6 +10,8 @@ public static class CheckoutPaymentsV1
 {
     public static bool HasValidPaymentSource(CheckoutPaymentV1 p)
     {
+        if (p.Fulfilment == "Pending" && (p.Payment != "Verified" && p.ManualPayment is null || p.CanStart || p.Launch is not null))
+            return false;
         if (p.ManualPayment is not { } manual)
             return (p.Payment == "NotStarted") == (p.AttemptId is null);
 
@@ -53,7 +55,7 @@ public static class CheckoutPaymentsV1
     public const string NotFound = "Billing.PaymentNotFound";
 
     public static readonly string[] PaymentStates = ["NotStarted", "AwaitingPayment", "PendingVerification", "Verified", "Failed"];
-    public static readonly string[] FulfilmentStates = ["NotFulfilled", "Fulfilled", "NeedsReview"];
+    public static readonly string[] FulfilmentStates = ["NotFulfilled", "Fulfilled", "Pending", "NeedsReview"];
     public static readonly string[] AccessStates = ["NotApplicable", "Applying", "Applied", "NeedsReview"];
     public static readonly string[] LauncherFlows = [SimulatorFlow, RazorpayFlow];
     public static readonly string[] LauncherOutcomes = ["Success", "Cancelled"];

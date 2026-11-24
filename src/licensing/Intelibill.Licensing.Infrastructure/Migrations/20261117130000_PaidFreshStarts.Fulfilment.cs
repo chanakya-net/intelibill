@@ -2,7 +2,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations;
 
 public sealed partial class PaidFreshStarts
 {
-    private const string PaymentGuards = """
+    internal const string PaymentGuards = """
         CREATE OR REPLACE FUNCTION public.guard_payment_attempt() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
             IF NOT EXISTS (SELECT FROM public.checkout_orders q

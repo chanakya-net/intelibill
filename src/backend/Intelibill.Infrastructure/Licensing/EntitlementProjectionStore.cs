@@ -89,7 +89,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return await fence.EnterProjectionAsync(account, shop, ct);
     }
 
-    private async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)
+    internal async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)
     {
         if (clock.GetUtcNow() >= proof.ExpiresAt) return false;
         await db.Database.ExecuteSqlInterpolatedAsync($"""

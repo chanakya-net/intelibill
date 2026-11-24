@@ -267,6 +267,8 @@ route	GET api/users/me/sessions	Authentication	M01	protected/request
 route	PATCH api/items/{itemId:guid}	OperationalCapacity	M04	protected/request
 route	PATCH api/services/{serviceId:guid}	OperationalCapacity	M04	protected/request
 route	PATCH api/shops/{shopId:guid}/members/{targetUserId:guid}	OperationalCapacity	M04	protected/source
+route	POST /internal/licensing/v1/capacity-reservations/consume	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reservations/reserve	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/entitlements	InternalService	internal	anonymous/request
 route	POST /internal/merchant/v1/closures/validate	InternalService	internal	anonymous/request
 route	POST api/auth/email-change/confirm	Authentication	M01	protected/request
@@ -308,6 +310,7 @@ route	POST api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	pro
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes/{quoteId:guid}/order	Billing	M01/M13	protected/request
 route	POST api/billing/invitations/{invitationId:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/billing/ownership-transfers/{transfer:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/credit-notes/{code}/void	SourceCorrection	M09	protected/request

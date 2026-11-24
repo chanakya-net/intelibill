@@ -12,6 +12,9 @@ internal static class EntitlementIntegrationEndpoints
 {
     internal static void MapEntitlementIntegration(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapPost(CapacityReservationV1.ReceiptPath, (HttpContext context, LicensingEntitlementTransport transport,
+            EntitlementMerchantEvents events) => ReceiveAsync<CapacityReceiptV1>(context, transport,
+                CapacityReservationV1.ReceiptPath, events.CapacityAsync)).AllowAnonymous();
         endpoints.MapPost(EntitlementSnapshotsV1.AcknowledgementPath, (HttpContext context,
             LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<EntitlementAcknowledgementV1>(context,
                 transport, EntitlementSnapshotsV1.AcknowledgementPath, events.AcknowledgeAsync)).AllowAnonymous();

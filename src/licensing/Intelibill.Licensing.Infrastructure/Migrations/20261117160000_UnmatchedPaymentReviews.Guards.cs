@@ -9,8 +9,8 @@ public sealed partial class UnmatchedPaymentReviews
                 AND a.mfa_enrolled_at IS NOT NULL AND a.deactivated_at IS NULL AND (a.capabilities & 2) = 2)
         """;
 
-    private const string DecisionGuards = """
-        CREATE FUNCTION public.guard_unmatched_payment_source() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+    internal static string SourceGuard(string capacityReason = "") => $$"""
+        CREATE OR REPLACE FUNCTION public.guard_unmatched_payment_source() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
             IF NEW.attempt_id IS NOT NULL AND NOT EXISTS (SELECT FROM public.payment_attempts a
                 WHERE a.account_id = NEW.account_id AND a.order_id = NEW.order_id AND a.attempt_id = NEW.attempt_id
@@ -19,7 +19,7 @@ public sealed partial class UnmatchedPaymentReviews
             END IF;
             IF NEW.manual_receipt_id IS NOT NULL AND NOT EXISTS (SELECT FROM public.manual_payment_receipts r
                 WHERE r.account_id = NEW.account_id AND r.order_id = NEW.order_id AND r.receipt_id = NEW.manual_receipt_id
-                    AND r.review_reason = NEW.classification AND r.amount_paise = NEW.expected_amount_paise
+                    AND (r.review_reason = NEW.classification {{capacityReason}}) AND r.amount_paise = NEW.expected_amount_paise
                     AND r.amount_paise = NEW.observed_amount_paise AND r.currency = NEW.expected_currency
                     AND r.currency = NEW.observed_currency AND r.received_at = NEW.captured_at
                     AND r.verified_at = NEW.observed_at AND r.receiving_account_id = NEW.receiving_account_id
@@ -29,6 +29,9 @@ public sealed partial class UnmatchedPaymentReviews
             END IF;
             RETURN NEW;
         END $$;
+        """;
+
+    private static string DecisionGuards => SourceGuard() + """
         CREATE TRIGGER guard_unmatched_payment_source BEFORE INSERT ON public.unmatched_payments
             FOR EACH ROW EXECUTE FUNCTION public.guard_unmatched_payment_source();
 
@@ -92,7 +95,7 @@ public sealed partial class UnmatchedPaymentReviews
         """;
 
     // A renewal successor is the predecessor's next period on the same anchor, same capacity, whole package.
-    private static string FulfilmentCompleteness(bool reviewedRecovery) => $"""
+    internal static string FulfilmentCompleteness(bool reviewedRecovery, string priorCapacity = "pc.capacity", string priorMode = "pc.mode") => $"""
         CREATE OR REPLACE FUNCTION public.require_complete_payment_fulfilment() RETURNS trigger LANGUAGE plpgsql
         SET search_path = pg_catalog AS $$
         DECLARE fresh_kind text;
@@ -123,7 +126,7 @@ public sealed partial class UnmatchedPaymentReviews
                             AND NEW.grace_days_included = 0
                             ELSE sf.anchor_local = pf.anchor_local AND sf.period_ordinal = pf.period_ordinal + 1
                                 AND sc.starts_at = pc.ends_at END)
-                        AND sc.capacity = pc.capacity AND sc.mode = pc.mode
+                        AND sc.capacity = {priorCapacity} AND sc.mode = {priorMode}
                         AND (SELECT count(*) FROM public.payment_fulfilment_shops l
                             WHERE l.account_id = NEW.account_id AND l.order_id = NEW.order_id)
                             = (SELECT count(*) FROM public.shop_affiliations a

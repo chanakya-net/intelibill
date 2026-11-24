@@ -629,3 +629,7 @@ Keep production enrollment disabled until P05 historical permit and recovery
 compatibility and P08 legacy migration and enrollment approval are verified.
 The legacy deadline invoice recorded in the matrix remains a P05 rollout
 blocker. Local evidence and independent review authorize no production change.
+
+## Paid capacity increases and downgrade recovery
+
+Keep both services offline during schema downgrades. EF Core commits each migration separately. A refusal with SQLSTATE `55000` can preserve the refund requests while an earlier step has already removed the capacity tables. Before restarting current binaries, migrate both service databases forward to their current heads, reapply their environment-owned runtime grants, and verify that the runtime roles can read the capacity tables and the original subscription. Retain the original orders, confirmations, reservation decisions and refund evidence throughout recovery.

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 import { ShopContextService } from '../../../core/context/shop-context.service';
@@ -20,7 +20,8 @@ import {
 type PreviewView =
   | { readonly kind: 'hidden' | 'closed' | 'loading' }
   | { readonly kind: 'form'; readonly plans: readonly PublishedPlan[] }
-  | { readonly kind: 'quote'; readonly quote: CapacityChangeQuote; readonly shops: readonly CapacityChangeShop[] }
+  | { readonly kind: 'purchase'; readonly quoteId: string; readonly canReplace: boolean; readonly unavailable?: boolean; readonly awaitingPayment?: boolean }
+  | { readonly kind: 'quote'; readonly previewKey: string; readonly quote: CapacityChangeQuote; readonly shops: readonly CapacityChangeShop[] }
   | { readonly kind: 'failed'; readonly code: string };
 
 const knownCodes: Readonly<Record<string, string>> = {
@@ -51,6 +52,7 @@ const knownCodes: Readonly<Record<string, string>> = {
 export class CapacityChangePreviewComponent {
   readonly account = input.required<string>();
   readonly term = input.required<SubscriptionTermStatus>();
+  private readonly router = inject(Router);
   private readonly context = inject(ShopContextService);
   private readonly accounts = inject(BillingAccountService);
   private readonly checkout = inject(CheckoutService);
@@ -88,7 +90,19 @@ export class CapacityChangePreviewComponent {
       const listed = await firstValueFrom(this.accounts.list());
       if (!current() || listed.find(item => item.accountId === scope.account)?.role !== 'Owner') return;
       const draft = this.drafts.read(scope, term.termId);
-      if (draft) await this.send(scope, term, draft.command, current);
+      if (draft?.purchase) {
+        this.view.set({ kind: 'purchase', quoteId: draft.purchase.quoteId, canReplace: false });
+        const payment = await this.api.status(scope, draft.purchase.quoteId).catch(() => null);
+        if (!current()) return;
+        const unused = payment?.payment === 'NotStarted' && !payment.attemptId && !payment.manualPayment &&
+          payment.fulfilment === 'NotFulfilled' && !payment.canStart;
+        const order = unused ? await this.checkout.read(scope, draft.purchase.quoteId).catch(() => null) : null;
+        const expiredUnused = order?.orderId === draft.purchase.quoteId && Date.now() >= Date.parse(order.expiresAt);
+        const failed = payment?.payment === 'Failed' && payment.fulfilment === 'NotFulfilled' && !payment.manualPayment;
+        if (current()) this.view.set({ kind: 'purchase', quoteId: draft.purchase.quoteId,
+          canReplace: failed || payment?.fulfilment === 'Fulfilled' || expiredUnused,
+          awaitingPayment: payment?.payment === 'AwaitingPayment' });
+      } else if (draft) await this.send(scope, term, draft.command, current);
       else this.view.set({ kind: 'closed' });
     } catch (error) {
       if (current()) this.fail(error);
@@ -146,6 +160,34 @@ export class CapacityChangePreviewComponent {
     }
   }
 
+  protected async purchase() {
+    const scope = this.scope();
+    const term = this.term().termId;
+    const view = this.view();
+    if (!scope || (view.kind !== 'purchase' && view.kind !== 'quote')) return;
+    const generation = ++this.generation;
+    try {
+      const purchase = view.kind === 'purchase' ? this.drafts.read(scope, term)?.purchase :
+        await this.drafts.purchase(scope, term, view.previewKey, view.quote.quoteId, view.quote.snapshotHash);
+      if (!purchase || generation !== this.generation) return;
+      this.view.set({ kind: 'purchase', quoteId: purchase.quoteId, canReplace: false });
+      const order = await this.api.convert(scope, term, purchase.quoteId, purchase.operationKey, purchase.snapshotHash);
+      if (order.accountId !== scope.account || order.termId !== term || order.orderId !== purchase.quoteId ||
+        order.startRule !== 'CapacityIncrease') throw new Error('Unexpected capacity order');
+      if (generation === this.generation)
+        await this.router.navigate(['/billing/accounts', scope.account, 'checkout'], { queryParams: { order: order.orderId } });
+    } catch (error) {
+      if (generation !== this.generation) return;
+      const saved = this.drafts.read(scope, term)?.purchase;
+      if (saved) {
+        const refused = error instanceof HttpErrorResponse && error.status === 409 &&
+          ['Billing.CheckoutExpired', 'Billing.CheckoutSourceChanged'].includes(error.error?.code);
+        this.view.set({ kind: 'purchase', quoteId: saved.quoteId, canReplace: refused, unavailable: true });
+      }
+      else this.fail(error);
+    }
+  }
+
   /** Expired or refused previews end only by this explicit choice; the next request gets a fresh key. */
   protected async startOver() {
     const scope = this.scope();
@@ -154,8 +196,9 @@ export class CapacityChangePreviewComponent {
     if (!scope) return;
     const generation = ++this.generation;
     try {
-      await this.drafts.discard(scope, term.termId, this.savedKey(scope, term.termId));
-      if (generation === this.generation && (view.kind === 'quote' || view.kind === 'failed')) await this.open();
+      await this.drafts.discard(scope, term.termId, view.kind === 'quote' ? view.previewKey : this.savedKey(scope, term.termId),
+        view.kind === 'purchase' && view.canReplace ? view.quoteId : undefined);
+      if (generation === this.generation && (view.kind === 'quote' || view.kind === 'failed' || view.kind === 'purchase' && view.canReplace)) await this.open();
     } catch (error) {
       if (generation === this.generation) this.fail(error);
     }
@@ -181,7 +224,7 @@ export class CapacityChangePreviewComponent {
     if (!current()) return;
     if (!matchesRequest(quote, scope, term.termId, command)) throw new Error('Capacity quote does not match its request');
     const shops = await this.api.shops(scope, quote, current);
-    if (current()) this.view.set({ kind: 'quote', quote, shops });
+    if (current()) this.view.set({ kind: 'quote', quote, shops, previewKey: command.operationKey });
   }
 
   private fail(error: unknown) {

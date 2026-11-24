@@ -22,6 +22,8 @@ public sealed class AcceptCheckoutOrderHandler(IBillingDelegationAccess access, 
             if (retained is null)
                 return CheckoutOrderErrors.Missing;
             var quote = retained.Quote;
+            if (quote.Increase is not null && !await store.IsIncreaseOwnerAsync(account, order, proof.ActorId, token))
+                return BillingDelegationErrors.Denied;
             if (replay is not null)
                 return quote;
             if (quote.Acceptance is not null)
@@ -33,7 +35,7 @@ public sealed class AcceptCheckoutOrderHandler(IBillingDelegationAccess access, 
 
             var ids = quote.TermId is null ? await store.ShopIdsAsync(account, order, token) : [];
             var source = await store.SourceAsync(account, quote.TermId, ids, token);
-            if (source?.Matches(quote) != true)
+            if (source?.Matches(quote) != true || !await store.IncreaseStillCurrentAsync(quote, Now(), token))
                 return CheckoutOrderErrors.Changed;
             var now = Now();
             if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))

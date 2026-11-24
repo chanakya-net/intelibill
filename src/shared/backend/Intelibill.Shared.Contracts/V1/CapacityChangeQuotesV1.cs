@@ -28,6 +28,8 @@ public static class CapacityChangeQuotesV1
     public static string Path(Guid account, Guid term) =>
         $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/subscriptions/{term:D}/capacity-change-quotes";
 
+    public static string OrderPath(Guid account, Guid term, Guid quote) => $"{Path(account, term)}/{quote:D}/order";
+
     public static string ShopsPath(Guid account, Guid term, Guid quote, Guid? after) => after is { } cursor
         ? $"{Path(account, term)}/{quote:D}/shops/after/{cursor:D}" : $"{Path(account, term)}/{quote:D}/shops";
 
@@ -81,3 +83,7 @@ public sealed record CapacityChangeQuoteV1(Guid AccountId, Guid QuoteId, Guid Te
 
 public sealed record CapacityChangeShopV1(Guid ShopId, string Name);
 public sealed record CapacityChangeShopPageV1(Guid AccountId, Guid QuoteId, CapacityChangeShopV1[] Items, Guid? NextCursor);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ConvertCapacityQuoteV1([property: JsonPropertyName("operationKey")] Guid OperationKey,
+    [property: JsonPropertyName("snapshotHash")] string SnapshotHash);

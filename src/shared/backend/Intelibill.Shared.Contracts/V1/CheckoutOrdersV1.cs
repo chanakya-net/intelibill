@@ -54,6 +54,8 @@ public static class CheckoutOrdersV1
     public static string SnapshotHash(CheckoutQuoteV1 q)
     {
         var legacy = LegacySnapshotHash(q);
+        if (q.Increase is { } change)
+            return Digest(Policy, "capacity-increase", legacy, change.QuoteHash, change.PinHash, change.RoutingRevision, change.SourceRevision);
         return q.FreshStart is { } fresh
             ? Digest(Policy, "fresh-start", legacy, fresh.Policy, fresh.TrialShopCount, fresh.TrialSourceHash) : legacy;
     }
@@ -111,7 +113,8 @@ public sealed record CheckoutQuoteV1(Guid AccountId, Guid OrderId, int Revision,
     DateTimeOffset PreviewStartsAt, DateTimeOffset PreviewEndsAt, int GraceDaysIncluded, string AnchorLocal, int Ordinal,
     DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, [property: JsonRequired] bool DevelopmentFixture, string SnapshotHash,
     CheckoutAcceptanceV1? Acceptance = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CheckoutFreshStartV1? FreshStart = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CheckoutFreshStartV1? FreshStart = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityIncreaseOrderV1? Increase = null)
 {
     [JsonRequired]
     public int SchemaVersion { get; init; } = 1;
@@ -123,3 +126,8 @@ public sealed record CheckoutFreshStartV1(string Policy, int TrialShopCount, str
 public sealed record CheckoutAcceptanceV1(Guid OperationKey, int QuoteRevision, string SnapshotHash, DateTimeOffset AcceptedAt);
 public sealed record CheckoutShopV1(Guid ShopId, string Name, Guid? TermId);
 public sealed record CheckoutShopPageV1(Guid AccountId, Guid? OrderId, CheckoutShopV1[] Items, Guid? NextCursor);
+
+public sealed record CapacityIncreaseOrderV1(string QuoteHash, string PinHash, long RoutingRevision, long SourceRevision)
+{
+    public const string Rule = "CapacityIncrease";
+}

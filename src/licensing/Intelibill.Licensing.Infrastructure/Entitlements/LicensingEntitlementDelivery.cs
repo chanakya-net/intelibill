@@ -16,16 +16,24 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
 
     public async Task<string?> SendAsync(LeasedHttpMessage message, CancellationToken ct)
     {
-        if (transport.Origin is not { } origin || message.Kind != "Snapshot")
+        var path = message.Kind switch
+        {
+            "Snapshot" => EntitlementSnapshotsV1.SnapshotPath,
+            CapacityReservationV1.Reserve => CapacityReservationV1.ReservePath,
+            CapacityReservationV1.Consume => CapacityReservationV1.ConsumePath,
+            _ => null,
+        };
+        if (transport.Origin is not { } origin || path is null)
             return "Unavailable";
         try
         {
-            if (await transport.SignAsync(message.Payload, ct) is not { } assertion)
+            if (await transport.SignAsync(message.Payload, ct, path) is not { } assertion)
                 return "Unavailable";
             using var client = clients.CreateClient(LeasedHttpDeliveryPump.ClientName);
-            using var response = await LeasedHttpDeliveryPump.PostAsync(client, origin, EntitlementSnapshotsV1.SnapshotPath,
+            using var response = await LeasedHttpDeliveryPump.PostAsync(client, origin, path,
                 message.Payload, assertion, ct);
-            return await CheckResponseAsync(response, message, ct);
+            if (message.Kind == "Snapshot") return await CheckResponseAsync(response, message, ct);
+            return response.StatusCode == HttpStatusCode.NoContent ? null : DeliveryFailure(response);
         }
         catch (RequestFailedException)
         {
@@ -33,11 +41,14 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
         }
     }
 
+    private static string DeliveryFailure(HttpResponseMessage response) =>
+        response.IsSuccessStatusCode ? "InvalidResponse" :
+            response.StatusCode >= HttpStatusCode.InternalServerError ? "Unavailable" : "Rejected";
+
     private static async Task<string?> CheckResponseAsync(HttpResponseMessage response, LeasedHttpMessage message, CancellationToken ct)
     {
         if (response.StatusCode != HttpStatusCode.OK)
-            return response.IsSuccessStatusCode ? "InvalidResponse" :
-                response.StatusCode >= HttpStatusCode.InternalServerError ? "Unavailable" : "Rejected";
+            return DeliveryFailure(response);
         if (response.Content.Headers.ContentType?.MediaType != "application/json" ||
             response.Content.Headers.ContentLength > EntitlementSnapshotsV1.BodyLimit)
             return "InvalidResponse";

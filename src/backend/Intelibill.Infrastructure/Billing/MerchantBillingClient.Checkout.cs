@@ -79,7 +79,7 @@ internal sealed partial class MerchantBillingClient
         CheckoutOrdersV1.IsHash(q.ShopHash) && CheckoutOrdersV1.IsHash(q.SourceHash) &&
         q.AmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise && q.Currency == "INR" && q.PriceBasis == "TaxInclusiveFinal" &&
         q.CustomerTermsVersion is { Length: > 0 and <= 80 } && q.RefundPolicyVersion is { Length: > 0 and <= 80 } &&
-        HasCheckoutDates(q) && ValidFreshStart(q) && q.SnapshotHash == CheckoutOrdersV1.SnapshotHash(q) &&
+        ((q.Increase is not null) == (q.StartRule == CapacityIncreaseOrderV1.Rule)) && HasCheckoutDates(q) && ValidFreshStart(q) && q.SnapshotHash == CheckoutOrdersV1.SnapshotHash(q) &&
         (q.Acceptance is null || q.Acceptance is { } a && a.OperationKey != Guid.Empty && a.QuoteRevision == q.Revision &&
             a.SnapshotHash == q.SnapshotHash && EntitlementSnapshotsV1.IsInstant(a.AcceptedAt) &&
             a.AcceptedAt >= q.CreatedAt && a.AcceptedAt < q.ExpiresAt);
@@ -99,6 +99,9 @@ internal sealed partial class MerchantBillingClient
         {
             "Fulfilment" => q.TermId is null && q.Ordinal == 0 && q.GraceDaysIncluded == 0,
             "RestoredAccess" => q.TermId is not null && q.Ordinal == 0 && q.GraceDaysIncluded == 0,
+            CapacityIncreaseOrderV1.Rule => q.TermId is not null && q.FreshStart is null && q.Ordinal >= 0 &&
+                q.Increase is { RoutingRevision: >= 0, SourceRevision: >= 0 and < long.MaxValue } change && CheckoutOrdersV1.IsHash(change.QuoteHash) &&
+                CheckoutOrdersV1.IsHash(change.PinHash) && q.PreviewStartsAt <= q.CreatedAt && q.CreatedAt < q.PreviewEndsAt,
             "PriorPaidThrough" => q.TermId is not null && q.Ordinal is > 0 and <= 1201 && q.GraceDaysIncluded is >= 0 and <= 7,
             _ => false,
         });

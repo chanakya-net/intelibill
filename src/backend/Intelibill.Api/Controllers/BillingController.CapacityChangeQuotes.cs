@@ -20,6 +20,16 @@ public sealed partial class BillingController
         ReadCaller() is { } caller
             ? CheckoutResponse(await service.CreateCapacityQuoteAsync(caller, accountId, termId, request, ct)) : SessionInvalid();
 
+    [HttpPost(CapacityQuotesRoute + "/{quoteId:guid}/order")]
+    [RateLimit(Limit = 30, PeriodInMinutes = 60, BackoffMinutes = 5, FailClosed = true)]
+    [RequestSizeLimit(CapacityChangeQuotesV1.MaxCreateBytes)]
+    [LicenceAction(LicenceAction.Billing)]
+    public async Task<IActionResult> ConvertCapacityQuote(Guid accountId, Guid termId, Guid quoteId,
+        ConvertCapacityQuoteV1 request, [FromServices] IMerchantCapacityChangeQuotes service, CancellationToken ct) =>
+        ReadCaller() is { } caller
+            ? CheckoutResponse(await service.ConvertCapacityQuoteAsync(caller, accountId, termId, quoteId, request, ct))
+            : SessionInvalid();
+
     [HttpGet(CapacityQuotesRoute + "/{quoteId:guid}/shops")]
     [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> CapacityChangeQuoteShops(Guid accountId, Guid termId, Guid quoteId, [FromQuery] Guid? after,

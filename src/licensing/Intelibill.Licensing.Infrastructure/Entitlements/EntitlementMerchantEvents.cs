@@ -12,13 +12,35 @@ public sealed class EntitlementMerchantEvents
     private readonly LicensingDbContext db;
     private readonly TimeProvider clock;
     private readonly EntitlementPublisher publisher;
+    private readonly CapacityReservationAcknowledgements increases;
 
-    internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher)
+    internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
+        CapacityReservationAcknowledgements increases)
     {
+        this.increases = increases;
         this.db = db;
         this.clock = clock;
         this.publisher = publisher;
     }
+
+    public Task<ErrorOr<Success>> CapacityAsync(CapacityReceiptV1 ack, byte[] body, VerifiedServiceAssertion proof,
+        CancellationToken ct)
+    {
+        var valid = ack.Outcome switch
+        {
+            "Reserved" => ack.Phase == CapacityReservationV1.Reserve && ack.Reason is null,
+            "Applied" => ack.Phase == CapacityReservationV1.Consume && ack.Reason is null,
+            "NeedsReview" => ack.Phase is CapacityReservationV1.Reserve or CapacityReservationV1.Consume &&
+                ack.Reason is "ReservationExpired" or "ReservationChanged" or "SourceChanged" or "ReservationBusy",
+            _ => false,
+        };
+        if (!valid || ack.SchemaVersion != 1 || ack.EventId == Guid.Empty || ack.AccountId == Guid.Empty ||
+            ack.TermId == Guid.Empty || ack.OrderId == Guid.Empty || !EntitlementSnapshotsV1.IsDigest(ack.CommandDigest))
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Capacity.InvalidReceipt"));
+        return InEventAsync(ack.AccountId, ack.EventId, CapacityReservationV1.Receipt, body, proof,
+            token => increases.ApplyAsync(ack, token), ct);
+    }
+
     public Task<ErrorOr<Success>> AcknowledgeAsync(EntitlementAcknowledgementV1 ack, byte[] body, VerifiedServiceAssertion proof,
         CancellationToken ct)
     {

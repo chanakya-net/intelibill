@@ -26,6 +26,8 @@ public sealed record StoredCapacityChangeQuote(CapacityChangeQuoteV1 Quote, Guid
 
 public interface ICapacityChangeQuoteStore
 {
+    Task<(CapacityChangeQuoteV1 Quote, PaymentProviderPin Pin, long Revision)?> PayableAsync(Guid account, Guid term,
+        Guid quote, Guid actor, CancellationToken ct);
     Task<StoredCapacityChangeQuote?> FindAsync(Guid account, Guid operationKey, CancellationToken ct);
     Task<CapacityChangeSource?> SourceAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct);
     Task SaveAsync(CapacityChangeQuoteV1 quote, CapacityChangeSource source, PaymentProviderPin? pin, long? routingRevision,
