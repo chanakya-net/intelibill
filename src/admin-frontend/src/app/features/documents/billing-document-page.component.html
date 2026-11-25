@@ -1,0 +1,98 @@
+<main class="adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/"><i class="pi pi-arrow-left" aria-hidden="true"></i>Provider console</a>
+    <h1 class="ib-page-title">Accounting invoices</h1>
+    <p class="ib-subtitle">Attach the externally issued invoice for an accepted order. Payment confirmations are issued separately.</p>
+  </header>
+
+  @if (!allowed()) {
+    <p class="ib-error-banner" role="alert">Billing capability is required.</p>
+  } @else {
+    <form class="ib-panel" (submit)="search($event, accountId.value, orderId.value)">
+      <div class="adm-grid-2">
+        <label>Billing account ID <input #accountId required [value]="account()"></label>
+        <label>Accepted order ID <input #orderId required [value]="order()"></label>
+      </div>
+      <div class="adm-actions"><button pButton type="submit" [disabled]="busy()">Load order</button></div>
+    </form>
+
+    @if (error()) {
+      <p role="alert" class="ib-error-banner">{{ error() }}</p>
+    }
+    @if (reauthenticate()) {
+      <a routerLink="/auth/sign-in" [queryParams]="{ invoiceAccount: account(), invoiceOrder: order() }">Sign in with MFA</a>
+    }
+    @if (pending(); as intent) {
+      <section class="ib-panel" aria-labelledby="pending-heading">
+        <h2 class="ib-panel__title" id="pending-heading">Saved upload operation</h2>
+        <p>{{ intent.metadata.fileName }} · {{ intent.metadata.issuerReference }}</p>
+        <p>Operation <code>{{ intent.operationKey }}</code></p>
+        <div class="adm-actions">
+          <button pButton type="button" severity="secondary" [outlined]="true" [disabled]="busy()" (click)="recover(true)">Check original upload</button>
+          <button pButton type="button" [disabled]="busy()" (click)="recover(false)">Retry original upload</button>
+        </div>
+      </section>
+    }
+
+    @if (view(); as item) {
+      <section class="ib-panel" aria-labelledby="order-heading">
+        <h2 class="ib-panel__title" id="order-heading">Accepted order</h2>
+        <dl>
+          <dt>Billing account</dt><dd><code>{{ item.accountId }}</code></dd>
+          <dt>Order ID</dt><dd><code>{{ item.orderId }}</code></dd>
+          <dt>Plan</dt><dd>{{ item.order.planName }} · {{ item.order.period }}</dd>
+          <dt>Order total</dt><dd>{{ money(item.order.amountPaise, item.order.currency) }}</dd>
+          <dt>Payment confirmations</dt><dd>{{ item.paymentConfirmations }}</dd>
+        </dl>
+      </section>
+
+      @if (saved()) {
+        <p class="adm-callout adm-callout--success" role="status">Accounting invoice attached.</p>
+      }
+      @for (document of item.documents; track document.versionId) {
+        <section class="ib-panel" aria-labelledby="saved-invoice-heading">
+          <h2 class="ib-panel__title" id="saved-invoice-heading">Attached accounting invoice</h2>
+          <ng-container [ngTemplateOutlet]="metadata" [ngTemplateOutletContext]="{ $implicit: document, version: document.version }" />
+        </section>
+      } @empty {
+        @if (!pending()) {
+          <form class="ib-panel" (submit)="review($event, pdf.files?.item(0) ?? null)" (input)="clearPreview()">
+            <h2 class="ib-panel__title">Attach an invoice</h2>
+            <fieldset [disabled]="busy()">
+              <label>Invoice PDF (up to 10 MiB) <input #pdf name="pdf" type="file" accept=".pdf,application/pdf" required></label>
+              <div class="adm-grid-2">
+                <label>Issuer name <input name="issuerName" maxlength="200" required></label>
+                <label>Issuing reference <input name="issuerReference" maxlength="64" required></label>
+              </div>
+              <label>Issue date <input name="issuedOn" type="date" min="2000-01-01" required></label>
+            </fieldset>
+            <div class="adm-actions"><button pButton type="submit" [disabled]="busy()">Preview invoice metadata</button></div>
+          </form>
+        }
+      }
+    }
+
+    @if (preview(); as reviewed) {
+      <section class="ib-panel" aria-labelledby="invoice-preview-heading">
+        <h2 class="ib-panel__title" id="invoice-preview-heading">Invoice metadata preview</h2>
+        <ng-container [ngTemplateOutlet]="metadata" [ngTemplateOutletContext]="{ $implicit: reviewed.metadata, version: reviewed.version }" />
+        <label class="adm-check">
+          <input type="checkbox" [checked]="confirmed()" (change)="confirmed.set(confirmation.checked)" #confirmation>
+          I confirm this invoice and its metadata belong to the displayed account and order.
+        </label>
+        <div class="adm-actions"><button pButton type="button" [disabled]="busy() || !confirmed()" (click)="attach()">Attach accounting invoice</button></div>
+      </section>
+    }
+  }
+</main>
+
+<ng-template #metadata let-invoice let-version="version">
+  <dl>
+    <dt>PDF</dt><dd>{{ invoice.fileName }} · {{ invoice.byteLength }} bytes</dd>
+    <dt>Issuer</dt><dd>{{ invoice.issuerName }}</dd>
+    <dt>Issuing reference</dt><dd>{{ invoice.issuerReference }}</dd>
+    <dt>Issue date</dt><dd>{{ invoice.issuedOn }}</dd>
+    <dt>Version</dt><dd>{{ version }}</dd>
+    <dt>SHA-256</dt><dd><code>{{ invoice.sha256 }}</code></dd>
+  </dl>
+</ng-template>
