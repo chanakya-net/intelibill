@@ -130,52 +130,6 @@ public sealed partial class P0606Tests
         await AssertSlotConservationOracleAsync(f, p.Account, term, capacity: 3, expectedStart: January31, expectedEnd: February29);
     }
 
-    internal static async Task AssertSlotConservationOracleAsync(P0308Fixture f, Guid account, Guid term,
-        int capacity, DateTimeOffset expectedStart, DateTimeOffset expectedEnd)
-    {
-        var json = (string)(await f.ScalarAsync($"""
-            SELECT jsonb_agg(jsonb_build_object(
-                'origin', slot_origin_shop_id, 'shop', shop_id,
-                'start', interval_starts_at, 'end', interval_ends_at)
-                ORDER BY slot_origin_shop_id, interval_starts_at)::text
-            FROM public.term_paid_slot_intervals('{account}', '{term}')
-            """))!;
-        var rows = JsonSerializer.Deserialize<JsonElement>(json).EnumerateArray()
-            .Select(r => (
-                Origin: r.GetProperty("origin").GetGuid(),
-                Shop: r.GetProperty("shop").GetGuid(),
-                Start: r.GetProperty("start").GetDateTimeOffset().ToUniversalTime(),
-                End: r.GetProperty("end").GetDateTimeOffset().ToUniversalTime()))
-            .ToArray();
-
-        var expectedSpan = expectedEnd - expectedStart;
-        var byOrigin = rows.GroupBy(r => r.Origin).ToArray();
-        Assert.Equal(capacity, byOrigin.Length);
-        foreach (var lineage in byOrigin)
-        {
-            var ordered = lineage.OrderBy(x => x.Start).ToArray();
-            Assert.Equal(expectedStart, ordered[0].Start);
-            Assert.Equal(expectedEnd, ordered[^1].End);
-            var sum = TimeSpan.Zero;
-            for (var i = 0; i < ordered.Length; i++)
-            {
-                Assert.True(ordered[i].Start < ordered[i].End);
-                if (i > 0) Assert.Equal(ordered[i - 1].End, ordered[i].Start);
-                sum += ordered[i].End - ordered[i].Start;
-            }
-            Assert.Equal(expectedSpan, sum);
-        }
-
-        // At every boundary instant t and t - 1us, paid holder count <= capacity and distinct shops hold slots.
-        var probes = rows.SelectMany(r => new[] { r.Start, r.End.AddTicks(-10) }).Distinct().ToArray();
-        foreach (var probe in probes)
-        {
-            var active = rows.Where(r => r.Start <= probe && probe < r.End).ToArray();
-            Assert.True(active.Length <= capacity, $"Holders at {probe:O}: {active.Length} > {capacity}");
-            Assert.Equal(active.Length, active.Select(a => a.Shop).Distinct().Count());
-        }
-    }
-
     private static async Task<string?> FencedHistoryAtAsync(P0308Fixture f, Guid shopId, DateTimeOffset at)
     {
         var clock = f.Hosts.Fixture.Clock;

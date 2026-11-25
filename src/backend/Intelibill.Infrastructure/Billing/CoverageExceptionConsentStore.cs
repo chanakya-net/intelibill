@@ -68,7 +68,7 @@ internal sealed class CoverageExceptionConsentStore(
             "Accepted" => row.State is "AwaitingConsents" or "ReadyForReview" && status == "Granted" && !consumed,
             _ => row.State is "AwaitingConsents" or "ReadyForReview" or "Preparing" && status is "Granted" or "Accepted" && !consumed,
         };
-        if (!allowed || now < row.CreatedAt || (kind != "Revoked" && now >= row.ExpiresAt))
+        if (!allowed || now < row.CreatedAt || (kind != "Revoked" && (now >= row.ExpiresAt || now >= row.PaidCutoverAt)))
             return ShopAffiliationConsentErrors.ConsentInvalid;
 
         var affiliationId = leg == CoverageReplacementExceptionsV1.OutgoingLeg
@@ -157,7 +157,7 @@ internal sealed class CoverageExceptionConsentStore(
         if (events.Any(e => e.Kind == "Revoked")) return "Revoked";
         if (events.Any(e => e.Kind == "Accepted")) return "Accepted";
         if (row.State is "Blocked" or "Refused") return row.State;
-        if (now >= row.ExpiresAt) return "Expired";
+        if (now >= row.ExpiresAt || now >= row.PaidCutoverAt) return "Expired";
         var grant = events.SingleOrDefault(e => e.Kind == "Granted");
         return grant is null ? "AwaitingConsent"
             : grant.Matches(owner) && grant.ProposalRevision == row.ProposalRevision && grant.TermsDigest == row.TermsDigest

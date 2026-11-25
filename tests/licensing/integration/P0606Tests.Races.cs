@@ -36,9 +36,10 @@ public sealed partial class P0606Tests
             $"exception_id='{withheldId}' AND state='Blocked' AND reason IN ('UnseenPermitEvidence','PermitExceedsCutover')"));
         Assert.Equal(1L, await f.CountAsync("coverage_replacement_exception_approvals",
             $"exception_id='{withheldId}' AND state='Refused' AND outcome_reason IN ('UnseenPermitEvidence','PermitExceedsCutover')"));
-        Assert.Equal(0L, await f.CountAsync("paid_slot_handoffs"));
-        Assert.Equal(0L, await f.CountAsync("complimentary_grants"));
-        Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync("SELECT count(*) FROM public.merchant_coverage_exception_cutoffs"));
+        Assert.Equal(0L, await f.CountAsync("paid_slot_handoffs", $"account_id='{p.Account}'"));
+        Assert.Equal(0L, await f.CountAsync("complimentary_grants", $"account_id='{p.Account}'"));
+        Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT count(*) FROM public.merchant_coverage_exception_cutoffs WHERE account_id='{p.Account}'"));
 
         // Order 2: Permit issued BETWEEN Prepare and Consume -> Consume sees changed permit digest and refuses!
         // The hidden observation was just delivered above; request with a later cutover (hiddenPermit.ValidUntil + 2h).
@@ -65,9 +66,10 @@ public sealed partial class P0606Tests
         await DrainAtAsync(f, EarlyStart.AddMinutes(5), licensing: false);
 
         Assert.Equal(1L, await f.CountAsync("coverage_replacement_exceptions", $"exception_id='{raceId}' AND state='Blocked'"));
-        Assert.Equal(0L, await f.CountAsync("paid_slot_handoffs"));
-        Assert.Equal(0L, await f.CountAsync("complimentary_grants"));
-        Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync("SELECT count(*) FROM public.merchant_coverage_exception_cutoffs"));
+        Assert.Equal(0L, await f.CountAsync("paid_slot_handoffs", $"account_id='{p.Account}'"));
+        Assert.Equal(0L, await f.CountAsync("complimentary_grants", $"account_id='{p.Account}'"));
+        Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT count(*) FROM public.merchant_coverage_exception_cutoffs WHERE account_id='{p.Account}'"));
 
         // Order 3: Consume wins -> durable cutoff committed on Merchant -> late permit issuance capped at <= cutoff
         // and direct DB INSERT exceeding cutoff is rejected by trigger guard_offline_permit_exception_cutoff (23514)!
@@ -92,6 +94,60 @@ public sealed partial class P0606Tests
 
         // Direct DB INSERT attempting to store an offline permit past the cutoff fails with SQLSTATE 23514.
         var merchantOwner = database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase);
+        await AssertPermitInsertExceedingCutoffFailsAsync(merchantOwner, p.Shops[2].ShopId, secondPermit.GrantId, finalCutover);
+    }
+
+    [Fact]
+    public async Task ReleasedOutgoingShopCanIssuePermitsAfterFreshCoverageWhileOldTermGrantStaysBounded()
+    {
+        using var key = RSA.Create(2048);
+        await using var f = await StartPermitFixtureAsync(database, key, January31);
+        var (p, term) = await PrepareWithTradingNorthAsync(f);
+        var north = p.Shops[2];
+        var oldPermit = await IssueRealPermitAsync(f, north, EarlyStart, deliverObservation: true);
+        var cutover = oldPermit.ValidUntil;
+
+        var id = await CreateConsentedExceptionAsync(f, p, term, EarlyStart, cutover, "CourtesyBridge", cutover);
+        var (manager, _) = await f.Checkout.Trial.Catalogue.ManagerAsync("r001.manager@example.test");
+        using var _ = manager;
+        var preview = await AdminPreviewAsync(manager, p.Account, id);
+        using var approved = await AdminApproveAsync(manager, p.Account, id, Guid.NewGuid(), preview,
+            "Approved handoff before outgoing shop later buys fresh coverage");
+        Assert.Equal(HttpStatusCode.Created, approved.StatusCode);
+        await DrainExceptionProtocolAsync(f);
+
+        var merchantOwner = database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase);
+        var originalAffiliation = (Guid)(await f.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT affiliation_request_id FROM public.shop_license_states WHERE shop_id = '{north.ShopId}'"))!;
+        // While the handed-off term is still current, inserting a permit past cutoff fails with 23514.
+        await AssertPermitInsertExceedingCutoffFailsAsync(merchantOwner, north.ShopId, oldPermit.GrantId, cutover);
+
+        // Advance past cutover so North is released, then give North fresh coverage under the SAME affiliation.
+        await P0605Tests.VerifyTradingAsync(f, p, cutover, "Licence.Expired", "Allowed", deliverReceipts: true);
+        var afterCutover = cutover.AddHours(1);
+        f.At(afterCutover);
+        var (_, freshTerm) = await P0308Fixture.PurchaseAsync(p with { Shops = [north] }, "Month");
+        Assert.NotEqual(term, freshTerm);
+        await DrainAtAsync(f, afterCutover, licensing: true);
+        await DrainAtAsync(f, afterCutover, licensing: false);
+
+        Assert.Equal(originalAffiliation, (Guid)(await f.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT affiliation_request_id FROM public.shop_license_states WHERE shop_id = '{north.ShopId}'"))!);
+        Assert.Equal(freshTerm, (Guid)(await f.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT term_id FROM public.shop_license_states WHERE shop_id = '{north.ShopId}'"))!);
+
+        // Issuing a real offline permit under the fresh term succeeds as merchant_runtime with valid_until beyond the old cutoff.
+        var freshPermit = await IssueRealPermitAsync(f, north, afterCutover, deliverObservation: true, device: "North re-covered till");
+        Assert.True(freshPermit.ValidUntil > cutover, $"Expected {freshPermit.ValidUntil:O} > old cutoff {cutover:O}");
+        Assert.True(freshPermit.NotBefore >= afterCutover);
+
+        // A late-completing permit referencing the old grant captured under the handed-off term is still refused (23514).
+        await AssertPermitInsertExceedingCutoffFailsAsync(merchantOwner, north.ShopId, oldPermit.GrantId, cutover);
+    }
+
+    private static async Task AssertPermitInsertExceedingCutoffFailsAsync(
+        NpgsqlConnectionStringBuilder merchantOwner, Guid shopId, Guid grantId, DateTimeOffset cutoff)
+    {
         var pg = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(merchantOwner, $"""
             INSERT INTO public.offline_license_permits (
                 id, shop_id, grant_id, lease_id, snapshot_id, user_id, session_id, device_id,
@@ -99,8 +155,8 @@ public sealed partial class P0606Tests
                 completed_at, not_before, valid_until, limiting_reason, key_id, signed_permit)
             SELECT gen_random_uuid(), shop_id, grant_id, lease_id, gen_random_uuid(), user_id, session_id, device_id,
                 batch_count, catalog_version, current_account_revision, current_shop_revision,
-                completed_at, not_before, '{finalCutover.AddMinutes(1):O}'::timestamptz, limiting_reason, key_id, signed_permit
-            FROM public.offline_license_permits WHERE shop_id = '{p.Shops[2].ShopId}' LIMIT 1
+                completed_at, not_before, '{cutoff.AddMinutes(1):O}'::timestamptz, limiting_reason, key_id, signed_permit
+            FROM public.offline_license_permits WHERE shop_id = '{shopId}' AND grant_id = '{grantId}' LIMIT 1
             """));
         Assert.Equal("23514", pg.SqlState);
     }

@@ -80,7 +80,18 @@ public sealed partial class P0606Tests
         Assert.Equal(HttpStatusCode.Conflict, overSeat.StatusCode);
         Assert.Equal("Coverage.MemberCapacityExceeded", (await overSeat.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
 
-        // Demoting Billing Owner invalidates replay/recovery (403) and marks open proposal stale/blocked.
+        // Reducing South's extra staff lets both owners complete consent -> ReadyForReview and canApprove == true.
+        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase), $"""
+            UPDATE public.shop_memberships SET status = 'Suspended'
+            WHERE shop_id = '{p.Shops[3].ShopId}' AND role = 'Staff' AND status = 'Active'
+            """);
+        Assert.Equal(HttpStatusCode.OK, (await P0604Tests.Decide(p.Shops[3].Client, inSeatsPath, "accept")).StatusCode);
+        await GrantAndAcceptAsync(p.Shops[2].Client, OwnerConsentPath(p, p.Shops[2].ShopId, idSeats));
+        await f.Checkout.Delivery.DrainAsync(false);
+        var previewBeforeDemotion = await AdminPreviewAsync(manager, p.Account, idSeats);
+        Assert.True(previewBeforeDemotion.GetProperty("canApprove").GetBoolean());
+
+        // Demoting Billing Owner invalidates replay/recovery (403) and blocks the open proposal with BillingOwnerChanged.
         await LicensingPostgreSqlFixture.ExecuteAsync(f.Hosts.LicensingOwner, $"""
             INSERT INTO billing_account_members(id,account_id,merchant_user_id,role,status,revision,created_at)
             VALUES(gen_random_uuid(),'{p.Account}','{p.Shops[1].UserId}',2,1,1,now());
@@ -92,13 +103,25 @@ public sealed partial class P0606Tests
         using var recoverAfterDemotion = await p.Payer.Client.GetAsync(PathFor(p, term) + "/operations/" + reqKey);
         Assert.Equal(HttpStatusCode.Forbidden, replayAfterDemotion.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, recoverAfterDemotion.StatusCode);
+
+        var previewAfterDemotion = await AdminPreviewAsync(manager, p.Account, idSeats);
+        Assert.False(previewAfterDemotion.GetProperty("canApprove").GetBoolean());
+        Assert.Equal("Blocked", previewAfterDemotion.GetProperty("state").GetString());
+        Assert.Contains("BillingOwnerChanged",
+            previewAfterDemotion.GetProperty("blockingReasons").EnumerateArray().Select(x => x.GetString()));
+        using var approveAfterDemotion = await AdminApproveAsync(manager, p.Account, idSeats, Guid.NewGuid(),
+            previewBeforeDemotion, "Approve after billing owner demotion");
+        Assert.Equal(HttpStatusCode.Conflict, approveAfterDemotion.StatusCode);
+        Assert.Equal(0L, await f.CountAsync("coverage_replacement_exception_approvals"));
+        await AssertZeroExceptionEffectsAsync(f, p.Account);
     }
 
     internal static async Task<(Guid ExceptionId, JsonElement Created)> CreateExceptionAsync(Package p, Guid term, Guid key,
-        DateTimeOffset earlyStart, DateTimeOffset paidCutover, string disposition, DateTimeOffset? observedPermitDeadline)
+        DateTimeOffset earlyStart, DateTimeOffset paidCutover, string disposition, DateTimeOffset? observedPermitDeadline,
+        Guid? outgoing = null, Guid? incoming = null)
     {
         using var response = await p.Payer.Client.PostAsJsonAsync(PathFor(p, term),
-            BuildRequest(p, key, earlyStart, paidCutover, disposition, observedPermitDeadline));
+            BuildRequest(p, key, earlyStart, paidCutover, disposition, observedPermitDeadline, outgoing, incoming));
         var raw = await response.Content.ReadAsStringAsync();
         Assert.True(response.StatusCode == HttpStatusCode.OK, raw);
         var body = JsonSerializer.Deserialize<JsonElement>(raw);
@@ -115,11 +138,15 @@ public sealed partial class P0606Tests
     }
 
     internal static async Task<Guid> CreateConsentedExceptionAsync(P0308Fixture f, Package p, Guid term,
-        DateTimeOffset earlyStart, DateTimeOffset paidCutover, string disposition, DateTimeOffset? observedPermitDeadline)
+        DateTimeOffset earlyStart, DateTimeOffset paidCutover, string disposition, DateTimeOffset? observedPermitDeadline,
+        P0209Fixture.Merchant? outgoingShop = null, P0209Fixture.Merchant? incomingShop = null)
     {
-        var (id, _) = await CreateExceptionAsync(p, term, Guid.NewGuid(), earlyStart, paidCutover, disposition, observedPermitDeadline);
-        await GrantAndAcceptAsync(p.Shops[2].Client, OwnerConsentPath(p, p.Shops[2].ShopId, id));
-        await GrantAndAcceptAsync(p.Shops[3].Client, OwnerConsentPath(p, p.Shops[3].ShopId, id));
+        var outShop = outgoingShop ?? p.Shops[2];
+        var inShop = incomingShop ?? p.Shops[3];
+        var (id, _) = await CreateExceptionAsync(p, term, Guid.NewGuid(), earlyStart, paidCutover, disposition,
+            observedPermitDeadline, outShop.ShopId, inShop.ShopId);
+        await GrantAndAcceptAsync(outShop.Client, OwnerConsentPath(p, outShop.ShopId, id));
+        await GrantAndAcceptAsync(inShop.Client, OwnerConsentPath(p, inShop.ShopId, id));
         await f.Checkout.Delivery.DrainAsync(false);
         Assert.Equal(1L, await f.CountAsync("coverage_replacement_exceptions", $"exception_id='{id}' AND state='ReadyForReview'"));
         return id;

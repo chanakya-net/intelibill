@@ -70,7 +70,8 @@ public sealed partial class P0606Tests
                 """);
             f.Checkout.Delivery.Transport.LeaseClock.Now = cutover.AddMinutes(2);
             await f.Checkout.Delivery.DrainAsync(true); // North projects Outgoing, then South projects IncomingPaid
-            await f.Checkout.Delivery.DrainAsync(true); // Second pass if South ran before North on first sweep
+            f.Checkout.Delivery.Transport.LeaseClock.Now = cutover.AddMinutes(4);
+            await f.Checkout.Delivery.DrainAsync(true); // Second pass if South ran before North on first sweep (deferred +1 min)
 
             // South is now locally activated on Merchant, BUT Merchant's Acknowledgements have NOT been delivered to Licensing yet!
             Assert.Equal("Licence.Expired", await P0604Tests.FencedTradingAsync(f, p.Shops[2].ShopId));

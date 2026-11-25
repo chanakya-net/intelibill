@@ -56,10 +56,12 @@ internal static class CoverageExceptionActivationGate
         {
             if (consentAndDecision.OverlapDisposition != CoverageReplacementExceptionsV1.CourtesyBridgeDisposition
                 || snapshot.Shop!.Basis != "Complimentary"
-                || snapshot.Shop.StartsAt != consentAndDecision.RequestedEarlyStartAt
+                || snapshot.Shop.StartsAt is not { } courtesyStartsAt
+                || courtesyStartsAt < consentAndDecision.RequestedEarlyStartAt
+                || courtesyStartsAt >= consentAndDecision.PaidCutoverAt
                 || snapshot.Shop.AccessEndsAt != consentAndDecision.PaidCutoverAt)
                 return "Invalid";
-            return now < consentAndDecision.RequestedEarlyStartAt ? "Waiting" : "Ready";
+            return now < courtesyStartsAt ? "Waiting" : "Ready";
         }
 
         if (leg != CoverageReplacementExceptionsV1.IncomingPaidLeg || snapshot.Shop!.Basis != "Paid")

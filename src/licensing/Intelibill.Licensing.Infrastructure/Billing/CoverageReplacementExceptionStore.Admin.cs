@@ -114,8 +114,9 @@ internal sealed partial class CoverageReplacementExceptionStore
         var approval = await ReadLatestApprovalAsync(account, exceptionId, now, ct);
         var blocking = CollectBlockingReasons(row, live, approval, now);
         var sourceHash = BuildAdminSourceHash(row, live);
+        var courtesyStart = row.RequestedEarlyStartAt > now ? row.RequestedEarlyStartAt : now;
         var courtesy = row.OverlapDisposition == CoverageReplacementExceptionsV1.CourtesyBridgeDisposition
-            && row.RequestedEarlyStartAt < row.PaidCutoverAt;
+            && courtesyStart < row.PaidCutoverAt;
         var outStatus = ConsentLabel(row.OutgoingConsentEvent, row.OutgoingRevokeEvent);
         var inStatus = ConsentLabel(row.IncomingConsentEvent, row.IncomingRevokeEvent);
 
@@ -136,7 +137,7 @@ internal sealed partial class CoverageReplacementExceptionStore
                 row.IncomingConsentEvent, row.IncomingActorId, row.IncomingAuthorityVersion, row.IncomingActiveMembers, row.IncomingConsentedAt),
             row.RequestReason, row.IsStale ? "Blocked" : row.State, row.Reason,
             blocking.Length == 0 && row.State == "ReadyForReview" && !row.IsStale, blocking,
-            courtesy, courtesy ? row.RequestedEarlyStartAt : null, courtesy ? row.PaidCutoverAt : null, approval);
+            courtesy, courtesy ? courtesyStart : null, courtesy ? row.PaidCutoverAt : null, approval);
     }
 
     public async Task<StoredExceptionApproval?> FindApprovalByKeyAsync(Guid account, Guid operationKey, DateTimeOffset now,
@@ -146,14 +147,15 @@ internal sealed partial class CoverageReplacementExceptionStore
             SELECT a.approval_id, a.exception_id, a.account_id, a.term_id, a.generation, a.operation_key,
                 a.admin_id, a.payload_digest, a.disposition, a.reason, a.decided_at, a.state, a.outcome_reason,
                 a.merchant_permit_count, a.merchant_max_permit_end, a.courtesy_grant_id, a.courtesy_term_id,
-                CASE WHEN a.courtesy_grant_id IS NOT NULL THEN e.requested_early_start_at END AS courtesy_starts_at,
-                CASE WHEN a.courtesy_grant_id IS NOT NULL THEN e.paid_cutover_at END AS courtesy_ends_at,
+                h.courtesy_starts_at,
+                CASE WHEN h.courtesy_grant_id IS NOT NULL THEN h.cutover_at END AS courtesy_ends_at,
                 e.paid_cutover_at, e.normal_renewal_at, a.applied_at,
                 public.coverage_exception_leg_activation(e.exception_id, 'Outgoing', {now}) AS outgoing_activation,
                 public.coverage_exception_leg_activation(e.exception_id, 'IncomingPaid', {now}) AS incoming_activation,
                 public.coverage_exception_leg_activation(e.exception_id, 'IncomingCourtesy', {now}) AS courtesy_activation
             FROM public.coverage_replacement_exception_approvals a
             JOIN public.coverage_replacement_exceptions e USING (exception_id, account_id)
+            LEFT JOIN public.paid_slot_handoffs h ON h.approval_id = a.approval_id AND h.account_id = a.account_id
             WHERE a.account_id = {account} AND a.operation_key = {operationKey}
             """).SingleOrDefaultAsync(ct);
         return row is null ? null : new(row.ApprovalId, row.ExceptionId, row.AdminId, row.PayloadDigest, row.ToView());
@@ -172,7 +174,9 @@ internal sealed partial class CoverageReplacementExceptionStore
 
         var approvalId = Guid.NewGuid();
         var prepareEventId = Guid.NewGuid();
-        var expiresAt = decidedAt.AddMinutes(15) < preview.NormalRenewalAt ? decidedAt.AddMinutes(15) : preview.NormalRenewalAt;
+        var expiresAt = decidedAt.AddMinutes(15);
+        if (preview.PaidCutoverAt < expiresAt) expiresAt = preview.PaidCutoverAt;
+        if (preview.NormalRenewalAt < expiresAt) expiresAt = preview.NormalRenewalAt;
         var prepare = new CoverageExceptionCommandV1(
             CoverageReplacementExceptionsV1.SchemaVersion, prepareEventId, CoverageReplacementExceptionsV1.PrepareKind,
             exceptionId, approvalId, generation, account, preview.TermId,
@@ -239,14 +243,15 @@ internal sealed partial class CoverageReplacementExceptionStore
             SELECT a.approval_id, a.exception_id, a.account_id, a.term_id, a.generation, a.operation_key,
                 a.admin_id, a.payload_digest, a.disposition, a.reason, a.decided_at, a.state, a.outcome_reason,
                 a.merchant_permit_count, a.merchant_max_permit_end, a.courtesy_grant_id, a.courtesy_term_id,
-                CASE WHEN a.courtesy_grant_id IS NOT NULL THEN e.requested_early_start_at END AS courtesy_starts_at,
-                CASE WHEN a.courtesy_grant_id IS NOT NULL THEN e.paid_cutover_at END AS courtesy_ends_at,
+                h.courtesy_starts_at,
+                CASE WHEN h.courtesy_grant_id IS NOT NULL THEN h.cutover_at END AS courtesy_ends_at,
                 e.paid_cutover_at, e.normal_renewal_at, a.applied_at,
                 public.coverage_exception_leg_activation(e.exception_id, 'Outgoing', {now}) AS outgoing_activation,
                 public.coverage_exception_leg_activation(e.exception_id, 'IncomingPaid', {now}) AS incoming_activation,
                 public.coverage_exception_leg_activation(e.exception_id, 'IncomingCourtesy', {now}) AS courtesy_activation
             FROM public.coverage_replacement_exception_approvals a
             JOIN public.coverage_replacement_exceptions e USING (exception_id, account_id)
+            LEFT JOIN public.paid_slot_handoffs h ON h.approval_id = a.approval_id AND h.account_id = a.account_id
             WHERE a.account_id = {account} AND a.exception_id = {exceptionId}
             ORDER BY a.generation DESC LIMIT 1
             """).SingleOrDefaultAsync(ct);
@@ -263,6 +268,7 @@ internal sealed partial class CoverageReplacementExceptionStore
         if (row.IncomingRevokeEvent is not null) reasons.Add("IncomingConsentRevoked");
         else if (row.IncomingConsentEvent is null) reasons.Add("IncomingConsentMissing");
         if (row.IncomingActiveMembers > row.MemberAllowance) reasons.Add("MemberCapacityExceeded");
+        if (now >= row.PaidCutoverAt) reasons.Add("PaidCutoverElapsed");
         if (now >= row.ExpiresAt || now >= row.NormalRenewalAt) reasons.Add("ProposalExpired");
         if (live.Source is null || ScheduledChangeValidator.ValidateSource(live.Source, now, row.Capacity, row.MemberAllowance, row.NormalRenewalAt) is not null)
             reasons.Add("TermUnavailable");

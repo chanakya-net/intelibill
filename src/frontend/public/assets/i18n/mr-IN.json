@@ -4131,20 +4131,20 @@
       }
     },
     "earlyReplacement": {
-      "heading": "Request an early shop replacement",
-      "earlyStart": "Requested early start (UTC ISO-8601)",
-      "paidCutover": "Paid slot cutover (UTC ISO-8601)",
-      "disposition": "Overlap treatment",
-      "wait": "Wait until paid cutover (no overlap)",
-      "courtesyBridge": "Separate auditable courtesy bridge (non-paid overlap)",
-      "reason": "Reason for early replacement",
-      "ackSelection": "I confirm the selected outgoing and incoming shops.",
-      "ackAllocation": "I understand the remaining paid access moves only once at the paid cutover without duplicating the paid slot.",
-      "ackPermits": "I understand existing offline permits cannot be remotely revoked and must be respected.",
-      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
-      "submit": "Submit for owner consents and provider review",
-      "outgoingConsentLink": "Outgoing owner consent",
-      "incomingConsentLink": "Incoming owner consent"
+      "heading": "वेळेपूर्वी दुकान बदलण्याची विनंती करा",
+      "earlyStart": "विनंती केलेली लवकर सुरुवात (UTC ISO-8601)",
+      "paidCutover": "सशुल्क स्लॉट हस्तांतरण वेळ (UTC ISO-8601)",
+      "disposition": "ओव्हरलॅप व्यवस्था",
+      "wait": "सशुल्क हस्तांतरणापर्यंत प्रतीक्षा करा (ओव्हरलॅप नाही)",
+      "courtesyBridge": "स्वतंत्र ऑडिटयोग्य सौजन्य सेतू (निःशुल्क ओव्हरलॅप)",
+      "reason": "वेळेपूर्वी बदलाचे कारण",
+      "ackSelection": "मी निवडलेल्या बाहेर जाणाऱ्या आणि नवीन दुकानांची पुष्टी करतो.",
+      "ackAllocation": "मला समजते की उर्वरित सशुल्क प्रवेश स्लॉटची नक्कल न करता हस्तांतरण वेळी फक्त एकदाच हलतो.",
+      "ackPermits": "मला समजते की सध्याच्या ऑफलाइन परवानग्या दूरवरून रद्द करता येत नाहीत आणि त्यांचे पालन करावे लागेल.",
+      "ackUnknown": "मला समजते की संपर्क नसलेल्या उपकरणांच्या रांगा सर्व्हरला अज्ञात आहेत.",
+      "submit": "मालकांच्या संमतीसाठी आणि प्रदाता पुनरावलोकनासाठी सादर करा",
+      "outgoingConsentLink": "बाहेर जाणाऱ्या दुकानाच्या मालकाची संमती",
+      "incomingConsentLink": "नवीन दुकानाच्या मालकाची संमती"
     }
   }
 }

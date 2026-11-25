@@ -34,7 +34,7 @@ public sealed class P0507TestsMigrations(LicensingPostgreSqlFixture database) : 
             GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
             """);
         await merchant.Database.ExecuteSqlRawAsync(
-            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO merchant_runtime;");
+            "GRANT SELECT ON public.merchant_coverage_exception_cutoffs TO merchant_runtime;");
         Assert.Contains("DeviceObservation", await KindCheckAsync(source, "entitlement_merchant_inbox"));
         Assert.Contains("DeviceObservation", await KindCheckAsync(merchant, "entitlement_messages"));
 

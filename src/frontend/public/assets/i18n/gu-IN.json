@@ -4131,20 +4131,20 @@
       }
     },
     "earlyReplacement": {
-      "heading": "Request an early shop replacement",
-      "earlyStart": "Requested early start (UTC ISO-8601)",
-      "paidCutover": "Paid slot cutover (UTC ISO-8601)",
-      "disposition": "Overlap treatment",
-      "wait": "Wait until paid cutover (no overlap)",
-      "courtesyBridge": "Separate auditable courtesy bridge (non-paid overlap)",
-      "reason": "Reason for early replacement",
-      "ackSelection": "I confirm the selected outgoing and incoming shops.",
-      "ackAllocation": "I understand the remaining paid access moves only once at the paid cutover without duplicating the paid slot.",
-      "ackPermits": "I understand existing offline permits cannot be remotely revoked and must be respected.",
-      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
-      "submit": "Submit for owner consents and provider review",
-      "outgoingConsentLink": "Outgoing owner consent",
-      "incomingConsentLink": "Incoming owner consent"
+      "heading": "સમય પહેલાં દુકાન બદલવાની વિનંતી કરો",
+      "earlyStart": "વિનંતી કરેલ વહેલી શરૂઆત (UTC ISO-8601)",
+      "paidCutover": "પેઇડ સ્લોટ સ્થાનાંતરણ સમય (UTC ISO-8601)",
+      "disposition": "ઓવરલેપ વ્યવસ્થા",
+      "wait": "પેઇડ સ્થાનાંતરણ સુધી રાહ જુઓ (કોઈ ઓવરલેપ નહીં)",
+      "courtesyBridge": "અલગ ઓડિટયોગ્ય સૌજન્ય બ્રિજ (બિન-પેઇડ ઓવરલેપ)",
+      "reason": "વહેલા ફેરફારનું કારણ",
+      "ackSelection": "હું પસંદ કરેલી બહાર જતી અને નવી દુકાનોની પુષ્ટિ કરું છું.",
+      "ackAllocation": "હું સમજું છું કે બાકીની પેઇડ ઍક્સેસ સ્લોટની નકલ કર્યા વિના સ્થાનાંતરણ સમયે માત્ર એક જ વાર ખસે છે.",
+      "ackPermits": "હું સમજું છું કે હાલની ઑફલાઇન પરવાનગીઓ દૂરથી રદ કરી શકાતી નથી અને તેનું પાલન થવું જોઈએ.",
+      "ackUnknown": "હું સમજું છું કે ડિસ્કનેક્ટ ઉપકરણોની કતારો સર્વર માટે અજાણી છે.",
+      "submit": "માલિકની સંમતિ અને પ્રદાતાની સમીક્ષા માટે સબમિટ કરો",
+      "outgoingConsentLink": "બહાર જતી દુકાનના માલિકની સંમતિ",
+      "incomingConsentLink": "નવી દુકાનના માલિકની સંમતિ"
     }
   }
 }

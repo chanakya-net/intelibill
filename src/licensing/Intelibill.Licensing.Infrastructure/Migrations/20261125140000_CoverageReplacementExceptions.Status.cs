@@ -43,7 +43,7 @@ public sealed partial class CoverageReplacementExceptions
             SELECT * INTO r FROM public.coverage_replacement_exceptions WHERE exception_id = id;
             IF NOT FOUND OR r.state NOT IN ('AwaitingConsents', 'ReadyForReview') THEN RETURN false; END IF;
             PERFORM set_config('app.billing_account_id', r.account_id::text, true);
-            SELECT r.expires_at <= at_time OR r.paid_cutover_at >= r.normal_renewal_at
+            SELECT r.expires_at <= at_time OR r.paid_cutover_at <= at_time OR r.paid_cutover_at >= r.normal_renewal_at
                 OR r.outgoing_revoke_event IS NOT NULL OR r.incoming_revoke_event IS NOT NULL
                 OR NOT public.coverage_exception_owner_current(r.account_id, r.exception_id)
                 OR NOT public.replacement_term_available(r.account_id, r.term_id)

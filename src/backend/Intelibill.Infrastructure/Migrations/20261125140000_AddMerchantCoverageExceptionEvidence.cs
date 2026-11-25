@@ -172,7 +172,9 @@ public sealed class AddMerchantCoverageExceptionEvidence : Migration
         CREATE TRIGGER retain_exception_activation BEFORE UPDATE OR DELETE OR TRUNCATE ON public.merchant_coverage_exception_activations
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
 
-        -- Enforce durable source cutoff directly at offline permit INSERT under the same shop fence.
+        -- Enforce durable source cutoff directly at offline permit INSERT under the same shop fence,
+        -- scoped to the handed-off term so re-covered shops under a fresh term issue permits normally
+        -- while any late-completing grant captured under the handed-off term remains bounded.
         CREATE FUNCTION public.guard_offline_permit_exception_cutoff() RETURNS trigger
         LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
@@ -181,7 +183,14 @@ public sealed class AddMerchantCoverageExceptionEvidence : Migration
                 JOIN public.offline_license_grants g ON g.id = NEW.grant_id
                     AND g.shop_id = c.shop_id AND g.account_id = c.account_id
                     AND g.affiliation_request_id = c.affiliation_request_id
-                WHERE c.shop_id = NEW.shop_id AND (NEW.not_before >= c.cutoff_at OR NEW.valid_until > c.cutoff_at)
+                LEFT JOIN public.shop_license_states s ON s.shop_id = c.shop_id
+                    AND s.account_id = c.account_id AND s.affiliation_request_id = c.affiliation_request_id
+                LEFT JOIN public.license_grant_evidence e ON e.event_id = g.shop_evidence_id
+                    AND e.shop_id = g.shop_id AND e.account_id = g.account_id
+                WHERE c.shop_id = NEW.shop_id
+                    AND (s.term_id = c.term_id
+                        OR (convert_from(e.payload, 'UTF8')::jsonb->'shop'->>'termId')::uuid = c.term_id)
+                    AND (NEW.not_before >= c.cutoff_at OR NEW.valid_until > c.cutoff_at)
             ) THEN
                 RAISE EXCEPTION 'Offline permit exceeds coverage exception cutoff' USING ERRCODE = '23514';
             END IF;

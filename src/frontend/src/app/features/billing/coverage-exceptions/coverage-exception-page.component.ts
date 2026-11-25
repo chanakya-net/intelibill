@@ -104,7 +104,7 @@ export class CoverageExceptionPageComponent {
       if (shop) {
         const start = p?.observedAt ?? '';
         this.earlyStart.set(start);
-        this.paidCutover.set(shop.observedPermitDeadline ?? start);
+        this.paidCutover.set(shop.observedPermitDeadline ?? '');
         if (shop.observedPermitDeadline) this.disposition.set('CourtesyBridge');
       }
     } else {

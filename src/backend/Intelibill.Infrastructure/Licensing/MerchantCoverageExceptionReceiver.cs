@@ -116,6 +116,8 @@ internal sealed class MerchantCoverageExceptionReceiver(
             return alreadyConsumed ? ("Refused", "AlreadyConsumed") : ("Aborted", null);
 
         if (alreadyConsumed) return ("Refused", "AlreadyConsumed");
+        if (now >= c.PaidCutoverAt)
+            return ("Refused", "PaidCutoverElapsed");
         if (now >= c.ExpiresAt || now >= c.NormalRenewalAt || businessClock.GetUtcNow() >= c.ExpiresAt)
             return ("Refused", "CommandExpired");
         if (!f.OutgoingBound || !f.IncomingBound) return ("Refused", "AffiliationChanged");

@@ -4131,20 +4131,20 @@
       }
     },
     "earlyReplacement": {
-      "heading": "Request an early shop replacement",
-      "earlyStart": "Requested early start (UTC ISO-8601)",
-      "paidCutover": "Paid slot cutover (UTC ISO-8601)",
-      "disposition": "Overlap treatment",
-      "wait": "Wait until paid cutover (no overlap)",
-      "courtesyBridge": "Separate auditable courtesy bridge (non-paid overlap)",
-      "reason": "Reason for early replacement",
-      "ackSelection": "I confirm the selected outgoing and incoming shops.",
-      "ackAllocation": "I understand the remaining paid access moves only once at the paid cutover without duplicating the paid slot.",
-      "ackPermits": "I understand existing offline permits cannot be remotely revoked and must be respected.",
-      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
-      "submit": "Submit for owner consents and provider review",
-      "outgoingConsentLink": "Outgoing owner consent",
-      "incomingConsentLink": "Incoming owner consent"
+      "heading": "ముందస్తు దుకాణం మార్పును అభ్యర్థించండి",
+      "earlyStart": "అభ్యర్థించిన ముందస్తు ప్రారంభం (UTC ISO-8601)",
+      "paidCutover": "చెల్లింపు స్లాట్ మార్పు సమయం (UTC ISO-8601)",
+      "disposition": "ఓవర్‌ల్యాప్ విధానం",
+      "wait": "చెల్లింపు మార్పు వరకు వేచి ఉండండి (ఓవర్‌ల్యాప్ లేదు)",
+      "courtesyBridge": "ప్రత్యేక ఆడిట్ చేయదగిన సౌజన్య వంతెన (ఉచిత ఓవర్‌ల్యాప్)",
+      "reason": "ముందస్తు మార్పుకు కారణం",
+      "ackSelection": "ఎంచుకున్న బయటకు వెళ్లే మరియు కొత్త దుకాణాలను నేను ధృవీకరిస్తున్నాను.",
+      "ackAllocation": "మిగిలిన చెల్లింపు యాక్సెస్ స్లాట్‌ను నకిలీ చేయకుండా మార్పు సమయంలో ఒకసారి మాత్రమే బదిలీ అవుతుందని నేను అర్థం చేసుకున్నాను.",
+      "ackPermits": "ఇప్పటికే ఉన్న ఆఫ్‌లైన్ అనుమతులను దూరం నుండి రద్దు చేయలేమని మరియు వాటిని గౌరవించాలని నేను అర్థం చేసుకున్నాను.",
+      "ackUnknown": "డిస్‌కనెక్ట్ అయిన పరికరాల క్యూలు సర్వర్‌కు తెలియవని నేను అర్థం చేసుకున్నాను.",
+      "submit": "యజమానుల సమ్మతి మరియు ప్రొవైడర్ సమీక్ష కోసం సమర్పించండి",
+      "outgoingConsentLink": "బయటకు వెళ్లే దుకాణ యజమాని సమ్మతి",
+      "incomingConsentLink": "కొత్త దుకాణ యజమాని సమ్మతి"
     }
   }
 }

@@ -4131,20 +4131,20 @@
       }
     },
     "earlyReplacement": {
-      "heading": "Request an early shop replacement",
-      "earlyStart": "Requested early start (UTC ISO-8601)",
-      "paidCutover": "Paid slot cutover (UTC ISO-8601)",
-      "disposition": "Overlap treatment",
-      "wait": "Wait until paid cutover (no overlap)",
-      "courtesyBridge": "Separate auditable courtesy bridge (non-paid overlap)",
-      "reason": "Reason for early replacement",
-      "ackSelection": "I confirm the selected outgoing and incoming shops.",
-      "ackAllocation": "I understand the remaining paid access moves only once at the paid cutover without duplicating the paid slot.",
-      "ackPermits": "I understand existing offline permits cannot be remotely revoked and must be respected.",
-      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
-      "submit": "Submit for owner consents and provider review",
-      "outgoingConsentLink": "Outgoing owner consent",
-      "incomingConsentLink": "Incoming owner consent"
+      "heading": "முன்கூட்டிய கடை மாற்றத்தைக் கோரவும்",
+      "earlyStart": "கோரப்பட்ட முன்கூட்டிய தொடக்கம் (UTC ISO-8601)",
+      "paidCutover": "கட்டண இட மாற்ற நேரம் (UTC ISO-8601)",
+      "disposition": "இணைப்பு நடைமுறை",
+      "wait": "கட்டண மாற்றம் வரை காத்திருக்கவும் (இணைப்பு இல்லை)",
+      "courtesyBridge": "தனி தணிக்கைக்குரிய சலுகை பாலம் (கட்டணமில்லா இணைப்பு)",
+      "reason": "முன்கூட்டிய மாற்றத்திற்கான காரணம்",
+      "ackSelection": "தேர்ந்தெடுக்கப்பட்ட வெளியேறும் மற்றும் புதிய கடைகளை நான் உறுதிப்படுத்துகிறேன்.",
+      "ackAllocation": "மீதமுள்ள கட்டண அணுகல் இடத்தை நகலெடுக்காமல் மாற்ற நேரத்தில் ஒருமுறை மட்டுமே நகரும் என்பதை நான் அறிகிறேன்.",
+      "ackPermits": "நடப்பில் உள்ள ஆஃப்லைன் அனுமதிகளைத் தொலைவிலிருந்து ரத்து செய்ய முடியாது என்பதையும் அவை மதிக்கப்பட வேண்டும் என்பதையும் அறிகிறேன்.",
+      "ackUnknown": "இணைப்பில்லாத சாதனங்களின் வரிசைகள் சேவையகத்திற்குத் தெரியாது என்பதை நான் அறிகிறேன்.",
+      "submit": "உரிமையாளர் ஒப்புதல் மற்றும் வழங்குநர் மதிப்பாய்வுக்கு சமர்ப்பிக்கவும்",
+      "outgoingConsentLink": "வெளியேறும் கடை உரிமையாளர் ஒப்புதல்",
+      "incomingConsentLink": "புதிய கடை உரிமையாளர் ஒப்புதல்"
     }
   }
 }

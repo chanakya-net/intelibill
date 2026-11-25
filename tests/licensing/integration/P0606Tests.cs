@@ -151,7 +151,7 @@ public sealed partial class P0606Tests(LicensingPostgreSqlFixture database) : IC
     }
 
     internal static async Task<P0507Tests.Permit> IssueRealPermitAsync(P0308Fixture f, P0209Fixture.Merchant shop,
-        DateTimeOffset at, bool deliverObservation)
+        DateTimeOffset at, bool deliverObservation, string device = "North disconnected till")
     {
         var auth = f.Hosts.Fixture.Clock;
         var originalAuth = auth.Now;
@@ -160,11 +160,11 @@ public sealed partial class P0606Tests(LicensingPostgreSqlFixture database) : IC
         {
             f.At(at);
             auth.Now = at;
-            f.Checkout.Delivery.Transport.LeaseClock.Now = at;
+            f.Checkout.Delivery.Transport.LeaseClock.Now = at.AddSeconds(1);
             await f.Checkout.Delivery.ScanAsync(true);
             await f.Checkout.Delivery.DrainAsync(true);
             await SignInAtAsync(shop);
-            var permit = await P0507Tests.Run.IssuePermitAsync(shop, "North disconnected till");
+            var permit = await P0507Tests.Run.IssuePermitAsync(shop, device);
             if (deliverObservation)
                 await f.Checkout.Delivery.DrainAsync(false);
             return permit;

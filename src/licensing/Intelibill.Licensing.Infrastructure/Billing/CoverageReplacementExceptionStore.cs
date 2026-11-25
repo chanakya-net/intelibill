@@ -81,7 +81,8 @@ internal sealed partial class CoverageReplacementExceptionStore(
                 command.ObservedMemberAllowance, command.ObservedNormalRenewalAt) is not null)
             return CoverageReplacementExceptionErrors.Changed;
 
-        if (command.RequestedEarlyStartAt < source.StartsAt || command.ProposedPaidCutoverAt >= source.EndsAt)
+        if (command.RequestedEarlyStartAt < source.StartsAt || command.ProposedPaidCutoverAt <= now
+            || command.ProposedPaidCutoverAt >= source.EndsAt)
             return CoverageReplacementExceptionErrors.Invalid;
 
         var outgoing = source.Shops.SingleOrDefault(s => s.ShopId == command.OutgoingShopId);
@@ -109,7 +110,8 @@ internal sealed partial class CoverageReplacementExceptionStore(
             """).SingleAsync(ct);
 
         var id = Guid.NewGuid();
-        var expires = command.ObservedNormalRenewalAt < now.AddDays(7) ? command.ObservedNormalRenewalAt : now.AddDays(7);
+        var expires = command.ProposedPaidCutoverAt < now.AddDays(7) ? command.ProposedPaidCutoverAt : now.AddDays(7);
+        if (command.ObservedNormalRenewalAt < expires) expires = command.ObservedNormalRenewalAt;
         if (expires <= now) return CoverageReplacementExceptionErrors.Changed;
 
         var termsDigest = CoverageReplacementExceptionsV1.TermsDigest(account, term, revision,
