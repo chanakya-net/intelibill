@@ -2,8 +2,8 @@ using System.IO.Compression;
 
 namespace Intelibill.Licensing.Application.Documents;
 
-// Bounded decoding of the two filters a structural stream (cross-reference or object stream) may
-// legally use. Anything else, and any output past the caller's budget, is a refusal.
+// Structural streams share the same bounded decoding pipeline. Supported filters are Flate,
+// ASCIIHex and ASCII85, in the order declared by the PDF.
 internal static class PdfFilters
 {
     private const int MaxFilters = 4;
@@ -23,13 +23,65 @@ internal static class PdfFilters
         {
             var name = filters[i].Slice(source);
             var parm = i < parms.Count ? parms[i].Slice(source) : default;
-            var ok = name.SequenceEqual("/FlateDecode"u8) ? TryInflate(current, parm, stageLimit, defaultColumns, out buffer)
-                : name.SequenceEqual("/ASCIIHexDecode"u8) && TryDecodeHex(current, stageLimit, out buffer);
-            if (!ok) return false;
+            if (!TryDecodeFilter(name, current, parm, stageLimit, defaultColumns, out buffer)) return false;
             current = buffer;
         }
         if (current.Length > maxDecoded) return false;
         decoded = filters.Count == 0 ? raw.ToArray() : buffer;
+        return true;
+    }
+
+    private static bool TryDecodeFilter(ReadOnlySpan<byte> name, ReadOnlySpan<byte> input, ReadOnlySpan<byte> parameters,
+        long limit, int columns, out byte[] output)
+    {
+        if (name.SequenceEqual("/FlateDecode"u8)) return TryInflate(input, parameters, limit, columns, out output);
+        if (name.SequenceEqual("/ASCIIHexDecode"u8)) return TryDecodeHex(input, limit, out output);
+        if (name.SequenceEqual("/ASCII85Decode"u8)) return TryDecodeAscii85(input, limit, out output);
+        output = [];
+        return false;
+    }
+
+    private static bool TryDecodeAscii85(ReadOnlySpan<byte> encoded, long limit, out byte[] decoded)
+    {
+        decoded = [];
+        encoded = PdfTokens.TrimEnd(encoded);
+        if (!encoded.EndsWith("~>"u8)) return false;
+
+        using var output = new MemoryStream();
+        ulong word = 0;
+        var digits = 0;
+        foreach (var symbol in encoded[..^2])
+        {
+            if (PdfTokens.IsWhite(symbol)) continue;
+            if (symbol == (byte)'z')
+            {
+                if (digits != 0 || !TryWriteWord(output, 0, 4, limit)) return false;
+                continue;
+            }
+            if (symbol is < (byte)'!' or > (byte)'u') return false;
+            word = word * 85 + (uint)(symbol - '!');
+            if (++digits < 5) continue;
+            if (!TryWriteWord(output, word, 4, limit)) return false;
+            digits = 0;
+            word = 0;
+        }
+
+        if (digits == 1) return false;
+        if (digits > 1)
+        {
+            for (var i = digits; i < 5; i++) word = word * 85 + 84;
+            if (!TryWriteWord(output, word, digits - 1, limit)) return false;
+        }
+        decoded = output.ToArray();
+        return true;
+    }
+
+    private static bool TryWriteWord(MemoryStream output, ulong word, int length, long limit)
+    {
+        if (word > uint.MaxValue || output.Length + length > limit) return false;
+        Span<byte> bytes = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes, (uint)word);
+        output.Write(bytes[..length]);
         return true;
     }
 

@@ -6,6 +6,9 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0611Tests
 {
     [Theory]
+    [InlineData("ascii85-object")]
+    [InlineData("ascii85-xref")]
+    [InlineData("nested-indirect-count")]
     [InlineData("compressed-spine")]
     [InlineData("compressed-indirect-kids")]
     [InlineData("compressed-forty-pages")]
@@ -35,6 +38,11 @@ public sealed partial class P0611Tests
     }
 
     [Theory]
+    [InlineData("ascii85-xref-bad-end", "ascii85-xref")]
+    [InlineData("classic-no-reachable-page", "classic-one-page")]
+    [InlineData("compressed-no-reachable-page", "compressed-spine")]
+    [InlineData("indirect-kids-no-reachable-page", "compressed-indirect-kids")]
+    [InlineData("nested-count-mismatch", "nested-indirect-count")]
     [InlineData("compressed-root-wrong-type", "compressed-spine")]
     [InlineData("compressed-pages-wrong-type", "compressed-spine")]
     [InlineData("compressed-member-identity", "compressed-spine")]

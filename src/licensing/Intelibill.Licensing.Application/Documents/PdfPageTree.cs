@@ -1,45 +1,69 @@
 namespace Intelibill.Licensing.Application.Documents;
 
-// Walks the whole page tree: every node is resolved, identified and typed, whichever way it is stored.
 internal static class PdfPageTree
 {
     private const int MaxNodes = 100_000;
 
+    // A branch exit follows all its children on the depth-first walk.
+    private readonly record struct Visit(PdfRef Node, int? ExpectedLeavesAtExit = null);
+
     public static bool IsValid(ReadOnlySpan<byte> content, PdfObjects objects, PdfRef root)
     {
         var seen = new HashSet<int> { root.Number };
-        var pending = new Stack<PdfRef>();
-        pending.Push(root);
-        var isRoot = true;
-        while (pending.TryPop(out var node))
+        var pending = new Stack<Visit>();
+        pending.Push(new Visit(root));
+        var leaves = 0;
+        while (pending.TryPop(out var visit))
         {
-            if (!objects.TryResolveDictionary(content, node, out var value, out var dictionary)) return false;
+            if (visit.ExpectedLeavesAtExit is { } expected)
+            {
+                if (leaves != expected) return false;
+                continue;
+            }
+            if (!objects.TryResolveDictionary(content, visit.Node, out var value, out var dictionary)
+                || !dictionary.TryGetValue("/Type", out var type)) return false;
             var source = value.Source(content);
-            if (!dictionary.TryGetValue("/Type", out var type)) return false;
-            var isLeaf = type.Slice(source).SequenceEqual("/Page"u8);
-            if (isLeaf && isRoot) return false;
-            isRoot = false;
-            if (isLeaf) continue;
-            if (!type.Slice(source).SequenceEqual("/Pages"u8) || !dictionary.TryGetValue("/Kids", out var kidsRange)
-                || !TryReadKids(content, objects, source, kidsRange, MaxNodes - seen.Count, out var kids)) return false;
+            if (type.Slice(source).SequenceEqual("/Page"u8))
+            {
+                if (visit.Node == root) return false;
+                leaves++;
+                continue;
+            }
+
+            if (!type.Slice(source).SequenceEqual("/Pages"u8)
+                || !TryReadBranch(content, objects, source, dictionary, MaxNodes - seen.Count, out var count, out var kids))
+                return false;
+            pending.Push(new Visit(visit.Node, leaves + count));
             foreach (var kid in kids)
             {
                 if (!seen.Add(kid.Number)) return false;
-                pending.Push(kid);
+                pending.Push(new Visit(kid));
             }
         }
-        return true;
+        return leaves > 0;
     }
 
-    // /Kids is an array of references, or a reference to such an array.
-    private static bool TryReadKids(ReadOnlySpan<byte> content, PdfObjects objects, ReadOnlySpan<byte> source,
-        PdfRange kidsRange, int budget, out List<PdfRef> kids)
+    private static bool TryReadBranch(ReadOnlySpan<byte> content, PdfObjects objects, ReadOnlySpan<byte> source,
+        Dictionary<string, PdfRange> dictionary, int budget, out int count, out List<PdfRef> kids)
     {
-        var slice = kidsRange.Slice(source);
-        if (!PdfTokens.TryParseIndirectRef(slice, out var arrayRef))
-            return PdfTokens.TryParseIndirectRefArray(slice, budget, out kids);
         kids = [];
-        return objects.TryResolve(content, arrayRef, out var array)
-            && PdfTokens.TryParseIndirectRefArray(array.Range.Slice(array.Source(content)), budget, out kids);
+        count = 0;
+        if (!dictionary.TryGetValue("/Count", out var countRange)
+            || !TryReadValue(content, objects, countRange.Slice(source), out var number)) return false;
+        if (number.StartsWith("+"u8)) number = number[1..];
+        return PdfTokens.TryParseInt(number, out count) && count <= MaxNodes
+            && dictionary.TryGetValue("/Kids", out var kidsRange)
+            && TryReadValue(content, objects, kidsRange.Slice(source), out var array)
+            && PdfTokens.TryParseIndirectRefArray(array, budget, out kids);
+    }
+
+    private static bool TryReadValue(ReadOnlySpan<byte> content, PdfObjects objects, ReadOnlySpan<byte> entry,
+        out ReadOnlySpan<byte> value)
+    {
+        value = entry;
+        if (!PdfTokens.TryParseIndirectRef(entry, out var reference)) return true;
+        if (!objects.TryResolve(content, reference, out var resolved)) return false;
+        value = resolved.Range.Slice(resolved.Source(content));
+        return true;
     }
 }

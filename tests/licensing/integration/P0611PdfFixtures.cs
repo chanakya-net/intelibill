@@ -15,6 +15,10 @@ internal static class P0611PdfFixtures
 
     public static byte[] Valid(string scenario) => scenario switch
     {
+        "ascii85-object" => Ascii85Fixture("object"),
+        "ascii85-xref" => Ascii85Fixture("xref"),
+        "classic-one-page" => ClassicOnePage("[3 0 R]"),
+        "nested-indirect-count" => NestedPages("7 0 R"),
         "compressed-spine" => Compressed([Catalog, Pages("[4 0 R]", 1), Page]),
         "compressed-indirect-kids" => Compressed([Catalog, Pages("5 0 R", 1), Page, "[4 0 R]"]),
         "compressed-forty-pages" => Compressed(FortyPages(Catalog)),
@@ -26,6 +30,11 @@ internal static class P0611PdfFixtures
 
     public static byte[] Damaged(string scenario) => scenario switch
     {
+        "ascii85-xref-bad-end" => MissingAscii85End(),
+        "classic-no-reachable-page" => ClassicOnePage("[]"),
+        "compressed-no-reachable-page" => Compressed([Catalog, Pages("[ ]", 1), Page]),
+        "indirect-kids-no-reachable-page" => Compressed([Catalog, Pages("5 0 R", 1), Page, "[]"]),
+        "nested-count-mismatch" => NestedPages("2"),
         "compressed-root-wrong-type" => Compressed([Catalog, Pages("[4 0 R]", 1), Page], root: 4),
         "compressed-pages-wrong-type" => Compressed(["<< /Type /Catalog /Pages 4 0 R >>", Pages("[4 0 R]", 1), Page]),
         "compressed-member-identity" => Compressed([Catalog, Pages("[4 0 R]", 1), Page], directoryShift: 1),
@@ -39,6 +48,29 @@ internal static class P0611PdfFixtures
         "ascii-hex-xref-short" => P0611Tests.AsciiHexCrossReferenceStreamPdf("/ASCIIHexDecode", hex => hex[14..]),
         _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
     };
+
+    private static byte[] Ascii85Fixture(string stream) =>
+        File.ReadAllBytes(Path.Combine(ProjectPaths.Root, "tests/licensing/integration/Fixtures", $"p06-11-ascii85-{stream}.pdf"));
+
+    private static byte[] MissingAscii85End()
+    {
+        var bytes = Ascii85Fixture("xref");
+        var end = bytes.AsSpan().LastIndexOf("~>"u8);
+        Assert.True(end >= 0);
+        bytes[end + 1] = (byte)'!';
+        return bytes;
+    }
+
+    private static byte[] ClassicOnePage(string kids) => Classic([
+        "<< /Type /Catalog /Pages 2 0 R >>", Pages(kids, 1),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 240 160] >>"]);
+
+    // Two sibling branches. The root count stays correct even when the first branch's count is wrong.
+    private static byte[] NestedPages(string firstCount) => Classic([
+        "<< /Type /Catalog /Pages 2 0 R >>", Pages("[3 0 R 4 0 R]", 2),
+        $"<< /Type /Pages /Parent 2 0 R /Kids [5 0 R] /Count {firstCount} >>",
+        "<< /Type /Pages /Parent 2 0 R /Kids [6 0 R] /Count 1 >>", Page,
+        "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 240 160] >>", "1"]);
 
     private static string Pages(string kids, int count) =>
         string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids {kids} /Count {count} >>");
