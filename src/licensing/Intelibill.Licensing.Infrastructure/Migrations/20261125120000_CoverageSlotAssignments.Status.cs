@@ -29,7 +29,8 @@ public sealed partial class CoverageSlotAssignments
             initial_event uuid;
             latest_status text;
             latest_ack_outcome text;
-            has_usable_applied boolean;
+            confirmed_usable boolean;
+            change_outstanding boolean;
             has_any_applied boolean;
             receipt_out text;
             act_out text;
@@ -84,18 +85,14 @@ public sealed partial class CoverageSlotAssignments
                     RETURN;
                 END IF;
 
-                WITH RECURSIVE chain(term_id, depth) AS (
-                    SELECT a.term_id, 0
-                    UNION ALL
-                    SELECT f.term_id, c.depth + 1
-                    FROM chain c
-                    JOIN public.payment_fulfilments f ON f.account_id = a.account_id AND f.predecessor_term_id = c.term_id
-                    JOIN public.payment_fulfilment_shops ps ON ps.account_id = f.account_id AND ps.term_id = f.term_id AND ps.shop_id = a.shop_id
-                    WHERE NOT EXISTS (SELECT FROM public.paid_fresh_starts pf
-                        WHERE pf.account_id = f.account_id AND pf.order_id = f.order_id AND pf.kind = 'RestoredAccess')
-                      AND c.depth < 120
-                )
-                SELECT term_id INTO tail_term FROM chain ORDER BY depth DESC LIMIT 1;
+                -- The retained assignment id follows every contiguous renewal of this shop's link and is cleared by a
+                -- restoration, so the lineage tail needs no bounded walk across the supported billing periods.
+                SELECT ps.term_id INTO tail_term
+                FROM public.payment_fulfilment_shops ps
+                JOIN public.subscription_coverage_terms t ON t.account_id = ps.account_id AND t.term_id = ps.term_id
+                WHERE ps.account_id = a.account_id AND ps.shop_id = a.shop_id AND ps.slot_assignment_id = a.assignment_id
+                ORDER BY t.ends_at DESC LIMIT 1;
+                tail_term := coalesce(tail_term, a.term_id);
 
                 tail_paid := public.term_effective_paid_through(a.account_id, tail_term);
                 tail_access := public.term_effective_access_end(a.account_id, tail_term);
@@ -105,46 +102,57 @@ public sealed partial class CoverageSlotAssignments
                 JOIN public.entitlement_snapshots s ON s.event_id = d.event_id
                 WHERE d.assignment_id = a.assignment_id;
 
+                -- Current activation follows the head the merchant last confirmed, never an earlier receipt: every
+                -- receipt reports the shop revision the merchant holds after processing it. A later snapshot that
+                -- changes whether the shop may trade stays pending until that head reaches it.
                 WITH lineage AS (
-                    SELECT s.event_id, s.shop_revision, o.status AS outbox_status,
-                           convert_from(m.payload, 'UTF8')::jsonb AS snap,
-                           CASE WHEN ack.payload IS NOT NULL THEN convert_from(ack.payload, 'UTF8')::jsonb END AS receipt
+                    SELECT s.event_id, s.shop_revision, o.status AS outbox_status, x.snap,
+                           CASE WHEN ack.payload IS NOT NULL THEN convert_from(ack.payload, 'UTF8')::jsonb END AS receipt,
+                           -- An undated suspension has no effective instant to compare and is never usable.
+                           coalesce(x.snap->'shop'->>'state' IN ('Active', 'Grace')
+                            AND (x.snap->'shop'->'suspension' IS NULL
+                                 OR (x.snap->'shop'->'suspension'->>'effectiveAt')::timestamptz > x.signed_at)
+                            AND (x.snap->'account'->>'restriction' = 'Unrestricted'
+                                 OR (x.snap->'account'->'suspension' IS NOT NULL
+                                     AND (x.snap->'account'->'suspension'->>'effectiveAt')::timestamptz > x.signed_at)), false) AS usable
                     FROM public.entitlement_snapshots s
                     JOIN public.entitlement_messages m USING (event_id, account_id, shop_id)
                     JOIN public.entitlement_outbox o ON o.event_id = s.event_id
+                    CROSS JOIN LATERAL (SELECT j.snap, greatest((j.snap->'shop'->>'upstreamVerifiedAt')::timestamptz,
+                            (j.snap->'account'->>'upstreamVerifiedAt')::timestamptz) AS signed_at
+                        FROM (SELECT convert_from(m.payload, 'UTF8')::jsonb AS snap) j) x
                     LEFT JOIN public.entitlement_merchant_inbox ack
                         ON ack.event_id = s.event_id AND ack.account_id = s.account_id AND ack.kind = 'Acknowledgement'
                     WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id
                       AND s.affiliation_request_id = a.affiliation_request_id
                       AND initial_rev IS NOT NULL AND s.shop_revision >= initial_rev
-                      AND (s.event_id = initial_event
-                           OR convert_from(m.payload, 'UTF8')::jsonb->'shop'->>'slotAssignmentId' = a.assignment_id::text)
+                      AND (s.event_id = initial_event OR x.snap->'shop'->>'slotAssignmentId' = a.assignment_id::text)
+                ), confirmed AS (
+                    SELECT l.shop_revision, l.usable, l.snap FROM lineage l
+                    WHERE l.shop_revision <= (SELECT max((r.receipt->>'appliedShopRevision')::bigint)
+                        FROM lineage r WHERE r.receipt->>'outcome' = 'Applied')
+                    ORDER BY l.shop_revision DESC LIMIT 1
                 )
                 SELECT
                     (SELECT outbox_status FROM lineage ORDER BY shop_revision DESC LIMIT 1),
                     (SELECT receipt->>'outcome' FROM lineage ORDER BY shop_revision DESC LIMIT 1),
-                    EXISTS (SELECT FROM lineage l WHERE l.receipt->>'outcome' = 'Applied'
-                        AND l.receipt->>'disposition' = 'Applied'
-                        AND (l.receipt->>'appliedShopRevision')::bigint = l.shop_revision
-                        AND l.snap->'shop'->>'state' IN ('Active', 'Grace')
-                        AND (l.snap->'shop'->'suspension' IS NULL
-                             OR (l.snap->'shop'->'suspension'->>'effectiveAt')::timestamptz > greatest(
-                                 (l.snap->'shop'->>'upstreamVerifiedAt')::timestamptz,
-                                 (l.snap->'account'->>'upstreamVerifiedAt')::timestamptz))
-                        AND (l.snap->'account'->>'restriction' = 'Unrestricted'
-                             OR (l.snap->'account'->'suspension' IS NOT NULL
-                                 AND (l.snap->'account'->'suspension'->>'effectiveAt')::timestamptz > greatest(
-                                     (l.snap->'shop'->>'upstreamVerifiedAt')::timestamptz,
-                                     (l.snap->'account'->>'upstreamVerifiedAt')::timestamptz)))),
+                    coalesce((SELECT c.usable AND (c.snap->'shop'->>'accessEndsAt')::timestamptz > at_time
+                        AND (c.snap->'shop'->'suspension' IS NULL
+                             OR (c.snap->'shop'->'suspension'->>'effectiveAt')::timestamptz > at_time)
+                        AND (c.snap->'account'->'suspension' IS NULL
+                             OR (c.snap->'account'->'suspension'->>'effectiveAt')::timestamptz > at_time)
+                        FROM confirmed c), false),
+                    EXISTS (SELECT FROM lineage l, confirmed c WHERE l.shop_revision > c.shop_revision AND l.usable <> c.usable),
                     EXISTS (SELECT FROM lineage l WHERE l.receipt->>'outcome' = 'Applied')
-                INTO latest_status, latest_ack_outcome, has_usable_applied, has_any_applied;
+                INTO latest_status, latest_ack_outcome, confirmed_usable, change_outstanding, has_any_applied;
 
+                -- A failed newest delivery is reported before any earlier receipt, so it cannot be masked.
                 IF latest_status = 'NeedsReview' OR latest_ack_outcome = 'NeedsReview' THEN
                     receipt_out := 'NeedsReview';
-                ELSIF has_usable_applied OR has_any_applied THEN
-                    receipt_out := 'Applied';
                 ELSIF latest_status = 'DeadLetter' THEN
                     receipt_out := 'DeadLetter';
+                ELSIF has_any_applied THEN
+                    receipt_out := 'Applied';
                 ELSE
                     receipt_out := 'Pending';
                 END IF;
@@ -160,7 +168,7 @@ public sealed partial class CoverageSlotAssignments
                     act_out := 'TermEnded';
                 ELSIF receipt_out IN ('NeedsReview', 'DeadLetter') THEN
                     act_out := 'NeedsReview';
-                ELSIF NOT has_usable_applied THEN
+                ELSIF NOT confirmed_usable OR change_outstanding THEN
                     act_out := 'Applying';
                 ELSIF at_time >= tail_paid THEN
                     act_out := 'Grace';

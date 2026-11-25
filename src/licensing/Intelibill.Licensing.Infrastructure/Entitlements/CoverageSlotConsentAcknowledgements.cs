@@ -57,7 +57,7 @@ internal sealed class CoverageSlotConsentAcknowledgements(LicensingDbContext db,
             return "SourceChanged";
         if (!source.Available) return "SlotUnavailable";
         var eligible = await db.Database.SqlQuery<bool>($"""
-            SELECT public.slot_shop_eligible({c.AccountId},{c.ShopId},{now},{source.EndsAt}) AS "Value"
+            SELECT public.slot_shop_eligible({c.AccountId},{c.ShopId},{now},{source.AccessEndsAt}) AS "Value"
             """).SingleAsync(ct);
         return eligible ? null : "ShopCovered";
     }

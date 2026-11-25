@@ -80,6 +80,7 @@ public sealed partial class CoverageSlotAssignments : Migration
             DROP FUNCTION public.guard_slot_assignment();
             DROP FUNCTION public.slot_shop_eligible(uuid,uuid,timestamptz,timestamptz);
             DROP FUNCTION public.shop_has_conflicting_paid_coverage(uuid,uuid,uuid,timestamptz,timestamptz);
+            DROP FUNCTION public.shop_paid_link(uuid,uuid,uuid,timestamptz);
             DROP FUNCTION public.term_effective_access_end(uuid,uuid);
             DROP FUNCTION public.term_effective_paid_through(uuid,uuid);
             """);

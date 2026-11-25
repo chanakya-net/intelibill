@@ -13,7 +13,8 @@ namespace Intelibill.Licensing.Infrastructure.Status;
 /// Reads coverage rows, ended ones included, with their optional supplement in one statement under the
 /// transaction's row-level scope. A missing supplement stays missing; overlapping sources are not merged.
 /// Complimentary grants are read as separate candidates beside the baseline term, never in its place. A shop's
-/// latest paid fulfilment link (a renewal chain's tail) precedes an affiliation-assigned term it may have renewed.
+/// most recently joined or renewed paid link (<c>shop_paid_link</c>) precedes an affiliation-assigned term it may
+/// have renewed. A successor verified after the evaluation instant neither replaces nor ends its predecessor there.
 /// </summary>
 internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
     [FromKeyedServices(SubscriptionStatusRegistration.ClockKey)] TimeProvider clock) : ISubscriptionAccessFactsReader
@@ -51,17 +52,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         if (binding.TrialTermId is null)
         {
             paidLink = await db.Database.SqlQuery<PaidLinkRow>($"""
-                SELECT l.term_id, l.coverage_from, l.slot_assignment_id
-                FROM public.payment_fulfilment_shops l
-                JOIN public.payment_fulfilments lf
-                    ON lf.account_id = l.account_id AND lf.order_id = l.order_id AND lf.term_id = l.term_id
-                JOIN public.subscription_coverage_terms lt
-                    ON lt.account_id = l.account_id AND lt.term_id = l.term_id
-                WHERE l.shop_id = {shop} AND l.account_id = {binding.AffiliationAccountId}
-                    AND l.affiliation_request_id = {binding.RequestId}
-                    AND (l.coverage_from IS NULL OR l.coverage_from <= {at})
-                    AND lf.fulfilled_at <= {at}
-                ORDER BY lt.ends_at DESC LIMIT 1
+                SELECT term_id, coverage_from, slot_assignment_id
+                FROM public.shop_paid_link({binding.AffiliationAccountId}, {shop}, {binding.RequestId}, {at})
                 """).SingleOrDefaultAsync(ct);
         }
 
@@ -84,7 +76,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                         'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count,
                         'WithdrawnAt', CASE WHEN c.kind = 'WithdrawCancellation' THEN c.recorded_at END)::text END AS cancellation,
                     EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
-                        AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
+                        AND s.predecessor_term_id = t.term_id AND s.fulfilled_at <= {at} AND NOT EXISTS (
                             SELECT FROM public.paid_fresh_starts pf WHERE pf.account_id = s.account_id
                                 AND pf.order_id = s.order_id AND pf.kind = 'RestoredAccess')) AS renewed_at_end,
                     rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at

@@ -33,7 +33,7 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
             SELECT pg_advisory_xact_lock(hashtextextended('g'||{command.ShopId}::text,0))
             """, ct);
         var eligible = await db.Database.SqlQuery<bool>($"""
-            SELECT public.slot_shop_eligible({account},{command.ShopId},{now},{source.EndsAt}) AS "Value"
+            SELECT public.slot_shop_eligible({account},{command.ShopId},{now},{source.AccessEndsAt}) AS "Value"
             """).SingleAsync(ct);
         if (!eligible) return Error.Conflict("Coverage.SlotShopIneligible");
         var id = Guid.NewGuid();
@@ -62,7 +62,7 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
         if (source is null) return Missing;
         var shops = await db.Database.SqlQuery<SlotShopV1>($"""
             SELECT shop_id,shop_name FROM public.shop_affiliations a WHERE account_id={account}
-                AND public.slot_shop_eligible({account},shop_id,{now},{source.EndsAt})
+                AND public.slot_shop_eligible({account},shop_id,{now},{source.AccessEndsAt})
                 AND NOT EXISTS(SELECT FROM public.coverage_slot_assignments r
                     CROSS JOIN LATERAL public.slot_assignment_status(r.account_id,r.assignment_id,{now}) st
                     WHERE r.shop_id=a.shop_id AND st.projected_state='AwaitingConsent')
@@ -116,7 +116,8 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
 
     internal Task<Source?> SourceAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct) =>
         db.Database.SqlQuery<Source>($"""
-            SELECT f.order_id,ep.paid_through AS ends_at,coalesce(i.capacity,t.capacity) AS capacity,
+            SELECT f.order_id,ep.paid_through AS ends_at,
+                public.term_effective_access_end(t.account_id,t.term_id) AS access_ends_at,coalesce(i.capacity,t.capacity) AS capacity,
                 coalesce(i.members,s.member_allowance) AS members,
                 coalesce(cancel.rev,0) AS cancellation_revision,
                 (SELECT count(*)::int FROM (SELECT shop_id FROM public.payment_fulfilment_shops WHERE term_id=t.term_id
@@ -133,6 +134,7 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
             WHERE t.account_id={account} AND t.term_id={term} AND s.basis='Paid'
             """).SingleOrDefaultAsync(ct);
 
-    internal sealed record Source(Guid OrderId, DateTimeOffset EndsAt, int Capacity, int Members, long CancellationRevision,
-        int Occupied, bool Available);
+    /// <summary>EndsAt is the shared paid-through; AccessEndsAt also carries any grace the assigned shop would hold.</summary>
+    internal sealed record Source(Guid OrderId, DateTimeOffset EndsAt, DateTimeOffset AccessEndsAt, int Capacity, int Members,
+        long CancellationRevision, int Occupied, bool Available);
 }

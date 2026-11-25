@@ -69,6 +69,25 @@ public sealed partial class CoverageSlotAssignments
             WHERE t.account_id = scope_account AND t.term_id = scope_term
         $$;
 
+        -- A shop's paid link is the one it joined or renewed most recently: a slot join counts from its acceptance,
+        -- a purchase or renewal from its verified fulfilment. An independently dated term the shop left earlier never
+        -- outranks the link that followed it, whatever its original end. A historical read sees only links that
+        -- existed at that instant.
+        CREATE FUNCTION public.shop_paid_link(ac uuid, shop uuid, request uuid, at_time timestamptz)
+        RETURNS TABLE (term_id uuid, coverage_from timestamptz, slot_assignment_id uuid)
+        LANGUAGE sql STABLE SET search_path = pg_catalog AS $$
+            SELECT l.term_id, l.coverage_from, l.slot_assignment_id
+            FROM public.payment_fulfilment_shops l
+            JOIN public.payment_fulfilments lf
+                ON lf.account_id = l.account_id AND lf.order_id = l.order_id AND lf.term_id = l.term_id
+            JOIN public.subscription_coverage_terms lt ON lt.account_id = l.account_id AND lt.term_id = l.term_id
+            WHERE l.account_id = ac AND l.shop_id = shop
+              AND (request IS NULL OR l.affiliation_request_id = request)
+              AND (at_time IS NULL OR (lf.fulfilled_at <= at_time AND (l.coverage_from IS NULL OR l.coverage_from <= at_time)))
+            ORDER BY greatest(lf.fulfilled_at, coalesce(l.coverage_from, lf.fulfilled_at)) DESC, lt.ends_at DESC
+            LIMIT 1
+        $$;
+
         CREATE FUNCTION public.shop_has_conflicting_paid_coverage(
             ac uuid, shop uuid, exclude_term uuid, win_start timestamptz, win_end timestamptz)
         RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog AS $$
@@ -91,6 +110,8 @@ public sealed partial class CoverageSlotAssignments
         """;
 
     private const string Guards = """
+        -- until_time is the candidate package's effective access end (refund-shortened, with grace where it applies):
+        -- the slot carries the shop through that instant, so other coverage may begin exactly there and no earlier.
         CREATE FUNCTION public.slot_shop_eligible(ac uuid,shop uuid,at_time timestamptz,until_time timestamptz)
         RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog AS $$
             SELECT EXISTS(SELECT FROM public.shop_affiliations a WHERE a.account_id=ac AND a.shop_id=shop
@@ -126,7 +147,8 @@ public sealed partial class CoverageSlotAssignments
             SELECT coalesce(max(c.revision),0) INTO cancel_rev
             FROM public.scheduled_subscription_changes c WHERE c.account_id=NEW.account_id AND c.term_id=NEW.term_id;
             IF effective_paid IS NULL OR cancel_rev % 2 <> 0 OR NEW.cancellation_revision <> cancel_rev
-                OR NOT public.slot_shop_eligible(NEW.account_id,NEW.shop_id,at_time,effective_paid)
+                OR NOT public.slot_shop_eligible(NEW.account_id,NEW.shop_id,at_time,
+                    public.term_effective_access_end(NEW.account_id,NEW.term_id))
                 OR NOT EXISTS(SELECT FROM public.shop_affiliations a WHERE a.account_id=NEW.account_id
                     AND a.shop_id=NEW.shop_id AND a.request_id=NEW.affiliation_request_id)
                 OR NOT EXISTS(SELECT FROM public.billing_account_members m WHERE m.account_id=NEW.account_id

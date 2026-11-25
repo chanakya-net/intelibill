@@ -55,7 +55,9 @@ public sealed partial class P0604Tests
         Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
         Assert.Equal(change == "over-capacity" ? "Coverage.MemberCapacityExceeded" : "Billing.ConsentInvalid",
             await P0206Fixture.CodeAsync(rejected));
-        Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync("SELECT count(*) FROM entitlement_messages WHERE kind='CoverageSlotConsent'"));
+        // The class shares one merchant database, so only this shop's consent messages belong to this case.
+        Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT count(*) FROM entitlement_messages WHERE kind='CoverageSlotConsent' AND shop_id='{shop.ShopId}'"));
         Assert.Equal(2L, await f.CountAsync("payment_fulfilment_shops"));
     }
 

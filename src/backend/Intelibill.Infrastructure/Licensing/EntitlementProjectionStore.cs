@@ -58,7 +58,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
         var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
         var savedSlot = bound && shop is not null && snapshot.Shop?.Revision == shop.Revision
-            ? await ReadSavedSlotAssignmentAsync(shop.EvidenceId, ct) : null;
+            ? await SlotActivationGate.ReadHeadAssignmentAsync(db, shop.EvidenceId, ct) : null;
         var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt, savedSlot) : "AffiliationUnresolved";
         Guid? activatingAssignment = null;
         if (reason is null)
@@ -84,7 +84,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         if (nextShop) UpdateShop(snapshot, shop);
         await db.SaveChangesAsync(ct);
         if (activatingAssignment is { } activatedId)
-            await RecordSlotActivationAsync(activatedId, snapshot, appliedAt, ct);
+            await SlotActivationGate.RecordAsync(db, activatedId, snapshot.ShopId, snapshot.AccountId, snapshot.EventId, appliedAt, ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
             "Acknowledgement", receipt, SignedServiceAssertion.Digest(receipt), appliedAt, ct);
         return new EntitlementProjectionReceipt(receipt, nextAccount || nextShop);
@@ -93,6 +93,8 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
     // The projection fence also serializes member admission. Recheck live seats whenever applying the head
     // could enable trading permission for an unactivated slot assignment (including Grace, future suspensions
     // and out-of-order early-renewal successors), while letting immediately restrictive updates through.
+    // Those stay unactivated, and ShopLicenceFence keeps the shop out of trading until its own check succeeds.
+    // Only a head that names an assignment reads the slot tables, so earlier signed traffic needs no new schema.
     private async Task<(bool ExceedsAllowance, Guid? ActivatingAssignmentId)> CheckSlotActivationAsync(
         EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? account, ShopLicenseState? shop, CancellationToken ct)
     {
@@ -106,8 +108,10 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         var candAccount = BuildCandidateAccount(snapshot, account, nextAccount);
         if (!CanEnableTrading(candShop, candAccount, out var allowance)) return (false, null);
 
-        var pendingId = await FindPendingSlotAssignmentAsync(snapshot, candShop.TermId!.Value, ct);
-        if (pendingId is not { } assignmentId) return (false, null);
+        var named = nextShop ? incomingShop.SlotAssignmentId : await SlotActivationGate.ReadHeadAssignmentAsync(db, candShop.EvidenceId, ct);
+        if (named is not { } namedId || await SlotActivationGate.FindPendingAsync(db, snapshot.ShopId, snapshot.AccountId,
+                snapshot.AffiliationRequestId, namedId, ct) is not { } assignmentId)
+            return (false, null);
 
         var activeMembers = await db.Database.SqlQuery<int>($"""
             SELECT count(*)::int AS "Value" FROM public.shop_memberships
@@ -146,45 +150,6 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         copy.Apply(a.Revision, a.UpstreamVerifiedAt, a.Restriction, a.ReleasedRevision, snapshot.EventId,
             a.Suspension?.EffectiveAt, a.Suspension?.CustomerExplanation, a.PreviousReleaseRevision);
         return copy;
-    }
-
-    private async Task<Guid?> FindPendingSlotAssignmentAsync(EntitlementSnapshotV1 snapshot, Guid termId, CancellationToken ct)
-    {
-        if (snapshot.Shop?.SlotAssignmentId is { } explicitId)
-        {
-            return await db.Database.SqlQuery<Guid?>($"""
-                SELECT e.assignment_id AS "Value" FROM public.coverage_slot_consent_events e
-                WHERE e.shop_id = {snapshot.ShopId} AND e.account_id = {snapshot.AccountId}
-                  AND e.affiliation_request_id = {snapshot.AffiliationRequestId}
-                  AND e.assignment_id = {explicitId} AND e.kind = 'Accepted'
-                  AND NOT EXISTS (SELECT FROM public.coverage_slot_activations a WHERE a.assignment_id = e.assignment_id)
-                LIMIT 1
-                """).SingleOrDefaultAsync(ct);
-        }
-        return await db.Database.SqlQuery<Guid?>($"""
-            SELECT e.assignment_id AS "Value" FROM public.coverage_slot_consent_events e
-            WHERE e.shop_id = {snapshot.ShopId} AND e.account_id = {snapshot.AccountId}
-              AND e.affiliation_request_id = {snapshot.AffiliationRequestId}
-              AND e.term_id = {termId} AND e.kind = 'Accepted'
-              AND NOT EXISTS (SELECT FROM public.coverage_slot_activations a WHERE a.assignment_id = e.assignment_id)
-            ORDER BY e.recorded_at DESC LIMIT 1
-            """).SingleOrDefaultAsync(ct);
-    }
-
-    private Task<int> RecordSlotActivationAsync(Guid assignmentId, EntitlementSnapshotV1 snapshot, DateTimeOffset at, CancellationToken ct) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO public.coverage_slot_activations (assignment_id, shop_id, account_id, event_id, activated_at)
-            VALUES ({assignmentId}, {snapshot.ShopId}, {snapshot.AccountId}, {snapshot.EventId}, {at})
-            ON CONFLICT (assignment_id) DO NOTHING
-            """, ct);
-
-    private async Task<Guid?> ReadSavedSlotAssignmentAsync(Guid evidenceId, CancellationToken ct)
-    {
-        var raw = await db.Database.SqlQuery<string?>($"""
-            SELECT convert_from(payload, 'UTF8')::jsonb->'shop'->>'slotAssignmentId' AS "Value"
-            FROM public.license_grant_evidence WHERE event_id = {evidenceId}
-            """).SingleOrDefaultAsync(ct);
-        return Guid.TryParse(raw, out var id) ? id : null;
     }
 
     internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)
