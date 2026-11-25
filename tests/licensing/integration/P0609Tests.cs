@@ -15,7 +15,7 @@ public sealed partial class P0609Tests(LicensingPostgreSqlFixture database) : IC
     private const string Reason = "Duplicate branch purchased before go-live";
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
-    private static async Task<P0308Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset at,
+    internal static async Task<P0308Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset at,
         IReadOnlyDictionary<string, string?>? settings = null, Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>? services = null)
     {
         var fixture = await P0308Fixture.StartAsync(database, at, settings, services: services);

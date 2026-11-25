@@ -7,6 +7,7 @@ import type { CheckoutScope } from '../checkout/checkout.models';
 import type { CreateRefundRequest, RefundRequestItem, RefundRequestPage } from './refund-request.models';
 import {
   configureRefundPage, confirmation, deferred, installRefundSpecGlobals, mountRefundPage, order, otherOrder,
+  restoreRefundSpecGlobals,
   refundPage, refundRow, saveDraft, savedKey, storageKey, verifiedPayment as refundTarget,
 } from './refund-request.test-utils';
 
@@ -15,6 +16,7 @@ beforeEach(() => {
   installRefundSpecGlobals();
 });
 afterEach(() => {
+  restoreRefundSpecGlobals();
   vi.unstubAllGlobals();
   TestBed.resetTestingModule();
 });

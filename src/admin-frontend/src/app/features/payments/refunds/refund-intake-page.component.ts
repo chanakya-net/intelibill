@@ -5,7 +5,8 @@ import { ButtonDirective } from 'primeng/button';
 import { formatIstExact } from '../../accounts/account-status-api.service';
 import { AdminSessionService } from '../../auth/admin-session.service';
 import {
-  canonicalAccountId, REFUND_INTAKE_STATUS_META, RefundIntakeApi, type RefundIntakeItem, type RefundIntakeStatus,
+  accessDispositionLabel, approvedAmountLabel, canonicalAccountId, refundOutcomeMeta,
+  RefundIntakeApi, type RefundIntakeItem,
 } from './refund-intake-api.service';
 
 @Component({
@@ -46,13 +47,10 @@ export class RefundIntakePageComponent {
     });
   }
 
-  protected statusLabel(status: RefundIntakeStatus): string {
-    return REFUND_INTAKE_STATUS_META[status].label;
-  }
-
-  protected statusDetail(status: RefundIntakeStatus): string {
-    return REFUND_INTAKE_STATUS_META[status].detail;
-  }
+  protected readonly outcomeLabel = (item: RefundIntakeItem) => refundOutcomeMeta(item).label;
+  protected readonly outcomeDetail = (item: RefundIntakeItem) => refundOutcomeMeta(item).detail;
+  protected readonly approvedLabel = (item: RefundIntakeItem) => approvedAmountLabel(item);
+  protected readonly accessLabel = (disposition: RefundIntakeItem['accessDisposition']) => accessDispositionLabel(disposition);
 
   protected search(event: Event, account: string) {
     event.preventDefault();

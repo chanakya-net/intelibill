@@ -54,7 +54,7 @@ public sealed partial class P0609Tests
         {
             "UPDATE public.refund_approvals SET amount_paise = 1", "DELETE FROM public.refund_approvals",
             "TRUNCATE public.refund_approvals CASCADE", "UPDATE public.refund_access_decisions SET treatment = 'EndAt'",
-            "DELETE FROM public.refund_access_decisions", "TRUNCATE public.refund_access_decisions",
+            "DELETE FROM public.refund_access_decisions", "TRUNCATE public.refund_access_decisions CASCADE",
         })
         {
             var refused = await Assert.ThrowsAsync<PostgresException>(() =>

@@ -14,6 +14,7 @@ import type { PaymentConfirmation } from '../payments/payment-confirmation.model
 import { PaymentConfirmationService } from '../payments/payment-confirmation.service';
 import { InvalidRefundRequestDraft, RefundRequestDrafts } from './refund-request-drafts';
 import type { CreateRefundRequest, RefundRequestItem, RefundRequestPage } from './refund-request.models';
+import { installRefundSpecGlobals, restoreRefundSpecGlobals } from './refund-request.test-utils';
 import { RefundRequestService } from './refund-request.service';
 import { RefundRequestsPageComponent } from './refund-requests-page.component';
 
@@ -88,12 +89,10 @@ function mount() {
 
 beforeEach(() => {
   stubMemoryStorage();
-  Object.defineProperty(navigator, 'locks', {
-    value: { request: (_name: string, fn: () => unknown) => Promise.resolve(fn()) },
-    configurable: true,
-  });
+  installRefundSpecGlobals();
 });
 afterEach(() => {
+  restoreRefundSpecGlobals();
   vi.unstubAllGlobals();
   TestBed.resetTestingModule();
 });

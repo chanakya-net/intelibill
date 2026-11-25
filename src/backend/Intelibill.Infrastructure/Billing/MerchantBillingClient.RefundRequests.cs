@@ -49,8 +49,22 @@ internal sealed partial class MerchantBillingClient : IMerchantRefundRequests
         r.OrderId != Guid.Empty && r.ConfirmationId != Guid.Empty && RefundRequestsV1.States.Contains(r.Status) &&
         r.PaymentAmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise &&
         r.AmountPaise is > 0 && r.AmountPaise <= r.PaymentAmountPaise &&
-        r.Currency == "INR" && r.Reason is not null && RefundRequestsV1.NormalizeReason(r.Reason) == r.Reason &&
+        ValidRefundOutcome(r) && r.Currency == "INR" && r.Reason is not null && RefundRequestsV1.NormalizeReason(r.Reason) == r.Reason &&
         EntitlementSnapshotsV1.IsInstant(r.RequestedAt);
+
+    private static bool ValidRefundOutcome(RefundRequestV1 row)
+    {
+        if (row is { ApprovedAmountPaise: null, ProviderState: null, AccessDisposition: null }) return true;
+        if (row.ApprovedAmountPaise is not > 0 || row.ApprovedAmountPaise > row.AmountPaise) return false;
+        return row.ProviderState switch
+        {
+            "Manual" or "Historical" => row.Status == "Pending" && row.AccessDisposition == "Applied",
+            "Reserved" or "Pending" => row.Status == "Pending" && row.AccessDisposition == "AwaitingConfirmation",
+            "Failed" or "Unknown" => row.Status == row.ProviderState && row.AccessDisposition == "AwaitingConfirmation",
+            "Confirmed" => row.Status == "Confirmed" && row.AccessDisposition is "Applied" or "NeedsReview",
+            _ => false,
+        };
+    }
 
     internal static bool IsRefundPageValid(RefundRequestPageV1? page, Guid account, Guid? after)
     {

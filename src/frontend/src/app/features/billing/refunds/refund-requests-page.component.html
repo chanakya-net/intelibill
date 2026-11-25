@@ -93,11 +93,17 @@
         @for (item of items(); track item.refundRequestId) {
           <li class="ib-panel refunds-page__card" data-testid="refund-request-row"
             [attr.data-refund-id]="item.refundRequestId" [attr.data-status]="item.status">
-            <strong data-testid="refund-request-status">{{ statusLabel(item.status) | transloco }}</strong>
-            <p data-testid="refund-request-status-detail">{{ statusDetail(item.status) | transloco }}</p>
+            <strong data-testid="refund-request-status">{{ statusLabel(item) | transloco }}</strong>
+            <p data-testid="refund-request-status-detail">{{ statusDetail(item) | transloco }}</p>
             <dl class="refunds-page__meta">
               <dt>{{ 'billing.refunds.requestedAmountLabel' | transloco }}</dt>
               <dd data-testid="refund-request-row-amount">{{ rupees(item.amountPaise) | localeMoney }}</dd>
+              @if (item.approvedAmountPaise != null) {
+                <dt>{{ approvedAmountLabel(item) | transloco }}</dt>
+                <dd data-testid="refund-request-row-approved-amount">{{ rupees(item.approvedAmountPaise) | localeMoney }}</dd>
+                <dt>{{ 'billing.refunds.accessDecision' | transloco }}</dt>
+                <dd data-testid="refund-request-row-access">{{ ('billing.refunds.' + item.accessDisposition) | transloco }}</dd>
+              }
               <dt>{{ 'billing.refunds.verifiedAmountLabel' | transloco }}</dt>
               <dd>{{ rupees(item.paymentAmountPaise) | localeMoney }}</dd>
               <dt>{{ 'billing.refunds.reasonLabel' | transloco }}</dt>

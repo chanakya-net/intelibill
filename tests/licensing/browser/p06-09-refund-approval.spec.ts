@@ -73,7 +73,7 @@ async function merchantSeesPending(context: BrowserContext, secrets: Record<stri
   const page = await (await listed).json();
   const row = payer.locator(`[data-testid="refund-request-row"][data-refund-id="${request}"]`);
   await expect(row).toHaveAttribute('data-status', 'Pending');
-  await expect(row.getByTestId('refund-request-status')).toHaveText('Pending provider');
+  await expect(row.getByTestId('refund-request-status')).toHaveText('Refund reserved');
   await expect(row).toContainText('60.00');
   await checkViewports(payer, 'merchant-refund-pending');
   return page.items.find((item: { refundRequestId: string }) => item.refundRequestId === request);
@@ -116,7 +116,7 @@ async function recoverInSecondTab(context: BrowserContext, key: string, saved: R
   const receipt = second.getByTestId('refund-approval-receipt');
   for (const text of ['₹45.00', '₹75.00', String(saved['reservationId']), String(saved['accessDecisionId'])])
     await expect(receipt).toContainText(text);
-  await expect(second.getByTestId('refund-approval-status')).toHaveText('Pending provider');
+  await expect(second.getByTestId('refund-approval-status')).toHaveText('Reserved');
   await checkViewports(second, 'admin-approval-receipt');
   return second;
 }
@@ -179,7 +179,7 @@ test('@approve finance previews, approves, loses the response and recovers the a
   await expect(returned.getByTestId('refund-approval-decided')).toBeVisible();
   await returned.goto(`${admin}/payments/refunds?account=${account}`);
   const decidedRow = returned.locator(`[data-refund-id="${request}"]`);
-  await expect(decidedRow.getByTestId('refund-intake-status')).toHaveText('Pending provider');
+  await expect(decidedRow.getByTestId('refund-intake-status')).toHaveText('Reserved');
   await expect(decidedRow.getByTestId('refund-intake-approve')).toHaveCount(0);
   await expect(returned.locator(`[data-refund-id="${laterRequest}"]`).getByTestId('refund-intake-approve')).toBeVisible();
   await checkViewports(returned, 'admin-intake-pending');
@@ -249,7 +249,7 @@ async function reserve(page: Page, id: string, rupees: string) {
   await page.locator('#refund-approval-confirm').check();
   await page.getByTestId('refund-approval-submit').click();
   await expect(page.getByTestId('refund-approval-receipt')).toBeVisible();
-  await expect(page.getByTestId('refund-approval-status')).toHaveText('Pending provider');
+  await expect(page.getByTestId('refund-approval-status')).toHaveText('Reserved');
 }
 
 test('@ledger shows depleted balances and opens a request beyond the first thousand', async ({ browser }) => {

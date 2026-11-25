@@ -55,12 +55,23 @@
             <article class="adm-subcard" data-testid="refund-intake-row"
               [attr.data-refund-id]="item.refundRequestId" [attr.data-status]="item.status">
               <p class="adm-panel-sub">
-                <span class="adm-pill" data-testid="refund-intake-status">{{ statusLabel(item.status) }}</span>
-                · {{ money(item.amountPaise) }} of {{ money(item.paymentAmountPaise) }}
+                <span class="adm-pill" data-testid="refund-intake-status">{{ outcomeLabel(item) }}</span>
+                · Requested {{ money(item.amountPaise) }} of {{ money(item.paymentAmountPaise) }}
+                @if (item.approvedAmountPaise != null) {
+                  · {{ approvedLabel(item) }} {{ money(item.approvedAmountPaise) }}
+                }
                 · {{ instant(item.requestedAt) }}
               </p>
-              <p data-testid="refund-intake-status-detail">{{ statusDetail(item.status) }}</p>
+              <p data-testid="refund-intake-status-detail">{{ outcomeDetail(item) }}</p>
               <dl>
+                <dt>Requested amount</dt>
+                <dd data-testid="refund-intake-requested-amount">{{ money(item.amountPaise) }} of {{ money(item.paymentAmountPaise) }} verified</dd>
+                @if (item.approvedAmountPaise != null) {
+                  <dt>{{ approvedLabel(item) }}</dt>
+                  <dd data-testid="refund-intake-approved-amount">{{ money(item.approvedAmountPaise) }}</dd>
+                  <dt>Access decision</dt>
+                  <dd data-testid="refund-intake-access">{{ accessLabel(item.accessDisposition) }}</dd>
+                }
                 <dt>Request ID</dt><dd>{{ item.refundRequestId }}</dd>
                 <dt>Order</dt><dd>{{ item.orderId }}</dd>
                 <dt>Payment confirmation</dt><dd>{{ item.confirmationId }}</dd>
@@ -79,9 +90,9 @@
                     Review and approve
                   </a>
                 </div>
-              } @else if (item.status === 'Pending') {
+              } @else {
                 <a pButton data-testid="refund-intake-view"
-                  [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">View approval</a>
+                  [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">View refund</a>
               }
             </article>
           } @empty {

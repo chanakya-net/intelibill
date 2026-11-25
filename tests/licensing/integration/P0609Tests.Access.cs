@@ -38,6 +38,8 @@ public sealed partial class P0609Tests
         var receipt = await ReadAsync(await ApproveAsync(billing, package.Account, request,
             Command(preview, 4500L, treatment, at)), HttpStatusCode.Created);
         Assert.Equal(treatment, receipt.GetProperty("access").GetProperty("treatment").GetString());
+        Assert.Equal(snapshots, await fixture.CountAsync("entitlement_snapshots"));
+        await P0610Tests.PumpRefundsAsync(fixture);
         await P0608Tests.DrainAsync(fixture);
 
         // Only an effective treatment publishes, and only for the two named shops.
@@ -135,6 +137,7 @@ public sealed partial class P0609Tests
         await ReadAsync(await ApproveAsync(billing, package.Account, first,
             Command(adjust, 3000L, "TermAdjustment", Boundary)), HttpStatusCode.Created);
 
+        await P0610Tests.PumpRefundsAsync(fixture);
         // The second reviewed effect was judged against the earlier access: it must be reviewed again.
         await AssertCodeAsync(await ApproveAsync(billing, package.Account, second,
             Command(end, 3000L, "EndAt", Boundary.AddDays(3))), HttpStatusCode.Conflict, "Refund.PreviewStale");
@@ -143,6 +146,7 @@ public sealed partial class P0609Tests
         Assert.Equal(Boundary.AddDays(3), end.GetProperty("access").GetProperty("newAccessEndsAt").GetDateTimeOffset());
         await ReadAsync(await ApproveAsync(billing, package.Account, second,
             Command(end, 3000L, "EndAt", Boundary.AddDays(3))), HttpStatusCode.Created);
+        await P0610Tests.PumpRefundsAsync(fixture);
         Assert.Equal(2L, await fixture.CountAsync("refund_access_decisions", $"term_id = '{term:D}' AND term_revision IN (1, 2)"));
 
         // The original calendar row is untouched; a decided term is no longer a renewal source.

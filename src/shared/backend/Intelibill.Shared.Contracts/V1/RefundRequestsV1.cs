@@ -73,6 +73,13 @@ public sealed record RefundRequestV1(
     [JsonRequired]
     public int SchemaVersion { get; init; } = 1;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ApprovedAmountPaise { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderState { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AccessDisposition { get; init; }
+
     public override string ToString() => "[REDACTED]";
 }
 

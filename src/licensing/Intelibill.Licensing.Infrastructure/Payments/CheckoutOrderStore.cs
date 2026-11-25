@@ -153,7 +153,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
             FROM public.subscription_coverage_terms t
             LEFT JOIN LATERAL (SELECT capacity,target_revision FROM public.capacity_increases WHERE account_id=t.account_id
                 AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
-            LEFT JOIN LATERAL (SELECT new_access_ends_at, term_revision FROM public.refund_access_decisions
+            LEFT JOIN LATERAL (SELECT new_access_ends_at, term_revision FROM public.applied_refund_decisions
                 WHERE account_id=t.account_id AND term_id=t.term_id AND term_revision IS NOT NULL
                 ORDER BY term_revision DESC LIMIT 1) rd ON true
             JOIN public.subscription_term_facts f USING (account_id, term_id)

@@ -28,7 +28,8 @@ public sealed partial class P0604Tests
     }
 
     internal static async Task ApproveRefundAsync(P0308Fixture fixture, Package package, Guid orderId,
-        string treatment, DateTimeOffset? effectiveAt = null, long paise = 3000L, P0110CookieBrowser? billingOperator = null)
+        string treatment, DateTimeOffset? effectiveAt = null, long paise = 3000L, P0110CookieBrowser? billingOperator = null,
+        bool confirm = true)
     {
         var confirmation = await P0608Tests.ConfirmationIdAsync(package.Payer.Client, package.Account, orderId);
         var refundRequest = await P0609Tests.RequestRefundAsync(package, orderId, confirmation, paise);
@@ -38,6 +39,8 @@ public sealed partial class P0604Tests
         var preview = await P0609Tests.PreviewAsync(billing, package.Account, refundRequest, paise, treatment, effectiveAt);
         await P0609Tests.ReadAsync(await P0609Tests.ApproveAsync(billing, package.Account, refundRequest,
             P0609Tests.Command(preview, paise, treatment, effectiveAt)), HttpStatusCode.Created);
+        if (confirm)
+            await P0610Tests.PumpRefundsAsync(fixture);
     }
 
     [Theory]
@@ -50,11 +53,13 @@ public sealed partial class P0604Tests
         var (p, orderId, term) = await PrepareRefundableAsync(fixture);
         var expectedPaid = treatment == "Preserve" ? February29 : February20;
         var expectedAccess = expectedPaid.AddDays(graceDays);
-        await ApproveRefundAsync(fixture, p, orderId, treatment, treatment == "Preserve" ? null : February20);
+        var path = Slots(p, term);
+        await ApproveRefundAsync(fixture, p, orderId, treatment, treatment == "Preserve" ? null : February20, confirm: false);
+        Assert.Equal(February29, (await p.Payer.Client.GetFromJsonAsync<CoverageSlotTermV1>(path))!.PaidThrough);
+        await P0610Tests.PumpRefundsAsync(fixture);
         await fixture.Checkout.Delivery.DrainAsync(true);
         await fixture.Checkout.Delivery.DrainAsync(false);
 
-        var path = Slots(p, term);
         var preview = await p.Payer.Client.GetFromJsonAsync<CoverageSlotTermV1>(path);
         Assert.Equal(expectedPaid, preview!.PaidThrough);
         Assert.Equal(1, preview.UnusedSlots);

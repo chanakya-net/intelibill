@@ -34,6 +34,8 @@ internal static class CheckoutRegistration
     private static void AddRefundRequests(this IServiceCollection services)
     {
         services.AddScoped<Application.Refunds.IRefundRequestStore, Refunds.RefundRequestStore>();
+        services.AddScoped(p => new Application.Refunds.RefundApprovalClocks(p.GetRequiredService<TimeProvider>(),
+            p.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
         services.AddScoped<Application.Refunds.ReadRefundRequestsHandler>();
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<Application.Refunds.CreateRefundRequestHandler>(
             provider, CheckoutClock(provider)));
@@ -92,6 +94,8 @@ internal static class CheckoutRegistration
         services.AddScoped<IPendingPaymentAttemptStore, PendingPaymentAttemptStore>();
         services.TryAddKeyedSingleton<TimeProvider>(PendingPaymentAttemptWorker.ClockKey, (_, _) => TimeProvider.System);
         services.AddHostedService<PendingPaymentAttemptWorker>();
+        services.AddScoped<IRefundReconciliation, RefundAttemptDispatcher>();
+        services.AddHostedService<RefundAttemptWorker>();
         services.AddHostedService<GatewayInboxWorker>();
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<ProcessGatewayInboxHandler>(provider,
             provider.GetRequiredKeyedService<TimeProvider>(PendingPaymentAttemptWorker.ClockKey)));

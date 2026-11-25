@@ -177,6 +177,10 @@ function isReceipt(value: unknown, scope: RefundApprovalScope): value is RefundA
 export class RefundApprovalApi {
   private readonly http = inject(HttpClient);
 
+  async recheck(scope: RefundApprovalScope): Promise<void> {
+    if (await this.post(scope, '/reconcile', {}) !== true) throw new Error('Refund lookup unavailable');
+  }
+
   async preview(scope: RefundApprovalScope, input: RefundPreviewInput): Promise<RefundApprovalPreview> {
     const raw = await this.post(scope, '/approval-preview', input);
     if (!isPreview(raw, scope, input)) throw new Error('Invalid refund approval preview');

@@ -21,7 +21,8 @@ public sealed class ApproveRefundHandler(IManualPaymentStore admins, IRefundAppr
 {
     public Task<ErrorOr<RefundApprovalPreview>> PreviewAsync(AdminSessionCaller caller, Guid account, Guid request,
         PreviewRefundApproval? command, CancellationToken ct) =>
-        admins.InManualScopeAsync<RefundApprovalPreview>(caller, account, Guid.Empty, recentMfa: true, lockAccount: false,
+        admins.InManualScopeAsync<RefundApprovalPreview>(caller, account, Guid.Empty, recentMfa: true,
+            lockAccount: command?.Treatment is RefundApprovalRules.EndAt or RefundApprovalRules.TermAdjustment,
             async (_, token) =>
             {
                 if (command is null || command.AmountPaise is <= 0 or > CheckoutOrdersV1.MaxPaise
@@ -84,7 +85,7 @@ public sealed class ApproveRefundHandler(IManualPaymentStore admins, IRefundAppr
         var target = preview.Access.Treatment == RefundApprovalRules.Preserve ? null : preview.Target;
         await store.SaveAsync(new(source, receipt, caller.SessionId, authorized, hash, preview.ImpactDigest,
             target?.TermRevision + 1), ct);
-        if (target is not null)
+        if (target is not null && source.AttemptId is null)
             foreach (var shop in target.Shops)
                 await publisher.PublishAsync(account, shop.ShopId, ct, decided);
         return new RefundApprovalOutcome(receipt, true);

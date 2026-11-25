@@ -105,7 +105,7 @@ public sealed record RefundApprovalSource(Guid AccountId, Guid RefundRequestId, 
 public sealed record RefundReceiptLedger(long Revision, long OccupiedPaise);
 
 /// <summary>The term this payment funded, its current named shops and the commitments that block an effect.</summary>
-public sealed record RefundAccessTarget(TermFactsRow Term, RefundTargetShop[] Shops, long TermRevision, bool Committed);
+public sealed record RefundAccessTarget(TermFactsRow Term, RefundTargetShop[] Shops, long TermRevision, bool Committed, long CapacityRevision);
 
 public sealed record RefundTargetShop(Guid ShopId, Guid RequestId, string ShopName, bool Restricted,
     DateTimeOffset? ScheduledRestrictionAt, bool Closed, DateTimeOffset? CourtesyEndsAt);

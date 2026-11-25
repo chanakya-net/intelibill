@@ -47,6 +47,11 @@ public sealed partial class P0608Tests
         var expectedFields = root.GetProperty("customerFields").EnumerateArray()
             .Select(item => item.GetString()!).Order().ToArray();
         Assert.Equal(expectedFields, actualFields);
+        var settled = sample with { Status = RefundRequestsV1.Confirmed, ApprovedAmountPaise = 2000,
+            AccessDisposition = "Applied", ProviderState = "Confirmed" };
+        using var settledDoc = JsonDocument.Parse(JsonSerializer.Serialize(settled, JsonSerializerOptions.Web));
+        var extra = settledDoc.RootElement.EnumerateObject().Select(field => field.Name).Except(actualFields).Order();
+        Assert.Equal(root.GetProperty("optionalOutcomeFields").EnumerateArray().Select(value => value.GetString()!).Order(), extra);
 
         // Pin the migration action literal to RefundRequestsV1.Create.
         var migration = File.ReadAllText(Path.Combine(ProjectPaths.Root,
@@ -61,9 +66,10 @@ public sealed partial class P0608Tests
         // Worst-case escaping in System.Text.Json: characters outside ASCII range (\uXXXX = 6 UTF-8 bytes each).
         var maxReason = new string('₹', RefundRequestsV1.MaxReasonLength);
         var items = Enumerable.Range(0, RefundRequestsV1.PageSize).Select(_ => new RefundRequestV1(
-            Guid.NewGuid(), account, Guid.NewGuid(), Guid.NewGuid(), RefundRequestsV1.Requested,
+            Guid.NewGuid(), account, Guid.NewGuid(), Guid.NewGuid(), RefundRequestsV1.Pending,
             CheckoutOrdersV1.MaxPaise, CheckoutOrdersV1.MaxPaise, "INR", maxReason,
-            P0209Fixture.Utc("9998-12-31T23:59:59.999999Z"))).ToArray();
+            P0209Fixture.Utc("9998-12-31T23:59:59.999999Z"))
+            { ApprovedAmountPaise = CheckoutOrdersV1.MaxPaise, ProviderState = "Reserved", AccessDisposition = "AwaitingConfirmation" }).ToArray();
         var page = new RefundRequestPageV1(account, items, items[^1].RefundRequestId);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(page, JsonSerializerOptions.Web);
         Assert.InRange(bytes.Length, 1, RefundRequestsV1.MaxPageBytes);

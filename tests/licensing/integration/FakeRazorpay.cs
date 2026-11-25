@@ -10,7 +10,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// In-process stand-in for the documented Razorpay order and payment endpoints. It is the only transport the
 /// adapter sees in tests: nothing here reaches api.razorpay.com and every credential is a fixture value.
 /// </summary>
-internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, string fixtureKeySecret = FakeRazorpay.KeySecret, int sequenceStart = 0) : HttpMessageHandler
+internal sealed partial class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, string fixtureKeySecret = FakeRazorpay.KeySecret, int sequenceStart = 0) : HttpMessageHandler
 {
     internal const string KeyId = "rzp_test_fixture";
     internal const string KeySecret = "fixture-secret";
@@ -30,6 +30,10 @@ internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, str
     internal bool LengthlessOversize { get; set; }
     /// <summary>The next <c>n</c> reads of an order entity answer 503, as a transient provider outage would.</summary>
     internal int FailOrderReads { get; set; }
+    /// <summary>The next <c>n</c> reads of a payment entity answer 503, as a transient provider outage would.</summary>
+    internal int FailPaymentReads { get; set; }
+    /// <summary>The next <c>n</c> direct refund reads answer with the selected fixture failure.</summary>
+    internal int FailRefundGets { get; set; }
     /// <summary>Added to the <c>count</c> every collection answer states, to model a truncated or inconsistent page.</summary>
     internal int CollectionCountOffset { get; set; }
     internal int OversizeBytesServed { get; private set; }
@@ -239,19 +243,22 @@ internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, str
     {
         var path = request.RequestUri!.AbsolutePath.TrimEnd('/');
         var query = request.RequestUri.Query;
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (RefundRoute(request, parts, body) is { } refund) return refund;
         if (request.Method == HttpMethod.Post && path == "/v1/orders")
             return Create(JsonNode.Parse(body!)!.AsObject());
         if (request.Method != HttpMethod.Get)
             return Json(HttpStatusCode.BadRequest, new JsonObject());
         if (path == "/v1/orders")
             return Collection(orders.Values.Where(o => query.Contains($"receipt={o["receipt"]}", StringComparison.Ordinal)));
-        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         return parts switch
         {
             ["v1", "orders", var id] when orders.ContainsKey(id) && FailOrderReads > 0 => FailOrderRead(),
             ["v1", "orders", var id] when orders.TryGetValue(id, out var order) => Json(HttpStatusCode.OK, Copy(order)),
             ["v1", "orders", var id, "payments"] when orders.ContainsKey(id) =>
                 Collection(OrderPayments(id).Select(Patched)),
+            ["v1", "payments", var id] when payments.Any(p => p["id"]!.GetValue<string>() == id) && FailPaymentReads > 0 =>
+                FailPaymentRead(),
             ["v1", "payments", var id] when payments.SingleOrDefault(p => p["id"]!.GetValue<string>() == id) is { } payment =>
                 Json(HttpStatusCode.OK, Copy(payment)),
             _ => Json(HttpStatusCode.NotFound, new JsonObject()),
@@ -265,6 +272,12 @@ internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, str
     private HttpResponseMessage FailOrderRead()
     {
         FailOrderReads--;
+        return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
+    }
+
+    private HttpResponseMessage FailPaymentRead()
+    {
+        FailPaymentReads--;
         return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
     }
 

@@ -40,6 +40,18 @@ public sealed class MerchantRefundRequestRelayTests
     }
 
     [Fact]
+    public void MixedPagesRetainLegacyRequestsAndRequireCoherentOnlineOutcomes()
+    {
+        var legacy = Item();
+        var confirmed = Item(legacy.AccountId) with { RequestedAt = legacy.RequestedAt.AddSeconds(1),
+            Status = "Confirmed", ApprovedAmountPaise = 2000, AccessDisposition = "NeedsReview", ProviderState = "Confirmed" };
+        Assert.True(MerchantBillingClient.IsRefundPageValid(new(legacy.AccountId, [legacy, confirmed], null), legacy.AccountId, null));
+        foreach (var invalid in new[] { confirmed with { Status = "Failed" }, confirmed with { ApprovedAmountPaise = 4501 },
+            confirmed with { AccessDisposition = "AwaitingConfirmation" }, confirmed with { ProviderState = null } })
+            Assert.False(MerchantBillingClient.IsRefundRequestValid(invalid, legacy.AccountId));
+    }
+
+    [Fact]
     public void PageValidatesOrderingDuplicatesCursorAndAfterEcho()
     {
         var account = Guid.NewGuid();

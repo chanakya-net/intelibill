@@ -103,27 +103,33 @@ public sealed partial class P0609BrowserTests(LicensingPostgreSqlFixture databas
     private async Task PlaywrightAsync(string root, Dictionary<string, string> targets, string phase, string evidence,
         CancellationToken ct)
     {
+        await RunBrowserAsync(root,targets,phase,evidence,Configuration,"P0609_",output,ct);
+    }
+
+    internal static async Task RunBrowserAsync(string root, Dictionary<string,string> targets, string phase, string evidence,
+        string config, string prefix, ITestOutputHelper log, CancellationToken ct)
+    {
         var start = new ProcessStartInfo("bun")
         {
             WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", Configuration, "--grep", "@" + phase })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", config, "--grep", "@" + phase })
             start.ArgumentList.Add(arg);
-        foreach (var (key, value) in targets) start.Environment["P0609_" + key] = value;
+        foreach (var (key, value) in targets) start.Environment[prefix + key] = value;
         start.Environment["NODE_PATH"] = Path.Combine(root, "node_modules");
         await using var browser = new OwnedProcess(start);
         var stdout = browser.Process.StandardOutput.ReadToEndAsync(ct);
         var stderr = browser.Process.StandardError.ReadToEndAsync(ct);
         await browser.Process.WaitForExitAsync(ct);
         var report = await stdout + await stderr;
-        output.WriteLine(report);
+        log.WriteLine(report);
         await File.WriteAllTextAsync(Path.Combine(evidence, $"playwright-{phase}.log"),
             report + $"\nexit={browser.Process.ExitCode}\n", ct);
         Assert.True(browser.Process.ExitCode == 0 && report.Contains("1 passed", StringComparison.Ordinal)
             && !report.Contains("skipped", StringComparison.OrdinalIgnoreCase), report);
     }
 
-    private static async Task WriteSecretsAsync(string scratch, string name, P0308Fixture fixture, Package package,
+    internal static async Task WriteSecretsAsync(string scratch, string name, P0308Fixture fixture, Package package,
         string seed, CancellationToken ct, string email = P0306Tests.BillingEmail)
     {
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };

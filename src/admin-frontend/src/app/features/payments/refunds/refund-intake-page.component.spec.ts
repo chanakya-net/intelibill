@@ -155,6 +155,53 @@ describe('admin refund intake page', () => {
     expect(page.querySelectorAll('[data-testid="refund-intake-row"]')).toHaveLength(0);
     expect(page.querySelector('[data-testid="refund-intake-empty"]')).not.toBeNull();
   });
+
+  it('renders separate requested and confirmed amounts and outcome labels for reserved, manual, historical and legacy rows', async () => {
+    const items: RefundIntakeItem[] = [
+      { ...makeItem('Confirmed', 0), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Confirmed', accessDisposition: 'Applied' },
+      { ...makeItem('Pending', 1), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Reserved', accessDisposition: 'AwaitingConfirmation' },
+      { ...makeItem('Pending', 2), amountPaise: 6000, approvedAmountPaise: 99, providerState: 'Reserved', accessDisposition: 'AwaitingConfirmation', observationReason: 'BelowProviderMinimum' },
+      { ...makeItem('Pending', 3), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Pending', accessDisposition: 'AwaitingConfirmation' },
+      { ...makeItem('Pending', 4), paymentSource: 'Manual', amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Manual', accessDisposition: 'Applied' },
+      { ...makeItem('Pending', 5), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Historical', accessDisposition: 'Applied' },
+      { ...makeItem('Pending', 6), amountPaise: 6000 }, // Older DTO without outcome fields
+    ];
+    const { page, settle } = setup({ items });
+    await settle();
+
+    const rows = Array.from(page.querySelectorAll<HTMLElement>('[data-testid="refund-intake-row"]'));
+    expect(rows).toHaveLength(7);
+
+    const statusOf = (row: HTMLElement) => row.querySelector('[data-testid="refund-intake-status"]')?.textContent?.trim();
+    const detailOf = (row: HTMLElement) => row.querySelector('[data-testid="refund-intake-status-detail"]')?.textContent?.trim();
+
+    expect(statusOf(rows[0])).toBe('Refund confirmed');
+    expect(rows[0].querySelector('[data-testid="refund-intake-requested-amount"]')?.textContent).toContain('₹60.00');
+    expect(rows[0].querySelector('[data-testid="refund-intake-approved-amount"]')?.textContent).toContain('₹45.00');
+    expect(rows[0].textContent).toContain('Confirmed amount');
+    expect(rows[0].textContent).toContain('Requested ₹60.00');
+    expect(rows[0].textContent).toContain('Confirmed amount ₹45.00');
+
+    expect(statusOf(rows[1])).toBe('Reserved');
+    expect(detailOf(rows[1])).toContain('not yet dispatched');
+    expect(rows[1].querySelector('[data-testid="refund-intake-approved-amount"]')?.textContent).toContain('₹45.00');
+
+    expect(statusOf(rows[2])).toBe('Reserved — below provider minimum');
+    expect(detailOf(rows[2])).toContain('minimum');
+    expect(rows[2].querySelector('[data-testid="refund-intake-approved-amount"]')?.textContent).toContain('₹0.99');
+
+    expect(statusOf(rows[3])).toBe('Pending provider');
+    expect(detailOf(rows[3])).toContain('original payment provider');
+
+    expect(statusOf(rows[4])).toBe('Manual follow-up');
+    expect(detailOf(rows[4])).toContain('outside online providers');
+
+    expect(statusOf(rows[5])).toBe('Historical approval');
+    expect(detailOf(rows[5])).toContain('before online provider reconciliation');
+
+    expect(statusOf(rows[6])).toBe('Pending provider');
+    expect(rows[6].querySelector('[data-testid="refund-intake-approved-amount"]')).toBeNull();
+  });
 });
 
 describe('RefundIntakeApi canonical GUID validation', () => {

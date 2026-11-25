@@ -15,8 +15,8 @@ import { InvalidRefundRequestDraft, RefundRequestDrafts } from './refund-request
 import { RefundRequestListState } from './refund-request-list-state';
 import {
   formatPaiseAsInput, mapRefundErrorKey, normalizeRefundReason,
-  parseInrToPaise, REFUND_MAX_REASON_LENGTH, refundRefusalKind, REFUND_STATUS_COPY,
-  type CreateRefundRequest, type RefundRequestStatus,
+  parseInrToPaise, REFUND_MAX_REASON_LENGTH, refundRefusalKind, refundStatusCopy,
+  type CreateRefundRequest, type RefundRequestItem,
 } from './refund-request.models';
 import { RefundRequestService } from './refund-request.service';
 import { findRefundTargetPayment } from './refund-target-payment';
@@ -97,12 +97,17 @@ export class RefundRequestsPageComponent {
     });
   }
 
-  protected statusLabel(status: RefundRequestStatus): string {
-    return REFUND_STATUS_COPY[status].label;
+  protected statusLabel(item: RefundRequestItem): string {
+    return refundStatusCopy(item).label;
   }
 
-  protected statusDetail(status: RefundRequestStatus): string {
-    return REFUND_STATUS_COPY[status].detail;
+  protected statusDetail(item: RefundRequestItem): string {
+    return refundStatusCopy(item).detail;
+  }
+
+  protected approvedAmountLabel(item: RefundRequestItem): string {
+    return item.providerState === 'Confirmed' || item.status === 'Confirmed'
+      ? 'billing.refunds.confirmedAmount' : 'billing.refunds.approvedAmount';
   }
 
   protected rupees(paise: number): number {

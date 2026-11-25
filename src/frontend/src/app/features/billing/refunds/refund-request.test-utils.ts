@@ -117,9 +117,29 @@ export function mountRefundPage() {
   return { fixture, page, settle, find, submit, rows: () => page.querySelectorAll('[data-testid="refund-request-row"]') };
 }
 
+let originalLocks: PropertyDescriptor | undefined;
+let locksInstalled = false;
+
 export function installRefundSpecGlobals() {
+  if (!locksInstalled) {
+    originalLocks = Object.getOwnPropertyDescriptor(navigator, 'locks');
+    locksInstalled = true;
+  }
   Object.defineProperty(navigator, 'locks', {
-    value: { request: (_name: string, fn: () => unknown) => Promise.resolve(fn()) },
     configurable: true,
+    value: {
+      request: (_name: string, optionsOrFn: unknown, maybeFn?: () => unknown) => {
+        const fn = typeof optionsOrFn === 'function' ? (optionsOrFn as () => unknown) : maybeFn;
+        return Promise.resolve(fn ? fn() : undefined);
+      },
+    },
   });
+}
+
+export function restoreRefundSpecGlobals() {
+  if (!locksInstalled) return;
+  if (originalLocks) Object.defineProperty(navigator, 'locks', originalLocks);
+  else Reflect.deleteProperty(navigator, 'locks');
+  originalLocks = undefined;
+  locksInstalled = false;
 }
