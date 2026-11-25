@@ -2,6 +2,18 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'accounts/:accountId/subscriptions/:termId/transfers',
+    loadComponent: () => import('./coverage/coverage-transfer-page.component').then(m => m.CoverageTransferPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/transfers',
+    loadComponent: () => import('./coverage/coverage-transfer-page.component').then(m => m.CoverageTransferPageComponent),
+  },
+  {
+    path: 'transfer-consent/:accountId/:shopId/:transferId',
+    loadComponent: () => import('./coverage/coverage-transfer-page.component').then(m => m.CoverageTransferPageComponent),
+  },
+  {
     path: 'accounts/:accountId/subscriptions/:termId/early-replacements',
     loadComponent: () => import('./coverage-exceptions/coverage-exception-page.component').then(m => m.CoverageExceptionPageComponent),
   },

@@ -17,11 +17,14 @@ public sealed class EntitlementMerchantEvents
     private readonly CoverageExceptionAcknowledgements coverageExceptions;
     private readonly CapacityReservationAcknowledgements increases;
     private readonly ReductionReservationAcknowledgements reductions;
+    private readonly CoverageTransferStore transfers;
 
     internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
         CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions, CoverageSlotConsentAcknowledgements slots,
-        ReplacementConsentAcknowledgements replacements, CoverageExceptionAcknowledgements coverageExceptions)
+        ReplacementConsentAcknowledgements replacements, CoverageExceptionAcknowledgements coverageExceptions,
+        CoverageTransferStore transfers)
     {
+        this.transfers = transfers;
         this.slots = slots;
         this.replacements = replacements;
         this.coverageExceptions = coverageExceptions;
@@ -31,6 +34,14 @@ public sealed class EntitlementMerchantEvents
         this.clock = clock;
         this.publisher = publisher;
     }
+
+    /// <summary>The named shop owner's transfer decision: evidence only, under the source account lock.</summary>
+    public Task<ErrorOr<Success>> CoverageTransferConsentAsync(CoverageTransferShopConsentV1 c, byte[] body,
+        VerifiedServiceAssertion proof, CancellationToken ct) =>
+        !c.IsValid()
+            ? Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.TransferInvalid"))
+            : InEventAsync(c.AccountId, c.EventId, CoverageTransfersV1.ConsentKind, body, proof,
+                token => transfers.ApplyShopConsentAsync(c, token), ct);
 
     public Task<ErrorOr<Success>> CoverageExceptionConsentAsync(CoverageReplacementExceptionConsentV1 c, byte[] body,
         VerifiedServiceAssertion proof, CancellationToken ct) =>

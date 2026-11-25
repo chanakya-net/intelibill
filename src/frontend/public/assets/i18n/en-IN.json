@@ -4145,6 +4145,52 @@
       "submit": "Submit for owner consents and provider review",
       "outgoingConsentLink": "Outgoing owner consent",
       "incomingConsentLink": "Incoming owner consent"
+    },
+    "coverageTransfer": {
+      "heading": "Transfer a shop's coverage to another billing account",
+      "open": "Request a coverage transfer",
+      "incoming": "Coverage transfer requests",
+      "noChange": "A request or consent changes nothing. Coverage, access and bills stay as they are until the provider reviews and approves the transfer.",
+      "shop": "Shop to transfer",
+      "destination": "Destination billing account ID",
+      "treatment": "Remaining paid access",
+      "retain": "Keep access with the current account until its paid-through date",
+      "reviewed": "Ask the provider to review an allocation at a named cutover",
+      "cutover": "Proposed cutover (UTC ISO-8601)",
+      "review": "Review the impact",
+      "previewFailed": "The impact could not be shown. Check the shop, destination account and dates.",
+      "reason": "Reason for the transfer",
+      "ackShop": "I confirm this is the shop to transfer.",
+      "ackTreatment": "I confirm the requested treatment of the remaining paid access.",
+      "ackPermits": "I understand existing offline permits cannot be remotely revoked.",
+      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
+      "ackBills": "I understand past bills and payment documents stay with the current billing account.",
+      "submit": "Request the transfer and collect consents",
+      "unknownQueues": "Disconnected device queues are unknown.",
+      "progress": "{{accepted}} of 3 consents recorded",
+      "accept": "Give consent",
+      "revoke": "Withdraw consent",
+      "shopConsentLink": "Shop owner consent page",
+      "pending": "A decision is waiting to be confirmed",
+      "retry": "Send the same decision again",
+      "deliveryPending": "Recorded here, waiting to reach billing",
+      "state": {
+        "AwaitingConsents": "Awaiting consents",
+        "ConsentsCollected": "All consents collected · awaiting provider review",
+        "Expired": "Expired",
+        "Retired": "No longer current"
+      },
+      "purpose": {
+        "SourceBillingOwner": "Current billing owner",
+        "DestinationBillingOwner": "Destination billing owner",
+        "ShopOwner": "Shop owner"
+      },
+      "status": {
+        "AwaitingConsent": "Awaiting consent",
+        "Accepted": "Consent given",
+        "Revoked": "Consent withdrawn",
+        "Stale": "Needs fresh consent (ownership changed)"
+      }
     }
   }
 }

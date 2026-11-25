@@ -26,6 +26,7 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
             CoverageReplacementsV1.Kind => CoverageReplacementsV1.ReceiptPath,
             CoverageReplacementExceptionsV1.ConsentKind => CoverageReplacementExceptionsV1.ConsentReceiptPath,
             CoverageReplacementExceptionsV1.ReceiptKind => CoverageReplacementExceptionsV1.DecisionReceiptPath,
+            CoverageTransfersV1.ConsentKind => CoverageTransfersV1.ConsentReceiptPath,
             CoverageSlotsV1.Kind => CoverageSlotsV1.ReceiptPath,
             CapacityReservationV1.Receipt => CapacityReservationV1.ReceiptPath,
             ReductionTransportV1.ReceiptKind => ReductionTransportV1.ReceiptPath,

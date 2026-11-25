@@ -34,4 +34,13 @@ public interface IBillingDelegationAccess
     /// </summary>
     Task<ErrorOr<T>> ExecuteAsync<T>(VerifiedBillingDelegation delegation,
         Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// As <see cref="ExecuteAsync{T}"/>, for work that binds two billing accounts. The counterparty is resolved
+    /// from the signed request or the scoped proposal, and both account locks are taken in canonical order before
+    /// the live membership row is read, so pair work can never deadlock or decide on a stale owner.
+    /// </summary>
+    Task<ErrorOr<T>> ExecutePairAsync<T>(VerifiedBillingDelegation delegation,
+        Func<CancellationToken, Task<Guid?>> counterparty,
+        Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken);
 }

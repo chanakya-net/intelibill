@@ -23,12 +23,22 @@ internal sealed partial class PostgresBillingDelegationAccess(
             new BillingAccountAccessV1(account, [delegation.Action])), cancellationToken);
     }
 
-    public async Task<ErrorOr<T>> ExecuteAsync<T>(VerifiedBillingDelegation delegation,
+    public Task<ErrorOr<T>> ExecuteAsync<T>(VerifiedBillingDelegation delegation,
+        Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken) =>
+        RunAsync(delegation, null, operation, cancellationToken);
+
+    public Task<ErrorOr<T>> ExecutePairAsync<T>(VerifiedBillingDelegation delegation,
+        Func<CancellationToken, Task<Guid?>> counterparty,
+        Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken) =>
+        RunAsync(delegation, counterparty, operation, cancellationToken);
+
+    private async Task<ErrorOr<T>> RunAsync<T>(VerifiedBillingDelegation delegation,
+        Func<CancellationToken, Task<Guid?>>? counterparty,
         Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken)
     {
         try
         {
-            return await ExecuteInTransactionAsync(delegation, operation, cancellationToken);
+            return await ExecuteInTransactionAsync(delegation, counterparty, operation, cancellationToken);
         }
         catch (Exception exception) when (exception is NpgsqlException or TimeoutException
             || exception is DbUpdateException { InnerException: NpgsqlException })
@@ -41,6 +51,7 @@ internal sealed partial class PostgresBillingDelegationAccess(
     }
 
     private async Task<ErrorOr<T>> ExecuteInTransactionAsync<T>(VerifiedBillingDelegation delegation,
+        Func<CancellationToken, Task<Guid?>>? counterparty,
         Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -51,6 +62,8 @@ internal sealed partial class PostgresBillingDelegationAccess(
             """, cancellationToken);
         if (delegation.AccountId is { } account && BillingAccountRules.SerializesAccountMutation(delegation.Action))
             await BillingAccountLock.TakeAsync(db, account, cancellationToken);
+        if (delegation.AccountId is { } party && counterparty is not null)
+            await LockPairAsync(party, await counterparty(cancellationToken), cancellationToken);
         var grant = await AuthorizeScopeAsync(delegation, cancellationToken);
         if (grant.IsError)
         {
@@ -75,6 +88,14 @@ internal sealed partial class PostgresBillingDelegationAccess(
 
         await transaction.CommitAsync(cancellationToken);
         return result;
+    }
+
+    // Both account locks, in one canonical order for every caller, before any membership row is read or locked.
+    private async Task LockPairAsync(Guid party, Guid? counterparty, CancellationToken cancellationToken)
+    {
+        Guid[] accounts = counterparty is { } other && other != Guid.Empty ? [party, other] : [party];
+        foreach (var account in accounts.Distinct().OrderBy(id => id.ToString("D"), StringComparer.Ordinal))
+            await BillingAccountLock.TakeAsync(db, account, cancellationToken);
     }
 
     // Account-scoped actions need live membership. Actor-scoped actions are the explicit pre-membership

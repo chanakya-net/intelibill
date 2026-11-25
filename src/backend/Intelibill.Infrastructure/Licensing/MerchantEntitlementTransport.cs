@@ -25,6 +25,9 @@ public sealed class MerchantEntitlementTransport(IOptionsMonitor<EntitlementTran
     public Task<string?> SignClosureValidationAsync(byte[] body, CancellationToken ct) =>
         SignAsync(ShopClosuresV1.ValidationPath, body, ct);
 
+    public Task<string?> SignCoverageTransferAuthorityAsync(byte[] body, CancellationToken ct) =>
+        SignAsync(CoverageTransfersV1.ShopAuthorityPath, body, ct);
+
     public Task<string?> SignReductionObservationAsync(byte[] body, CancellationToken ct) =>
         SignAsync(ReductionTransportV1.ObservePath, body, ct);
 

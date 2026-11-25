@@ -20,7 +20,8 @@ internal sealed partial class MerchantBillingClient(
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials,
     TimeProvider clock, MerchantClosureConsentStore closures, CoverageSlotConsentStore slotConsents,
-    ReplacementConsentStore replacementConsents, CoverageExceptionConsentStore exceptionConsents)
+    ReplacementConsentStore replacementConsents, CoverageExceptionConsentStore exceptionConsents,
+    CoverageTransferShopConsentStore transferConsents)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
         IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders, IMerchantShopClosures
 {
@@ -188,6 +189,8 @@ internal sealed partial class MerchantBillingClient(
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
                 CoverageSlotsV1.Read or CoverageSlotsV1.Recover or CoverageSlotsV1.Request or CoverageSlotsV1.OwnerRead:
                 return SlotError(await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CoverageTransfersV1.IsAction(action):
+                return MapTransferRequestFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
                 return await ReadProblemCodeAsync(response, cancellationToken) switch
                 {
