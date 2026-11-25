@@ -71,8 +71,8 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             if (slotCheck.ExceedsAllowance) reason = "ConflictingShopScope";
             else activatingAssignment = slotCheck.ActivatingAssignmentId;
         }
-        var nextShopHead = shop is null || snapshot.Shop!.Revision > shop.Revision;
-        var nextAccountHead = account is null || snapshot.Account!.Revision > account.Revision;
+        var nextShopHead = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
+        var nextAccountHead = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
         var candShop = reason is null ? BuildCandidateShop(snapshot, shop, nextShopHead) : null;
         var candAccount = reason is null ? BuildCandidateAccount(snapshot, account, nextAccountHead) : null;
         var replacement = reason is null && nextShopHead && snapshot.Shop!.ReplacementId is { } marker
