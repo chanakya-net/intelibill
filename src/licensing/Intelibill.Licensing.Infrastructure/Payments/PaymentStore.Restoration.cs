@@ -52,8 +52,20 @@ internal sealed partial class PaymentStore
     private Task<List<PaymentShopDelivery>> ReadRequiredDeliveriesAsync(Guid account, Guid order, DateTimeOffset? startsAt,
         CancellationToken ct) => db.Database.SqlQuery<PaymentShopDelivery>($"""
             SELECT d.shop_id, CASE WHEN f.ready_at < {startsAt} THEN post_start.revision
-                ELSE d.shop_revision END AS shop_revision
+                ELSE d.shop_revision END AS shop_revision,
+                link.replacement_id IS NOT NULL AND NOT EXISTS (
+                    SELECT FROM public.applied_entitlement_shop_receipts ack
+                    JOIN public.entitlement_snapshots s USING(account_id,shop_id,affiliation_request_id,shop_revision)
+                    JOIN public.entitlement_messages m ON m.event_id=s.event_id
+                    JOIN public.entitlement_merchant_inbox i ON i.event_id=s.event_id AND i.kind='Acknowledgement'
+                    CROSS JOIN LATERAL (SELECT convert_from(m.payload,'UTF8')::jsonb->'shop' AS shop) h
+                    WHERE s.account_id=d.account_id AND s.shop_id=d.shop_id AND s.shop_revision>=d.shop_revision
+                        AND convert_from(i.payload,'UTF8')::jsonb->>'activatedReplacementId'=link.replacement_id::text
+                        AND h.shop->>'replacementId'=link.replacement_id::text
+                        AND h.shop->>'state' IN ('Active','Grace')
+                ) AS awaiting_replacement_receipt
             FROM public.payment_fulfilment_deliveries d
+            LEFT JOIN public.payment_fulfilment_shops link USING(account_id,order_id,shop_id)
             LEFT JOIN public.paid_fresh_starts f USING (account_id, order_id)
             LEFT JOIN LATERAL (
                 SELECT s.shop_revision AS revision

@@ -170,7 +170,7 @@ public sealed partial class CoverageSlotAssignments
             FOR EACH ROW EXECUTE FUNCTION public.guard_slot_assignment();
         """;
 
-    private const string ShopLinkGuard = """
+    internal const string ShopLinkGuard = """
         CREATE OR REPLACE FUNCTION public.guard_payment_fulfilment_shop() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE
             prior uuid;

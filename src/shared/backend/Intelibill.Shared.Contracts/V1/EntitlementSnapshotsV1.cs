@@ -66,7 +66,9 @@ public sealed record ShopEntitlementSnapshotV1(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ReleasedRevision = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ReopenedRevision = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ClosureRevision = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? SlotAssignmentId = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? SlotAssignmentId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? ReplacementId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? ReleasedReplacementId = null)
 {
     public bool IsValid()
     {
@@ -78,7 +80,7 @@ public sealed record ShopEntitlementSnapshotV1(
             ReleasedRevision is { } release && (release <= 0 || release >= Revision) ||
             ReopenedRevision is { } reopening && (reopening <= 0 || reopening >= Revision) ||
             ClosureRevision is { } closure && (closure <= 1 || closure > Revision || closure <= ReopenedRevision) ||
-            TermId == Guid.Empty || SlotAssignmentId == Guid.Empty || ShopCapacity is <= 0 || MemberAllowance is <= 0 || Suspension is { } suspension && !suspension.IsValid())
+            TermId == Guid.Empty || SlotAssignmentId == Guid.Empty || ReplacementId == Guid.Empty || ReleasedReplacementId == Guid.Empty || ShopCapacity is <= 0 || MemberAllowance is <= 0 || Suspension is { } suspension && !suspension.IsValid())
             return false;
         return State is not ("Active" or "Grace") || TermId is not null && Basis is not null &&
             StartsAt <= UpstreamVerifiedAt && AccessEndsAt > UpstreamVerifiedAt;
@@ -97,7 +99,8 @@ public sealed record EntitlementSnapshotV1(
 public sealed record EntitlementAcknowledgementV1(
     int SchemaVersion, Guid EventId, string Digest, Guid AccountId, Guid ShopId, Guid AffiliationRequestId,
     long? AccountRevision, long? ShopRevision, long? AppliedAccountRevision, long? AppliedShopRevision,
-    string Outcome, string Disposition, DateTimeOffset AppliedAt);
+    string Outcome, string Disposition, DateTimeOffset AppliedAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? ActivatedReplacementId = null);
 
 public sealed record EntitlementReconciliationV1(
     int SchemaVersion, Guid EventId, Guid AccountId, Guid ShopId, Guid AffiliationRequestId,

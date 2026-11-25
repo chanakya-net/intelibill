@@ -58,6 +58,9 @@ public static class CheckoutOrdersV1
             return Digest(Policy, "capacity-increase", legacy, change.QuoteHash, change.PinHash, change.RoutingRevision, change.SourceRevision);
         if (q.Reduction is { } reduction)
             return Digest(Policy, "capacity-reduction", legacy, reduction.ScheduleId, reduction.ScheduleHash, reduction.SourceShopCount, reduction.SourceShopHash);
+        if (q.Replacement is { } replacement)
+            return Digest(Policy, "coverage-replacement", legacy, replacement.ReplacementId, replacement.OutgoingShopId,
+                replacement.IncomingShopId, replacement.IncomingAffiliationId, replacement.ConsentEvent);
         return q.FreshStart is { } fresh
             ? Digest(Policy, "fresh-start", legacy, fresh.Policy, fresh.TrialShopCount, fresh.TrialSourceHash) : legacy;
     }
@@ -117,7 +120,8 @@ public sealed record CheckoutQuoteV1(Guid AccountId, Guid OrderId, int Revision,
     CheckoutAcceptanceV1? Acceptance = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CheckoutFreshStartV1? FreshStart = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityIncreaseOrderV1? Increase = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityReductionOrderV1? Reduction = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CapacityReductionOrderV1? Reduction = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CoverageReplacementOrderV1? Replacement = null)
 {
     [JsonRequired]
     public int SchemaVersion { get; init; } = 1;

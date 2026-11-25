@@ -252,6 +252,8 @@ public sealed partial class P0401LicensingTests
                     ALTER TABLE public.applied_shop_capacity OWNER TO {_role};
                     ALTER TABLE public.capacity_reservation_receipts OWNER TO {_role};
                     ALTER TABLE public.coverage_slot_consent_events OWNER TO {_role};
+                    ALTER TABLE public.coverage_replacement_consent_events OWNER TO {_role};
+                    ALTER TABLE public.coverage_replacement_activations OWNER TO {_role};
                     ALTER TABLE public.coverage_slot_activations OWNER TO {_role};
                     ALTER TABLE public.applied_shop_reductions OWNER TO {_role};
                     ALTER TABLE public.reduction_reservation_receipts OWNER TO {_role};
@@ -267,6 +269,7 @@ public sealed partial class P0401LicensingTests
                     ALTER TABLE public.reconciliation_issues OWNER TO {_role};
                     ALTER TABLE public.license_history_review_observations OWNER TO {_role};
                     ALTER TABLE public."__EFMigrationsHistory" OWNER TO {_role};
+                    ALTER FUNCTION public.replacement_outgoing_released(uuid,timestamptz) OWNER TO {_role};
                     ALTER FUNCTION public.capacity_fence_shops(uuid, uuid) OWNER TO {_role};
                     ALTER FUNCTION public.reduction_fence_shops(uuid, uuid) OWNER TO {_role};
                     ALTER FUNCTION public.reduction_observe_shops(uuid, uuid[]) OWNER TO {_role};

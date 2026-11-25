@@ -2,6 +2,14 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'accounts/:accountId/subscriptions/:termId/replacements',
+    loadComponent: () => import('./coverage/coverage-replacement-page.component').then(m => m.CoverageReplacementPageComponent),
+  },
+  {
+    path: 'replacement-consent/:accountId/:shopId/:replacementId',
+    loadComponent: () => import('./coverage/coverage-replacement-page.component').then(m => m.CoverageReplacementPageComponent),
+  },
+  {
     path: 'accounts/:accountId/subscriptions/:termId/slots',
     loadComponent: () => import('./coverage/coverage-slot-page.component').then(m => m.CoverageSlotPageComponent),
   },
