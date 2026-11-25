@@ -74,9 +74,9 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         if (routingReview) payment = "PendingVerification";
         var fulfilment = row.TermId is not null ? "Fulfilled" : (row.NeedsReview || routingReview) ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => closures.GetValueOrDefault(d.ShopId)?.Closed != true &&
-            synced.TryGetValue(d.ShopId, out var s) && Applied(d.ShopRevision, s, closures.GetValueOrDefault(d.ShopId)));
+            synced.TryGetValue(d.ShopId, out var s) && Applied(d, s, closures.GetValueOrDefault(d.ShopId)));
         var review = closures.Values.Any(s => s.Closed) || row.Deliveries.Any(d => d.ShopRevision is not null &&
-            synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" && !Applied(d.ShopRevision, s, closures.GetValueOrDefault(d.ShopId)));
+            synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" && !Applied(d, s, closures.GetValueOrDefault(d.ShopId)));
         var access = row.TermId is null ? "NotApplicable"
             : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
         // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
@@ -89,8 +89,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             row.RestorationHeld, row.ServiceRestoration);
     }
 
-    private static bool Applied(long? fulfilmentRevision, EntitlementSynchronizationV1 synchronization,
+    private static bool Applied(PaymentShopDelivery delivery, EntitlementSynchronizationV1 synchronization,
         CheckoutClosureStatus? closure) =>
-        fulfilmentRevision is { } revision && synchronization.AppliedShopRevision >= revision &&
+        !delivery.AwaitingReplacementReceipt && delivery.ShopRevision is { } revision && synchronization.AppliedShopRevision >= revision &&
         (closure?.ReopeningRevision is null || closure.ReopeningAcknowledged);
 }

@@ -167,7 +167,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
         Guid replay, CancellationToken ct)
     {
         // The deferred FK permits inserting the children first. Once the parent exists the set is sealed.
-        var ids = source.Shops.Select(s => s.ShopId).ToArray();
+        var ids = source.OrderShopIds(q.Replacement);
         await db.Database.ExecuteSqlAsync($"""
             INSERT INTO public.checkout_order_shops (account_id, order_id, shop_id, shop_name, affiliation_request_id, replay_id)
             SELECT account_id, {q.OrderId}, shop_id, shop_name, request_id, {replay}

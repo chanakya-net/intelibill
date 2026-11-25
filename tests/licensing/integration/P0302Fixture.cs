@@ -25,6 +25,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
 
     /// <summary>The runtime grant step for tables a test re-creates by migrating down and up again.</summary>
     internal const string RuntimeGrant = """
+        GRANT SELECT, INSERT, UPDATE ON public.coverage_replacements TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE ON public.coverage_slot_assignments TO licensing_runtime;
         GRANT SELECT, INSERT ON public.coverage_slot_assignment_deliveries TO licensing_runtime;
         GRANT SELECT, INSERT ON public.capacity_change_quotes, public.capacity_change_quote_shops TO licensing_runtime;
@@ -67,14 +68,15 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
     internal P0201Clock CheckoutClock { get; } = checkout;
 
     internal static async Task<P0302Fixture> StartAsync(LicensingPostgreSqlFixture database, P0201Clock checkout,
-        IReadOnlyDictionary<string, string?>? settings = null, Action<IServiceCollection>? services = null, bool browser = false)
+        IReadOnlyDictionary<string, string?>? settings = null, Action<IServiceCollection>? services = null, bool browser = false,
+        IReadOnlyDictionary<string, string?>? merchantExtras = null, Action<IServiceCollection>? merchantServices = null)
     {
         var delivery = await P0213Fixture.StartAsync(database, browser, settings ?? SimulatorSettings, collection =>
         {
             collection.AddKeyedSingleton<TimeProvider>(CheckoutOrdersV1.Policy, checkout);
             collection.AddKeyedSingleton<TimeProvider>("pending-payment-lease", checkout);
             services?.Invoke(collection);
-        }, prepareProvider: true, businessClock: checkout);
+        }, prepareProvider: true, businessClock: checkout, merchantExtras: merchantExtras, merchantServices: merchantServices);
         await LicensingPostgreSqlFixture.ExecuteAsync(delivery.Hosts.LicensingOwner, RuntimeGrant);
         return new(delivery, checkout);
     }

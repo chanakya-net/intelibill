@@ -49,8 +49,14 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
         response.IsSuccessStatusCode ? "InvalidResponse" :
             response.StatusCode >= HttpStatusCode.InternalServerError ? "Unavailable" : "Rejected";
 
-    private static async Task<string?> CheckResponseAsync(HttpResponseMessage response, LeasedHttpMessage message, CancellationToken ct)
+    private async Task<string?> CheckResponseAsync(HttpResponseMessage response, LeasedHttpMessage message, CancellationToken ct)
     {
+        if (response.StatusCode == HttpStatusCode.Locked)
+        {
+            var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(message.Payload, EntitlementSnapshotsV1.Json);
+            return snapshot?.Shop is { ReplacementId: not null, AccessEndsAt: { } end } && publisher.Now < end
+                ? CoverageReplacementsV1.AwaitingRelease : "Rejected";
+        }
         if (response.StatusCode != HttpStatusCode.OK)
             return DeliveryFailure(response);
         if (response.Content.Headers.ContentType?.MediaType != "application/json" ||

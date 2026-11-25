@@ -1,4 +1,3 @@
-using Intelibill.Domain.Entities;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,21 +9,6 @@ namespace Intelibill.Infrastructure.Licensing;
 /// </summary>
 internal static class SlotActivationGate
 {
-    /// <summary>True while the saved paid head names an accepted assignment that has not passed its seat check.</summary>
-    internal static async Task<bool> IsPendingAsync(ApplicationDbContext db, ShopLicenseState? shop, CancellationToken ct) =>
-        shop is { Basis: "Paid", State: "Active" or "Grace", TermId: not null }
-        && await ReadHeadAssignmentAsync(db, shop.EvidenceId, ct) is { } assignment
-        && await FindPendingAsync(db, shop.ShopId, shop.AccountId, shop.AffiliationRequestId, assignment, ct) is not null;
-
-    internal static async Task<Guid?> ReadHeadAssignmentAsync(ApplicationDbContext db, Guid evidenceId, CancellationToken ct)
-    {
-        var raw = await db.Database.SqlQuery<string?>($"""
-            SELECT convert_from(payload, 'UTF8')::jsonb->'shop'->>'slotAssignmentId' AS "Value"
-            FROM public.license_grant_evidence WHERE event_id = {evidenceId}
-            """).SingleOrDefaultAsync(ct);
-        return Guid.TryParse(raw, out var id) ? id : null;
-    }
-
     internal static Task<Guid?> FindPendingAsync(ApplicationDbContext db, Guid shop, Guid account, Guid affiliationRequest,
         Guid assignment, CancellationToken ct) =>
         db.Database.SqlQuery<Guid?>($"""

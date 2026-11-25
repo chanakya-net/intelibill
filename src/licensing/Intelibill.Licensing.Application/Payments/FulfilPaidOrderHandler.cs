@@ -151,6 +151,8 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
     private async Task<PaidOrderDecision> RenewalDecisionAsync(CheckoutQuoteV1 quote, CheckoutSource source, DateTimeOffset effectiveAt,
         DateTimeOffset latestPossible, DateTimeOffset now, Guid[] ids, CancellationToken ct)
     {
+        if (!await CheckoutRenewalPolicy.ReplacementCurrentAsync(orders, quote, now, ct))
+            return new(null, [], now, "CoverageChanged");
         if (source.Prior is not { } prior ||
             CheckoutRenewalPolicy.Successor(quote, prior, effectiveAt, now, out var grace) is not { } successor)
             return new(null, [], now, "TermUnavailable");
@@ -180,7 +182,7 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         Guid? manualReceipt, CancellationToken ct) =>
         store.FulfilAsync(new(quote.AccountId, quote.OrderId, attempt, manualReceipt, quote.AmountPaise, quote.Currency,
             decision.Term!, quote.PlanVersionId, quote.MembersPerShop, quote.DevelopmentFixture, decision.Shops, decision.At,
-            decision.Renewal, decision.Fresh), ct);
+            decision.Renewal, decision.Fresh, quote.Replacement), ct);
 
     internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason,
         RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, PaymentRestorationEvidence? Hold = null,

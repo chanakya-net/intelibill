@@ -63,7 +63,7 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             : null;
         var proofs = shop is null ? null : await ReadProofIssuanceAsync(shopId, ct);
         // A sibling can advance the shared account head; the shop's own slot activation still gates its trading.
-        var pending = await SlotActivationGate.IsPendingAsync(db, shop, ct);
+        var pending = await CoverageActivationEvidence.IsPendingAsync(db, shop, ct);
         var now = clock.GetUtcNow();
         return new ShopLicenceLease(shopId, accountId, account?.Revision, shop?.Revision,
             policy.Decide(action, shop, account, proofs, now, pending))

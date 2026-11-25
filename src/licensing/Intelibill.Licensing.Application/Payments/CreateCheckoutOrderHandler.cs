@@ -40,7 +40,13 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
                 return CheckoutOrderErrors.Changed;
             if (source is null || BuildQuote(account, offer, request, source, now) is not { } quote)
                 return CheckoutOrderErrors.Invalid;
-            if (await store.HasConflictingPaidCoverageAsync(account, [.. source.Shops.Select(s => s.ShopId)],
+            if (CheckoutRenewalPolicy.IsRenewal(quote) && await store.ReplacementAsync(account, request.TermId!.Value,
+                    quote.Capacity, quote.MembersPerShop, quote.PreviewStartsAt, now, token) is { } replacement)
+            {
+                quote = quote with { Replacement = replacement, ShopHash = CheckoutOrdersV1.ShopHash(source.OrderShopIds(replacement)) };
+                quote = quote with { SnapshotHash = CheckoutOrdersV1.SnapshotHash(quote) };
+            }
+            if (await store.HasConflictingPaidCoverageAsync(account, source.OrderShopIds(quote.Replacement),
                     request.TermId, quote.PreviewStartsAt, quote.PreviewEndsAt, token))
                 return CheckoutOrderErrors.Invalid;
             await store.SaveAsync(quote, source, proof.ActorId, request.OperationKey, hash, proof.ReplayId, token);

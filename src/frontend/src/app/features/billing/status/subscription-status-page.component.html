@@ -107,6 +107,8 @@
               <app-subscription-cancellation-withdrawal [account]="account" [term]="item.status" (saved)="load()" />
               <a [routerLink]="['/billing/accounts', account, 'subscriptions', item.status.termId, 'slots']"
                 data-testid="slot-open">{{ 'billing.slot.heading' | transloco }}</a>
+              <a [routerLink]="['/billing/accounts', account, 'subscriptions', item.status.termId, 'replacements']"
+                data-testid="replacement-open">{{ 'billing.replacement.heading' | transloco }}</a>
               <app-capacity-reduction-preview [account]="account" [term]="item.status" (changed)="load()" />
             }
             @if (item.status.basis === 'Paid' || item.status.basis === 'Trial') {

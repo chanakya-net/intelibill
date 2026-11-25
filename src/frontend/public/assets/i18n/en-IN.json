@@ -3433,6 +3433,18 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "replacement": {
+      "heading": "Replace a covered shop at renewal",
+      "outgoing": "Outgoing shop",
+      "incoming": "Incoming shop",
+      "selection": "I confirm the selected shops.",
+      "renewal": "Keep the current shop covered until renewal.",
+      "permitWait": "Wait for outstanding offline permits to end.",
+      "permit": "Latest known offline permission ends",
+      "unknown": "No active permit reported. Disconnected devices are checked before activation.",
+      "scheduled": "Scheduled for renewal",
+      "waiting": "Renewal verified. Waiting for existing permission to end."
+    },
     "slot": {
       "heading": "Assign an unused paid slot",
       "remaining": "Unused paid slots: {{count}}",

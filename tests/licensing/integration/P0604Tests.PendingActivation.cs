@@ -77,7 +77,7 @@ public sealed partial class P0604Tests
         .MerchantScalarAsync($"SELECT count(*) FROM coverage_slot_activations WHERE shop_id='{shop}'"))!;
 
     // The shop's real fenced NewTrading decision on the merchant decision clock.
-    private static async Task<string?> FencedTradingAsync(P0308Fixture fixture, Guid shop)
+    internal static async Task<string?> FencedTradingAsync(P0308Fixture fixture, Guid shop)
     {
         await using var scope = fixture.Hosts.Merchant.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

@@ -33,13 +33,13 @@ internal sealed class P0308Fixture(P0302Fixture checkout) : IAsyncDisposable
         Checkout.CheckoutClock.Now = at;
     }
 
-    internal async Task<Package> PackageAsync(int count, string[]? names = null)
+    internal async Task<Package> PackageAsync(int count, string[]? names = null, int? tradingIndex = null)
     {
         var payer = await SignInAsync(Hosts, ShopRole.Owner);
         var account = await CreateAccountAsync(payer.Client, "Renewal Fixture");
         var shops = new List<Merchant> { payer };
         for (var index = 1; index < count; index++)
-            shops.Add(await SignInAsync(Hosts, ShopRole.Owner));
+            shops.Add(index == tradingIndex ? await CreateTradingShopAsync(Hosts) : await SignInAsync(Hosts, ShopRole.Owner));
         foreach (var (shop, index) in shops.Select((shop, index) => (shop, index)))
         {
             if (names is not null)

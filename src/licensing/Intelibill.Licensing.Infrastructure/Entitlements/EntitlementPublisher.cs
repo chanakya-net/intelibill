@@ -64,6 +64,8 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
         var accountHead = await ReadAccountAsync(account, reconcile, now, ct);
         var term = SubscriptionStatusProjection.Choose(coverage, now, commercial: false);
         var next = NextBoundary(coverage, now, term?.NextDeadline);
+        var replacement = await ReadReplacementAsync(account, shop, request, term?.TermId, now, ct);
+        if (replacement.NextStart is { } start) next = Earlier(next, start);
         var nextVerification = Earlier(next, Earlier(accountHead.UpstreamVerifiedAt.AddHours(47), now.AddHours(47)));
         var revision = await NextShopRevisionAsync(account, shop, nextVerification, ct);
         var suspension = await db.Database.SqlQuery<CustomerSuspensionV1>($"""
@@ -82,7 +84,7 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
             ? baseline.SlotAssignmentId : null;
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, state, term?.TermId,
             term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance,
-            suspension, released, closure.OpeningCutoff, closure.Revision, slotAssignmentId);
+            suspension, released, closure.OpeningCutoff, closure.Revision, slotAssignmentId, replacement.Incoming, replacement.Released);
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, eventId ?? Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);

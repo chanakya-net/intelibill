@@ -31,7 +31,21 @@ internal sealed partial class PaymentStore
         await SavePaidTermAsync(f, ct);
         if (f.Fresh?.Kind == "TrialConversion")
             await RecordTrialConversionsAsync(f, ct);
+        if (f.Replacement is { } change)
+            await ApplyReplacementAsync(f, change.ReplacementId, ct);
         await LinkAndPublishAsync(f, ct);
+    }
+
+    private async Task ApplyReplacementAsync(PaymentFulfilment f, Guid replacement, CancellationToken ct)
+    {
+        var updated = await db.Database.ExecuteSqlAsync($"""
+            UPDATE public.coverage_replacements SET state='Applied',successor_term_id={f.Term.TermId},
+                incoming_coverage_from=greatest({f.At},{f.Term.StartsAt},permit_deadline,
+                    public.replacement_permit_end(account_id,outgoing_shop_id,outgoing_affiliation_id,{f.At}))
+            WHERE account_id={f.AccountId} AND replacement_id={replacement} AND term_id={f.Renewal!.PredecessorTermId}
+                AND state='Scheduled' AND revoke_event IS NULL
+            """, ct);
+        if (updated != 1) throw new InvalidOperationException("Replacement no longer matches the verified renewal.");
     }
 
     private async Task SavePaidTermAsync(PaymentFulfilment f, CancellationToken ct)
@@ -71,6 +85,8 @@ internal sealed partial class PaymentStore
         await db.Database.ExecuteSqlRawAsync("SET CONSTRAINTS ALL IMMEDIATE", ct);
         if (f.Fresh is not null)
             await RefreshRestorationHeadAsync(f, ct);
+        if (f.Replacement is { } change)
+            await publisher.PublishAsync(f.AccountId, change.OutgoingShopId, ct, evaluatedAt: f.At);
         foreach (var shop in f.ShopIds.Order())
             await publisher.PublishAsync(f.AccountId, shop, ct, evaluatedAt: f.At);
         await db.Database.ExecuteSqlInterpolatedAsync($"""

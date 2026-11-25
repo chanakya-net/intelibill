@@ -44,13 +44,19 @@ public static class CheckoutRenewalPolicy
         if (source?.Matches(quote) != true || !await orders.IncreaseStillCurrentAsync(quote, now, ct) ||
             !await orders.ReductionOrderCurrentAsync(quote, now, ct))
             return false;
+        if (!await ReplacementCurrentAsync(orders, quote, now, ct)) return false;
         if (quote.Increase is not null)
             return true; // An increase changes capacity within an existing term.
         var start = IsRestoredAccess(quote) && now > quote.PreviewStartsAt ? now : quote.PreviewStartsAt;
         var end = quote.PreviewEndsAt > start ? quote.PreviewEndsAt : start.AddDays(1);
-        return !await orders.HasConflictingPaidCoverageAsync(quote.AccountId, [.. source.Shops.Select(s => s.ShopId)],
+        return !await orders.HasConflictingPaidCoverageAsync(quote.AccountId, source.OrderShopIds(quote.Replacement),
             quote.TermId, start, end, ct);
     }
+
+    internal static async Task<bool> ReplacementCurrentAsync(ICheckoutOrderStore orders, CheckoutQuoteV1 quote,
+        DateTimeOffset now, CancellationToken ct) => !IsRenewal(quote) || quote.Reduction is not null ||
+        quote.Replacement == await orders.ReplacementAsync(quote.AccountId, quote.TermId!.Value, quote.Capacity,
+            quote.MembersPerShop, quote.PreviewStartsAt, now, ct);
 
     /// <summary>
     /// The successor period for verified funds effective at <paramref name="effectiveAt"/> and observed at

@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Licensing;
 
-public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence)
+public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence,
+    [Microsoft.Extensions.DependencyInjection.FromKeyedServices(ShopTrialsV1.DeliverySection)] TimeProvider? businessClock = null)
 {
     private static Error Replayed => Error.Unauthorized("Entitlement.Replayed");
     private static Error Conflict => Error.Conflict("Entitlement.EventMismatch");
@@ -57,15 +58,30 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         var regresses = snapshot.Account?.UpstreamVerifiedAt < account?.UpstreamVerifiedAt ||
             snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
         var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
-        var savedSlot = bound && shop is not null && snapshot.Shop?.Revision == shop.Revision
-            ? await SlotActivationGate.ReadHeadAssignmentAsync(db, shop.EvidenceId, ct) : null;
-        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt, savedSlot) : "AffiliationUnresolved";
+        var savedMarkers = bound && shop is not null && snapshot.Shop?.Revision == shop.Revision
+            ? await CoverageActivationEvidence.ReadAsync(db, shop.EvidenceId, ct) : null;
+        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt,
+            savedMarkers?.SlotAssignment, savedMarkers?.Replacement, savedMarkers?.ReleasedReplacement) : "AffiliationUnresolved";
         Guid? activatingAssignment = null;
         if (reason is null)
         {
             var slotCheck = await CheckSlotActivationAsync(snapshot, account, shop, ct);
             if (slotCheck.ExceedsAllowance) reason = "ConflictingShopScope";
             else activatingAssignment = slotCheck.ActivatingAssignmentId;
+        }
+        var nextShopHead = shop is null || snapshot.Shop!.Revision > shop.Revision;
+        var replacement = reason is null && nextShopHead && snapshot.Shop!.ReplacementId is { } marker
+            && CanEnableTrading(BuildCandidateShop(snapshot, shop, true),
+                BuildCandidateAccount(snapshot, account, account is null || snapshot.Account!.Revision > account.Revision), out _)
+            ? marker : (Guid?)null;
+        Guid? confirmedReplacement = null;
+        if (replacement is { } id)
+        {
+            var gate = await ReplacementActivationGate.CheckAsync(db, snapshot, id, (businessClock ?? clock).GetUtcNow(), ct);
+            if (gate == "Waiting") return Error.Conflict(CoverageReplacementsV1.AwaitingRelease);
+            if (gate == "Invalid") reason = "ConflictingShopScope";
+            else confirmedReplacement = id;
+            if (gate != "Ready") replacement = null;
         }
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
         var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
@@ -74,7 +90,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             snapshot.AffiliationRequestId, snapshot.Account?.Revision, snapshot.Shop?.Revision,
             nextAccount ? snapshot.Account!.Revision : bound ? account?.Revision : null,
             nextShop ? snapshot.Shop!.Revision : bound ? shop?.Revision : null,
-            reason is null ? "Applied" : "NeedsReview", reason ?? (nextAccount || nextShop ? "Applied" : "Superseded"), appliedAt);
+            reason is null ? "Applied" : "NeedsReview", reason ?? (nextAccount || nextShop ? "Applied" : "Superseded"), appliedAt, confirmedReplacement);
         var receipt = JsonSerializer.SerializeToUtf8Bytes(ack, EntitlementSnapshotsV1.Json);
         if (!await ReserveInboxAsync(snapshot, proof.Digest, receipt, ct))
             return Conflict;
@@ -83,6 +99,8 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         if (nextAccount) UpdateAccount(snapshot, account);
         if (nextShop) UpdateShop(snapshot, shop);
         await db.SaveChangesAsync(ct);
+        if (replacement is { } activated)
+            await ReplacementActivationGate.RecordAsync(db, snapshot, activated, appliedAt, ct);
         if (activatingAssignment is { } activatedId)
             await SlotActivationGate.RecordAsync(db, activatedId, snapshot.ShopId, snapshot.AccountId, snapshot.EventId, appliedAt, ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
@@ -108,7 +126,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         var candAccount = BuildCandidateAccount(snapshot, account, nextAccount);
         if (!CanEnableTrading(candShop, candAccount, out var allowance)) return (false, null);
 
-        var named = nextShop ? incomingShop.SlotAssignmentId : await SlotActivationGate.ReadHeadAssignmentAsync(db, candShop.EvidenceId, ct);
+        var named = nextShop ? incomingShop.SlotAssignmentId : (await CoverageActivationEvidence.ReadAsync(db, candShop.EvidenceId, ct))?.SlotAssignment;
         if (named is not { } namedId || await SlotActivationGate.FindPendingAsync(db, snapshot.ShopId, snapshot.AccountId,
                 snapshot.AffiliationRequestId, namedId, ct) is not { } assignmentId)
             return (false, null);

@@ -1,0 +1,18 @@
+{
+  "scheduleAction": "billing.coverage-replacement.schedule",
+  "receiptPath": "/internal/licensing/v1/merchant-events/coverage-replacement-consent",
+  "receiptKind": "CoverageReplacementConsent",
+  "schedule": {
+    "operationKey": "40000000-0000-4000-8000-000000000001",
+    "outgoingShopId": "40000000-0000-4000-8000-000000000002",
+    "incomingShopId": "40000000-0000-4000-8000-000000000003",
+    "observedCapacity": 1,
+    "observedMemberAllowance": 5,
+    "observedEffectiveAt": "2028-02-29T04:30:00Z",
+    "observedPermitDeadline": "2028-03-01T04:30:00Z",
+    "acknowledgedRenewal": true,
+    "acknowledgedPermitWait": true,
+    "acknowledgedShopSelection": true
+  },
+  "ownerFields": ["replacementId", "shopId", "shopName", "effectiveAt", "state", "status", "activation"]
+}
