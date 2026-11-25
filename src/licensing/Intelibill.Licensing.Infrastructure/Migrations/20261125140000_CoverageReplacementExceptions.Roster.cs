@@ -125,8 +125,10 @@ public sealed partial class CoverageReplacementExceptions
                     NOT i.is_final_holder AS is_released,
                     coalesce(pf.fulfilled_at, t.starts_at) AS fulfilled_at,
                     t.ends_at AS term_ends_at,
-                    CASE WHEN i.handoff_id IS NOT NULL AND i.is_final_holder THEN i.interval_starts_at
-                        ELSE greatest(coalesce(pf.fulfilled_at, t.starts_at), i.interval_starts_at) END AS rank_at
+                    CASE WHEN i.handoff_id IS NOT NULL AND i.is_final_holder
+                        THEN greatest(coalesce(pf.fulfilled_at, t.starts_at), i.interval_starts_at)
+                        ELSE greatest(coalesce(pf.fulfilled_at, t.starts_at),
+                            coalesce(pfs.coverage_from, coalesce(pf.fulfilled_at, t.starts_at))) END AS rank_at
                 FROM candidate_terms ct
                 JOIN public.subscription_coverage_terms t ON t.account_id = ac AND t.term_id = ct.term_id
                 LEFT JOIN public.payment_fulfilments pf ON pf.account_id = ac AND pf.term_id = ct.term_id
@@ -143,10 +145,7 @@ public sealed partial class CoverageReplacementExceptions
             SELECT l.term_id, l.reported_from AS coverage_from, l.handoff_ends_at AS coverage_ends_at,
                 l.slot_assignment_id, l.handoff_id, l.handoff_generation, l.is_released
             FROM links l
-            ORDER BY
-                CASE WHEN at_time IS NOT NULL AND l.interval_starts_at <= at_time AND (l.handoff_ends_at IS NULL OR at_time < l.handoff_ends_at) THEN 0 ELSE 1 END,
-                l.rank_at DESC,
-                l.term_ends_at DESC
+            ORDER BY l.rank_at DESC, l.term_ends_at DESC
             LIMIT 1
         $$;
 
@@ -353,18 +352,21 @@ public sealed partial class CoverageReplacementExceptions
             WHERE f.account_id = NEW.account_id AND f.order_id = NEW.order_id AND f.term_id = NEW.term_id;
 
             IF prior IS NOT NULL AND NOT coalesce(is_restored, false) THEN
-                SELECT er.interval_starts_at, er.slot_assignment_id INTO NEW.coverage_from, NEW.slot_assignment_id
-                FROM public.term_effective_roster(NEW.account_id, prior, NULL) er
-                WHERE er.shop_id = NEW.shop_id AND er.affiliation_request_id = NEW.affiliation_request_id;
-                IF FOUND THEN
-                    SELECT link.replacement_id INTO NEW.replacement_id
-                    FROM public.payment_fulfilment_shops link
-                    WHERE link.account_id = NEW.account_id AND link.term_id = prior AND link.shop_id = NEW.shop_id;
-                ELSE
-                    SELECT r.incoming_coverage_from, r.replacement_id INTO NEW.coverage_from, NEW.replacement_id
-                    FROM public.coverage_replacements r WHERE r.account_id=NEW.account_id AND r.term_id=prior
-                        AND r.successor_term_id=NEW.term_id AND r.state='Applied' AND r.xmin=pg_current_xact_id()::xid
-                        AND r.incoming_shop_id=NEW.shop_id AND r.incoming_affiliation_id=NEW.affiliation_request_id;
+                SELECT link.coverage_from, link.slot_assignment_id, link.replacement_id
+                INTO NEW.coverage_from, NEW.slot_assignment_id, NEW.replacement_id
+                FROM public.payment_fulfilment_shops link
+                WHERE link.account_id = NEW.account_id AND link.term_id = prior AND link.shop_id = NEW.shop_id;
+                IF NOT FOUND THEN
+                    SELECT er.interval_starts_at, er.slot_assignment_id INTO NEW.coverage_from, NEW.slot_assignment_id
+                    FROM public.term_effective_roster(NEW.account_id, prior, NULL) er
+                    WHERE er.shop_id = NEW.shop_id AND er.affiliation_request_id = NEW.affiliation_request_id
+                        AND er.handoff_id IS NOT NULL;
+                    IF NOT FOUND THEN
+                        SELECT r.incoming_coverage_from, r.replacement_id INTO NEW.coverage_from, NEW.replacement_id
+                        FROM public.coverage_replacements r WHERE r.account_id=NEW.account_id AND r.term_id=prior
+                            AND r.successor_term_id=NEW.term_id AND r.state='Applied' AND r.xmin=pg_current_xact_id()::xid
+                            AND r.incoming_shop_id=NEW.shop_id AND r.incoming_affiliation_id=NEW.affiliation_request_id;
+                    END IF;
                 END IF;
             ELSE
                 NEW.coverage_from := NULL;
