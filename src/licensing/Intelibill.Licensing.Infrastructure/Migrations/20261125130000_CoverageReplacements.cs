@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Delivery;
 using Intelibill.Licensing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -140,6 +141,7 @@ public sealed partial class CoverageReplacements : Migration
             CREATE TRIGGER guard_replacement BEFORE UPDATE ON public.coverage_replacements FOR EACH ROW
                 EXECUTE FUNCTION public.guard_coverage_replacement();
             """);
+        migrationBuilder.Sql(LeasedHttpOutboxSchema.Finish(DeferWhileOutgoingPermissionRemains));
         migrationBuilder.Sql(ActivationStatus);
         migrationBuilder.Sql(CheckoutGuard);
         migrationBuilder.Sql(LinkGuard);
@@ -165,6 +167,7 @@ public sealed partial class CoverageReplacements : Migration
             DROP FUNCTION public.replacement_permit_end(uuid,uuid,uuid,timestamptz);
             DROP FUNCTION public.replacement_term_available(uuid,uuid);
             """);
+        migrationBuilder.Sql(LeasedHttpOutboxSchema.Finish());
         migrationBuilder.Sql(ScheduledCapacityReductions.CheckoutOrderGuard);
         migrationBuilder.Sql(CoverageSlotAssignments.ShopLinkGuard);
     }

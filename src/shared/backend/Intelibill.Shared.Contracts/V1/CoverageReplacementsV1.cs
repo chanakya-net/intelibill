@@ -12,6 +12,7 @@ public static class CoverageReplacementsV1
     public const string ReceiptPath = "/internal/licensing/v1/merchant-events/coverage-replacement-consent";
     public static string OwnerPath(Guid account, Guid shop, Guid replacement) =>
         $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/coverage-replacements/{shop:D}/{replacement:D}/owner";
+    public const string AwaitingRelease = "Coverage.AwaitingOutgoingRelease";
     public const int PageSize = 50;
     public static string Path(Guid account, Guid term) =>
         $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/subscriptions/{term:D}/coverage-replacements";

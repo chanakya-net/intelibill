@@ -10,6 +10,14 @@ public sealed partial class P0605Tests
 {
     internal static async Task<(Guid Id, string Path)> ConsentAsync(P0308Fixture f, Package p, Guid term, int capacity = 3)
     {
+        var (id, path) = await QueueConsentAsync(p, term, capacity);
+        await f.Checkout.Delivery.DrainAsync(false);
+        Assert.Equal(1L, await f.CountAsync("coverage_replacements", $"replacement_id='{id}' AND state='Scheduled'"));
+        return (id, path);
+    }
+
+    private static async Task<(Guid Id, string Path)> QueueConsentAsync(Package p, Guid term, int capacity = 3)
+    {
         using var request = await p.Payer.Client.PostAsJsonAsync(PathFor(p, term), Request(p, Guid.NewGuid(), capacity: capacity));
         request.EnsureSuccessStatusCode();
         var id = (await request.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("replacementId").GetGuid();
@@ -22,8 +30,6 @@ public sealed partial class P0605Tests
             using var result = await P0604Tests.Decide(shop.Client, path, decision);
             Assert.True(result.IsSuccessStatusCode, await result.Content.ReadAsStringAsync());
         }
-        await f.Checkout.Delivery.DrainAsync(false);
-        Assert.Equal(1L, await f.CountAsync("coverage_replacements", $"replacement_id='{id}' AND state='Scheduled'"));
         return (id, path);
     }
 

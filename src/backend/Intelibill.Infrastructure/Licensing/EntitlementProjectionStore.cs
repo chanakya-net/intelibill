@@ -78,7 +78,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         if (replacement is { } id)
         {
             var gate = await ReplacementActivationGate.CheckAsync(db, snapshot, id, (businessClock ?? clock).GetUtcNow(), ct);
-            if (gate == "Waiting") return Intelibill.Application.Common.Errors.Errors.Licence.Busy;
+            if (gate == "Waiting") return Error.Conflict(CoverageReplacementsV1.AwaitingRelease);
             if (gate == "Invalid") reason = "ConflictingShopScope";
             else confirmedReplacement = id;
             if (gate != "Ready") replacement = null;

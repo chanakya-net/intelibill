@@ -1,7 +1,22 @@
+using Intelibill.Shared.Web.Delivery;
+
 namespace Intelibill.Licensing.Infrastructure.Migrations;
 
 public sealed partial class CoverageReplacements
 {
+    // A verified merchant wait releases only this lease. The normal finish statement then finds
+    // no leased row. Real delivery failures still consume their ordinary retry budget.
+    private static string DeferWhileOutgoingPermissionRemains => $$"""
+        UPDATE public.entitlement_outbox o
+        SET status='Pending', attempts=attempts-1, last_failure=NULL, lease_token=NULL, lease_expires_at=NULL,
+            next_attempt_at=p_now + interval '1 minute'
+        WHERE p_failure='Coverage.AwaitingOutgoingRelease' AND NOT p_success AND p_wait_ack
+            AND o.event_id=p_event AND o.status='Leased' AND o.lease_token=p_lease AND o.lease_expires_at>p_now
+            AND {{LeasedHttpOutboxSchema.Unscoped}}
+            AND EXISTS (SELECT FROM public.entitlement_messages m WHERE m.event_id=o.event_id AND m.kind='Snapshot'
+                AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementId' IS NOT NULL);
+        """;
+
     private const string ActivationStatus = """
         CREATE FUNCTION public.replacement_activation(id uuid, at_time timestamptz)
         RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog AS $$

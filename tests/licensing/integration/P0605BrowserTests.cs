@@ -87,9 +87,9 @@ public sealed class P0605BrowserTests(LicensingPostgreSqlFixture database, ITest
         await f.Checkout.Delivery.DrainAsync(true);
         await f.Checkout.Delivery.DrainAsync(false);
         var boundary = P0601Tests.February29;
-        await VerifyTradingAsync(f, p, boundary.AddTicks(-10), "Allowed", "Licence.PendingActivation");
+        await P0605Tests.VerifyTradingAsync(f, p, boundary.AddTicks(-10), "Allowed", "Licence.PendingActivation");
         Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync("SELECT count(*) FROM coverage_replacement_activations"));
-        await VerifyTradingAsync(f, p, boundary, "Licence.Expired", "Allowed");
+        await P0605Tests.VerifyTradingAsync(f, p, boundary, "Licence.Expired", "Allowed");
         Assert.Equal(1L, await f.Checkout.Delivery.MerchantScalarAsync("SELECT count(*) FROM coverage_replacement_activations"));
         await Signal("merchant-committed");
         if (!await WaitAsync("applying")) return;
@@ -102,26 +102,6 @@ public sealed class P0605BrowserTests(LicensingPostgreSqlFixture database, ITest
         }
         finally { sessionClock.Now = original; }
         await Signal("delivered");
-    }
-
-    private static async Task VerifyTradingAsync(P0308Fixture f, P0308Fixture.Package p, DateTimeOffset at,
-        string outgoing, string incoming)
-    {
-        // Browser credentials stay on the session clock while the two service pumps sign and evaluate
-        // these boundary snapshots at the same controlled instant as the merchant trading fence.
-        f.At(at);
-        var sessionClock = f.Hosts.Fixture.Clock;
-        var original = sessionClock.Now;
-        try
-        {
-            sessionClock.Now = at;
-            f.Checkout.Delivery.Transport.LeaseClock.Now = at.AddSeconds(1);
-            await f.Checkout.Delivery.ScanAsync(true);
-            await f.Checkout.Delivery.DrainAsync(true);
-            Assert.Equal(outgoing, await P0604Tests.FencedTradingAsync(f, p.Shops[2].ShopId));
-            Assert.Equal(incoming, await P0604Tests.FencedTradingAsync(f, p.Shops[3].ShopId));
-        }
-        finally { sessionClock.Now = original; }
     }
 
     private static ProcessStartInfo Playwright(string frontend, string evidence, string origin, P0308Fixture.Package p, Guid term)

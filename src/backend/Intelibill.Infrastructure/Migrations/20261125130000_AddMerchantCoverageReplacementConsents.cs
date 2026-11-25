@@ -69,9 +69,9 @@ public sealed class AddMerchantCoverageReplacementConsents : Migration
             PERFORM set_config('app.active_shop_id',prior_scope,true);
             RETURN released;
         END $$;
-        CREATE TRIGGER retain_slot_consent BEFORE UPDATE OR DELETE OR TRUNCATE ON public.coverage_replacement_consent_events
+        CREATE TRIGGER retain_replacement_consent BEFORE UPDATE OR DELETE OR TRUNCATE ON public.coverage_replacement_consent_events
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_shop_affiliation_evidence();
-        CREATE TRIGGER retain_slot_activation BEFORE UPDATE OR DELETE OR TRUNCATE ON public.coverage_replacement_activations
+        CREATE TRIGGER retain_replacement_activation BEFORE UPDATE OR DELETE OR TRUNCATE ON public.coverage_replacement_activations
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_shop_affiliation_evidence();
         """);
 
