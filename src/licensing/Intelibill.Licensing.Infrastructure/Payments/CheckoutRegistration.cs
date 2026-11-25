@@ -1,3 +1,5 @@
+using Intelibill.Licensing.Application.Documents;
+using Intelibill.Licensing.Infrastructure.Documents;
 using Intelibill.Licensing.Application.Payments;
 using Intelibill.Licensing.Infrastructure.Payments.Development;
 using Intelibill.Licensing.Infrastructure.Payments.Razorpay;
@@ -29,6 +31,10 @@ internal static class CheckoutRegistration
         services.AddPayments();
         services.AddCapacityChangeQuotes();
         services.AddRefundRequests();
+        services.AddScoped<IBillingDocumentStore, BillingDocumentStore>();
+        services.AddScoped<BillingDocumentMetadataValidator>();
+        services.AddScoped<UploadBillingDocumentValidator>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<UploadBillingDocumentHandler>(provider, CheckoutClock(provider)));
     }
 
     private static void AddRefundRequests(this IServiceCollection services)

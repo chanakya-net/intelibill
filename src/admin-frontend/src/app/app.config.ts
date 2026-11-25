@@ -68,6 +68,12 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.RefundIntakePageComponent),
       },
       {
+        path: 'payments/documents',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/documents/billing-document-page.component')
+          .then((m) => m.BillingDocumentPageComponent),
+      },
+      {
         path: 'payments',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/payments/manual-payment-page.component')
