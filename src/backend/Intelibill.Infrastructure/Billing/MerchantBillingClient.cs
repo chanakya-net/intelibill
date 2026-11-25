@@ -19,7 +19,7 @@ internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials,
-    TimeProvider clock, MerchantClosureConsentStore closures)
+    TimeProvider clock, MerchantClosureConsentStore closures, CoverageSlotConsentStore slotConsents)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
         IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders, IMerchantShopClosures
 {
@@ -164,6 +164,9 @@ internal sealed partial class MerchantBillingClient(
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
+                CoverageSlotsV1.Read or CoverageSlotsV1.Recover or CoverageSlotsV1.Request or CoverageSlotsV1.OwnerRead:
+                return SlotError(await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
                 return await ReadProblemCodeAsync(response, cancellationToken) switch
                 {

@@ -56,10 +56,9 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         if (selected.Pin is not { } pin || gateways.ForPin(pin) is not { } gateway ||
             !gateway.SupportsAmount(quote.AmountPaise, quote.Currency)) return false;
         if (quote.Increase is { } change && (change.RoutingRevision != selected.Revision ||
-            change.PinHash != Subscriptions.ConvertCapacityQuoteHandler.PinHash(pin) ||
-            !await orders.IncreaseStillCurrentAsync(quote, now, ct))) return false;
-        if (quote.Reduction is not null && !await orders.ReductionOrderCurrentAsync(quote, now, ct)) return false;
-        return Startable(quote) && now < quote.ExpiresAt && CheckoutRenewalPolicy.WindowOpen(quote, now);
+            change.PinHash != Subscriptions.ConvertCapacityQuoteHandler.PinHash(pin))) return false;
+        return Startable(quote) && now < quote.ExpiresAt && CheckoutRenewalPolicy.WindowOpen(quote, now) &&
+            await CheckoutRenewalPolicy.SourceIsCurrentAsync(orders, quote, now, ct);
     }
 
     internal static bool Startable(CheckoutQuoteV1 quote) => CheckoutRenewalPolicy.Payable(quote);

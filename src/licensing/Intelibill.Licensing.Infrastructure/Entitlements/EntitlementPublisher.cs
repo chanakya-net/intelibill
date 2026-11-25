@@ -27,9 +27,12 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
     internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct,
         DateTimeOffset? evaluatedAt = null) => await AppendSnapshotAsync(account, shop, reconcile, evaluatedAt, ct) is not null;
 
-    internal async Task<EntitlementSnapshotV1> PublishSuspensionAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
+    internal Task<EntitlementSnapshotV1> PublishSuspensionAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
+        PublishShopChangeAsync(account, shop, at, ct);
+
+    internal async Task<EntitlementSnapshotV1> PublishShopChangeAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
         await AppendSnapshotAsync(account, shop, false, at, ct)
-        ?? throw new InvalidOperationException("A suspension delivery requires the selected affiliation.");
+        ?? throw new InvalidOperationException("A shop change requires the selected affiliation.");
 
     internal async Task PublishClosureAsync(Guid account, Guid shop, Guid eventId, CancellationToken ct)
     {
@@ -75,9 +78,11 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
             """).SingleAsync(ct);
         var closure = await ReadClosureAsync(account, shop, request, eventId, revision, ct);
         var state = closure.Closed ? ShopClosuresV1.Closed : term?.State ?? "PendingActivation";
+        var slotAssignmentId = !closure.Closed && term is not null && coverage.Term is { } baseline && term.TermId == baseline.TermId
+            ? baseline.SlotAssignmentId : null;
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, state, term?.TermId,
             term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance,
-            suspension, released, closure.OpeningCutoff, closure.Revision);
+            suspension, released, closure.OpeningCutoff, closure.Revision, slotAssignmentId);
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, eventId ?? Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);

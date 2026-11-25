@@ -17,6 +17,15 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
     public Task<bool> IsReductionOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct) =>
         reductions.IsReductionOwnerAsync(account, order, actor, ct);
 
+    public Task<bool> HasConflictingPaidCoverageAsync(Guid account, Guid[] shops, Guid? excludeTerm, DateTimeOffset startsAt,
+        DateTimeOffset endsAt, CancellationToken ct) =>
+        shops.Length == 0 ? Task.FromResult(false) : db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (
+                SELECT FROM unnest({shops}) AS s(shop_id)
+                WHERE public.shop_has_conflicting_paid_coverage({account}, s.shop_id, {excludeTerm}::uuid, {startsAt}, {endsAt})
+            ) AS "Value"
+            """).SingleAsync(ct);
+
     public async Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct)
     {
         if (quote.Increase is null) return true;
@@ -79,13 +88,11 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
             WHERE h.account_id = {account} AND h.shop_id = ANY({shops}) ORDER BY h.shop_id
             """).ToArrayAsync(ct);
 
-    // A shop's paid coverage is its latest paid link, else the term its affiliation assigned.
+    // A shop's paid coverage is its most recently joined or renewed paid link, else the term its affiliation assigned.
     private async Task<CheckoutSourceShop[]> ReadSourceShopsAsync(Guid account, Guid[] requested, CancellationToken ct) =>
         await db.Database.SqlQuery<CheckoutSourceShop>($"""
             SELECT a.shop_id AS shop_id, a.shop_name AS name, a.request_id AS request_id,
-                   coalesce((SELECT p.term_id FROM public.payment_fulfilment_shops p
-                       JOIN public.subscription_coverage_terms pt ON pt.account_id = p.account_id AND pt.term_id = p.term_id
-                       WHERE p.account_id = a.account_id AND p.shop_id = a.shop_id ORDER BY pt.ends_at DESC LIMIT 1), a.term_id) AS term_id,
+                   coalesce((SELECT p.term_id FROM public.shop_paid_link(a.account_id, a.shop_id, NULL, NULL) p), a.term_id) AS term_id,
                    a.applied_at AS applied_at, a.coverage_ends_at AS coverage_ends_at
             FROM public.shop_affiliations a
             WHERE a.account_id = {account} AND a.shop_id = ANY({requested})
@@ -199,9 +206,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
                 """)
             : db.Database.SqlQuery<CheckoutShopV1>($"""
                 SELECT a.shop_id AS shop_id, a.shop_name AS name,
-                   coalesce((SELECT p.term_id FROM public.payment_fulfilment_shops p
-                       JOIN public.subscription_coverage_terms pt ON pt.account_id = p.account_id AND pt.term_id = p.term_id
-                       WHERE p.account_id = a.account_id AND p.shop_id = a.shop_id ORDER BY pt.ends_at DESC LIMIT 1), a.term_id) AS term_id
+                   coalesce((SELECT p.term_id FROM public.shop_paid_link(a.account_id, a.shop_id, NULL, NULL) p), a.term_id) AS term_id
                 FROM public.shop_affiliations a
                 WHERE a.account_id = {account} AND ({after}::uuid IS NULL OR a.shop_id > {after})
                 ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.PageSize + 1}

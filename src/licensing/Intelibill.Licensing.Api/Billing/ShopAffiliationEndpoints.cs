@@ -40,7 +40,7 @@ internal static class ShopAffiliationEndpoints
         return proof is null ? Invalid(context) : Respond(context, await handlers.ReadForOwnerAsync(proof, account, shop, request, ct));
     }
 
-    private static VerifiedBillingDelegation? ReadProof(HttpContext context, Guid? account, string action, string method, string path)
+    internal static VerifiedBillingDelegation? ReadProof(HttpContext context, Guid? account, string action, string method, string path)
     {
         var proof = context.Features.Get<VerifiedBillingDelegation>();
         var request = context.Request;
@@ -52,9 +52,9 @@ internal static class ShopAffiliationEndpoints
             !request.Headers.ContainsKey("Transfer-Encoding")) ? proof : null;
     }
 
-    private static IResult Invalid(HttpContext context) =>
+    internal static IResult Invalid(HttpContext context) =>
         CustomerBillingEndpoints.Problem(context, StatusCodes.Status401Unauthorized, BillingDelegationErrors.Invalid);
 
-    private static IResult Respond<T>(HttpContext context, ErrorOr<T> result, int status = StatusCodes.Status200OK) =>
+    internal static IResult Respond<T>(HttpContext context, ErrorOr<T> result, int status = StatusCodes.Status200OK) =>
         result.IsError ? CustomerBillingEndpoints.Failure(context, result.FirstError) : Results.Json(result.Value, statusCode: status);
 }

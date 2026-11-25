@@ -2,6 +2,14 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'accounts/:accountId/subscriptions/:termId/slots',
+    loadComponent: () => import('./coverage/coverage-slot-page.component').then(m => m.CoverageSlotPageComponent),
+  },
+  {
+    path: 'slot-consent/:accountId/:shopId/:assignmentId',
+    loadComponent: () => import('./coverage/coverage-slot-page.component').then(m => m.CoverageSlotPageComponent),
+  },
+  {
     path: 'accounts/:accountId/checkout',
     loadComponent: () => import('./checkout/checkout-page.component').then(m => m.CheckoutPageComponent),
   },

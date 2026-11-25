@@ -83,10 +83,10 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutPaymentErrors.AlreadyStarted;
         if (!CheckoutPaymentStatusReader.Startable(quote))
             return CheckoutPaymentErrors.Unsupported;
-        return await orders.IncreaseStillCurrentAsync(quote, clock.GetUtcNow(), ct) &&
-            await orders.ReductionOrderCurrentAsync(quote, clock.GetUtcNow(), ct) &&
-            (await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct))?.Matches(quote) == true
-            ? null : CheckoutOrderErrors.Changed;
+        var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
+        if (!await CheckoutRenewalPolicy.SourceIsCurrentAsync(orders, quote, now, ct))
+            return CheckoutOrderErrors.Changed;
+        return null;
     }
 
     private async Task DispatchAsync(StoredPaymentAttempt attempt, CancellationToken ct)

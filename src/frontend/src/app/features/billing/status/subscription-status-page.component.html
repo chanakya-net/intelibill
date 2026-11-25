@@ -105,6 +105,8 @@
             @if (item.status.basis === 'Paid') {
               <app-subscription-cancellation [account]="account" [term]="item.status" (saved)="load()" />
               <app-subscription-cancellation-withdrawal [account]="account" [term]="item.status" (saved)="load()" />
+              <a [routerLink]="['/billing/accounts', account, 'subscriptions', item.status.termId, 'slots']"
+                data-testid="slot-open">{{ 'billing.slot.heading' | transloco }}</a>
               <app-capacity-reduction-preview [account]="account" [term]="item.status" (changed)="load()" />
             }
             @if (item.status.basis === 'Paid' || item.status.basis === 'Trial') {
