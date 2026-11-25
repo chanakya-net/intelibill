@@ -6,6 +6,8 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 internal sealed partial class FakeRazorpay
 {
+    internal HttpStatusCode RefundGetFailure { get; set; } = HttpStatusCode.ServiceUnavailable;
+
     internal List<JsonObject> Refunds { get; } = [];
 
     private HttpResponseMessage? RefundRoute(HttpRequestMessage request, string[] parts, string? body)
@@ -31,7 +33,7 @@ internal sealed partial class FakeRazorpay
             if (FailRefundGets > 0)
             {
                 FailRefundGets--;
-                return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
+                return Json(RefundGetFailure, new JsonObject());
             }
             if (Refunds.SingleOrDefault(r => r["id"]!.GetValue<string>() == reference && r["payment_id"]!.GetValue<string>() == pay) is { } found)
                 return Json(HttpStatusCode.OK, Copy(found));

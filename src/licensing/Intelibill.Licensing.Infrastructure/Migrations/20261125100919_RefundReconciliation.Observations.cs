@@ -53,7 +53,7 @@ public sealed partial class RefundReconciliation
     private static readonly string Finish = $$"""
         CREATE FUNCTION public.finish_refund(claim uuid,at_time timestamptz,outcome text,detail text,remote text)
         RETURNS SETOF uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
-        DECLARE a public.refund_attempts; previous text; bound text; sent boolean;
+        DECLARE a public.refund_attempts; previous text; bound text; sent boolean; read_deferred boolean;
         BEGIN
             SELECT r.* INTO a FROM public.refund_work w JOIN public.refund_attempts r USING(reservation_id)
                 WHERE w.token=claim AND {{WorkerScope}};
@@ -82,14 +82,17 @@ public sealed partial class RefundReconciliation
                 detail:='ConflictingProviderState';
             END IF;
             IF previous='Confirmed' OR (previous='Failed' AND outcome<>'Confirmed') THEN outcome:=previous; END IF;
+            -- A missing local credential made no provider read. Keep the read budget available until it returns.
+            read_deferred := sent AND outcome='Unknown' AND detail='OriginalAdapterUnavailable';
             UPDATE public.refund_work SET token=NULL,lease_until=NULL,state=outcome,last_check=at_time,
                 reason=detail,refund_reference=coalesce(bound,refund_reference),
                 candidate_reference=CASE WHEN coalesce(bound,refund_reference) IS NOT NULL THEN NULL
-                    WHEN wake_pending AND candidate_reference IS NOT NULL THEN candidate_reference
-                    WHEN remote IS NOT NULL AND detail IN ('TransportUnavailable','LookupUnavailable') THEN remote
-                    ELSE NULL END,
-                checks=least(checks+1,12),
+                    WHEN wake_pending AND candidate_reference IS NOT NULL AND candidate_reference IS DISTINCT FROM remote THEN candidate_reference
+                    WHEN detail IN ('CandidateMismatch','ConflictingReference') THEN NULL
+                    ELSE coalesce(remote,candidate_reference) END,
+                checks=CASE WHEN read_deferred THEN checks ELSE least(checks+1,12) END,
                 due_at=CASE WHEN wake_pending THEN at_time
+                    WHEN read_deferred THEN at_time+interval '5 minutes'
                     WHEN outcome IN ('Confirmed','Failed')
                         OR detail IN ('BelowProviderMinimum','ProviderRefundUnsupported','LiveDispatchDisabled')
                         OR (sent AND checks>=11) THEN 'infinity'::timestamptz

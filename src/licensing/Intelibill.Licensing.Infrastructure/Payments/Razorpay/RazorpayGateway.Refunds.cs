@@ -101,9 +101,11 @@ internal sealed partial class RazorpayGateway
         };
         if (state is null || Text(row, "entity") != "refund" || Text(row, "id") is not { } id ||
             !SafeReference(id, "rfnd_") || (reference is not null && reference != id) ||
-            Text(row, "receipt") != request.Receipt || Text(row, "payment_id") != request.ProviderPaymentReference ||
-            Text(row, "currency") != request.Currency || Property(row, "amount") is not { ValueKind: JsonValueKind.Number } amount ||
-            !amount.TryGetInt64(out var paise) || paise != request.AmountPaise) return GatewayResult.Rejected<RefundObservation>();
+            Text(row, "receipt") is not { Length: > 0 } receipt || Text(row, "payment_id") != request.ProviderPaymentReference ||
+            Text(row, "currency") is not { Length: 3 } currency || Property(row, "amount") is not { ValueKind: JsonValueKind.Number } amount ||
+            !amount.TryGetInt64(out var paise)) return GatewayResult.Rejected<RefundObservation>();
+        if (receipt != request.Receipt) return new RefundReceiptMismatch();
+        if (currency != request.Currency || paise != request.AmountPaise) return GatewayResult.Rejected<RefundObservation>();
         return GatewayResult.Success(new RefundObservation(Pin, id, state.Value, paise, request.Currency,
             request.ProviderPaymentReference, request.Receipt));
     }

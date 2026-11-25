@@ -60,9 +60,11 @@ internal sealed class RefundApprovalStore(LicensingDbContext db, SubscriptionAcc
         var state = await db.Database.SqlQuery<TargetState>($"""
             SELECT coalesce((SELECT max(d.term_revision) FROM public.refund_access_decisions d
                     WHERE d.account_id = {account} AND d.term_id = {term}), 0)::bigint AS term_revision,
-                public.refund_term_committed({account}, {term}) AS committed
+                public.refund_term_committed({account}, {term}) AS committed,
+                coalesce((SELECT max(i.target_revision) FROM public.capacity_increases i
+                    WHERE i.account_id = {account} AND i.term_id = {term} AND i.state = 'Applied'), 0)::bigint AS capacity_revision
             """).SingleAsync(ct);
-        return new(row, shops, state.TermRevision, state.Committed);
+        return new(row, shops, state.TermRevision, state.Committed, state.CapacityRevision);
     }
 
     public async Task<StoredRefundApproval?> FindAsync(Guid account, Guid operationKey, CancellationToken ct)
@@ -110,7 +112,7 @@ internal sealed class RefundApprovalStore(LicensingDbContext db, SubscriptionAcc
             """, ct);
     }
 
-    private sealed record TargetState(long TermRevision, bool Committed);
+    private sealed record TargetState(long TermRevision, bool Committed, long CapacityRevision);
 
     private sealed record ReceiptRow(Guid ApprovalId, Guid ReservationId, Guid DecisionId, Guid AccountId,
         Guid RefundRequestId, Guid OrderId, Guid ConfirmationId, Guid OperationKey, long AmountPaise,

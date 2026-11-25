@@ -100,7 +100,7 @@ public sealed partial class P0610Tests
     }
 
     [Fact]
-    public async Task AlreadyAppliedCapacityIncreaseAtApprovalStillPermitsReviewedTreatment()
+    public async Task PaidCapacityIncreaseInvalidatesEndAtPreviewBeforeReservation()
     {
         await using var fixture = await P0609Tests.StartAsync(database, Instant);
         var (package, request, _, _) = await RequestedAsync(fixture, 6000);
@@ -109,16 +109,36 @@ public sealed partial class P0610Tests
         var term = original.GetProperty("termId").GetGuid();
         var originalPaid = original.GetProperty("paidThrough").GetDateTimeOffset();
 
-        await ApplySeatIncreaseAsync(fixture, package, term, originalPaid);
+        var originalDeadline = original.GetProperty("accessEndsAt").GetDateTimeOffset();
         using var finance = await P0306Tests.SignInBillingAsync(fixture.Checkout);
         var boundary = Instant.AddDays(3);
-        await ApproveEndAsync(finance, package.Account, request, boundary);
+        var stale = Command(await PreviewAsync(finance, package.Account, request, 4500, "EndAt", boundary),
+            4500, "EndAt", boundary);
+        await ApplySeatIncreaseAsync(fixture, package, term, originalPaid);
+        await AssertCodeAsync(await ApproveAsync(finance, package.Account, request, stale),
+            HttpStatusCode.Conflict, "Refund.PreviewStale");
+        Assert.Equal(0L, await fixture.CountAsync("refund_approvals"));
+        Assert.Equal(0L, await fixture.CountAsync("refund_attempts"));
+        foreach (var shop in package.Shops)
+            Assert.Equal(originalDeadline.UtcDateTime,
+                (await ReadMerchantLicenseStateAsync(fixture.Checkout.Delivery.MerchantDb, shop.ShopId)).AccessEndsAt);
+
+        var refreshed = Command(await PreviewAsync(finance, package.Account, request, 4500, "EndAt", boundary),
+            4500, "EndAt", boundary);
+        var approved = await ReadAsync(await ApproveAsync(finance, package.Account, request, refreshed), HttpStatusCode.Created);
+        Assert.Equal(1L, await fixture.CountAsync("refund_attempts", $"""
+            capacity_revision > 0 AND capacity_revision=(SELECT max(target_revision) FROM capacity_increases
+                WHERE term_id='{term}' AND state='Applied')
+            """));
+        var replay = await ReadAsync(await ApproveAsync(finance, package.Account, request, refreshed), HttpStatusCode.OK);
+        Assert.Equal(approved.GetProperty("reservationId").GetGuid(), replay.GetProperty("reservationId").GetGuid());
 
         await PumpRefundsAsync(fixture);
         await P0608Tests.DrainAsync(fixture);
 
         Assert.Equal(1L, await fixture.CountAsync("refund_work", "state='Confirmed'"));
         Assert.Equal(1L, await fixture.CountAsync("refund_applications", "disposition='Applied'"));
+        Assert.Equal(1L, await fixture.CountAsync("refund_sends"));
         foreach (var shop in package.Shops)
         {
             Assert.Equal(boundary, (await ShopTermAsync(package, shop)).GetProperty("accessEndsAt").GetDateTimeOffset());

@@ -32,7 +32,7 @@ internal sealed partial class FakeRazorpay(string fixtureKeyId = FakeRazorpay.Ke
     internal int FailOrderReads { get; set; }
     /// <summary>The next <c>n</c> reads of a payment entity answer 503, as a transient provider outage would.</summary>
     internal int FailPaymentReads { get; set; }
-    /// <summary>The next <c>n</c> direct reads of a refund entity answer 503, as a transient provider outage would.</summary>
+    /// <summary>The next <c>n</c> direct refund reads answer with the selected fixture failure.</summary>
     internal int FailRefundGets { get; set; }
     /// <summary>Added to the <c>count</c> every collection answer states, to model a truncated or inconsistent page.</summary>
     internal int CollectionCountOffset { get; set; }

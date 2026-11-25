@@ -96,7 +96,7 @@ internal sealed class RefundAttemptDispatcher(LicensingDbContext db, IPaymentGat
             if (direct.Outcome == GatewayOutcome.Unavailable) return new("Unknown", "LookupUnavailable", candidate);
             var discovered = await gateway.GetRefundAsync(request, null, ct);
             if (Matches(discovered, request, null)) return Observed(discovered.Value!);
-            return new("Unknown", direct.Outcome == GatewayOutcome.Rejected ? "CandidateMismatch" : "LookupUnproven", candidate);
+            return new("Unknown", direct is RefundReceiptMismatch ? "CandidateMismatch" : "LookupUnproven", candidate);
         }
         var listed = await gateway.GetRefundAsync(request, null, ct);
         return Matches(listed, request, null) ? Observed(listed.Value!)

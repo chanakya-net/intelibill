@@ -43,8 +43,9 @@ public static class RefundAccessPolicy
 
     /// <summary>Binds the reviewed preview: the payment pin, policy, treatment, instants and the live named scope.</summary>
     public static string Digest(RefundApprovalSource source, RefundAccessTarget? target, RefundAccessImpact access,
-        long amount, RefundReceiptLedger ledger) =>
-        CheckoutOrdersV1.Digest(RefundApprovalRules.Policy, "impact", source.RefundRequestId, source.ConfirmationId,
+        long amount, RefundReceiptLedger ledger)
+    {
+        var digest = CheckoutOrdersV1.Digest(RefundApprovalRules.Policy, "impact", source.RefundRequestId, source.ConfirmationId,
             amount, ledger.Revision, ledger.OccupiedPaise, source.PaymentAmountPaise - ledger.OccupiedPaise,
             source.PaymentAmountPaise, source.RequestedAmountPaise, source.ProviderId, source.ProviderAccountId,
             source.Environment, source.ConfigurationVersion, source.RefundPolicyVersion, access.Treatment, access.TermId,
@@ -52,6 +53,12 @@ public static class RefundAccessPolicy
             Instant(access.PreviousAccessEndsAt), Instant(access.NewPaidThrough), Instant(access.NewAccessEndsAt),
             target?.Shops.Select(shop => new object?[] { shop.ShopId, shop.RequestId, shop.ShopName, shop.Restricted,
                 Instant(shop.ScheduledRestrictionAt), shop.Closed, Instant(shop.CourtesyEndsAt) }).ToArray());
+
+        // Preserve the original digest for unchanged terms and decisions that leave access alone.
+        // Approval re-reads this revision under the same account fence used by paid increases and attempt creation.
+        return access.Treatment != RefundApprovalRules.Preserve && target is { CapacityRevision: > 0 }
+            ? CheckoutOrdersV1.Digest("funded-capacity", digest, target.CapacityRevision) : digest;
+    }
 
     private static string? Instant(DateTimeOffset? value) => value is { } at ? CheckoutOrdersV1.Instant(at) : null;
 }

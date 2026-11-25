@@ -87,8 +87,11 @@ public sealed partial class P0610Tests
         Assert.Equal(1L, await fixture.CountAsync("refund_applications", "disposition='Applied'"));
     }
 
-    [Fact]
-    public async Task LostFirstGetAfterSuccessfulPostRetainsCandidateForDirectRecovery()
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task LostFirstGetAfterSuccessfulPostRetainsCandidateForDirectRecovery(HttpStatusCode failure)
     {
         var (fixture, fake, package, request, _, _, payment) = await StartRazorpayRefundAsync();
         await using var _ = fixture;
@@ -96,6 +99,7 @@ public sealed partial class P0610Tests
         var receipt = await ApproveAndReadReceiptAsync(finance, package.Account, request, 4500);
         for (var i = 0; i < 100; i++) fake.Refunds.Add(fake.RefundRecord(payment, Guid.NewGuid().ToString("N"), 100));
 
+        fake.RefundGetFailure = failure;
         fake.FailRefundGets = 1;
         await PumpRefundsAsync(fixture);
         var remoteId = fake.Refunds.Single(r => r["receipt"]!.GetValue<string>() == receipt)["id"]!.GetValue<string>();
@@ -145,6 +149,8 @@ public sealed partial class P0610Tests
         Assert.Equal(1L, await fixture.CountAsync("refund_bindings"));
         Assert.Equal(1L, await fixture.CountAsync("refund_work", $"state='Confirmed' AND refund_reference='{boundId}'"));
         Assert.Equal(1L, await fixture.CountAsync("refund_work", "state='Unknown' AND refund_reference IS NULL"));
+
+        Assert.Equal(0L, await fixture.CountAsync("refund_work", "candidate_reference IS NOT NULL"));
 
         // Delivering the authentic id afterwards still recovers and confirms the held second reservation without a new POST.
         using var validHint = await P0305Tests.SendAsync(ingress, RefundEventBody(payment, secondRemoteId, secondReceipt, 4500), "evt_valid_second");

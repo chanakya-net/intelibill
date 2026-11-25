@@ -7,7 +7,7 @@ public sealed record PaymentGatewayCapabilities(bool FullPaymentOnly, bool Refun
 
 public enum GatewayOutcome { Succeeded, Unsupported, Unavailable, Rejected, NotFound }
 
-public sealed record GatewayResult<T>(GatewayOutcome Outcome, T? Value);
+public record GatewayResult<T>(GatewayOutcome Outcome, T? Value);
 
 public static class GatewayResult
 {
@@ -60,6 +60,9 @@ public enum ObservedRefundState { Pending, Processed, Failed }
 
 public sealed record RefundObservation(PaymentProviderPin Pin, string ProviderRefundReference, ObservedRefundState State,
     long AmountPaise, string Currency, string? ProviderPaymentReference = null, string? Receipt = null);
+
+/// <summary>The authenticated refund resource belongs to a different receipt.</summary>
+public sealed record RefundReceiptMismatch() : GatewayResult<RefundObservation>(GatewayOutcome.Rejected, null);
 
 public static class GatewayEventKinds
 {

@@ -58,7 +58,7 @@ public sealed partial class RefundReconciliation
             IF NOT FOUND THEN RETURN false; END IF;
             INSERT INTO public.refund_sends VALUES(id,at_time) ON CONFLICT DO NOTHING;
             IF NOT FOUND THEN RETURN false; END IF;
-            UPDATE public.refund_work SET state='Unknown',reason='DispatchStarted' WHERE reservation_id=id;
+            UPDATE public.refund_work SET checks=0,state='Unknown',reason='DispatchStarted' WHERE reservation_id=id;
             RETURN true;
         END $$;
         REVOKE ALL ON FUNCTION public.start_refund_send(uuid,timestamptz) FROM PUBLIC;
