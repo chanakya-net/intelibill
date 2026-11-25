@@ -1,5 +1,3 @@
-using System.IO.Compression;
-
 namespace Intelibill.Licensing.Application.Documents;
 
 internal readonly record struct XRefEntry(byte Type, int Field2, int Field3);
@@ -26,7 +24,8 @@ internal static class PdfXRefStream
         var entryWidth = w0 + w1 + w2;
         if (totalCount > MaxDecodedBytes / entryWidth) return false;
         var expectedDecoded = totalCount * entryWidth;
-        if (!TryDecodePayload(content, dict, rawStream, expectedDecoded, entryWidth, out var decoded)) return false;
+        if (!PdfFilters.TryDecode(content, dict, rawStream, expectedDecoded, entryWidth, out var decoded)
+            || decoded.Length != expectedDecoded) return false;
         return ParseEntries(decoded, ranges, w0, w1, w2, content.Length, entries);
     }
 
@@ -90,144 +89,6 @@ internal static class PdfXRefStream
         }
         info = new XRefSectionInfo(root, prev, null);
         return true;
-    }
-
-    private static bool TryDecodePayload(ReadOnlySpan<byte> content, Dictionary<string, PdfRange> dict,
-        ReadOnlySpan<byte> rawStream, int expectedDecoded, int entryWidth, out byte[] decoded)
-    {
-        decoded = [];
-        if (!TryCheckFilter(content, dict, out var flate)) return false;
-        if (!flate)
-        {
-            if (rawStream.Length != expectedDecoded) return false;
-            decoded = rawStream.ToArray();
-            return true;
-        }
-        if (!TryReadPredictor(content, dict, entryWidth, out var predictor, out var columns, out var bytesPerPixel))
-            return false;
-        var rowWidth = columns * bytesPerPixel;
-        if (expectedDecoded % rowWidth != 0) return false;
-        var rows = expectedDecoded / rowWidth;
-        var encodedSize = predictor >= 10 ? rows * (rowWidth + 1) : expectedDecoded;
-        if (encodedSize > MaxDecodedBytes || !TryDecompressZlib(rawStream, encodedSize, out var inflated)) return false;
-        if (predictor == 1) { decoded = inflated; return true; }
-        return predictor == 2
-            ? TryUndoTiffPredictor(inflated, rows, rowWidth, bytesPerPixel, out decoded)
-            : TryUndoPngPredictor(inflated, rows, rowWidth, bytesPerPixel, out decoded);
-    }
-
-    private static bool TryCheckFilter(ReadOnlySpan<byte> content, Dictionary<string, PdfRange> dict, out bool flate)
-    {
-        flate = false;
-        if (!dict.TryGetValue("/Filter", out var range)) return true;
-        var value = PdfTokens.TrimEnd(PdfTokens.TrimStart(range.Slice(content)));
-        if (value.SequenceEqual("/FlateDecode"u8)) { flate = true; return true; }
-        if (value.Length > 2 && value[0] == (byte)'[' && value[^1] == (byte)']'
-            && PdfTokens.TrimEnd(PdfTokens.TrimStart(value[1..^1])).SequenceEqual("/FlateDecode"u8))
-        {
-            flate = true;
-            return true;
-        }
-        return false;
-    }
-
-    private static bool TryReadPredictor(ReadOnlySpan<byte> content, Dictionary<string, PdfRange> dict,
-        int defaultColumns, out int predictor, out int columns, out int bytesPerPixel)
-    {
-        predictor = 1;
-        columns = defaultColumns;
-        bytesPerPixel = 1;
-        if (!dict.TryGetValue("/DecodeParms", out var range)) return true;
-        var slice = PdfTokens.TrimEnd(PdfTokens.TrimStart(range.Slice(content)));
-        if (slice.SequenceEqual("null"u8)) return true;
-        var pos = 0;
-        if (slice.Length > 2 && slice[0] == (byte)'[' && slice[^1] == (byte)']')
-        {
-            slice = PdfTokens.TrimEnd(PdfTokens.TrimStart(slice[1..^1]));
-            if (slice.SequenceEqual("null"u8)) return true;
-        }
-        if (!PdfTokens.TryParseDictionary(slice, ref pos, out var parms)) return false;
-        if (parms.TryGetValue("/Predictor", out var p) && !PdfTokens.TryParseInt(p.Slice(slice), out predictor)) return false;
-        if (parms.TryGetValue("/Columns", out var c) && !PdfTokens.TryParseInt(c.Slice(slice), out columns)) return false;
-        var colors = 1;
-        var bpc = 8;
-        if (parms.TryGetValue("/Colors", out var cl) && !PdfTokens.TryParseInt(cl.Slice(slice), out colors)) return false;
-        if (parms.TryGetValue("/BitsPerComponent", out var bp) && !PdfTokens.TryParseInt(bp.Slice(slice), out bpc)) return false;
-        bytesPerPixel = colors;
-        return bpc == 8 && colors is >= 1 and <= 4 && columns is >= 1 and <= 64
-            && predictor is 1 or 2 or (>= 10 and <= 15);
-    }
-
-    private static bool TryDecompressZlib(ReadOnlySpan<byte> rawStream, int expectedLength, out byte[] output)
-    {
-        output = new byte[expectedLength];
-        try
-        {
-            using var input = new MemoryStream(rawStream.ToArray(), writable: false);
-            using var zlib = new ZLibStream(input, CompressionMode.Decompress);
-            var total = 0;
-            while (total < expectedLength)
-            {
-                var read = zlib.Read(output, total, expectedLength - total);
-                if (read == 0) return false;
-                total += read;
-            }
-            Span<byte> extra = stackalloc byte[1];
-            return zlib.Read(extra) == 0;
-        }
-        catch (InvalidDataException)
-        {
-            return false;
-        }
-    }
-
-    private static bool TryUndoTiffPredictor(byte[] inflated, int rows, int rowWidth, int bpp, out byte[] decoded)
-    {
-        decoded = new byte[rows * rowWidth];
-        for (var r = 0; r < rows; r++)
-        {
-            var offset = r * rowWidth;
-            for (var i = 0; i < rowWidth; i++)
-                decoded[offset + i] = i < bpp ? inflated[offset + i] : (byte)(inflated[offset + i] + decoded[offset + i - bpp]);
-        }
-        return true;
-    }
-
-    private static bool TryUndoPngPredictor(byte[] inflated, int rows, int rowWidth, int bpp, out byte[] decoded)
-    {
-        decoded = new byte[rows * rowWidth];
-        for (var r = 0; r < rows; r++)
-        {
-            var src = r * (rowWidth + 1);
-            var dst = r * rowWidth;
-            var filter = inflated[src];
-            if (filter > 4) return false;
-            for (var i = 0; i < rowWidth; i++)
-            {
-                var raw = inflated[src + 1 + i];
-                var left = i >= bpp ? decoded[dst + i - bpp] : (byte)0;
-                var up = r > 0 ? decoded[dst - rowWidth + i] : (byte)0;
-                var upLeft = r > 0 && i >= bpp ? decoded[dst - rowWidth + i - bpp] : (byte)0;
-                decoded[dst + i] = filter switch
-                {
-                    0 => raw,
-                    1 => (byte)(raw + left),
-                    2 => (byte)(raw + up),
-                    3 => (byte)(raw + ((left + up) >> 1)),
-                    _ => (byte)(raw + Paeth(left, up, upLeft)),
-                };
-            }
-        }
-        return true;
-    }
-
-    private static byte Paeth(byte a, byte b, byte c)
-    {
-        var p = a + b - c;
-        var pa = Math.Abs(p - a);
-        var pb = Math.Abs(p - b);
-        var pc = Math.Abs(p - c);
-        return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
     }
 
     private static bool ParseEntries(ReadOnlySpan<byte> decoded, List<(int First, int Count)> ranges,

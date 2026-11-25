@@ -143,24 +143,48 @@ internal static class PdfTokens
         return false;
     }
 
+    // Reads every reference of an array; more than maxItems is a refusal, never a silent truncation.
     public static bool TryParseIndirectRefArray(ReadOnlySpan<byte> value, int maxItems, out List<PdfRef> refs)
     {
         refs = [];
+        if (!TryParseArrayItems(value, maxItems, out var items)) return false;
+        foreach (var item in items)
+        {
+            if (!TryParseIndirectRef(item.Slice(value), out var reference)) return false;
+            refs.Add(reference);
+        }
+        return true;
+    }
+
+    public static bool TryParseArrayItems(ReadOnlySpan<byte> value, int maxItems, out List<PdfRange> items)
+    {
+        items = [];
         var pos = 0;
         SkipSpaceAndComments(value, ref pos);
         if (pos >= value.Length || value[pos] != (byte)'[') return false;
         pos++;
-        while (true)
+        while (items.Count <= maxItems)
         {
             SkipSpaceAndComments(value, ref pos);
-            if (pos >= value.Length) return false;
-            if (value[pos] == (byte)']') return true;
-            if (!TryReadToken(value, ref pos, out var numToken) || !TryNumber(numToken, out var number) || number < 1) return false;
-            if (!TryReadToken(value, ref pos, out var genToken) || !TryNumber(genToken, out var gen) || gen > 65535) return false;
-            SkipSpaceAndComments(value, ref pos);
-            if (!TryConsumeKeyword(value, ref pos, "R"u8)) return false;
-            if (refs.Count < maxItems) refs.Add(new PdfRef(number, gen));
+            if (pos < value.Length && value[pos] == (byte)']')
+            {
+                pos++;
+                SkipSpaceAndComments(value, ref pos);
+                return pos == value.Length;
+            }
+            if (items.Count == maxItems || !TryReadValue(value, ref pos, out var item)) return false;
+            items.Add(item);
         }
+        return false;
+    }
+
+    public static bool TryReadValue(ReadOnlySpan<byte> content, ref int pos, out PdfRange value)
+    {
+        SkipSpaceAndComments(content, ref pos);
+        var start = pos;
+        var ok = TrySkipValue(content, ref pos, 0);
+        value = new PdfRange(start, pos - start);
+        return ok && value.Length > 0;
     }
 
     public static bool TryConsumeStream(ReadOnlySpan<byte> content, int afterDict, int length,
