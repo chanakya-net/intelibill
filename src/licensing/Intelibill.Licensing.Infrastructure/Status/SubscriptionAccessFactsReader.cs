@@ -52,8 +52,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         if (binding.TrialTermId is null)
         {
             paidLink = await db.Database.SqlQuery<PaidLinkRow>($"""
-                SELECT term_id, coverage_from, slot_assignment_id
-                FROM public.shop_paid_link({binding.AffiliationAccountId}, {shop}, {binding.RequestId}, {at})
+                SELECT term_id, coverage_from, coverage_ends_at, slot_assignment_id, is_released
+                FROM public.shop_effective_paid_link({binding.AffiliationAccountId}, {shop}, {binding.RequestId}, {at})
                 """).SingleOrDefaultAsync(ct);
         }
 
@@ -100,8 +100,10 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             var paidFrom = binding.Trial is null && paidLink?.CoverageFrom is { } joined && joined.ToUniversalTime() > chainStart
                 ? joined.ToUniversalTime() : predecessors.Count > 0 ? chainStart : (DateTimeOffset?)null;
             var slotAssignmentId = binding.Trial is null ? paidLink?.SlotAssignmentId : null;
-            if (paidFrom is not null || slotAssignmentId is not null)
-                term = term with { PaidFrom = paidFrom, SlotAssignmentId = slotAssignmentId };
+            var handoffEndsAt = binding.Trial is null && paidLink is { IsReleased: true, CoverageEndsAt: { } end }
+                ? end.ToUniversalTime() : (DateTimeOffset?)null;
+            if (paidFrom is not null || slotAssignmentId is not null || handoffEndsAt is not null)
+                term = term with { PaidFrom = paidFrom, SlotAssignmentId = slotAssignmentId, HandoffEndsAt = handoffEndsAt };
         }
         return new ShopCoverage(binding.AffiliationAccountId, term, await ReadGrantsAsync(shop, binding.AffiliationAccountId, ct),
             predecessors, binding.ConvertedPaidStartsAt?.ToUniversalTime());
@@ -170,6 +172,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
 
     public async Task<IReadOnlyList<AccountTermRow>> ReadAccountAsync(Guid account, Guid? after, int take, CancellationToken ct)
     {
+        var at = SubscriptionStatusProjection.EvaluationInstant(clock);
         var terms = await Terms(account, null, after, take).ToListAsync(ct);
         if (terms.Count == 0) return [];
 
@@ -179,8 +182,11 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 SELECT term_id, shop_id, shop_name, count(*) OVER (PARTITION BY term_id) AS total,
                     row_number() OVER (PARTITION BY term_id ORDER BY shop_id) AS position
                 FROM (
-                    SELECT term_id, shop_id, shop_name
-                    FROM public.shop_affiliations WHERE account_id = {account} AND term_id = ANY({ids})
+                    SELECT t.term_id, er.shop_id, a.shop_name
+                    FROM unnest({ids}) AS t(term_id)
+                    CROSS JOIN LATERAL public.term_effective_roster({account}, t.term_id, {at}) er
+                    JOIN public.shop_affiliations a
+                        ON a.request_id = er.affiliation_request_id AND a.account_id = {account}
                     UNION ALL
                     SELECT h.term_id, h.shop_id, a.shop_name
                     FROM public.trial_history h JOIN public.shop_affiliations a USING (account_id, shop_id)
@@ -190,11 +196,6 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                     FROM public.complimentary_grant_shops l JOIN public.shop_affiliations a
                         ON a.request_id = l.affiliation_request_id AND a.account_id = l.account_id
                     WHERE l.account_id = {account} AND l.term_id = ANY({ids})
-                    UNION ALL
-                    SELECT p.term_id, p.shop_id, a.shop_name
-                    FROM public.payment_fulfilment_shops p JOIN public.shop_affiliations a
-                        ON a.request_id = p.affiliation_request_id AND a.account_id = p.account_id
-                    WHERE p.account_id = {account} AND p.term_id = ANY({ids})
                 ) assignments
             ) covered WHERE position <= {SubscriptionStatusV1.MaximumCoveredShops}
             ORDER BY term_id, shop_id
@@ -250,9 +251,14 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 AND ({paidShop}::uuid IS NULL OR f.basis = 'Paid' AND EXISTS (
                     SELECT FROM public.shop_affiliations s
                     WHERE s.shop_id = {paidShop} AND s.account_id = t.account_id
-                        AND (s.term_id = t.term_id OR EXISTS (SELECT FROM public.payment_fulfilment_shops l
-                            WHERE l.account_id = s.account_id AND l.shop_id = s.shop_id
-                                AND l.affiliation_request_id = s.request_id AND l.term_id = t.term_id))))
+                        AND (s.term_id = t.term_id
+                            OR EXISTS (SELECT FROM public.payment_fulfilment_shops l
+                                WHERE l.account_id = s.account_id AND l.shop_id = s.shop_id
+                                    AND l.affiliation_request_id = s.request_id AND l.term_id = t.term_id)
+                            OR EXISTS (SELECT FROM public.paid_slot_handoffs h
+                                WHERE h.account_id = s.account_id AND h.term_id = t.term_id
+                                    AND ((h.incoming_shop_id = s.shop_id AND h.incoming_affiliation_id = s.request_id)
+                                        OR (h.outgoing_shop_id = s.shop_id AND h.outgoing_affiliation_id = s.request_id))))))
             ORDER BY t.term_id LIMIT {take}
             """);
 
@@ -260,7 +266,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         Guid? TrialAccountId, Guid? TrialTermId, DateTimeOffset? ExtendedEndsAt,
         DateTimeOffset? ConvertedPaidStartsAt, string? Trial);
 
-    private sealed record PaidLinkRow(Guid TermId, DateTimeOffset? CoverageFrom, Guid? SlotAssignmentId);
+    private sealed record PaidLinkRow(Guid TermId, DateTimeOffset? CoverageFrom, DateTimeOffset? CoverageEndsAt,
+        Guid? SlotAssignmentId, bool IsReleased);
 
     private sealed record ShopTermRow(Guid TermId, Guid AccountId, string Mode, int Capacity,
         DateTimeOffset StartsAt, DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,

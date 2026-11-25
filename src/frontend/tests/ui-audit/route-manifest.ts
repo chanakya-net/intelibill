@@ -76,6 +76,15 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   shellRoute('billing/accounts/:accountId/members', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/early-replacements', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/early-replacement-consent/:accountId/:shopId/:exceptionId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    exceptionId: '00000000-0000-4000-8000-000000000003',
+  })),
   shellRoute('billing/accounts/:accountId/subscriptions/:termId/replacements', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
     termId: '00000000-0000-4000-8000-000000000002',

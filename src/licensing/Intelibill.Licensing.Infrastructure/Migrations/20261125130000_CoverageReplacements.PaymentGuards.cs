@@ -2,7 +2,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations;
 
 public sealed partial class CoverageReplacements
 {
-    private const string CheckoutGuard = """
+    internal const string CheckoutGuard = """
         CREATE OR REPLACE FUNCTION public.guard_checkout_order() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE named bigint;
         DECLARE hash text;
@@ -76,7 +76,7 @@ public sealed partial class CoverageReplacements
         END $$;
         """;
 
-    private const string LinkGuard = """
+    internal const string LinkGuard = """
         CREATE OR REPLACE FUNCTION public.guard_payment_fulfilment_shop() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE
             prior uuid;

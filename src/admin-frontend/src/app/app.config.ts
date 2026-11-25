@@ -86,6 +86,18 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.SuspensionPageComponent),
       },
       {
+        path: 'coverage-exceptions',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/coverage-exceptions/coverage-exception-page.component')
+          .then((m) => m.CoverageExceptionPageComponent),
+      },
+      {
+        path: 'accounts/:accountId/coverage-exceptions',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/coverage-exceptions/coverage-exception-page.component')
+          .then((m) => m.CoverageExceptionPageComponent),
+      },
+      {
         path: 'accounts',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/accounts/account-status-page.component')

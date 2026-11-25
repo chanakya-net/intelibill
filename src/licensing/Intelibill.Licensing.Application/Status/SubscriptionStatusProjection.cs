@@ -50,7 +50,8 @@ public static class SubscriptionStatusProjection
             row.Cancellation is { } saved ? new ScheduledCancellation(saved.EffectiveAt, saved.WithdrawnAt) : null,
             RenewedAtEnd: row.RenewedAtEnd,
             RefundBoundary: basis == SubscriptionBasis.Paid && row.RefundBoundary is { } decided
-                ? new RefundAccessBoundary(decided.PaidThrough, decided.AccessEndsAt) : null);
+                ? new RefundAccessBoundary(decided.PaidThrough, decided.AccessEndsAt) : null,
+            HandoffEndsAt: basis == SubscriptionBasis.Paid ? row.HandoffEndsAt : null);
     }
 
     // A scheduled cancellation is an odd revision; a withdrawal is the next even one, recorded before the boundary.

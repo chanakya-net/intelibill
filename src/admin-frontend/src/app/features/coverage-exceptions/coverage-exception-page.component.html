@@ -1,0 +1,202 @@
+<main>
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Merchant Licensing</p>
+    <h1 class="ib-page-title">Early coverage-replacement review</h1>
+    <p class="ib-subtitle">
+      Inspect owner consents, remaining paid access allocation, known offline permits, and unknown disconnected device queues before approving an early shop replacement.
+    </p>
+  </header>
+
+  @if (!allowed()) {
+    <p class="ib-error-banner" role="alert" data-testid="exception-denied">
+      Only a Licensing Manager can review or approve early coverage-replacement exceptions.
+    </p>
+  } @else {
+    <form class="ib-panel" (submit)="lookup($event)">
+      <div class="adm-lookup-bar">
+        <div class="adm-field">
+          <label for="exception-account">Billing account ID</label>
+          <input id="exception-account" data-testid="exception-account-input" autocomplete="off" spellcheck="false"
+            placeholder="00000000-0000-0000-0000-000000000000"
+            [value]="accountInput()" (input)="accountInput.set($any($event.target).value)" />
+        </div>
+        <button pButton type="submit" data-testid="exception-lookup" [disabled]="busy()">Load requests</button>
+        @if (account()) {
+          <button pButton type="button" class="p-button-outlined" data-testid="exception-refresh"
+            [disabled]="busy()" (click)="refresh()">Refresh</button>
+        }
+      </div>
+    </form>
+
+    @if (error()) {
+      <p class="ib-error-banner" role="alert" data-testid="exception-error">{{ error() }}</p>
+    }
+    @if (reauthenticate()) {
+      <p class="adm-callout adm-callout--warn">
+        <a routerLink="/auth/sign-in" [queryParams]="{ returnTo: '/accounts/' + account() + '/coverage-exceptions', exception: selectedId() }"
+          data-testid="exception-sign-in">Sign in again with MFA</a>
+      </p>
+    }
+
+    @if (account()) {
+      <section class="ib-panel" aria-labelledby="exc-list-heading">
+        <div class="adm-panel-head">
+          <h2 id="exc-list-heading" class="ib-panel__title">Exception requests</h2>
+        </div>
+        <ul class="exc-list">
+          @for (item of items(); track item.exceptionId) {
+            <li class="adm-subcard exc-row" data-testid="exception-row">
+              <div>
+                <strong>{{ item.outgoingShopName }} → {{ item.incomingShopName }}</strong>
+                <p class="adm-panel-sub">
+                  State: <span data-testid="exception-row-state">{{ item.state }}</span> ·
+                  Disposition: {{ item.overlapDisposition === 'CourtesyBridge' ? 'Separate courtesy bridge' : 'Wait until cutover' }} ·
+                  Paid cutover: {{ instant(item.paidCutoverAt) }}
+                </p>
+              </div>
+              <button pButton type="button" data-testid="exception-select" [disabled]="busy()"
+                (click)="select(item.exceptionId)">Review exception</button>
+            </li>
+          } @empty {
+            <li class="adm-callout">No early coverage-replacement exceptions exist for this account.</li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (pending(); as frozen) {
+      <section class="ib-panel" data-testid="exception-pending" aria-labelledby="exc-pending-heading">
+        <h2 id="exc-pending-heading" class="ib-panel__title">Approval in progress or outcome unknown</h2>
+        <p class="adm-callout adm-callout--warn">
+          Operation key <code>{{ frozen.operationKey }}</code> was frozen before dispatch. Check whether it already committed or retry with the same key.
+        </p>
+        <div class="adm-actions">
+          <button pButton type="button" data-testid="exception-check" [disabled]="busy()" (click)="resolvePending(true)">
+            Check saved approval
+          </button>
+          <button pButton type="button" class="p-button-outlined" data-testid="exception-retry" [disabled]="busy()" (click)="resolvePending(false)">
+            Retry with original key
+          </button>
+        </div>
+      </section>
+    }
+
+    @if (preview(); as p) {
+      <section class="ib-panel" data-testid="exception-preview" aria-labelledby="exc-preview-heading">
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 id="exc-preview-heading" class="ib-panel__title">{{ p.outgoingShopName }} → {{ p.incomingShopName }}</h2>
+            <p class="adm-panel-sub">Proposal revision {{ p.proposalRevision }} · State: {{ p.state }}</p>
+          </div>
+          <span class="adm-pill" [class.adm-pill--success]="p.canApprove" [class.adm-pill--warn]="!p.canApprove">
+            {{ p.canApprove ? 'Ready for approval' : p.state }}
+          </span>
+        </div>
+
+        <p class="adm-callout adm-callout--warn" data-testid="exception-unknown-queues">
+          {{ p.disconnectedQueuesNotice }}
+        </p>
+
+        <dl>
+          <dt>Outgoing shop (paid ends at cutover)</dt><dd>{{ p.outgoingShopName }}</dd>
+          <dt>Incoming shop (paid starts at cutover)</dt><dd>{{ p.incomingShopName }}</dd>
+          <dt>Normal renewal date</dt><dd data-testid="exception-normal-renewal">{{ instant(p.normalRenewalAt) }}</dd>
+          <dt>Requested early start</dt><dd>{{ instant(p.requestedEarlyStartAt) }}</dd>
+          <dt>Paid slot cutover</dt><dd data-testid="exception-paid-cutover">{{ instant(p.paidCutoverAt) }}</dd>
+          <dt>Overlap treatment</dt>
+          <dd data-testid="exception-disposition">
+            @if (p.courtesyGrantWillBeCreated) {
+              <strong>Separate auditable courtesy grant</strong> ({{ instant(p.courtesyStartsAt) }} to {{ instant(p.courtesyEndsAt) }}, no paid duplication; no grace)
+            } @else {
+              Wait until paid cutover (no courtesy overlap)
+            }
+          </dd>
+          <dt>Purchased capacity / members</dt><dd>{{ p.capacity }} shops · {{ p.memberAllowance }} members per shop</dd>
+          <dt>Observed outgoing permit deadline</dt>
+          <dd data-testid="exception-permit-deadline">
+            {{ p.observedPermitDeadline ? instant(p.observedPermitDeadline) : 'None observed on server (disconnected queues unknown)' }}
+            ({{ p.observedPermitCount }} active observed)
+          </dd>
+          <dt>Last device contact / sync</dt>
+          <dd>Contact: {{ instant(p.lastContactAt) ?? 'None' }} · Sync: {{ instant(p.lastSynchronizedAt) ?? 'None' }}</dd>
+          <dt>Billing owner acknowledgement</dt>
+          <dd data-testid="exception-billing-owner">
+            {{ p.billingOwnerCurrent ? 'Current Billing Owner' : 'Billing Owner changed' }} ·
+            Merchant acknowledgements recorded: {{ p.billingOwnerAcknowledged ? 'Yes' : 'No' }}
+          </dd>
+          <dt>Outgoing owner consent ({{ p.outgoingConsent.shopName }})</dt>
+          <dd data-testid="exception-outgoing-consent">{{ p.outgoingConsent.status }}</dd>
+          <dt>Incoming owner consent ({{ p.incomingConsent.shopName }})</dt>
+          <dd data-testid="exception-incoming-consent">
+            {{ p.incomingConsent.status }}
+            @if (p.incomingConsent.activeMembers !== null) {
+              ({{ p.incomingConsent.activeMembers }} active members / {{ p.memberAllowance }} allowed)
+            }
+          </dd>
+          <dt>Merchant request reason</dt><dd>{{ p.requestReason }}</dd>
+        </dl>
+
+        @if (p.blockingReasons.length) {
+          <div class="adm-callout adm-callout--warn" data-testid="exception-blocking">
+            <strong>Blocking conditions:</strong> {{ p.blockingReasons.join(', ') }}
+          </div>
+        }
+
+        @if (p.canApprove && !pending()) {
+          <div data-testid="exception-approval-form">
+            <div class="adm-field">
+              <label for="exception-review-reason">Licensing Manager review reason (required)</label>
+              <textarea id="exception-review-reason" rows="3" maxlength="500" data-testid="exception-reason"
+                [value]="reason()" (input)="editReason($event)"
+                placeholder="Document the verified reason, permit treatment, and courtesy scope"></textarea>
+            </div>
+            <label class="exc-check">
+              <input type="checkbox" data-testid="exception-confirm-check" [checked]="confirmed()" (change)="toggleConfirm($event)" />
+              <span>
+                I confirm the named shops, remaining paid access allocation, observed and unknown disconnected offline device permissions,
+                and explicit {{ p.courtesyGrantWillBeCreated ? 'separate complimentary courtesy bridge' : 'wait-until-cutover treatment' }}.
+              </span>
+            </label>
+            <div class="adm-actions">
+              <button pButton type="button" data-testid="exception-approve" [disabled]="!canSubmit()" (click)="approve()">
+                Approve early replacement
+              </button>
+            </div>
+          </div>
+        }
+      </section>
+    }
+
+    @if (receipt(); as r) {
+      <section class="ib-panel" data-testid="exception-receipt" aria-labelledby="exc-receipt-heading">
+        <div class="adm-panel-head">
+          <h2 id="exc-receipt-heading" class="ib-panel__title">Recorded approval</h2>
+          <span class="adm-pill" [class.adm-pill--success]="r.state === 'Applied'"
+            [class.adm-pill--warn]="r.state === 'Preparing' || r.state === 'Consuming'"
+            [class.adm-pill--danger]="r.state === 'Refused' || r.state === 'Aborted'"
+            data-testid="exception-receipt-state">{{ r.state }}</span>
+        </div>
+        <dl>
+          <dt>Approval ID</dt><dd><code>{{ r.approvalId }}</code></dd>
+          <dt>Operation key</dt><dd><code>{{ r.operationKey }}</code></dd>
+          <dt>Disposition</dt><dd>{{ r.disposition }}</dd>
+          <dt>Review reason</dt><dd>{{ r.reason }}</dd>
+          @if (r.outcomeReason) {
+            <dt>Outcome detail</dt><dd data-testid="exception-outcome-reason">{{ r.outcomeReason }}</dd>
+          }
+          @if (r.courtesyGrantId) {
+            <dt>Separate courtesy grant ID</dt><dd data-testid="exception-courtesy-grant"><code>{{ r.courtesyGrantId }}</code></dd>
+            <dt>Courtesy window (non-paid)</dt><dd>{{ instant(r.courtesyStartsAt) }} → {{ instant(r.courtesyEndsAt) }}</dd>
+          }
+          <dt>Paid slot handoff window</dt><dd>{{ instant(r.paidCutoverAt) }} → {{ instant(r.normalRenewalAt) }}</dd>
+          <dt>Outgoing leg projection</dt><dd data-testid="exception-leg-outgoing">{{ activationLabel(r.outgoingActivation) }}</dd>
+          <dt>Courtesy bridge projection</dt><dd data-testid="exception-leg-courtesy">{{ activationLabel(r.courtesyActivation) }}</dd>
+          <dt>Incoming paid leg projection</dt><dd data-testid="exception-leg-incoming">{{ activationLabel(r.incomingActivation) }}</dd>
+        </dl>
+      </section>
+    }
+  }
+</main>

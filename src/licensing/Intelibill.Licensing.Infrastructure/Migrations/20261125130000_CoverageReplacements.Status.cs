@@ -6,7 +6,7 @@ public sealed partial class CoverageReplacements
 {
     // A verified merchant wait releases only this lease. The normal finish statement then finds
     // no leased row. Real delivery failures still consume their ordinary retry budget.
-    private static string DeferWhileOutgoingPermissionRemains => $$"""
+    internal static string DeferWhileOutgoingPermissionRemains => $$"""
         UPDATE public.entitlement_outbox o
         SET status='Pending', attempts=attempts-1, last_failure=NULL, lease_token=NULL, lease_expires_at=NULL,
             next_attempt_at=p_now + interval '1 minute'

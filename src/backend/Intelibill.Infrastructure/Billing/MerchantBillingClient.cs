@@ -20,7 +20,7 @@ internal sealed partial class MerchantBillingClient(
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials,
     TimeProvider clock, MerchantClosureConsentStore closures, CoverageSlotConsentStore slotConsents,
-    ReplacementConsentStore replacementConsents)
+    ReplacementConsentStore replacementConsents, CoverageExceptionConsentStore exceptionConsents)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
         IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders, IMerchantShopClosures
 {
@@ -172,6 +172,16 @@ internal sealed partial class MerchantBillingClient(
                     "Coverage.ReplacementInvalid" => Error.Validation("Coverage.ReplacementInvalid"),
                     "Coverage.ReplacementChanged" => Error.Conflict("Coverage.ReplacementChanged"),
                     "Coverage.ReplacementNotFound" => Error.NotFound("Coverage.ReplacementNotFound"),
+                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+                    _ => MerchantBillingErrors.Unavailable,
+                };
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CoverageReplacementExceptionsV1.IsAction(action):
+                return await ReadProblemCodeAsync(response, cancellationToken) switch
+                {
+                    "Coverage.ExceptionInvalid" => Error.Validation("Coverage.ExceptionInvalid"),
+                    "Coverage.ExceptionChanged" => Error.Conflict("Coverage.ExceptionChanged"),
+                    "Coverage.ExceptionNotFound" => Error.NotFound("Coverage.ExceptionNotFound"),
+                    "Coverage.ExceptionConsentsRequired" => Error.Conflict("Coverage.ExceptionConsentsRequired"),
                     "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
                     _ => MerchantBillingErrors.Unavailable,
                 };

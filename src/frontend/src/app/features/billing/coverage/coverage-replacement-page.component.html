@@ -4,6 +4,9 @@
   @if (scope(); as s) {
     @if (preview(); as p) {
       <p>{{ 'billing.status.paidThrough' | transloco }} · <time data-testid="replacement-boundary" [attr.datetime]="p.effectiveAt">{{ instant(p.effectiveAt) }}</time></p>
+      <a data-testid="early-replacement-link" [routerLink]="['/billing/accounts', s.account, 'subscriptions', s.term, 'early-replacements']">
+        {{ 'billing.earlyReplacement.heading' | transloco }}
+      </a>
       @if (!draft() && p.canSchedule && p.eligibleShops.length && p.coveredShops.length) {
         <fieldset aria-labelledby="replacement-heading" [disabled]="busy()">
           <label>{{ 'billing.replacement.outgoing' | transloco }}

@@ -61,7 +61,9 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         var savedMarkers = bound && shop is not null && snapshot.Shop?.Revision == shop.Revision
             ? await CoverageActivationEvidence.ReadAsync(db, shop.EvidenceId, ct) : null;
         var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt,
-            savedMarkers?.SlotAssignment, savedMarkers?.Replacement, savedMarkers?.ReleasedReplacement) : "AffiliationUnresolved";
+            savedMarkers?.SlotAssignment, savedMarkers?.Replacement, savedMarkers?.ReleasedReplacement,
+            savedMarkers?.ReplacementException, savedMarkers?.ReplacementExceptionLeg, savedMarkers?.ReplacementExceptionGeneration)
+            : "AffiliationUnresolved";
         Guid? activatingAssignment = null;
         if (reason is null)
         {
@@ -70,10 +72,11 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             else activatingAssignment = slotCheck.ActivatingAssignmentId;
         }
         var nextShopHead = shop is null || snapshot.Shop!.Revision > shop.Revision;
+        var nextAccountHead = account is null || snapshot.Account!.Revision > account.Revision;
+        var candShop = reason is null ? BuildCandidateShop(snapshot, shop, nextShopHead) : null;
+        var candAccount = reason is null ? BuildCandidateAccount(snapshot, account, nextAccountHead) : null;
         var replacement = reason is null && nextShopHead && snapshot.Shop!.ReplacementId is { } marker
-            && CanEnableTrading(BuildCandidateShop(snapshot, shop, true),
-                BuildCandidateAccount(snapshot, account, account is null || snapshot.Account!.Revision > account.Revision), out _)
-            ? marker : (Guid?)null;
+            && CanEnableTrading(candShop!, candAccount!, out _) ? marker : (Guid?)null;
         Guid? confirmedReplacement = null;
         if (replacement is { } id)
         {
@@ -83,14 +86,35 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             else confirmedReplacement = id;
             if (gate != "Ready") replacement = null;
         }
+        (Guid Id, string Leg, long Generation)? exceptionActivation = null;
+        (Guid Id, string Leg, long Generation)? confirmedException = null;
+        if (reason is null && nextShopHead && snapshot.Shop is
+            { ReplacementExceptionId: { } exId, ReplacementExceptionLeg: { } exLeg, ReplacementExceptionGeneration: { } exGen })
+        {
+            var needsCheck = exLeg == CoverageReplacementExceptionsV1.OutgoingLeg
+                || CanEnableTrading(candShop!, candAccount!, out _, allowComplimentary: exLeg == CoverageReplacementExceptionsV1.IncomingCourtesyLeg);
+            if (needsCheck)
+            {
+                var gate = await CoverageExceptionActivationGate.CheckAsync(db, snapshot, exId, exLeg, exGen,
+                    (businessClock ?? clock).GetUtcNow(), ct);
+                if (gate == "Waiting") return Error.Conflict(CoverageReplacementExceptionsV1.AwaitingRelease);
+                if (gate == "Invalid") reason = "ConflictingShopScope";
+                else
+                {
+                    confirmedException = (exId, exLeg, exGen);
+                    if (gate == "Ready") exceptionActivation = (exId, exLeg, exGen);
+                }
+            }
+        }
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
-        var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
-        var nextShop = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
+        var nextAccount = reason is null && nextAccountHead;
+        var nextShop = reason is null && nextShopHead;
         var ack = new EntitlementAcknowledgementV1(1, snapshot.EventId, proof.Digest, snapshot.AccountId, snapshot.ShopId,
             snapshot.AffiliationRequestId, snapshot.Account?.Revision, snapshot.Shop?.Revision,
             nextAccount ? snapshot.Account!.Revision : bound ? account?.Revision : null,
             nextShop ? snapshot.Shop!.Revision : bound ? shop?.Revision : null,
-            reason is null ? "Applied" : "NeedsReview", reason ?? (nextAccount || nextShop ? "Applied" : "Superseded"), appliedAt, confirmedReplacement);
+            reason is null ? "Applied" : "NeedsReview", reason ?? (nextAccount || nextShop ? "Applied" : "Superseded"),
+            appliedAt, confirmedReplacement, confirmedException?.Id, confirmedException?.Leg, confirmedException?.Generation);
         var receipt = JsonSerializer.SerializeToUtf8Bytes(ack, EntitlementSnapshotsV1.Json);
         if (!await ReserveInboxAsync(snapshot, proof.Digest, receipt, ct))
             return Conflict;
@@ -101,6 +125,8 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         await db.SaveChangesAsync(ct);
         if (replacement is { } activated)
             await ReplacementActivationGate.RecordAsync(db, snapshot, activated, appliedAt, ct);
+        if (exceptionActivation is { } exActivated)
+            await CoverageExceptionActivationGate.RecordAsync(db, snapshot, exActivated.Id, exActivated.Leg, exActivated.Generation, appliedAt, ct);
         if (activatingAssignment is { } activatedId)
             await SlotActivationGate.RecordAsync(db, activatedId, snapshot.ShopId, snapshot.AccountId, snapshot.EventId, appliedAt, ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
@@ -138,10 +164,12 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return activeMembers > allowance ? (true, null) : (false, assignmentId);
     }
 
-    private static bool CanEnableTrading(ShopLicenseState shop, AccountLicenseRestriction account, out int allowance)
+    private static bool CanEnableTrading(ShopLicenseState shop, AccountLicenseRestriction account, out int allowance,
+        bool allowComplimentary = false)
     {
         allowance = shop.MemberAllowance ?? 0;
-        if (shop.State is not ("Active" or "Grace") || shop.Basis != "Paid" || shop.TermId is null || allowance <= 0)
+        var validBasis = shop.Basis == "Paid" || (allowComplimentary && shop.Basis == "Complimentary");
+        if (shop.State is not ("Active" or "Grace") || !validBasis || shop.TermId is null || allowance <= 0)
             return false;
         var evalAt = shop.UpstreamVerifiedAt > account.UpstreamVerifiedAt ? shop.UpstreamVerifiedAt : account.UpstreamVerifiedAt;
         if (shop.StartsAt is not { } starts || shop.AccessEndsAt is not { } ends || starts > evalAt || ends <= evalAt)

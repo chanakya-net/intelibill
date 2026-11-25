@@ -4129,6 +4129,22 @@
         "mismatch": "This operation key was already used with different details.",
         "unavailable": "Could not load or save the capacity reduction right now. Try again shortly."
       }
+    },
+    "earlyReplacement": {
+      "heading": "Request an early shop replacement",
+      "earlyStart": "Requested early start (UTC ISO-8601)",
+      "paidCutover": "Paid slot cutover (UTC ISO-8601)",
+      "disposition": "Overlap treatment",
+      "wait": "Wait until paid cutover (no overlap)",
+      "courtesyBridge": "Separate auditable courtesy bridge (non-paid overlap)",
+      "reason": "Reason for early replacement",
+      "ackSelection": "I confirm the selected outgoing and incoming shops.",
+      "ackAllocation": "I understand the remaining paid access moves only once at the paid cutover without duplicating the paid slot.",
+      "ackPermits": "I understand existing offline permits cannot be remotely revoked and must be respected.",
+      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
+      "submit": "Submit for owner consents and provider review",
+      "outgoingConsentLink": "Outgoing owner consent",
+      "incomingConsentLink": "Incoming owner consent"
     }
   }
 }

@@ -113,6 +113,13 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
 
     public async Task SaveAsync(StoredComplimentaryGrant grant, CancellationToken ct)
     {
+        await SaveCoreAsync(grant, ct);
+        foreach (var shop in grant.Shops.OrderBy(shop => shop.ShopId))
+            await publisher.PublishAsync(grant.AccountId, shop.ShopId, ct);
+    }
+
+    internal async Task SaveCoreAsync(StoredComplimentaryGrant grant, CancellationToken ct)
+    {
         var facts = grant.Facts;
         var version = grant.ExpectedVersion + 1;
         if (grant.ExpectedVersion == 0)
@@ -150,8 +157,6 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
         if (facts.PaymentOrderId is { } order)
             await LinkAdjustmentAsync(grant, order, ct);
         await db.Database.ExecuteSqlRawAsync("SET CONSTRAINTS ALL IMMEDIATE", ct);
-        foreach (var shop in grant.Shops.OrderBy(shop => shop.ShopId))
-            await publisher.PublishAsync(grant.AccountId, shop.ShopId, ct);
     }
 
     private Task<int> LinkAdjustmentAsync(StoredComplimentaryGrant grant, Guid order, CancellationToken ct) =>

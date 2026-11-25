@@ -14,21 +14,37 @@ public sealed class EntitlementMerchantEvents
     private readonly EntitlementPublisher publisher;
     private readonly CoverageSlotConsentAcknowledgements slots;
     private readonly ReplacementConsentAcknowledgements replacements;
+    private readonly CoverageExceptionAcknowledgements coverageExceptions;
     private readonly CapacityReservationAcknowledgements increases;
     private readonly ReductionReservationAcknowledgements reductions;
 
     internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
         CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions, CoverageSlotConsentAcknowledgements slots,
-        ReplacementConsentAcknowledgements replacements)
+        ReplacementConsentAcknowledgements replacements, CoverageExceptionAcknowledgements coverageExceptions)
     {
         this.slots = slots;
         this.replacements = replacements;
+        this.coverageExceptions = coverageExceptions;
         this.increases = increases;
         this.reductions = reductions;
         this.db = db;
         this.clock = clock;
         this.publisher = publisher;
     }
+
+    public Task<ErrorOr<Success>> CoverageExceptionConsentAsync(CoverageReplacementExceptionConsentV1 c, byte[] body,
+        VerifiedServiceAssertion proof, CancellationToken ct) =>
+        !c.IsValid()
+            ? Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.ExceptionInvalid"))
+            : InEventAsync(c.AccountId, c.EventId, CoverageReplacementExceptionsV1.ConsentKind, body, proof,
+                token => coverageExceptions.ApplyConsentAsync(c, token), ct);
+
+    public Task<ErrorOr<Success>> CoverageExceptionReceiptAsync(CoverageExceptionReceiptV1 ack, byte[] body,
+        VerifiedServiceAssertion proof, CancellationToken ct) =>
+        !ack.IsValid()
+            ? Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.ExceptionInvalidReceipt"))
+            : InEventAsync(ack.AccountId, ack.EventId, CoverageReplacementExceptionsV1.ReceiptKind, body, proof,
+                token => coverageExceptions.ApplyReceiptAsync(ack, token), ct);
 
     public Task<ErrorOr<Success>> ReplacementConsentAsync(ReplacementConsentV1 c, byte[] body, VerifiedServiceAssertion proof, CancellationToken ct)
     {
@@ -168,7 +184,12 @@ public sealed class EntitlementMerchantEvents
                 AND s.account_revision = {ack.AccountRevision} AND s.shop_revision = {ack.ShopRevision}
                 AND m.digest = {ack.Digest} AND ({ack.ActivatedReplacementId}::uuid IS NULL OR (
                     {ack.Outcome}='Applied' AND {ack.Disposition}='Applied' AND {ack.AppliedShopRevision}=s.shop_revision
-                    AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementId'={ack.ActivatedReplacementId}::text))) AS "Value"
+                    AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementId'={ack.ActivatedReplacementId}::text))
+                AND ({ack.ActivatedExceptionId}::uuid IS NULL OR (
+                    {ack.Outcome}='Applied' AND {ack.Disposition}='Applied' AND {ack.AppliedShopRevision}=s.shop_revision
+                    AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementExceptionId'={ack.ActivatedExceptionId}::text
+                    AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementExceptionLeg'={ack.ActivatedExceptionLeg}::text
+                    AND (convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementExceptionGeneration')::bigint={ack.ActivatedExceptionGeneration}::bigint))) AS "Value"
             """).SingleAsync(ct);
         if (!matches) return false;
         return await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -222,7 +243,13 @@ public sealed class EntitlementMerchantEvents
         ack.AffiliationRequestId != Guid.Empty && EntitlementSnapshotsV1.IsDigest(ack.Digest) &&
         ack.AccountRevision > 0 && ack.ShopRevision > 0 && ack.AppliedAccountRevision is not <= 0 &&
         ack.AppliedShopRevision is not <= 0 && EntitlementSnapshotsV1.IsInstant(ack.AppliedAt) && ack.AppliedAt <= clock.GetUtcNow() &&
-        IsValidDisposition(ack);
+        ValidExceptionAck(ack) && IsValidDisposition(ack);
+
+    private static bool ValidExceptionAck(EntitlementAcknowledgementV1 ack) =>
+        ack.ActivatedExceptionId is null
+            ? ack.ActivatedExceptionLeg is null && ack.ActivatedExceptionGeneration is null
+            : ack.ActivatedExceptionId != Guid.Empty && CoverageReplacementExceptionsV1.IsSnapshotLeg(ack.ActivatedExceptionLeg)
+                && ack.ActivatedExceptionGeneration is > 0;
 
     private static bool IsValidDisposition(EntitlementAcknowledgementV1 ack) => ack.Outcome switch
     {

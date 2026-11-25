@@ -45,6 +45,7 @@ internal static class CustomerBillingEndpoints
         app.MapShopAffiliations(policy);
         app.MapCoverageSlots(policy);
         app.MapCoverageReplacements(policy);
+        app.MapCoverageReplacementExceptions(policy);
         app.MapCustomerSubscriptionStatus(policy);
         app.MapCustomerSubscriptionCancellation(policy);
         app.MapCustomerClosures(policy);
