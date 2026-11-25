@@ -5,6 +5,19 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Development;
 
 internal sealed partial class DevelopmentPaymentGateway
 {
+    public async Task<GatewayOutcome> PreflightRefundAsync(RefundRequest request, CancellationToken ct)
+    {
+        if (!((IPaymentGateway)this).SupportsRefund(request)) return GatewayOutcome.Unsupported;
+        var captured = await InGatewayAsync(token => db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS(SELECT FROM public.development_gateway_payments p
+                JOIN public.development_gateway_sessions s USING(provider_order_reference)
+                WHERE p.provider_payment_reference={request.ProviderPaymentReference} AND p.provider_order_reference={request.ProviderOrderReference}
+                    AND s.account_id={request.Payment!.AccountId} AND s.attempt_id={request.Payment.AttemptId} AND s.order_id={request.Payment.OrderId}
+                    AND p.state='Captured' AND p.currency={request.Currency} AND p.amount_paise={request.Payment.AmountPaise}) AS "Value"
+            """).SingleAsync(token), ct);
+        return captured ? GatewayOutcome.Succeeded : GatewayOutcome.Rejected;
+    }
+
     public async Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct)
     {
         if (!((IPaymentGateway)this).SupportsRefund(request)) return GatewayResult.Unsupported<RefundObservation>();

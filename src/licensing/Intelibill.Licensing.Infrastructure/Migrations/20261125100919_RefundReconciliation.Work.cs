@@ -17,7 +17,7 @@ public sealed partial class RefundReconciliation
             due_at timestamptz NOT NULL, lease_until timestamptz,
             state text NOT NULL DEFAULT 'Reserved' CHECK (state IN ('Reserved','Unknown','Pending','Confirmed','Failed')),
             checks smallint NOT NULL DEFAULT 0 CHECK(checks BETWEEN 0 AND 12),
-            wake_pending boolean NOT NULL DEFAULT false, refund_reference text, last_check timestamptz, reason text
+            wake_pending boolean NOT NULL DEFAULT false, refund_reference text, candidate_reference text, last_check timestamptz, reason text
         );
         CREATE INDEX refund_work_due ON public.refund_work(due_at,reservation_id);
         CREATE TABLE public.refund_sends (
@@ -32,7 +32,7 @@ public sealed partial class RefundReconciliation
         RETURNS TABLE (reservation_id uuid, account_id uuid, order_id uuid, attempt_id uuid,
             provider_id text, provider_account_id text, environment text, configuration_version text,
             payment_reference text, order_reference text, amount_paise bigint, payment_amount_paise bigint,
-            currency text, sent boolean, refund_reference text)
+            currency text, sent boolean, refund_reference text, candidate_reference text)
         LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$
             WITH due AS (
                 SELECT w.reservation_id FROM public.refund_work w WHERE w.due_at <= at_time
@@ -40,11 +40,11 @@ public sealed partial class RefundReconciliation
                 ORDER BY w.due_at,w.reservation_id LIMIT 1 FOR UPDATE SKIP LOCKED
             ), leased AS (
                 UPDATE public.refund_work w SET token=claim, wake_pending=false, lease_until=at_time+interval '60 seconds'
-                    FROM due WHERE w.reservation_id=due.reservation_id RETURNING w.reservation_id,w.refund_reference
+                    FROM due WHERE w.reservation_id=due.reservation_id RETURNING w.reservation_id,w.refund_reference,w.candidate_reference
             )
             SELECT a.reservation_id,a.account_id,a.order_id,a.attempt_id,a.provider_id,a.provider_account_id,
                 a.environment,a.configuration_version,a.payment_reference,a.order_reference,a.amount_paise,
-                a.payment_amount_paise,a.currency,s.reservation_id IS NOT NULL,l.refund_reference
+                a.payment_amount_paise,a.currency,s.reservation_id IS NOT NULL,l.refund_reference,l.candidate_reference
             FROM leased l JOIN public.refund_attempts a USING(reservation_id) LEFT JOIN public.refund_sends s USING(reservation_id)
         $$;
         REVOKE ALL ON FUNCTION public.claim_refund(timestamptz,uuid) FROM PUBLIC;

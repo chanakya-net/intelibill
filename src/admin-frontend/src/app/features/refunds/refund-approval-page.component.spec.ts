@@ -87,7 +87,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
 
     sent.flush(receipt(command['operationKey'] as string), { status: 201, statusText: 'Created' });
     const saved = await harness.shown('refund-approval-receipt');
-    expect(harness.find('refund-approval-status')?.textContent).toContain('Pending');
+    expect(harness.find('refund-approval-status')?.textContent?.trim()).toBe('Reserved');
     expect(saved.textContent).toContain('₹45.00');
     expect(saved.textContent).toContain('₹75.00');
     expect(saved.textContent).toContain('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
@@ -159,7 +159,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
     harness.find<HTMLButtonElement>('refund-approval-check')!.click();
     (await harness.take('GET', `/approvals/operations/${original.operationKey}`)).flush(receipt(original.operationKey));
     await harness.shown('refund-approval-receipt');
-    expect(harness.find('refund-approval-status')?.textContent).toContain('Pending');
+    expect(harness.find('refund-approval-status')?.textContent?.trim()).toBe('Reserved');
     harness.http.verify();
   });
 
@@ -214,6 +214,35 @@ describe('approvalPreviewAndScopedRecovery', () => {
     expect(decided.textContent).toContain('already has a decision');
     expect(harness.find('refund-approval-form')).toBeNull();
     expect(base).toContain(account);
+  });
+  it('renders outcome-specific headlines and distinct requested vs confirmed amounts across confirmed, reserved, manual, historical and older DTOs', async () => {
+    const confirmed = await open({
+      status: 'Confirmed',
+      itemOverrides: { amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Confirmed', accessDisposition: 'Applied' },
+    });
+    expect(confirmed.find('refund-approval-status')?.textContent?.trim()).toBe('Refund confirmed');
+    expect(confirmed.find('refund-approval-requested-amount')?.textContent).toContain('₹60.00');
+    expect(confirmed.find('refund-approval-approved-amount')?.textContent).toContain('₹45.00');
+    expect(confirmed.page.textContent).toContain('Confirmed amount');
+    expect(confirmed.find('refund-provider-outcome')?.textContent?.trim()).toBe('Confirmed');
+    TestBed.resetTestingModule();
+
+    const cases = [
+      { overrides: { approvedAmountPaise: 4500, providerState: 'Reserved', accessDisposition: 'AwaitingConfirmation' }, status: 'Reserved', provider: 'Reserved' },
+      { overrides: { paymentSource: 'Manual', approvedAmountPaise: 4500, providerState: 'Manual', accessDisposition: 'Applied' }, status: 'Manual follow-up', provider: 'Manual follow-up' },
+      { overrides: { approvedAmountPaise: 4500, providerState: 'Historical', accessDisposition: 'Applied' }, status: 'Historical approval', provider: 'Historical approval' },
+    ];
+    for (const c of cases) {
+      const h = await open({ status: 'Pending', itemOverrides: c.overrides });
+      expect(h.find('refund-approval-status')?.textContent?.trim()).toBe(c.status);
+      expect(h.find('refund-provider-outcome')?.textContent?.trim()).toBe(c.provider);
+      expect(h.find('refund-approval-decided')?.textContent).toContain(c.status);
+      TestBed.resetTestingModule();
+    }
+
+    const legacy = await open({ status: 'Pending' });
+    expect(legacy.find('refund-approval-status')?.textContent?.trim()).toBe('Pending provider');
+    expect(legacy.find('refund-approval-approved-amount')).toBeNull();
   });
 });
 

@@ -14,7 +14,9 @@ public sealed partial class RefundReconciliation
         BEGIN
             IF NOT public.receive_gateway_inbox_event(id,provider,account,env,version,event_id,'RefundChanged',
                 NULL,payment,hash,evidence,at_time) THEN RETURN false; END IF;
-            UPDATE public.refund_work w SET due_at=least(w.due_at,at_time),wake_pending=(w.token IS NOT NULL)
+            UPDATE public.refund_work w SET due_at=least(w.due_at,at_time),wake_pending=(w.token IS NOT NULL),
+                candidate_reference=CASE WHEN w.refund_reference IS NULL AND remote IS NOT NULL AND length(remote) BETWEEN 1 AND 120
+                    THEN remote ELSE w.candidate_reference END
             FROM public.refund_attempts a JOIN public.refund_sends s USING(reservation_id)
             WHERE w.reservation_id=a.reservation_id AND a.provider_id=provider AND a.provider_account_id=account
                 AND a.environment=env AND a.payment_reference=payment

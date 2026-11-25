@@ -28,6 +28,12 @@ public interface IPaymentGateway
     bool SupportsRefund(RefundRequest request) => Capabilities.Refunds && request.Pin == Pin &&
         request.Payment is { } payment && request.AmountPaise > 0 && request.AmountPaise <= payment.AmountPaise &&
         request.Currency == payment.Currency && request.RefundId != Guid.Empty && request.ProviderOrderReference is not null;
+    /// <summary>Read-only verification of the original captured payment before consuming the single refund send right.</summary>
+    Task<GatewayOutcome> PreflightRefundAsync(RefundRequest request, CancellationToken ct) =>
+        Task.FromResult(SupportsRefund(request) ? GatewayOutcome.Succeeded : GatewayOutcome.Unsupported);
+    /// <summary>Dispatches the single refund write after preflight and send-right commitment; never retries.</summary>
+    Task<GatewayResult<RefundObservation>> SendRefundAsync(RefundRequest request, CancellationToken ct) =>
+        RequestRefundAsync(request, ct);
     Task<GatewayResult<RefundObservation>> GetRefundAsync(RefundRequest request, string? reference, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<RefundObservation>());
     Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct);

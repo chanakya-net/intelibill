@@ -7,7 +7,8 @@ import { ButtonDirective } from 'primeng/button';
 import { formatIstExact } from '../accounts/account-status-api.service';
 import { AdminSessionService } from '../auth/admin-session.service';
 import {
-  canonicalAccountId, normalizeRefundIntakeReason, REFUND_INTAKE_STATUS_META, RefundIntakeApi, type RefundIntakeItem,
+  accessDispositionLabel, approvedAmountLabel, canonicalAccountId, normalizeRefundIntakeReason,
+  providerOutcomeLabel, refundOutcomeMeta, RefundIntakeApi, type RefundIntakeItem,
 } from '../payments/refunds/refund-intake-api.service';
 import {
   RefundApprovalApi, sameAccess, sameInstant, type ApproveRefundCommand, type RefundApprovalPreview, type RefundApprovalReceipt,
@@ -69,7 +70,11 @@ export class RefundApprovalPageComponent {
   protected readonly instant = formatIstExact;
   protected readonly money = (paise: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(paise / 100);
-  protected readonly statusLabel = (status: RefundIntakeItem['status']) => REFUND_INTAKE_STATUS_META[status].label;
+  protected readonly outcomeLabel = (item: RefundIntakeItem) => refundOutcomeMeta(item).label;
+  protected readonly outcomeDetail = (item: RefundIntakeItem) => refundOutcomeMeta(item).detail;
+  protected readonly approvedLabel = (item: RefundIntakeItem) => approvedAmountLabel(item);
+  protected readonly providerLabel = (item: RefundIntakeItem) => providerOutcomeLabel(item.providerState);
+  protected readonly accessLabel = (disposition: RefundIntakeItem['accessDisposition']) => accessDispositionLabel(disposition);
   protected readonly treatmentLabel = (treatment: RefundTreatment) =>
     TREATMENT_CHOICES.find(choice => choice.value === treatment)!.label;
 

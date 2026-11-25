@@ -26,9 +26,16 @@ internal sealed partial class FakeRazorpay
             var count = int.Parse(query["count"]!, System.Globalization.CultureInfo.InvariantCulture);
             return Collection(Refunds.Where(r => r["payment_id"]!.GetValue<string>() == original).Skip(skip).Take(count));
         }
-        if (parts is ["v1", "payments", var pay, "refunds", var reference] &&
-            Refunds.SingleOrDefault(r => r["id"]!.GetValue<string>() == reference && r["payment_id"]!.GetValue<string>() == pay) is { } found)
-            return Json(HttpStatusCode.OK, Copy(found));
+        if (parts is ["v1", "payments", var pay, "refunds", var reference])
+        {
+            if (FailRefundGets > 0)
+            {
+                FailRefundGets--;
+                return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
+            }
+            if (Refunds.SingleOrDefault(r => r["id"]!.GetValue<string>() == reference && r["payment_id"]!.GetValue<string>() == pay) is { } found)
+                return Json(HttpStatusCode.OK, Copy(found));
+        }
         return null;
     }
 

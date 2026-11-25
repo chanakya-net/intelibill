@@ -15,6 +15,7 @@ import { PaymentConfirmationService } from '../payments/payment-confirmation.ser
 import {
   normalizeRefundReason, validateRefundPage, REFUND_STATUSES, type CreateRefundRequest, type RefundRequestItem, type RefundRequestPage,
 } from './refund-request.models';
+import { installRefundSpecGlobals, restoreRefundSpecGlobals } from './refund-request.test-utils';
 import { RefundRequestService } from './refund-request.service';
 import { RefundRequestsPageComponent } from './refund-requests-page.component';
 
@@ -116,12 +117,10 @@ function setup(options: {
 
 beforeEach(() => {
   stubMemoryStorage();
-  Object.defineProperty(navigator, 'locks', {
-    value: { request: (_name: string, fn: () => unknown) => Promise.resolve(fn()) },
-    configurable: true,
-  });
+  installRefundSpecGlobals();
 });
 afterEach(() => {
+  restoreRefundSpecGlobals();
   vi.unstubAllGlobals();
   TestBed.resetTestingModule();
 });
@@ -306,5 +305,46 @@ describe('merchant refund requests page', () => {
 
     expect(page.querySelectorAll('[data-testid="refund-request-row"]')).toHaveLength(0);
     expect(page.querySelector('[data-testid="refund-request-empty"]')).not.toBeNull();
+  });
+
+  it('renders separate requested and confirmed amounts and outcome headlines for reserved, manual, historical and older DTOs', async () => {
+    const rows: RefundRequestItem[] = [
+      { ...makeRow('Confirmed', 0), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Confirmed', accessDisposition: 'Applied' },
+      { ...makeRow('Pending', 1), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Reserved', accessDisposition: 'AwaitingConfirmation' },
+      { ...makeRow('Pending', 2), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Pending', accessDisposition: 'AwaitingConfirmation' },
+      { ...makeRow('Pending', 3), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Manual', accessDisposition: 'Applied' },
+      { ...makeRow('Pending', 4), amountPaise: 6000, approvedAmountPaise: 4500, providerState: 'Historical', accessDisposition: 'Applied' },
+      { ...makeRow('Pending', 5), amountPaise: 6000 }, // Older DTO without outcome fields
+    ];
+    const { page, settle } = setup({ items: rows });
+    await settle();
+
+    const rendered = Array.from(page.querySelectorAll<HTMLElement>('[data-testid="refund-request-row"]'));
+    expect(rendered).toHaveLength(6);
+
+    const statusOf = (row: HTMLElement) => row.querySelector('[data-testid="refund-request-status"]')?.textContent?.trim();
+    const detailOf = (row: HTMLElement) => row.querySelector('[data-testid="refund-request-status-detail"]')?.textContent?.trim();
+
+    expect(statusOf(rendered[0])).toBe('Refund confirmed');
+    expect(rendered[0].querySelector('[data-testid="refund-request-row-amount"]')?.textContent).toContain('60.00');
+    expect(rendered[0].querySelector('[data-testid="refund-request-row-approved-amount"]')?.textContent).toContain('45.00');
+    expect(rendered[0].textContent).toContain('Requested amount');
+    expect(rendered[0].textContent).toContain('Confirmed amount');
+
+    expect(statusOf(rendered[1])).toBe('Refund reserved');
+    expect(detailOf(rendered[1])).toBe('Amount reserved for refund.');
+
+    expect(statusOf(rendered[2])).toBe('Pending provider');
+    expect(detailOf(rendered[2])).toContain('original payment provider');
+
+    expect(statusOf(rendered[3])).toBe('Manual follow-up');
+    expect(detailOf(rendered[3])).toBe('Finance is reviewing the manual refund.');
+
+    expect(statusOf(rendered[4])).toBe('Historical approval');
+    expect(detailOf(rendered[4])).toBe('Finance is verifying the historical refund.');
+
+    expect(statusOf(rendered[5])).toBe('Pending provider');
+    expect(detailOf(rendered[5])).toContain('original payment provider');
+    expect(rendered[5].querySelector('[data-testid="refund-request-row-approved-amount"]')).toBeNull();
   });
 });

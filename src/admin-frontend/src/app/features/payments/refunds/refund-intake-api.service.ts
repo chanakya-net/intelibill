@@ -32,6 +32,70 @@ export const REFUND_INTAKE_STATUS_META: Readonly<Record<RefundIntakeStatus, { re
   },
 };
 
+const RESERVED_REASON_META: Readonly<Record<string, { readonly label: string; readonly detail: string }>> = {
+  BelowProviderMinimum: {
+    label: 'Reserved — below provider minimum',
+    detail: 'Approved amount is below the original payment provider minimum and cannot be sent automatically. Amount stays reserved for finance review.',
+  },
+  ProviderRefundUnsupported: {
+    label: 'Reserved — provider unsupported',
+    detail: 'Original payment provider does not support this refund. Amount stays reserved for finance review.',
+  },
+  LiveDispatchDisabled: {
+    label: 'Reserved — live dispatch disabled',
+    detail: 'Live provider refund dispatch is disabled in this environment. Amount stays reserved.',
+  },
+  OriginalAdapterUnavailable: {
+    label: 'Reserved — credentials unavailable',
+    detail: 'Original payment provider credentials are unavailable. Amount stays reserved until restored.',
+  },
+};
+
+export function refundOutcomeMeta(
+  item: Pick<RefundIntakeItem, 'status' | 'providerState' | 'observationReason'>,
+): { readonly label: string; readonly detail: string } {
+  switch (item.providerState) {
+    case 'Reserved':
+      return (item.observationReason ? RESERVED_REASON_META[item.observationReason] : undefined) ?? {
+        label: 'Reserved',
+        detail: 'Refund approved and amount reserved; not yet dispatched to the original payment provider.',
+      };
+    case 'Pending':
+      return { label: 'Pending provider', detail: 'Refund sent to the original payment provider and awaiting confirmation.' };
+    case 'Manual':
+      return { label: 'Manual follow-up', detail: 'Manual refund approved and reserved; finance handles settlement outside online providers.' };
+    case 'Historical':
+      return { label: 'Historical approval', detail: 'Recorded before online provider reconciliation; money settlement requires finance verification.' };
+    case 'Confirmed':
+      return { label: 'Refund confirmed', detail: 'Approved refund amount confirmed by the original payment provider.' };
+    case 'Failed':
+      return REFUND_INTAKE_STATUS_META.Failed;
+    case 'Unknown':
+      return REFUND_INTAKE_STATUS_META.Unknown;
+    default:
+      return REFUND_INTAKE_STATUS_META[item.status];
+  }
+}
+
+export function providerOutcomeLabel(state: RefundOutcome['providerState']): string {
+  switch (state) {
+    case 'Manual': return 'Manual follow-up';
+    case 'Historical': return 'Historical approval';
+    case 'Pending': return 'Pending provider';
+    default: return state ?? '';
+  }
+}
+
+export function approvedAmountLabel(item: Pick<RefundIntakeItem, 'status' | 'providerState'>): string {
+  return item.providerState === 'Confirmed' || item.status === 'Confirmed' ? 'Confirmed amount' : 'Approved amount';
+}
+
+export function accessDispositionLabel(disposition: RefundOutcome['accessDisposition']): string {
+  if (disposition === 'AwaitingConfirmation') return 'Awaiting confirmation';
+  if (disposition === 'NeedsReview') return 'Finance review required';
+  return 'Applied';
+}
+
 export interface RefundIntakeItem extends RefundOutcome {
   readonly refundReference?: string | null;
   readonly observationReason?: string | null;

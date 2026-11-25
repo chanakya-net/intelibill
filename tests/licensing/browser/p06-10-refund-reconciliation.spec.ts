@@ -54,8 +54,9 @@ async function merchant(page: Page) {
   await page.goto(env('MERCHANT_WEB') + '/billing/accounts/' + account + '/refunds');
   const row = page.locator('[data-refund-id="' + request + '"]');
   await expect(row).toHaveAttribute('data-status', 'Confirmed');
-  await expect(row).toContainText('45.00');
-  await expect(row).toContainText('60.00');
+  await expect(row.getByTestId('refund-request-row-amount')).toContainText('60.00');
+  await expect(row.getByTestId('refund-request-row-approved-amount')).toContainText('45.00');
+  await expect(row).toContainText('Confirmed amount');
   await expect(row).toContainText('Applied');
   await expect(page.locator('[data-refund-id="' + env('FAILED') + '"]')).toHaveAttribute('data-status', 'Failed');
   await views(page, 'merchant');
@@ -77,8 +78,16 @@ test('@recovery original provider resolves the lost response', async ({ browser 
   signal('rechecked');
   await wait('settled');
   await page.reload();
+  await expect(page.getByTestId('refund-approval-status')).toHaveText('Refund confirmed');
+  await expect(page.getByTestId('refund-approval-requested-amount')).toContainText('60.00');
+  await expect(page.getByTestId('refund-approval-approved-amount')).toContainText('45.00');
   await expect(page.getByTestId('refund-provider-outcome')).toHaveText('Confirmed');
   await views(page, 'finance-confirmed');
+  await page.goto(env('ADMIN_WEB') + '/payments/refunds?account=' + account);
+  const intakeRow = page.locator('[data-testid="refund-intake-row"][data-refund-id="' + request + '"]');
+  await expect(intakeRow.getByTestId('refund-intake-status')).toHaveText('Refund confirmed');
+  await expect(intakeRow.getByTestId('refund-intake-requested-amount')).toContainText('60.00');
+  await expect(intakeRow.getByTestId('refund-intake-approved-amount')).toContainText('45.00');
   await merchant(await context.newPage());
   await context.close();
 });

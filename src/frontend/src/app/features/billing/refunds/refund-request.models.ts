@@ -63,6 +63,23 @@ export const REFUND_STATUS_COPY: Readonly<Record<RefundRequestStatus, { readonly
   },
 };
 
+export function refundStatusCopy(
+  item: Pick<RefundRequestItem, 'status' | 'providerState'>,
+): { readonly label: string; readonly detail: string } {
+  switch (item.providerState) {
+    case 'Reserved':
+      return { label: 'billing.refunds.providerStatuses.Reserved', detail: 'billing.refunds.Reserved' };
+    case 'Manual':
+      return { label: 'billing.refunds.providerStatuses.Manual', detail: 'billing.refunds.Manual' };
+    case 'Historical':
+      return { label: 'billing.refunds.providerStatuses.Historical', detail: 'billing.refunds.Historical' };
+    case 'Pending':
+      return REFUND_STATUS_COPY.Pending;
+    default:
+      return REFUND_STATUS_COPY[item.status];
+  }
+}
+
 // Refund request V1 trims with .NET string.Trim() (char.IsWhiteSpace). String.prototype.trim() differs: it also
 // removes U+FEFF, which V1 records, and keeps U+0085, which V1 removes.
 const V1_EDGE_SPACE = '\\t-\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';

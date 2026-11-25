@@ -6,6 +6,7 @@ import { stubMemoryStorage } from '../billing.test-utils';
 import { REFUND_PAGE_SIZE, type RefundRequestItem, type RefundRequestPage } from './refund-request.models';
 import {
   configureRefundPage, deferred, installRefundSpecGlobals, mountRefundPage, refundPage, refundRow,
+  restoreRefundSpecGlobals,
   saveDraft, storageKey,
 } from './refund-request.test-utils';
 
@@ -52,6 +53,7 @@ beforeEach(() => {
   installRefundSpecGlobals();
 });
 afterEach(() => {
+  restoreRefundSpecGlobals();
   vi.unstubAllGlobals();
   TestBed.resetTestingModule();
 });

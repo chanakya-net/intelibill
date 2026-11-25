@@ -94,7 +94,7 @@ export async function loadApprovalPage(): Promise<Type<unknown> | null> {
   return route?.loadComponent ? await route.loadComponent() as Type<unknown> : null;
 }
 
-export async function open(options: { pending?: unknown; status?: string; unavailable?: boolean } = {}) {
+export async function open(options: { pending?: unknown; status?: string; unavailable?: boolean; itemOverrides?: Record<string, unknown> } = {}) {
   const component = await loadApprovalPage();
   expect(component, 'the approval route must exist').not.toBeNull();
   const records = installStorage();
@@ -141,7 +141,7 @@ export async function open(options: { pending?: unknown; status?: string; unavai
   expect(detail.request.params.get('request')).toBe(request);
   if (options.unavailable) detail.flush({}, { status: 503, statusText: 'Unavailable' });
   else detail.flush({ schemaVersion: 1, accountId: account, nextCursor: null,
-    items: [{ ...item, status: options.status ?? 'Requested' }] });
+    items: [{ ...item, status: options.status ?? 'Requested', ...(options.itemOverrides ?? {}) }] });
   await vi.waitFor(() => {
     update();
     expect(find(options.unavailable ? 'refund-approval-error' : 'refund-approval-status')).not.toBeNull();

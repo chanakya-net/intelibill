@@ -54,7 +54,7 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.status_shop_id', {shop.ToString("D")}, true)
             """, ct);
-        var now = evaluatedAt ?? Now;
+        var now = evaluatedAt is { } at ? new DateTimeOffset(at.UtcTicks - at.UtcTicks % 10, TimeSpan.Zero) : Now;
         var request = await db.Database.SqlQuery<Guid>($"""
             SELECT request_id AS "Value" FROM public.shop_affiliations WHERE shop_id = {shop} AND account_id = {account}
             """).SingleOrDefaultAsync(ct);

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Billing;
+using Intelibill.Licensing.Application.BillingAccounts;
 using Intelibill.Licensing.Application.Payments;
 using Intelibill.Shared.Contracts.V1;
 
@@ -14,7 +15,8 @@ public sealed class ReadRefundRequestsHandler(
 {
     public Task<ErrorOr<bool>> RecheckAsync(AdminSessionCaller caller, Guid account, Guid request, string? simulated,
         CancellationToken ct) => admins.InManualScopeAsync<bool>(caller, account, Guid.Empty, recentMfa: true, lockAccount: true,
-            async (_, token) => await store.ScheduleLookupAsync(account, request, clocks.Lifecycle.GetUtcNow(), simulated, token)
+            async (_, token) => await store.ScheduleLookupAsync(account, request,
+                BillingAccountRules.StorageInstant(clocks.Lifecycle.GetUtcNow()), simulated, token)
                 ? true : RefundApprovalErrors.RequestMissing, ct);
 
     public Task<ErrorOr<RefundRequestPageV1>> ListAsync(

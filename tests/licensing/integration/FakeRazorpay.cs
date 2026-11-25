@@ -30,6 +30,10 @@ internal sealed partial class FakeRazorpay(string fixtureKeyId = FakeRazorpay.Ke
     internal bool LengthlessOversize { get; set; }
     /// <summary>The next <c>n</c> reads of an order entity answer 503, as a transient provider outage would.</summary>
     internal int FailOrderReads { get; set; }
+    /// <summary>The next <c>n</c> reads of a payment entity answer 503, as a transient provider outage would.</summary>
+    internal int FailPaymentReads { get; set; }
+    /// <summary>The next <c>n</c> direct reads of a refund entity answer 503, as a transient provider outage would.</summary>
+    internal int FailRefundGets { get; set; }
     /// <summary>Added to the <c>count</c> every collection answer states, to model a truncated or inconsistent page.</summary>
     internal int CollectionCountOffset { get; set; }
     internal int OversizeBytesServed { get; private set; }
@@ -253,6 +257,8 @@ internal sealed partial class FakeRazorpay(string fixtureKeyId = FakeRazorpay.Ke
             ["v1", "orders", var id] when orders.TryGetValue(id, out var order) => Json(HttpStatusCode.OK, Copy(order)),
             ["v1", "orders", var id, "payments"] when orders.ContainsKey(id) =>
                 Collection(OrderPayments(id).Select(Patched)),
+            ["v1", "payments", var id] when payments.Any(p => p["id"]!.GetValue<string>() == id) && FailPaymentReads > 0 =>
+                FailPaymentRead(),
             ["v1", "payments", var id] when payments.SingleOrDefault(p => p["id"]!.GetValue<string>() == id) is { } payment =>
                 Json(HttpStatusCode.OK, Copy(payment)),
             _ => Json(HttpStatusCode.NotFound, new JsonObject()),
@@ -266,6 +272,12 @@ internal sealed partial class FakeRazorpay(string fixtureKeyId = FakeRazorpay.Ke
     private HttpResponseMessage FailOrderRead()
     {
         FailOrderReads--;
+        return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
+    }
+
+    private HttpResponseMessage FailPaymentRead()
+    {
+        FailPaymentReads--;
         return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
     }
 

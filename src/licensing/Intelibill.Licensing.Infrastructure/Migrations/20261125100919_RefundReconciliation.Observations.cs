@@ -37,6 +37,8 @@ public sealed partial class RefundReconciliation
                     AND d.previous_access_ends_at=coalesce(p.new_access_ends_at,CASE WHEN c.kind='ScheduleCancellation'
                         THEN t.ends_at ELSE t.ends_at+interval '168 hours' END)
                     AND NOT public.refund_term_committed(t.account_id,t.term_id)
+                    AND a.capacity_revision = coalesce((SELECT max(i.target_revision) FROM public.capacity_increases i
+                        WHERE i.account_id=t.account_id AND i.term_id=t.term_id AND i.state='Applied'), 0)
                     AND a.affiliations=(SELECT coalesce(jsonb_object_agg(shop_id,request_id),'{}'::jsonb)
                         FROM public.refund_target_shops(t.account_id,t.term_id,at_time)));
             INSERT INTO public.refund_applications VALUES(a.account_id,a.decision_id,
@@ -81,8 +83,16 @@ public sealed partial class RefundReconciliation
             END IF;
             IF previous='Confirmed' OR (previous='Failed' AND outcome<>'Confirmed') THEN outcome:=previous; END IF;
             UPDATE public.refund_work SET token=NULL,lease_until=NULL,state=outcome,last_check=at_time,
-                reason=detail,refund_reference=coalesce(bound,refund_reference),checks=least(checks+1,12),
-                due_at=CASE WHEN wake_pending THEN at_time WHEN outcome IN ('Confirmed','Failed') OR (sent AND checks>=11) THEN 'infinity'::timestamptz
+                reason=detail,refund_reference=coalesce(bound,refund_reference),
+                candidate_reference=CASE WHEN coalesce(bound,refund_reference) IS NOT NULL THEN NULL
+                    WHEN wake_pending AND candidate_reference IS NOT NULL THEN candidate_reference
+                    WHEN remote IS NOT NULL AND detail IN ('TransportUnavailable','LookupUnavailable') THEN remote
+                    ELSE NULL END,
+                checks=least(checks+1,12),
+                due_at=CASE WHEN wake_pending THEN at_time
+                    WHEN outcome IN ('Confirmed','Failed')
+                        OR detail IN ('BelowProviderMinimum','ProviderRefundUnsupported','LiveDispatchDisabled')
+                        OR (sent AND checks>=11) THEN 'infinity'::timestamptz
                     ELSE at_time+interval '1 minute'*(1<<least(checks,5)) END WHERE reservation_id=a.reservation_id;
             IF outcome='Confirmed' AND previous<>'Confirmed' THEN
                 RETURN QUERY SELECT * FROM public.apply_confirmed_refund(a,at_time);

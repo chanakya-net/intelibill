@@ -4034,7 +4034,13 @@
       "listHeading": "Recorded refund requests",
       "empty": "No refund requests have been recorded for this billing account.",
       "approvedAmount": "Approved amount",
+      "confirmedAmount": "Confirmed amount",
       "accessDecision": "Access decision",
+      "providerStatuses": {
+        "Reserved": "Refund reserved",
+        "Manual": "Manual follow-up",
+        "Historical": "Historical approval"
+      },
       "Reserved": "Amount reserved for refund.",
       "Manual": "Finance is reviewing the manual refund.",
       "Historical": "Finance is verifying the historical refund.",

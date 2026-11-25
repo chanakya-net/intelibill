@@ -58,6 +58,7 @@ public sealed partial class RefundReconciliation : Migration
             confirmation_id uuid NOT NULL, order_id uuid NOT NULL, attempt_id uuid NOT NULL,
             provider_id text NOT NULL, provider_account_id text NOT NULL, environment text NOT NULL, configuration_version text NOT NULL,
             order_reference text NOT NULL, payment_reference text NOT NULL, affiliations jsonb NOT NULL, predecessor uuid,
+            capacity_revision bigint NOT NULL DEFAULT 0 CHECK (capacity_revision >= 0),
             amount_paise bigint NOT NULL CHECK (amount_paise > 0), currency text NOT NULL CHECK (currency = 'INR'),
             payment_amount_paise bigint NOT NULL CHECK (payment_amount_paise >= amount_paise),
             FOREIGN KEY (account_id,decision_id) REFERENCES public.refund_access_decisions,
@@ -89,7 +90,10 @@ public sealed partial class RefundReconciliation : Migration
                 coalesce((SELECT jsonb_object_agg(shop_id,request_id) FROM public.refund_target_shops(
                     a.account_id, NEW.term_id, NEW.decided_at)), '{}'::jsonb),
                 (SELECT decision_id FROM public.applied_refund_decisions WHERE account_id=a.account_id AND term_id=NEW.term_id
-                    AND term_revision IS NOT NULL ORDER BY term_revision DESC LIMIT 1),a.amount_paise,a.currency,a.payment_amount_paise
+                    AND term_revision IS NOT NULL ORDER BY term_revision DESC LIMIT 1),
+                coalesce((SELECT max(i.target_revision) FROM public.capacity_increases i
+                    WHERE i.account_id=a.account_id AND i.term_id=NEW.term_id AND i.state='Applied'), 0),
+                a.amount_paise,a.currency,a.payment_amount_paise
             FROM public.payment_confirmations c JOIN public.verified_payments v USING (account_id,order_id,attempt_id)
             JOIN public.payment_attempt_sessions s USING (account_id,attempt_id)
             WHERE c.confirmation_id=a.confirmation_id AND c.account_id=a.account_id AND c.attempt_id=a.attempt_id

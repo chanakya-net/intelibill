@@ -7,6 +7,7 @@ import { RefundRequestDrafts } from './refund-request-drafts';
 import { isValidRefundRequest, normalizeRefundReason, validateRefundPage } from './refund-request.models';
 import {
   account, configureRefundPage, confirmation, draftScope, installRefundSpecGlobals, mountRefundPage, order,
+  restoreRefundSpecGlobals,
   refundRow, saveDraft, savedKey, storageKey,
 } from './refund-request.test-utils';
 
@@ -24,6 +25,7 @@ beforeEach(() => {
   installRefundSpecGlobals();
 });
 afterEach(() => {
+  restoreRefundSpecGlobals();
   vi.unstubAllGlobals();
   TestBed.resetTestingModule();
 });

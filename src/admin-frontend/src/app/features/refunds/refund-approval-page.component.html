@@ -29,16 +29,15 @@
       <section class="ib-panel" aria-labelledby="refund-approval-request">
         <h2 class="ib-panel__title" id="refund-approval-request">Customer request</h2>
         <dl>
-          <dt>Status</dt><dd data-testid="refund-approval-status">{{ statusLabel(shown.status) }}</dd>
-          <dt>Requested</dt><dd>{{ money(shown.amountPaise) }} of {{ money(shown.paymentAmountPaise) }} · {{ instant(shown.requestedAt) }}</dd>
-          @if (shown.approvedAmountPaise) {
-            <dt>Approved amount</dt><dd>{{ money(shown.approvedAmountPaise) }}</dd>
-            <dt>Provider outcome</dt><dd data-testid="refund-provider-outcome">{{ shown.providerState === 'Manual' ? 'Manual follow-up' : shown.providerState }}</dd>
+          <dt>Status</dt><dd data-testid="refund-approval-status">{{ outcomeLabel(shown) }}</dd>
+          <dt>Requested amount</dt><dd data-testid="refund-approval-requested-amount">{{ money(shown.amountPaise) }} of {{ money(shown.paymentAmountPaise) }} · {{ instant(shown.requestedAt) }}</dd>
+          @if (shown.approvedAmountPaise != null) {
+            <dt>{{ approvedLabel(shown) }}</dt><dd data-testid="refund-approval-approved-amount">{{ money(shown.approvedAmountPaise) }}</dd>
+            <dt>Provider outcome</dt><dd data-testid="refund-provider-outcome">{{ providerLabel(shown) }}</dd>
             @if (shown.refundReference) { <dt>Original refund reference</dt><dd>{{ shown.refundReference }}</dd> }
             @if (shown.lastCheckedAt) { <dt>Last checked</dt><dd>{{ instant(shown.lastCheckedAt) }}</dd> }
             @if (shown.observationReason) { <dt>Observation</dt><dd>{{ shown.observationReason }}</dd> }
-            <dt>Access decision</dt><dd>{{ shown.accessDisposition === 'AwaitingConfirmation' ? 'Awaiting confirmation' :
-              shown.accessDisposition === 'NeedsReview' ? 'Finance review required' : 'Applied' }}</dd>
+            <dt>Access decision</dt><dd>{{ accessLabel(shown.accessDisposition) }}</dd>
           }
           <dt>Customer reason</dt><dd>{{ shown.reason }}</dd>
           <dt>Request ID</dt><dd>{{ shown.refundRequestId }}</dd>
@@ -91,7 +90,7 @@
     } @else if (item() && item()!.status !== 'Requested') {
       <section class="ib-panel">
         <p class="adm-callout" data-testid="refund-approval-decided">
-          This refund request already has a decision ({{ statusLabel(item()!.status) }}). It cannot be approved again.
+          This refund request already has a decision ({{ outcomeLabel(item()!) }}). It cannot be approved again.
         </p>
       </section>
     } @else if (item()) {
