@@ -1,140 +1,213 @@
-using System.Globalization;
-
 namespace Intelibill.Licensing.Application.Documents;
 
 // A structural envelope check only. The application never interprets or renders document objects.
 internal static class PdfStructure
 {
+    private const int MaxSections = 32;
+    private const int MaxEntries = 200_000;
+    private const int MaxVerifiedKids = 32;
+
     public static bool HasEnvelope(ReadOnlySpan<byte> content)
     {
         if (!HasHeader(content)) return false;
-        content = TrimEnd(content);
-        if (!content.EndsWith("%%EOF"u8) || !IsLineBreak(content[^6])) return false;
+        content = PdfTokens.TrimEnd(content);
+        if (!content.EndsWith("%%EOF"u8) || !PdfTokens.IsLineBreak(content[^6])) return false;
+        if (!TryReadStartXRef(content, out var firstOffset)) return false;
+
+        var entries = new Dictionary<int, XRefEntry>();
+        if (!TryWalkXRefChain(content, firstOffset, entries, out var root)) return false;
+        return root is { } rootRef && ValidateDocumentSpine(content, entries, rootRef);
+    }
+
+    private static bool HasHeader(ReadOnlySpan<byte> content) =>
+        content.Length >= 32 && content.StartsWith("%PDF-"u8) && content[6] == '.' && PdfTokens.IsLineBreak(content[8])
+        && (content[5] == '1' && content[7] is >= (byte)'0' and <= (byte)'7' || content[5] == '2' && content[7] == '0');
+
+    private static bool TryReadStartXRef(ReadOnlySpan<byte> content, out int offset)
+    {
+        offset = 0;
         var tailStart = Math.Max(9, content.Length - 1024);
         var marker = content[tailStart..^5].LastIndexOf("startxref"u8);
         if (marker < 0) return false;
         marker += tailStart;
-        if (!IsLineBreak(content[marker - 1]) || !IsWhite(content[marker + 9])) return false;
+        if (!PdfTokens.IsLineBreak(content[marker - 1]) || !PdfTokens.IsWhite(content[marker + 9])) return false;
 
-        var pointer = TrimEnd(TrimStart(content[(marker + 9)..^5]));
-        if (!TryNumber(pointer, out var offset) || offset < 9 || offset >= marker || !IsWhite(content[offset - 1])) return false;
-        var section = TrimEnd(content[offset..marker]);
-        return section.StartsWith("xref"u8) ? HasTable(section, content[..offset]) : HasStream(section);
+        var pointer = PdfTokens.TrimEnd(PdfTokens.TrimStart(content[(marker + 9)..^5]));
+        return PdfTokens.TryNumber(pointer, out offset) && offset >= 9 && offset < marker && PdfTokens.IsWhite(content[offset - 1]);
     }
 
-    private static bool HasHeader(ReadOnlySpan<byte> content) =>
-        content.Length >= 32 && content.StartsWith("%PDF-"u8) && content[6] == '.' && IsLineBreak(content[8])
-        && (content[5] == '1' && content[7] is >= (byte)'0' and <= (byte)'7' || content[5] == '2' && content[7] == '0');
-
-    private static bool HasTable(ReadOnlySpan<byte> section, ReadOnlySpan<byte> objects)
+    private static bool TryWalkXRefChain(ReadOnlySpan<byte> content, int firstOffset,
+        Dictionary<int, XRefEntry> entries, out PdfRef? root)
     {
-        if (section.Length < 26 || !IsWhite(section[4])) return false;
-        var trailer = section.LastIndexOf("trailer"u8);
-        if (trailer < 25 || !IsWhite(section[trailer - 1])) return false;
-        var entries = TrimEnd(section[4..trailer]);
-        var hasIndirectObject = false;
-        while (!entries.IsEmpty)
+        root = null;
+        var visited = new HashSet<int>();
+        var queue = new Queue<(int Offset, bool StreamOnly)>();
+        queue.Enqueue((firstOffset, false));
+        while (queue.Count > 0)
         {
-            if (!TryNumber(NextToken(ref entries), out var first) || !TryNumber(NextToken(ref entries), out var count)
-                || count < 1 || count > entries.Length / 17 || first > int.MaxValue - count) return false;
-            for (var index = 0; index < count; index++)
-            {
-                if (!TryTableEntry(ref entries, objects.Length, out var offset, out var generation)) return false;
-                if (!hasIndirectObject && offset is { } target)
-                    hasIndirectObject = MatchesObject(objects[target..], first + index, generation);
-            }
-            entries = TrimStart(entries);
-        }
+            if (visited.Count >= MaxSections) return false;
+            var (offset, streamOnly) = queue.Dequeue();
+            if (offset < 9 || offset >= content.Length || !visited.Add(offset)) return false;
 
-        var dictionary = TrimEnd(TrimStart(section[(trailer + 7)..]));
-        return dictionary.StartsWith("<<"u8) && dictionary.EndsWith(">>"u8) && HasName(dictionary, "/Size"u8)
-            && (HasName(dictionary, "/Prev"u8) || hasIndirectObject && HasName(dictionary, "/Root"u8));
+            var isTable = !streamOnly && IsClassicTable(content, offset);
+            var ok = isTable
+                ? TryReadTable(content, offset, entries, out var info)
+                : PdfXRefStream.TryRead(content, offset, entries, MaxEntries, out info);
+            if (!ok) return false;
+
+            root ??= info.Root;
+            if (info.XRefStm is { } stm) queue.Enqueue((stm, true));
+            if (info.Prev is { } prev) queue.Enqueue((prev, false));
+        }
+        return visited.Count > 0 && entries.Count > 0;
     }
 
-    private static bool TryTableEntry(ref ReadOnlySpan<byte> entries, int objectLimit, out int? offset, out int generation)
+    private static bool IsClassicTable(ReadOnlySpan<byte> content, int offset) =>
+        offset + 4 < content.Length && content.Slice(offset, 4).SequenceEqual("xref"u8) && PdfTokens.IsWhite(content[offset + 4]);
+
+    private static bool TryReadTable(ReadOnlySpan<byte> content, int offset, Dictionary<int, XRefEntry> entries,
+        out XRefSectionInfo info)
     {
-        offset = null;
-        generation = 0;
-        var position = NextToken(ref entries);
-        var generationToken = NextToken(ref entries);
-        var flag = NextToken(ref entries);
-        if (position.Length != 10 || generationToken.Length != 5 || !TryNumber(generationToken, out generation)
-            || generation > 65535 || !TryNumber(position, out var number)) return false;
-        if (flag is [(byte)'f']) return true;
-        if (flag is not [(byte)'n'] || number < 9 || number >= objectLimit) return false;
-        offset = number;
+        info = default;
+        var pos = offset + 4;
+        var maxEntryEnd = 0;
+        var subsections = 0;
+        while (true)
+        {
+            PdfTokens.SkipSpaceAndComments(content, ref pos);
+            if (PdfTokens.TryConsumeKeyword(content, ref pos, "trailer"u8)) break;
+            if (!PdfTokens.TryReadToken(content, ref pos, out var firstToken) || !PdfTokens.TryNumber(firstToken, out var first)
+                || !PdfTokens.TryReadToken(content, ref pos, out var countToken) || !PdfTokens.TryNumber(countToken, out var count)
+                || first > int.MaxValue - count || count > MaxEntries - entries.Count) return false;
+            subsections++;
+            maxEntryEnd = Math.Max(maxEntryEnd, first + count);
+            for (var i = 0; i < count; i++)
+            {
+                if (!TryReadTableEntry(content, ref pos, out var entry)) return false;
+                entries.TryAdd(first + i, entry);
+            }
+        }
+        if (subsections == 0 || !PdfTokens.TryParseDictionary(content, ref pos, out var trailer)) return false;
+        if (!trailer.TryGetValue("/Size", out var sizeRange) || !PdfTokens.TryParseInt(sizeRange.Slice(content), out var size)
+            || size < 1 || maxEntryEnd > size) return false;
+        return TryReadTrailerLinks(content, trailer, out info);
+    }
+
+    private static bool TryReadTableEntry(ReadOnlySpan<byte> content, ref int pos, out XRefEntry entry)
+    {
+        entry = default;
+        if (!PdfTokens.TryReadToken(content, ref pos, out var position) || position.Length != 10
+            || !PdfTokens.TryReadToken(content, ref pos, out var generationToken) || generationToken.Length != 5
+            || !PdfTokens.TryReadToken(content, ref pos, out var flag)
+            || !PdfTokens.TryNumber(generationToken, out var generation) || generation > 65535
+            || !PdfTokens.TryNumber(position, out var number)) return false;
+        if (flag is [(byte)'f']) { entry = new XRefEntry(0, number, generation); return true; }
+        if (flag is not [(byte)'n'] || number < 9 || number >= content.Length) return false;
+        entry = new XRefEntry(1, number, generation);
         return true;
     }
 
-    private static bool MatchesObject(ReadOnlySpan<byte> content, int number, int generation)
+    private static bool TryReadTrailerLinks(ReadOnlySpan<byte> content, Dictionary<string, PdfRange> trailer, out XRefSectionInfo info)
     {
-        content = content[..Math.Min(content.Length, 64)];
-        return TryNumber(NextToken(ref content), out var id) && id == number
-            && TryNumber(NextToken(ref content), out var revision) && revision == generation
-            && StartsWithObjectKeyword(TrimStart(content));
-    }
-
-    private static bool HasStream(ReadOnlySpan<byte> section)
-    {
-        if (!TryNumber(NextToken(ref section), out var number) || number < 1 || !TryNumber(NextToken(ref section), out _))
-            return false;
-        section = TrimStart(section);
-        if (!StartsWithObjectKeyword(section)) return false;
-        section = TrimStart(section[3..]);
-        var opening = section.IndexOf("stream"u8);
-        if (opening < 4 || opening + 6 >= section.Length || !IsLineBreak(section[opening + 6])
-            || !section.StartsWith("<<"u8) || !TrimEnd(section[..opening]).EndsWith(">>"u8)
-            || !section.EndsWith("endobj"u8) || !TrimEnd(section[..^6]).EndsWith("endstream"u8)) return false;
-        var dictionary = section[..opening];
-        return HasName(dictionary, "/Type"u8, "/XRef"u8) && HasName(dictionary, "/Size"u8)
-            && HasName(dictionary, "/W"u8) && HasName(dictionary, "/Length"u8)
-            && (HasName(dictionary, "/Root"u8) || HasName(dictionary, "/Prev"u8));
-    }
-
-    private static bool StartsWithObjectKeyword(ReadOnlySpan<byte> content) =>
-        content.Length > 3 && content.StartsWith("obj"u8) && IsDelimiter(content[3]);
-
-    private static bool HasName(ReadOnlySpan<byte> dictionary, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value = default)
-    {
-        while (dictionary.IndexOf(name) is >= 0 and var index)
+        info = default;
+        PdfRef? root = null;
+        int? prev = null;
+        int? xrefStm = null;
+        if (trailer.TryGetValue("/Root", out var rootRange))
         {
-            var preceded = index > 0 && IsDelimiter(dictionary[index - 1]);
-            dictionary = dictionary[(index + name.Length)..];
-            if (!preceded || dictionary.IsEmpty || !IsDelimiter(dictionary[0])) continue;
-            if (value.IsEmpty) return true;
-            var token = TrimStart(dictionary);
-            if (token.Length > value.Length && token.StartsWith(value) && IsDelimiter(token[value.Length])) return true;
+            if (!PdfTokens.TryParseIndirectRef(rootRange.Slice(content), out var parsed)) return false;
+            root = parsed;
         }
-        return false;
+        if (trailer.TryGetValue("/Prev", out var prevRange))
+        {
+            if (!PdfTokens.TryParseInt(prevRange.Slice(content), out var parsed) || parsed < 9) return false;
+            prev = parsed;
+        }
+        if (trailer.TryGetValue("/XRefStm", out var stmRange))
+        {
+            if (!PdfTokens.TryParseInt(stmRange.Slice(content), out var parsed) || parsed < 9) return false;
+            xrefStm = parsed;
+        }
+        info = new XRefSectionInfo(root, prev, xrefStm);
+        return true;
     }
 
-    private static ReadOnlySpan<byte> NextToken(ref ReadOnlySpan<byte> bytes)
+    private static bool ValidateDocumentSpine(ReadOnlySpan<byte> content, Dictionary<int, XRefEntry> entries, PdfRef rootRef)
     {
-        bytes = TrimStart(bytes);
-        var length = 0;
-        while (length < bytes.Length && !IsWhite(bytes[length])) length++;
-        var token = bytes[..length];
-        bytes = bytes[length..];
-        return token;
+        if (!entries.TryGetValue(rootRef.Number, out var rootEntry) || rootEntry.Type == 0) return false;
+        if (rootEntry.Type == 2) return rootRef.Generation == 0 && ValidateObjectStreamContainer(content, entries, rootEntry);
+        if (rootEntry.Field3 != rootRef.Generation) return false;
+        if (!TryReadDictionaryObject(content, rootEntry.Field2, rootRef, out var catalog)) return false;
+        if (!catalog.TryGetValue("/Type", out var catalogType) || !catalogType.Slice(content).SequenceEqual("/Catalog"u8)) return false;
+        if (!catalog.TryGetValue("/Pages", out var pagesRange) || !PdfTokens.TryParseIndirectRef(pagesRange.Slice(content), out var pagesRef))
+            return false;
+        return ValidatePagesNode(content, entries, pagesRef);
     }
 
-    private static bool TryNumber(ReadOnlySpan<byte> token, out int number) =>
-        int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out number);
-
-    private static ReadOnlySpan<byte> TrimStart(ReadOnlySpan<byte> bytes)
+    private static bool ValidatePagesNode(ReadOnlySpan<byte> content, Dictionary<int, XRefEntry> entries, PdfRef pagesRef)
     {
-        while (!bytes.IsEmpty && IsWhite(bytes[0])) bytes = bytes[1..];
-        return bytes;
+        if (!entries.TryGetValue(pagesRef.Number, out var entry) || entry.Type == 0) return false;
+        if (entry.Type == 2) return pagesRef.Generation == 0 && ValidateObjectStreamContainer(content, entries, entry);
+        if (entry.Field3 != pagesRef.Generation) return false;
+        if (!TryReadDictionaryObject(content, entry.Field2, pagesRef, out var pages)) return false;
+        if (!pages.TryGetValue("/Type", out var typeRange) || !typeRange.Slice(content).SequenceEqual("/Pages"u8)) return false;
+        if (!pages.TryGetValue("/Kids", out var kidsRange)) return false;
+        var kidsSlice = kidsRange.Slice(content);
+        if (PdfTokens.TryParseIndirectRef(kidsSlice, out var kidsRef)) return ValidateIndirectTarget(content, entries, kidsRef);
+        if (!PdfTokens.TryParseIndirectRefArray(kidsSlice, MaxVerifiedKids, out var kids)) return false;
+        foreach (var kid in kids)
+            if (!ValidateIndirectTarget(content, entries, kid)) return false;
+        return true;
     }
 
-    private static ReadOnlySpan<byte> TrimEnd(ReadOnlySpan<byte> bytes)
+    private static bool ValidateIndirectTarget(ReadOnlySpan<byte> content, Dictionary<int, XRefEntry> entries, PdfRef target)
     {
-        while (!bytes.IsEmpty && IsWhite(bytes[^1])) bytes = bytes[..^1];
-        return bytes;
+        if (!entries.TryGetValue(target.Number, out var entry) || entry.Type == 0) return false;
+        if (entry.Type == 2) return target.Generation == 0 && ValidateObjectStreamContainer(content, entries, entry);
+        return entry.Field3 == target.Generation
+            && PdfTokens.TryReadObjectHeader(content, entry.Field2, out var num, out var gen, out _)
+            && num == target.Number && gen == target.Generation;
     }
 
-    private static bool IsLineBreak(byte value) => value is (byte)'\r' or (byte)'\n';
-    private static bool IsWhite(byte value) => value is 0 or 9 or 10 or 12 or 13 or 32;
-    private static bool IsDelimiter(byte value) => IsWhite(value) || value is (byte)'/' or (byte)'<' or (byte)'>'
-        or (byte)'(' or (byte)')' or (byte)'[' or (byte)']' or (byte)'%' or (byte)'{' or (byte)'}';
+    private static bool ValidateObjectStreamContainer(ReadOnlySpan<byte> content, Dictionary<int, XRefEntry> entries, XRefEntry compressed)
+    {
+        if (!entries.TryGetValue(compressed.Field2, out var container) || container.Type != 1 || container.Field3 != 0)
+            return false;
+        if (!PdfTokens.TryReadObjectHeader(content, container.Field2, out var num, out var gen, out var pos)
+            || num != compressed.Field2 || gen != 0) return false;
+        if (!PdfTokens.TryParseDictionary(content, ref pos, out var dict)) return false;
+        if (!dict.TryGetValue("/Type", out var typeRange) || !typeRange.Slice(content).SequenceEqual("/ObjStm"u8)) return false;
+        if (!dict.TryGetValue("/N", out var nRange) || !PdfTokens.TryParseInt(nRange.Slice(content), out var count)
+            || count < 1 || compressed.Field3 >= count) return false;
+        if (!dict.TryGetValue("/First", out var firstRange) || !PdfTokens.TryParseInt(firstRange.Slice(content), out var first) || first < 0)
+            return false;
+        if (!dict.TryGetValue("/Length", out var lenRange) || !TryResolveLength(content, entries, lenRange.Slice(content), out var length))
+            return false;
+        return PdfTokens.TryConsumeStream(content, pos, length, out _, out _);
+    }
+
+    private static bool TryResolveLength(ReadOnlySpan<byte> content, Dictionary<int, XRefEntry> entries,
+        ReadOnlySpan<byte> value, out int length)
+    {
+        if (PdfTokens.TryParseInt(value, out length)) return length >= 0;
+        length = 0;
+        if (!PdfTokens.TryParseIndirectRef(value, out var lenRef) || !entries.TryGetValue(lenRef.Number, out var entry)
+            || entry.Type != 1 || entry.Field3 != lenRef.Generation) return false;
+        if (!PdfTokens.TryReadObjectHeader(content, entry.Field2, out var num, out var gen, out var pos)
+            || num != lenRef.Number || gen != lenRef.Generation) return false;
+        if (!PdfTokens.TryReadToken(content, ref pos, out var token) || !PdfTokens.TryNumber(token, out length)) return false;
+        PdfTokens.SkipSpaceAndComments(content, ref pos);
+        return PdfTokens.TryConsumeKeyword(content, ref pos, "endobj"u8);
+    }
+
+    private static bool TryReadDictionaryObject(ReadOnlySpan<byte> content, int offset, PdfRef expected,
+        out Dictionary<string, PdfRange> dictionary)
+    {
+        dictionary = default!;
+        if (!PdfTokens.TryReadObjectHeader(content, offset, out var num, out var gen, out var pos)
+            || num != expected.Number || gen != expected.Generation) return false;
+        if (!PdfTokens.TryParseDictionary(content, ref pos, out dictionary)) return false;
+        PdfTokens.SkipSpaceAndComments(content, ref pos);
+        return PdfTokens.TryConsumeKeyword(content, ref pos, "endobj"u8);
+    }
 }
