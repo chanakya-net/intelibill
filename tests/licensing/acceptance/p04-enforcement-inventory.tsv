@@ -183,6 +183,7 @@ route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/co
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/{id:guid}/document	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/shops	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-replacement-exceptions/{shopId:guid}/{exceptionId:guid}/consent	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-replacements/{shopId:guid}/{replacementId:guid}/consent	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/slot-assignments/{shopId:guid}/{assignmentId:guid}/consent	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions	Billing	M01/M13	protected/request
@@ -194,6 +195,8 @@ route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capa
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/operations/{operationKey:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/previews/{previewId:guid}/shops	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacement-exceptions	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacement-exceptions/operations/{key:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacements	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/slot-assignments	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacements/operations/{key:guid}	Billing	M01/M13	protected/request
@@ -282,6 +285,9 @@ route	POST /internal/licensing/v1/capacity-reductions/manifest	InternalService	i
 route	POST /internal/licensing/v1/capacity-reductions/reserve	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/capacity-reservations/consume	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/capacity-reservations/reserve	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-replacement-exceptions/abort	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-replacement-exceptions/consume	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-replacement-exceptions/prepare	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/entitlements	InternalService	internal	anonymous/request
 route	POST /internal/merchant/v1/capacity-reductions/observe	InternalService	internal	anonymous/request
 route	POST /internal/merchant/v1/closures/validate	InternalService	internal	anonymous/request
@@ -321,6 +327,7 @@ route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/a
 route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/verify	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/ownership-transfers	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-replacement-exceptions/{shopId:guid}/{exceptionId:guid}/consent/{decision}	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/coverage-replacements/{shopId:guid}/{replacementId:guid}/consent/{decision}	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/slot-assignments/{shopId:guid}/{assignmentId:guid}/consent/{decision}	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
@@ -331,6 +338,7 @@ route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cap
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/previews	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/order	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/resolve	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacement-exceptions	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacements	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/slot-assignments	Billing	M01/M13	protected/request
 route	POST api/billing/invitations/{invitationId:guid}/accept	Billing	M01/M13	protected/request

@@ -88,33 +88,30 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
             WHERE h.account_id = {account} AND h.shop_id = ANY({shops}) ORDER BY h.shop_id
             """).ToArrayAsync(ct);
 
-    // A shop's paid coverage is its most recently joined or renewed paid link, else the term its affiliation assigned.
+    // A shop's active paid coverage is its effective paid link unless it was released by an early handoff.
     private async Task<CheckoutSourceShop[]> ReadSourceShopsAsync(Guid account, Guid[] requested, CancellationToken ct) =>
         await db.Database.SqlQuery<CheckoutSourceShop>($"""
             SELECT a.shop_id AS shop_id, a.shop_name AS name, a.request_id AS request_id,
-                   coalesce((SELECT p.term_id FROM public.shop_paid_link(a.account_id, a.shop_id, NULL, NULL) p), a.term_id) AS term_id,
+                   CASE WHEN p.term_id IS NOT NULL THEN CASE WHEN p.is_released THEN NULL::uuid ELSE p.term_id END
+                       ELSE a.term_id END AS term_id,
                    a.applied_at AS applied_at, a.coverage_ends_at AS coverage_ends_at
             FROM public.shop_affiliations a
+            LEFT JOIN LATERAL public.shop_effective_paid_link(a.account_id, a.shop_id, NULL, NULL) p ON true
             WHERE a.account_id = {account} AND a.shop_id = ANY({requested})
             ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
             """).ToArrayAsync(ct);
 
-    // Affiliation-assigned shops of an imported term (V1 digest bytes unchanged), or the paid links of a term the
-    // payment pipeline issued, whose coverage ends with that term.
+    // Effective final holders of the term (including any persisted early-replacement handoffs).
     private async Task<CheckoutSourceShop[]> ReadTermShopsAsync(Guid account, Guid term, CancellationToken ct) =>
         await db.Database.SqlQuery<CheckoutSourceShop>($"""
-            SELECT shop_id, name, request_id, term_id, applied_at, coverage_ends_at FROM (
-                SELECT a.shop_id AS shop_id, a.shop_name AS name, a.request_id AS request_id, a.term_id AS term_id,
-                       a.applied_at AS applied_at, a.coverage_ends_at AS coverage_ends_at
-                FROM public.shop_affiliations a WHERE a.account_id = {account} AND a.term_id = {term}
-                UNION ALL
-                SELECT a.shop_id, a.shop_name, a.request_id, p.term_id, a.applied_at, t.ends_at
-                FROM public.payment_fulfilment_shops p
-                JOIN public.shop_affiliations a ON a.account_id = p.account_id AND a.shop_id = p.shop_id
-                    AND a.request_id = p.affiliation_request_id
-                JOIN public.subscription_coverage_terms t ON t.account_id = p.account_id AND t.term_id = p.term_id
-                WHERE p.account_id = {account} AND p.term_id = {term}
-            ) covered ORDER BY shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
+            SELECT a.shop_id AS shop_id, a.shop_name AS name, a.request_id AS request_id, {term} AS term_id,
+                   a.applied_at AS applied_at,
+                   coalesce(CASE WHEN a.term_id = {term} THEN a.coverage_ends_at END, t.ends_at) AS coverage_ends_at
+            FROM public.term_effective_roster({account}, {term}, NULL) er
+            JOIN public.shop_affiliations a ON a.account_id = {account} AND a.shop_id = er.shop_id
+                AND a.request_id = er.affiliation_request_id
+            JOIN public.subscription_coverage_terms t ON t.account_id = {account} AND t.term_id = {term}
+            ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
             """).ToArrayAsync(ct);
 
     // Only the latest paid period is a renewal source: a term another fulfilment already extended is stale.
@@ -159,6 +156,8 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
             JOIN public.subscription_term_facts f USING (account_id, term_id)
             WHERE t.account_id = {account} AND t.term_id = {term} AND NOT EXISTS (SELECT FROM public.capacity_increases i
                 WHERE i.account_id=t.account_id AND i.term_id=t.term_id AND i.state='Pending')
+                AND NOT EXISTS (SELECT FROM public.coverage_replacement_exceptions e
+                WHERE e.account_id = t.account_id AND e.term_id = t.term_id AND e.state IN ('Preparing', 'Consuming', 'Aborting'))
                 AND NOT EXISTS (SELECT FROM public.payment_fulfilments s
                 WHERE s.account_id = t.account_id AND s.predecessor_term_id = t.term_id)
             """).SingleOrDefaultAsync(ct);
@@ -206,8 +205,10 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
                 """)
             : db.Database.SqlQuery<CheckoutShopV1>($"""
                 SELECT a.shop_id AS shop_id, a.shop_name AS name,
-                   coalesce((SELECT p.term_id FROM public.shop_paid_link(a.account_id, a.shop_id, NULL, NULL) p), a.term_id) AS term_id
+                   CASE WHEN p.term_id IS NOT NULL THEN CASE WHEN p.is_released THEN NULL::uuid ELSE p.term_id END
+                       ELSE a.term_id END AS term_id
                 FROM public.shop_affiliations a
+                LEFT JOIN LATERAL public.shop_effective_paid_link(a.account_id, a.shop_id, NULL, NULL) p ON true
                 WHERE a.account_id = {account} AND ({after}::uuid IS NULL OR a.shop_id > {after})
                 ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.PageSize + 1}
                 """)).ToListAsync(ct);

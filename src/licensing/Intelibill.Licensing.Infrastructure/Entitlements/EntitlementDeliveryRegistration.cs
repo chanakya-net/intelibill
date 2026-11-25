@@ -46,13 +46,15 @@ internal static class EntitlementDeliveryRegistration
         services.AddScoped<Billing.CoverageSlotAssignmentStore>();
         services.AddScoped<CoverageSlotConsentAcknowledgements>();
         services.AddScoped<ReplacementConsentAcknowledgements>();
+        services.AddScoped<CoverageExceptionAcknowledgements>();
         services.AddScoped<CapacityReservationAcknowledgements>();
         services.AddScoped<ReductionReservationAcknowledgements>();
         services.AddScoped(provider => new EntitlementMerchantEvents(provider.GetRequiredService<LicensingDbContext>(),
             provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>(),
             provider.GetRequiredService<CapacityReservationAcknowledgements>(),
             provider.GetRequiredService<ReductionReservationAcknowledgements>(), provider.GetRequiredService<CoverageSlotConsentAcknowledgements>(),
-            provider.GetRequiredService<ReplacementConsentAcknowledgements>()));
+            provider.GetRequiredService<ReplacementConsentAcknowledgements>(),
+            provider.GetRequiredService<CoverageExceptionAcknowledgements>()));
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<LicensingDbContext>()));
         services.AddScoped<ILeasedHttpDestination, LicensingEntitlementDelivery>();
         LeasedHttpDeliveryPump.Register(services);

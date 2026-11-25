@@ -120,8 +120,7 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
                 public.term_effective_access_end(t.account_id,t.term_id) AS access_ends_at,coalesce(i.capacity,t.capacity) AS capacity,
                 coalesce(i.members,s.member_allowance) AS members,
                 coalesce(cancel.rev,0) AS cancellation_revision,
-                (SELECT count(*)::int FROM (SELECT shop_id FROM public.payment_fulfilment_shops WHERE term_id=t.term_id
-                    UNION SELECT shop_id FROM public.shop_affiliations WHERE term_id=t.term_id) shops) AS occupied,
+                (SELECT count(*)::int FROM public.term_effective_roster(t.account_id, t.term_id, NULL)) AS occupied,
                 (t.starts_at<={now} AND {now}<ep.paid_through AND coalesce(cancel.rev,0)%2=0
                     AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)) AS available
             FROM public.subscription_coverage_terms t JOIN public.payment_fulfilments f USING(account_id,term_id)

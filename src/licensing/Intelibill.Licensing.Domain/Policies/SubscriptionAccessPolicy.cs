@@ -19,6 +19,13 @@ public static class SubscriptionAccessPolicy
         var decided = facts is { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid } ? facts.RefundBoundary : null;
         if (decided is not null)
             (paidThrough, grace) = Apply(decided, facts, paidThrough, grace);
+        var handedOff = facts is { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid, HandoffEndsAt: { } handoffEnd };
+        if (handedOff)
+        {
+            var bound = facts.HandoffEndsAt!.Value;
+            if (bound < paidThrough) paidThrough = bound > facts.StartsAt ? bound : facts.StartsAt;
+            grace = null;
+        }
         var accessEnds = facts.Evidence == TermEvidenceState.Complete ? grace ?? paidThrough : (DateTimeOffset?)null;
         var state = facts.Evidence switch
         {
@@ -30,7 +37,7 @@ public static class SubscriptionAccessPolicy
             state = SubscriptionAccessState.Suspended;
 
         return new SubscriptionAccessEvaluation(state, facts.StartsAt, paidThrough, grace, accessEnds,
-            NextDeadline(facts, at, paidThrough, grace), decided is null ? NextPeriodEnd(facts, paidThrough) : null);
+            NextDeadline(facts, at, paidThrough, grace), decided is null && !handedOff ? NextPeriodEnd(facts, paidThrough) : null);
     }
 
     // A decided term is paid through its decided boundary and keeps access (as grace) only up to its decided end.

@@ -25,6 +25,9 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
             ReductionTransportV1.ManifestKind => ReductionTransportV1.ManifestPath,
             ReductionTransportV1.ReserveKind => ReductionTransportV1.ReservePath,
             ReductionTransportV1.ConsumeKind => ReductionTransportV1.ConsumePath,
+            CoverageReplacementExceptionsV1.PrepareKind => CoverageReplacementExceptionsV1.PreparePath,
+            CoverageReplacementExceptionsV1.ConsumeKind => CoverageReplacementExceptionsV1.ConsumePath,
+            CoverageReplacementExceptionsV1.AbortKind => CoverageReplacementExceptionsV1.AbortPath,
             _ => null,
         };
         if (transport.Origin is not { } origin || path is null)
@@ -54,8 +57,12 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
         if (response.StatusCode == HttpStatusCode.Locked)
         {
             var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(message.Payload, EntitlementSnapshotsV1.Json);
-            return snapshot?.Shop is { ReplacementId: not null, AccessEndsAt: { } end } && publisher.Now < end
-                ? CoverageReplacementsV1.AwaitingRelease : "Rejected";
+            if (snapshot?.Shop is { ReplacementId: not null, AccessEndsAt: { } end } && publisher.Now < end)
+                return CoverageReplacementsV1.AwaitingRelease;
+            if (snapshot?.Shop is { ReplacementExceptionId: not null, ReplacementExceptionLeg: CoverageReplacementExceptionsV1.IncomingPaidLeg or CoverageReplacementExceptionsV1.IncomingCourtesyLeg, AccessEndsAt: { } exEnd }
+                && publisher.Now < exEnd)
+                return CoverageReplacementExceptionsV1.AwaitingRelease;
+            return "Rejected";
         }
         if (response.StatusCode != HttpStatusCode.OK)
             return DeliveryFailure(response);

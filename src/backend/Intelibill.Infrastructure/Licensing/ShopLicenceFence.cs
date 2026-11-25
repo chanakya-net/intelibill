@@ -33,6 +33,14 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             return Result.Success;
         }, ct);
 
+    internal Task<ErrorOr<Success>> EnterDualProjectionAsync(Guid accountId, Guid firstShopId, Guid secondShopId, CancellationToken ct) =>
+        WithinBudgetAsync<Success>(async () =>
+        {
+            foreach (var shopId in new[] { firstShopId, secondShopId }.Distinct().Order())
+                await LockAsync(accountId, shopId, shared: false, ct);
+            return Result.Success;
+        }, ct);
+
     internal Task<ErrorOr<Success>> EnterObservationAsync(Guid accountId, Guid[] shopIds, CancellationToken ct) =>
         WithinBudgetAsync<Success>(async () =>
         {
@@ -58,6 +66,9 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         if (shop?.AccountId != accountId)
             return LicenceErrors.Busy;
 
+        if (shop is { Basis: "Paid", TermId: { } paidTerm })
+            await ApplyExceptionCutoffAsync(shop, paidTerm, ct);
+
         var account = accountId is { } id
             ? await db.Set<AccountLicenseRestriction>().AsNoTracking().SingleOrDefaultAsync(row => row.AccountId == id, ct)
             : null;
@@ -81,6 +92,21 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             AccountEvidenceId = account?.EvidenceId,
             ShopEvidenceId = shop?.EvidenceId,
         };
+    }
+
+    private async Task ApplyExceptionCutoffAsync(ShopLicenseState shop, Guid termId, CancellationToken ct)
+    {
+        var cutoff = await db.Database.SqlQuery<DateTimeOffset?>($"""
+            SELECT min(cutoff_at) AS "Value" FROM public.merchant_coverage_exception_cutoffs
+            WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
+                AND affiliation_request_id = {shop.AffiliationRequestId} AND term_id = {termId}
+            """).SingleAsync(ct);
+        if (cutoff is not { } end) return;
+        var nextEnd = shop.AccessEndsAt is { } current && current < end ? current : end;
+        var nextBoundary = shop.NextBoundary is { } bound && bound < end ? bound : end;
+        shop.Apply(shop.Revision, shop.UpstreamVerifiedAt, shop.State, shop.TermId, shop.Basis, shop.StartsAt,
+            nextEnd, nextBoundary, shop.ShopCapacity, shop.MemberAllowance, shop.EvidenceId, shop.SuspensionMode,
+            shop.SuspensionEffectiveAt, shop.SuspensionExplanation, shop.ReleasedRevision, shop.ReopenedRevision, shop.ClosureRevision);
     }
 
     private async Task<int?> AppliedAllowanceAsync(ShopLicenseState shop, Guid term, DateTimeOffset now, CancellationToken ct)

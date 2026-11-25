@@ -22,6 +22,8 @@ public sealed partial class P0501LicensingTests
         "offline_license_verification_keys", "offline_submissions", "reconciliation_issues",
         "applied_shop_capacity", "capacity_reservation_receipts", "applied_shop_reductions", "coverage_slot_consent_events",
         "coverage_slot_activations", "coverage_replacement_consent_events", "coverage_replacement_activations",
+        "coverage_exception_consent_events", "merchant_coverage_exception_decisions",
+        "merchant_coverage_exception_cutoffs", "merchant_coverage_exception_activations",
         "reduction_reservation_receipts", "reduction_manifest_shops", "reduction_manifest_pages",
         "license_history_review_observations", "\"__EFMigrationsHistory\"",
     ];
@@ -146,6 +148,9 @@ public sealed partial class P0501LicensingTests
             GRANT CREATE ON SCHEMA public TO {role};
             {alters}
             ALTER FUNCTION public.replacement_outgoing_released(uuid,timestamptz) OWNER TO {role};
+            ALTER FUNCTION public.exception_outgoing_released(uuid,bigint,timestamptz) OWNER TO {role};
+            ALTER FUNCTION public.exception_fence_inspect(uuid,uuid,uuid,bigint,text,uuid,uuid,uuid,uuid,uuid,uuid,int,timestamptz) OWNER TO {role};
+            ALTER FUNCTION public.guard_offline_permit_exception_cutoff() OWNER TO {role};
             ALTER FUNCTION public.capacity_fence_shops(uuid,uuid) OWNER TO {role};
             ALTER FUNCTION public.reduction_fence_shops(uuid,uuid) OWNER TO {role};
             ALTER FUNCTION public.reduction_observe_shops(uuid,uuid[]) OWNER TO {role};

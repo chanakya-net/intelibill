@@ -26,6 +26,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<ShopAffiliationConsentStore>();
         services.AddScoped<CoverageSlotConsentStore>();
         services.AddScoped<ReplacementConsentStore>();
+        services.AddScoped<CoverageExceptionConsentStore>();
         services.AddScoped<MerchantClosureConsentStore>();
         services.AddScoped<IMerchantClosureValidationReceiver>(provider => provider.GetRequiredService<MerchantClosureConsentStore>());
         AddDeliveryKey(services, ShopAffiliationDeliveryV1.Section);
@@ -39,6 +40,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<EntitlementProjectionStore>();
         services.AddScoped<ICapacityReservationReceiver, MerchantCapacityReservationStore>();
         services.AddScoped<IReductionReservationReceiver, MerchantReductionReservationStore>();
+        services.AddScoped<ICoverageExceptionReceiver, MerchantCoverageExceptionReceiver>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
         AddDeliveryKey(services, OfflinePermitContractV1.Section);
@@ -69,6 +71,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantBillingInvitations, MerchantBillingClient>()
             .AddTypedClient<IMerchantCoverageSlots, MerchantBillingClient>()
             .AddTypedClient<IMerchantCoverageReplacements, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCoverageReplacementExceptions, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopAffiliations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopClosures, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingOwnershipTransfers, MerchantBillingClient>()

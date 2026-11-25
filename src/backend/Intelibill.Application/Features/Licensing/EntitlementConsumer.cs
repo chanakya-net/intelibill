@@ -8,7 +8,8 @@ public static class EntitlementConsumer
 {
     public static string? ReviewReason(EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? account, ShopLicenseState? shop,
         LicenseProofIssuance? previousProofs, DateTimeOffset issuedAt, Guid? savedSlotAssignmentId = null,
-        Guid? savedReplacementId = null, Guid? savedReleasedReplacementId = null)
+        Guid? savedReplacementId = null, Guid? savedReleasedReplacementId = null,
+        Guid? savedExceptionId = null, string? savedExceptionLeg = null, long? savedExceptionGeneration = null)
     {
         if (snapshot.Account is not { } incomingAccount || snapshot.Shop is not { } incomingShop)
             return "MissingScope";
@@ -18,7 +19,9 @@ public static class EntitlementConsumer
             return "InvalidShopScope";
         if (account is not null && AccountConflicts(incomingAccount, account, previousProofs?.AccountIssuedAt, issuedAt))
             return "ConflictingAccountScope";
-        if (shop is not null && ShopConflicts(incomingShop, shop, previousProofs?.ShopIssuedAt, issuedAt, savedSlotAssignmentId, savedReplacementId, savedReleasedReplacementId))
+        if (shop is not null && ShopConflicts(incomingShop, shop, previousProofs?.ShopIssuedAt, issuedAt,
+                savedSlotAssignmentId, savedReplacementId, savedReleasedReplacementId,
+                savedExceptionId, savedExceptionLeg, savedExceptionGeneration))
             return "ConflictingShopScope";
         return null;
     }
@@ -49,7 +52,8 @@ public static class EntitlementConsumer
     }
 
     private static bool ShopConflicts(ShopEntitlementSnapshotV1 incoming, ShopLicenseState saved,
-        DateTimeOffset? previousIssuedAt, DateTimeOffset issuedAt, Guid? savedSlotAssignmentId, Guid? savedReplacementId, Guid? savedReleasedReplacementId)
+        DateTimeOffset? previousIssuedAt, DateTimeOffset issuedAt, Guid? savedSlotAssignmentId, Guid? savedReplacementId,
+        Guid? savedReleasedReplacementId, Guid? savedExceptionId, string? savedExceptionLeg, long? savedExceptionGeneration)
     {
         if (incoming.Revision < saved.Revision)
             return false;
@@ -66,7 +70,8 @@ public static class EntitlementConsumer
         return incoming != new ShopEntitlementSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt, saved.State,
             saved.TermId, saved.Basis, saved.StartsAt, saved.AccessEndsAt, saved.NextBoundary, saved.ShopCapacity,
             saved.MemberAllowance, suspension, saved.ReleasedRevision, saved.ReopenedRevision, saved.ClosureRevision,
-            savedSlotAssignmentId, savedReplacementId, savedReleasedReplacementId);
+            savedSlotAssignmentId, savedReplacementId, savedReleasedReplacementId,
+            savedExceptionId, savedExceptionLeg, savedExceptionGeneration);
     }
 
     // A repeated cutoff preserves the previously accepted release. An advancing cutoff must cover the retained head.

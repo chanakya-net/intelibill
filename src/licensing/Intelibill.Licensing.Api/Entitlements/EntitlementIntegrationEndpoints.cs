@@ -12,6 +12,12 @@ internal static class EntitlementIntegrationEndpoints
 {
     internal static void MapEntitlementIntegration(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapPost(CoverageReplacementExceptionsV1.ConsentReceiptPath, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<CoverageReplacementExceptionConsentV1>(
+                context, transport, CoverageReplacementExceptionsV1.ConsentReceiptPath, events.CoverageExceptionConsentAsync)).AllowAnonymous();
+        endpoints.MapPost(CoverageReplacementExceptionsV1.DecisionReceiptPath, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<CoverageExceptionReceiptV1>(
+                context, transport, CoverageReplacementExceptionsV1.DecisionReceiptPath, events.CoverageExceptionReceiptAsync)).AllowAnonymous();
         endpoints.MapPost(CoverageReplacementsV1.ReceiptPath, (HttpContext context, LicensingEntitlementTransport transport,
             EntitlementMerchantEvents events) => ReceiveAsync<ReplacementConsentV1>(context, transport,
                 CoverageReplacementsV1.ReceiptPath, events.ReplacementConsentAsync)).AllowAnonymous();

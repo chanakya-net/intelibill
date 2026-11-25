@@ -254,6 +254,10 @@ public sealed partial class P0401LicensingTests
                     ALTER TABLE public.coverage_slot_consent_events OWNER TO {_role};
                     ALTER TABLE public.coverage_replacement_consent_events OWNER TO {_role};
                     ALTER TABLE public.coverage_replacement_activations OWNER TO {_role};
+                    ALTER TABLE public.coverage_exception_consent_events OWNER TO {_role};
+                    ALTER TABLE public.merchant_coverage_exception_decisions OWNER TO {_role};
+                    ALTER TABLE public.merchant_coverage_exception_cutoffs OWNER TO {_role};
+                    ALTER TABLE public.merchant_coverage_exception_activations OWNER TO {_role};
                     ALTER TABLE public.coverage_slot_activations OWNER TO {_role};
                     ALTER TABLE public.applied_shop_reductions OWNER TO {_role};
                     ALTER TABLE public.reduction_reservation_receipts OWNER TO {_role};
@@ -270,6 +274,9 @@ public sealed partial class P0401LicensingTests
                     ALTER TABLE public.license_history_review_observations OWNER TO {_role};
                     ALTER TABLE public."__EFMigrationsHistory" OWNER TO {_role};
                     ALTER FUNCTION public.replacement_outgoing_released(uuid,timestamptz) OWNER TO {_role};
+                    ALTER FUNCTION public.exception_outgoing_released(uuid,bigint,timestamptz) OWNER TO {_role};
+                    ALTER FUNCTION public.exception_fence_inspect(uuid,uuid,uuid,bigint,text,uuid,uuid,uuid,uuid,uuid,uuid,int,timestamptz) OWNER TO {_role};
+                    ALTER FUNCTION public.guard_offline_permit_exception_cutoff() OWNER TO {_role};
                     ALTER FUNCTION public.capacity_fence_shops(uuid, uuid) OWNER TO {_role};
                     ALTER FUNCTION public.reduction_fence_shops(uuid, uuid) OWNER TO {_role};
                     ALTER FUNCTION public.reduction_observe_shops(uuid, uuid[]) OWNER TO {_role};

@@ -13,7 +13,8 @@ internal static class ComplimentaryGrantRegistration
     /// </summary>
     internal static void AddComplimentaryGrants(this IServiceCollection services)
     {
-        services.AddScoped<IComplimentaryGrantStore, ComplimentaryGrantStore>();
+        services.AddScoped<ComplimentaryGrantStore>();
+        services.AddScoped<IComplimentaryGrantStore>(provider => provider.GetRequiredService<ComplimentaryGrantStore>());
         services.AddScoped(provider => new GrantComplimentaryAccessHandler(
             provider.GetRequiredService<IComplimentaryGrantStore>(), provider.GetRequiredService<ISubscriptionAccessFactsReader>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),

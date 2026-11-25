@@ -45,7 +45,8 @@ public sealed record SubscriptionAccessFacts(
     ScheduledCancellation? Cancellation = null,
     IReadOnlyList<SuspensionInterval>? Suspensions = null,
     bool RenewedAtEnd = false,
-    RefundAccessBoundary? RefundBoundary = null);
+    RefundAccessBoundary? RefundBoundary = null,
+    DateTimeOffset? HandoffEndsAt = null);
 
 /// <summary>The computed result. Every interval is end-exclusive; nothing is written back.</summary>
 public sealed record SubscriptionAccessEvaluation(

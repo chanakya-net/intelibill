@@ -29,6 +29,12 @@ internal static class BillingDelegationRegistration
         services.AddScoped<AssignUnusedCoverageSlotHandler>();
         services.AddScoped<ICoverageReplacementStore, CoverageReplacementStore>();
         services.AddScoped<ScheduleCoverageReplacementHandler>();
+        services.AddScoped<ICoverageReplacementExceptionStore, CoverageReplacementExceptionStore>();
+        services.AddScoped<RequestCoverageReplacementExceptionHandler>();
+        services.AddScoped(provider => new ApproveCoverageReplacementHandler(
+            provider.GetRequiredService<ICoverageReplacementExceptionStore>(),
+            provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
+            provider.GetRequiredService<TimeProvider>()));
         services.AddScoped<IBillingInvitationStore, BillingInvitationStore>();
         services.AddScoped<BillingInvitationSecrets>();
         services.AddScoped<BillingInvitationHandlers>();

@@ -28,6 +28,13 @@ internal static class EntitlementEndpoints
             endpoints.MapPost(path, (HttpContext context, MerchantEntitlementTransport transport, IReductionReservationReceiver receiver) =>
                 ReductionReservationAsync(context, transport, receiver, phase, path)).AllowAnonymous()
                 .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+        foreach (var (phase, path) in new[] {
+            (CoverageReplacementExceptionsV1.PrepareKind, CoverageReplacementExceptionsV1.PreparePath),
+            (CoverageReplacementExceptionsV1.ConsumeKind, CoverageReplacementExceptionsV1.ConsumePath),
+            (CoverageReplacementExceptionsV1.AbortKind, CoverageReplacementExceptionsV1.AbortPath) })
+            endpoints.MapPost(path, (HttpContext context, MerchantEntitlementTransport transport, ICoverageExceptionReceiver receiver) =>
+                CoverageExceptionAsync(context, transport, receiver, phase, path)).AllowAnonymous()
+                .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(EntitlementSnapshotsV1.SnapshotPath, ApplyAsync).AllowAnonymous()
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(ShopClosuresV1.ValidationPath, ValidateClosureAsync).AllowAnonymous()
@@ -115,6 +122,22 @@ internal static class EntitlementEndpoints
         catch (NpgsqlException) { return Results.StatusCode(503); }
     }
 
+    private static async Task<IResult> CoverageExceptionAsync(HttpContext context, MerchantEntitlementTransport transport,
+        ICoverageExceptionReceiver receiver, string phase, string path)
+    {
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, EntitlementSnapshotsV1.BodyLimit) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof)
+            return Results.Unauthorized();
+        try
+        {
+            var command = JsonSerializer.Deserialize<CoverageExceptionCommandV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (command?.IsValid(phase) != true) return Results.BadRequest();
+            return MapInternalWrite(await receiver.ReceiveAsync(command, request.Body, proof, context.RequestAborted));
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
+    }
+
     private static IResult MapInternalWrite(ErrorOr<Success> result) => !result.IsError ? Results.NoContent()
         : result.FirstError.Type switch
         {
@@ -172,7 +195,7 @@ internal static class EntitlementEndpoints
                 if (result.Value.Changed) notifications.Schedule(snapshot.ShopId);
                 return Results.Bytes(result.Value.Acknowledgement, "application/json");
             }
-            if (result.FirstError.Code == CoverageReplacementsV1.AwaitingRelease)
+            if (result.FirstError.Code is CoverageReplacementsV1.AwaitingRelease or CoverageReplacementExceptionsV1.AwaitingRelease)
                 return Results.StatusCode(StatusCodes.Status423Locked);
             if (result.FirstError.Code == LicenceErrors.BusyCode)
                 return Results.StatusCode(503);

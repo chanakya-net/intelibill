@@ -20,7 +20,9 @@ public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int 
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     RefundTermBoundary? RefundBoundary = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    Guid? SlotAssignmentId = null);
+    Guid? SlotAssignmentId = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    DateTimeOffset? HandoffEndsAt = null);
 
 /// <summary>The resulting instants of the term's latest effective refund access decision; operational columns only.</summary>
 public sealed record RefundTermBoundary(DateTimeOffset PaidThrough, DateTimeOffset AccessEndsAt);

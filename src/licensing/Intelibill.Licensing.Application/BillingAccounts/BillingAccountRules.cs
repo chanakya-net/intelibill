@@ -47,9 +47,11 @@ public static class BillingAccountRules
     {
         ShopClosuresV1.AccountRead or ShopClosuresV1.Propose or ShopClosuresV1.Confirm or
         BillingOwnershipTransfersV1.Issue or BillingInvitationsV1.OwnerCheck or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember
-        or CoverageReplacementsV1.Schedule or CoverageReplacementsV1.Recover or CapacityChangeQuotesV1.Create or CapacityChangeQuotesV1.Shops => role == BillingAccountRole.Owner,
+        or CoverageReplacementsV1.Schedule or CoverageReplacementsV1.Recover
+        or CoverageReplacementExceptionsV1.Request or CoverageReplacementExceptionsV1.Recover
+        or CapacityChangeQuotesV1.Create or CapacityChangeQuotesV1.Shops => role == BillingAccountRole.Owner,
         _ when CapacityReductionsV1.IsAction(action) => role == BillingAccountRole.Owner,
-        CoverageReplacementsV1.Read or CoverageSlotsV1.Read or CoverageSlotsV1.Request or CoverageSlotsV1.Recover or MerchantBillingDelegationV1.ReadAccount or BillingInvitationsV1.Roster or ShopAffiliationsV1.Read or ShopAffiliationsV1.Request or SubscriptionStatusV1.AccountRead
+        CoverageReplacementsV1.Read or CoverageReplacementExceptionsV1.Read or CoverageSlotsV1.Read or CoverageSlotsV1.Request or CoverageSlotsV1.Recover or MerchantBillingDelegationV1.ReadAccount or BillingInvitationsV1.Roster or ShopAffiliationsV1.Read or ShopAffiliationsV1.Request or SubscriptionStatusV1.AccountRead
         or SubscriptionCancellationsV1.Read or SubscriptionCancellationsV1.Schedule or SubscriptionCancellationsV1.Recover
         or SubscriptionCancellationsV1.Withdraw or SubscriptionCancellationsV1.WithdrawRecover => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
         _ when CheckoutOrdersV1.IsAction(action) || CheckoutPaymentsV1.IsAction(action) || RefundRequestsV1.IsAction(action) =>
@@ -62,7 +64,7 @@ public static class BillingAccountRules
     public static bool SerializesAccountMutation(string action) => action is ShopClosuresV1.Propose or ShopClosuresV1.Confirm
         or BillingOwnershipTransfersV1.Issue
         or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember or ShopAffiliationsV1.Request or SubscriptionCancellationsV1.Schedule
-        or CoverageReplacementsV1.Schedule or CoverageSlotsV1.Request or SubscriptionCancellationsV1.Withdraw or CheckoutOrdersV1.Create or CheckoutOrdersV1.Accept or CapacityChangeQuotesV1.Create
+        or CoverageReplacementsV1.Schedule or CoverageReplacementExceptionsV1.Request or CoverageSlotsV1.Request or SubscriptionCancellationsV1.Withdraw or CheckoutOrdersV1.Create or CheckoutOrdersV1.Accept or CapacityChangeQuotesV1.Create
         or CapacityReductionsV1.Preview or CapacityReductionsV1.Schedule or CapacityReductionsV1.Resolve
         or CheckoutPaymentsV1.Start or CheckoutPaymentsV1.Verify or RefundRequestsV1.Create;
 
