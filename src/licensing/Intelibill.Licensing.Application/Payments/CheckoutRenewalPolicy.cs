@@ -36,6 +36,22 @@ public static class CheckoutRenewalPolicy
         quote.TermId is { } term ? await orders.SourceAsync(quote.AccountId, term, [], ct)
             : await orders.SourceAsync(quote.AccountId, null, await orders.ShopIdsAsync(quote.AccountId, quote.OrderId, ct), ct);
 
+    /// <summary>The source and named coverage window must still support the quoted purchase at decision time.</summary>
+    internal static async Task<bool> SourceIsCurrentAsync(ICheckoutOrderStore orders, CheckoutQuoteV1 quote,
+        DateTimeOffset now, CancellationToken ct)
+    {
+        var source = await SourceAsync(orders, quote, ct);
+        if (source?.Matches(quote) != true || !await orders.IncreaseStillCurrentAsync(quote, now, ct) ||
+            !await orders.ReductionOrderCurrentAsync(quote, now, ct))
+            return false;
+        if (quote.Increase is not null)
+            return true; // An increase changes capacity within an existing term.
+        var start = IsRestoredAccess(quote) && now > quote.PreviewStartsAt ? now : quote.PreviewStartsAt;
+        var end = quote.PreviewEndsAt > start ? quote.PreviewEndsAt : start.AddDays(1);
+        return !await orders.HasConflictingPaidCoverageAsync(quote.AccountId, [.. source.Shops.Select(s => s.ShopId)],
+            quote.TermId, start, end, ct);
+    }
+
     /// <summary>
     /// The successor period for verified funds effective at <paramref name="effectiveAt"/> and observed at
     /// <paramref name="now"/>: exactly the accepted quote's period on the prior anchor, or null.

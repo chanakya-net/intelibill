@@ -84,18 +84,8 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
         if (!CheckoutPaymentStatusReader.Startable(quote))
             return CheckoutPaymentErrors.Unsupported;
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
-        var source = await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct);
-        if (!await orders.IncreaseStillCurrentAsync(quote, now, ct) ||
-            !await orders.ReductionOrderCurrentAsync(quote, now, ct) ||
-            source?.Matches(quote) != true)
+        if (!await CheckoutRenewalPolicy.SourceIsCurrentAsync(orders, quote, now, ct))
             return CheckoutOrderErrors.Changed;
-        if (quote.Increase is null)
-        {
-            var start = CheckoutRenewalPolicy.IsRestoredAccess(quote) && now > quote.PreviewStartsAt ? now : quote.PreviewStartsAt;
-            var end = quote.PreviewEndsAt > start ? quote.PreviewEndsAt : start.AddDays(1);
-            if (await orders.HasConflictingPaidCoverageAsync(account, [.. source.Shops.Select(s => s.ShopId)], quote.TermId, start, end, ct))
-                return CheckoutOrderErrors.Changed;
-        }
         return null;
     }
 

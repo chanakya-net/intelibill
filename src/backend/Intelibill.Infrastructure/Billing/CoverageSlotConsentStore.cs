@@ -64,17 +64,19 @@ internal sealed class CoverageSlotConsentStore(ApplicationDbContext db, ShopAffi
             "TermEnded" => "Expired",
             "Suspended" => "Suspended",
             "NeedsReview" => "NeedsReview",
-            "Grace" => "Grace",
-            "Acknowledged" => await CheckLocalSuspensionAsync(row, now, ct) ?? "Acknowledged",
+            "Grace" or "Acknowledged" => await LocalAccessStatusAsync(row, now, row.Activation, ct),
             _ => await LocalPendingOutcomeAsync(row, now, ct),
         };
     }
 
-    private async Task<string?> CheckLocalSuspensionAsync(CoverageSlotAssignmentV1 row, DateTimeOffset now, CancellationToken ct)
+    private async Task<string> LocalAccessStatusAsync(CoverageSlotAssignmentV1 row, DateTimeOffset now, string fallback, CancellationToken ct)
     {
         var heads = await SuspensionAccessReader.ReadHeadsAsync(db, row.ShopId, ct);
-        return heads is not null && LicenseProjectionPolicy.EffectiveSuspension(heads.Shop, heads.Account, now) is not null
-            ? "Suspended" : null;
+        if (heads?.Shop.AccountId != row.AccountId || heads.Shop.AffiliationRequestId != row.AffiliationRequestId)
+            return "Applying";
+        if (heads.Shop.State == "Closed") return "Closed";
+        if (LicenseProjectionPolicy.EffectiveSuspension(heads.Shop, heads.Account, now) is not null) return "Suspended";
+        return heads.Shop.State == "Grace" ? "Grace" : fallback;
     }
 
     private async Task<string> LocalPendingOutcomeAsync(CoverageSlotAssignmentV1 row, DateTimeOffset now, CancellationToken ct)
@@ -84,13 +86,7 @@ internal sealed class CoverageSlotConsentStore(ApplicationDbContext db, ShopAffi
                 WHERE assignment_id = {row.AssignmentId} AND shop_id = {row.ShopId}) AS "Value"
             """).SingleAsync(ct);
         if (activated)
-        {
-            if (await CheckLocalSuspensionAsync(row, now, ct) is { } suspended) return suspended;
-            var localState = await db.Database.SqlQuery<string?>($"""
-                SELECT state AS "Value" FROM public.shop_license_states WHERE shop_id = {row.ShopId}
-                """).SingleOrDefaultAsync(ct);
-            return localState == "Grace" ? "Grace" : "AppliedLocally";
-        }
+            return await LocalAccessStatusAsync(row, now, "AppliedLocally", ct);
         var rejectedLocally = await db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (
                 SELECT FROM public.entitlement_snapshot_inbox i

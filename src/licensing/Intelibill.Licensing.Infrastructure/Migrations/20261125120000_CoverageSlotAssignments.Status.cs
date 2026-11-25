@@ -102,14 +102,14 @@ public sealed partial class CoverageSlotAssignments
                 JOIN public.entitlement_snapshots s ON s.event_id = d.event_id
                 WHERE d.assignment_id = a.assignment_id;
 
-                -- Current activation follows the head the merchant last confirmed, never an earlier receipt: every
-                -- receipt reports the shop revision the merchant holds after processing it. A later snapshot that
-                -- changes whether the shop may trade stays pending until that head reaches it.
-                WITH lineage AS (
+                -- A closure can supersede the slot without carrying a slot id. Read every head in this affiliation
+                -- after assignment, but only a head backed by this assignment can confirm its operating access.
+                WITH shop_heads AS (
                     SELECT s.event_id, s.shop_revision, o.status AS outbox_status, x.snap,
                            CASE WHEN ack.payload IS NOT NULL THEN convert_from(ack.payload, 'UTF8')::jsonb END AS receipt,
                            -- An undated suspension has no effective instant to compare and is never usable.
-                           coalesce(x.snap->'shop'->>'state' IN ('Active', 'Grace')
+                           coalesce((s.event_id = initial_event OR x.snap->'shop'->>'slotAssignmentId' = a.assignment_id::text)
+                            AND x.snap->'shop'->>'state' IN ('Active', 'Grace')
                             AND (x.snap->'shop'->'suspension' IS NULL
                                  OR (x.snap->'shop'->'suspension'->>'effectiveAt')::timestamptz > x.signed_at)
                             AND (x.snap->'account'->>'restriction' = 'Unrestricted'
@@ -126,24 +126,25 @@ public sealed partial class CoverageSlotAssignments
                     WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id
                       AND s.affiliation_request_id = a.affiliation_request_id
                       AND initial_rev IS NOT NULL AND s.shop_revision >= initial_rev
-                      AND (s.event_id = initial_event OR x.snap->'shop'->>'slotAssignmentId' = a.assignment_id::text)
                 ), confirmed AS (
-                    SELECT l.shop_revision, l.usable, l.snap FROM lineage l
-                    WHERE l.shop_revision <= (SELECT max((r.receipt->>'appliedShopRevision')::bigint)
-                        FROM lineage r WHERE r.receipt->>'outcome' = 'Applied')
-                    ORDER BY l.shop_revision DESC LIMIT 1
+                    SELECT h.shop_revision, h.usable, h.snap FROM shop_heads h
+                    JOIN public.applied_entitlement_shop_receipts r ON r.account_id = a.account_id
+                        AND r.shop_id = a.shop_id AND r.affiliation_request_id = a.affiliation_request_id
+                        AND r.shop_revision = h.shop_revision
+                    ORDER BY h.shop_revision DESC LIMIT 1
                 )
                 SELECT
-                    (SELECT outbox_status FROM lineage ORDER BY shop_revision DESC LIMIT 1),
-                    (SELECT receipt->>'outcome' FROM lineage ORDER BY shop_revision DESC LIMIT 1),
+                    (SELECT outbox_status FROM shop_heads ORDER BY shop_revision DESC LIMIT 1),
+                    (SELECT receipt->>'outcome' FROM shop_heads ORDER BY shop_revision DESC LIMIT 1),
                     coalesce((SELECT c.usable AND (c.snap->'shop'->>'accessEndsAt')::timestamptz > at_time
                         AND (c.snap->'shop'->'suspension' IS NULL
                              OR (c.snap->'shop'->'suspension'->>'effectiveAt')::timestamptz > at_time)
                         AND (c.snap->'account'->'suspension' IS NULL
                              OR (c.snap->'account'->'suspension'->>'effectiveAt')::timestamptz > at_time)
                         FROM confirmed c), false),
-                    EXISTS (SELECT FROM lineage l, confirmed c WHERE l.shop_revision > c.shop_revision AND l.usable <> c.usable),
-                    EXISTS (SELECT FROM lineage l WHERE l.receipt->>'outcome' = 'Applied')
+                    EXISTS (SELECT FROM shop_heads l, confirmed c WHERE l.shop_revision > c.shop_revision AND l.usable <> c.usable),
+                    EXISTS (SELECT FROM shop_heads l WHERE l.receipt->>'outcome' = 'Applied'
+                        AND (l.event_id = initial_event OR l.snap->'shop'->>'slotAssignmentId' = a.assignment_id::text))
                 INTO latest_status, latest_ack_outcome, confirmed_usable, change_outstanding, has_any_applied;
 
                 -- A failed newest delivery is reported before any earlier receipt, so it cannot be masked.
@@ -158,7 +159,8 @@ public sealed partial class CoverageSlotAssignments
                 END IF;
 
                 IF EXISTS (SELECT FROM public.active_operational_closure_targets c
-                    WHERE c.account_id = a.account_id AND c.shop_id = a.shop_id) THEN
+                    WHERE c.account_id = a.account_id AND c.shop_id = a.shop_id
+                      AND c.affiliation_request_id = a.affiliation_request_id) THEN
                     act_out := 'Closed';
                 ELSIF EXISTS (SELECT FROM public.active_operational_restrictions r
                     WHERE r.account_id = a.account_id AND (r.shop_id IS NULL OR r.shop_id = a.shop_id)

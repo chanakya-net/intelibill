@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Shared.Contracts.V1;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0601Tests;
 
@@ -36,39 +37,62 @@ public sealed partial class P0604Tests
         return (package, term1, term2, named);
     }
 
+    private static async Task<Guid> AcceptIndependentSlotAsync(Package p, Guid term, P0209Fixture.Merchant shop)
+    {
+        var request = new AssignUnusedCoverageSlotV1(Guid.NewGuid(), shop.ShopId, 3, April1, true, true);
+        using var created = await p.Payer.Client.PostAsJsonAsync(Slots(p, term), request);
+        Assert.True(created.IsSuccessStatusCode, await created.Content.ReadAsStringAsync());
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("assignmentId").GetGuid();
+        var path = Consent(p, shop.ShopId, id);
+        using var granted = await Decide(shop.Client, path, "grant");
+        granted.EnsureSuccessStatusCode();
+        using var accepted = await Decide(shop.Client, path, "accept");
+        accepted.EnsureSuccessStatusCode();
+        return id;
+    }
+
+    [Fact]
+    public async Task UnstartedRestorationQuoteLosesPaymentEligibilityWhenItsShopTakesAnotherSlot()
+    {
+        await using var fixture = await StartAsync(database, January31);
+        var (p, oldTerm, newTerm, shop) = await SeedTwoIndependentTermsAsync(fixture);
+        var quote = await AcceptAsync(p, await RenewalQuoteAsync(p, oldTerm, "Month"));
+        Assert.Equal("RestoredAccess", quote.StartRule);
+        var payer = p.Payer.Client;
+        Assert.True((await P0302Fixture.StatusAsync(payer, quote)).GetProperty("canStart").GetBoolean());
+
+        var id = await AcceptIndependentSlotAsync(p, newTerm, shop);
+        await fixture.Checkout.Delivery.DrainAsync(false);
+        Assert.Equal("Applied", await fixture.ScalarAsync($"SELECT state FROM coverage_slot_assignments WHERE assignment_id='{id}'"));
+        var status = await P0302Fixture.StatusAsync(payer, quote);
+        Assert.False(status.GetProperty("canStart").GetBoolean());
+        Assert.True(!status.TryGetProperty("launch", out var launch) || launch.ValueKind == JsonValueKind.Null);
+        using var refused = await payer.PostAsJsonAsync(P0302Fixture.AttemptsPath(quote), P0302Fixture.Start(quote));
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Equal(CheckoutOrdersV1.SourceChanged, await P0206Fixture.CodeAsync(refused));
+        Assert.Equal(0L, await fixture.CountAsync("payment_attempts", $"order_id='{quote.OrderId}'"));
+    }
+
     [Fact]
     public async Task RestoringExpiredIndependentTermCannotOverlapAfterSlotAssignment()
     {
         await using var fixture = await StartAsync(database, January31);
         var (p, term1, term2, named) = await SeedTwoIndependentTermsAsync(fixture);
 
-        // Pre-create and accept TWO restoration quotes for Term 1 BEFORE the slot assignment commits:
-        // one already captured (must land in NeedsReview) and one merely accepted (must be refused at payment start).
+        // Capture funds for Term 1 before the competing slot assignment commits.
         var acceptedQuote = await AcceptAsync(p, await RenewalQuoteAsync(p, term1, "Month"));
         Assert.Equal("RestoredAccess", acceptedQuote.StartRule);
         var attempt = await StartPaymentAsync(p, acceptedQuote);
         await P0302Fixture.CaptureAsync(p.Payer.Client, acceptedQuote, attempt);
-        var unstartedQuote = await AcceptAsync(p, await RenewalQuoteAsync(p, term1, "Month"));
 
         // Commit order 1: assign named shop to Term 2 FIRST (using Term 2's April 1 shared end).
-        var slotReq = new
-        {
-            operationKey = Guid.NewGuid(), shopId = named.ShopId, observedCapacity = 3,
-            observedPaidThrough = April1, acknowledgedSharedEnd = true, acknowledgedNoNewFee = true,
-        };
-        using var created = await p.Payer.Client.PostAsJsonAsync(Slots(p, term2), slotReq);
-        Assert.True(created.IsSuccessStatusCode, await created.Content.ReadAsStringAsync());
-        var assignmentId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("assignmentId").GetGuid();
-        var consentPath = Consent(p, named.ShopId, assignmentId);
-        (await Decide(named.Client, consentPath, "grant")).EnsureSuccessStatusCode();
-        (await Decide(named.Client, consentPath, "accept")).EnsureSuccessStatusCode();
+        var assignmentId = await AcceptIndependentSlotAsync(p, term2, named);
         await fixture.Checkout.Delivery.DrainAsync(false);
         Assert.Equal("Applied", await fixture.ScalarAsync($"SELECT state FROM coverage_slot_assignments WHERE assignment_id='{assignmentId}'"));
 
-        // A brand-new restoration quote AND starting payment on the already-accepted quote are both refused.
+        // A subsequent request for a restoration quote also sees the occupied window.
         using var newQuote = await TryRenewalQuoteAsync(p, term1, "Month");
         Assert.False(newQuote.IsSuccessStatusCode);
-        await P0302Fixture.StartAsync(p.Payer.Client, unstartedQuote, HttpStatusCode.Conflict);
 
         // Already-captured restoration order for Term 1 retains verified funds in NeedsReview without creating overlapping coverage.
         var verified = await P0302Fixture.VerifyAsync(p.Payer.Client, acceptedQuote, attempt);
@@ -89,17 +113,7 @@ public sealed partial class P0604Tests
         var (p, term1, term2, named) = await SeedTwoIndependentTermsAsync(fixture);
 
         // Create and accept the slot assignment for Term 2, holding its consent message before delivery.
-        var slotReq = new
-        {
-            operationKey = Guid.NewGuid(), shopId = named.ShopId, observedCapacity = 3,
-            observedPaidThrough = April1, acknowledgedSharedEnd = true, acknowledgedNoNewFee = true,
-        };
-        using var created = await p.Payer.Client.PostAsJsonAsync(Slots(p, term2), slotReq);
-        created.EnsureSuccessStatusCode();
-        var assignmentId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("assignmentId").GetGuid();
-        var consentPath = Consent(p, named.ShopId, assignmentId);
-        (await Decide(named.Client, consentPath, "grant")).EnsureSuccessStatusCode();
-        (await Decide(named.Client, consentPath, "accept")).EnsureSuccessStatusCode();
+        var assignmentId = await AcceptIndependentSlotAsync(p, term2, named);
         var bytes = (byte[])(await fixture.Checkout.Delivery.MerchantScalarAsync(
             $"SELECT payload FROM entitlement_messages WHERE shop_id='{named.ShopId}' AND kind='CoverageSlotConsent'"))!;
 

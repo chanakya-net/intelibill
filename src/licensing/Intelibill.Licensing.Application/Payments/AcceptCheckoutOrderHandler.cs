@@ -35,23 +35,13 @@ public sealed class AcceptCheckoutOrderHandler(IBillingDelegationAccess access, 
             if (Now() >= quote.ExpiresAt)
                 return CheckoutOrderErrors.Expired;
 
-            var ids = quote.TermId is null ? await store.ShopIdsAsync(account, order, token) : [];
-            var source = await store.SourceAsync(account, quote.TermId, ids, token);
-            if (source?.Matches(quote) != true || !await store.IncreaseStillCurrentAsync(quote, Now(), token) ||
-                !await store.ReductionOrderCurrentAsync(quote, Now(), token))
+            if (!await CheckoutRenewalPolicy.SourceIsCurrentAsync(store, quote, Now(), token))
                 return CheckoutOrderErrors.Changed;
             var now = Now();
             if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))
                 return CheckoutOrderErrors.Expired;
             if (now < quote.CreatedAt)
                 return CheckoutOrderErrors.Changed;
-            if (quote.Increase is null)
-            {
-                var start = CheckoutRenewalPolicy.IsRestoredAccess(quote) && now > quote.PreviewStartsAt ? now : quote.PreviewStartsAt;
-                var end = quote.PreviewEndsAt > start ? quote.PreviewEndsAt : start.AddDays(1);
-                if (await store.HasConflictingPaidCoverageAsync(account, [.. source.Shops.Select(s => s.ShopId)], quote.TermId, start, end, token))
-                    return CheckoutOrderErrors.Changed;
-            }
 
             var acceptance = new CheckoutAcceptanceV1(request.OperationKey, quote.Revision, quote.SnapshotHash, now);
             return await store.AcceptAsync(quote, acceptance, proof.ActorId, proof.RequestId, proof.ReplayId, hash, token) == 1
