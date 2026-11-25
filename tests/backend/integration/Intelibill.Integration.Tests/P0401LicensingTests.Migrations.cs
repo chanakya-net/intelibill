@@ -251,6 +251,7 @@ public sealed partial class P0401LicensingTests
                     {tables}
                     ALTER TABLE public.applied_shop_capacity OWNER TO {_role};
                     ALTER TABLE public.capacity_reservation_receipts OWNER TO {_role};
+                    ALTER TABLE public.coverage_slot_consent_events OWNER TO {_role};
                     ALTER TABLE public.applied_shop_reductions OWNER TO {_role};
                     ALTER TABLE public.reduction_reservation_receipts OWNER TO {_role};
                     ALTER TABLE public.reduction_manifest_shops OWNER TO {_role};

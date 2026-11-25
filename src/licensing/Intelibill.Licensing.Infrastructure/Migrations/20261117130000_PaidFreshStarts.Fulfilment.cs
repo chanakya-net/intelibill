@@ -37,7 +37,7 @@ public sealed partial class PaidFreshStarts
 
     private static string FulfilmentGuards => FreshCompleteness + ShopLinkGuard + Completeness;
 
-    private const string ShopLinkGuard = """
+    internal const string ShopLinkGuard = """
         CREATE OR REPLACE FUNCTION public.guard_payment_fulfilment_shop() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE prior uuid;
         BEGIN

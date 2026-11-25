@@ -12,17 +12,29 @@ public sealed class EntitlementMerchantEvents
     private readonly LicensingDbContext db;
     private readonly TimeProvider clock;
     private readonly EntitlementPublisher publisher;
+    private readonly CoverageSlotConsentAcknowledgements slots;
     private readonly CapacityReservationAcknowledgements increases;
     private readonly ReductionReservationAcknowledgements reductions;
 
     internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
-        CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions)
+        CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions, CoverageSlotConsentAcknowledgements slots)
     {
+        this.slots = slots;
         this.increases = increases;
         this.reductions = reductions;
         this.db = db;
         this.clock = clock;
         this.publisher = publisher;
+    }
+
+    public Task<ErrorOr<Success>> SlotConsentAsync(CoverageSlotConsentV1 c, byte[] body, VerifiedServiceAssertion proof, CancellationToken ct)
+    {
+        if (c.SchemaVersion != 1 || c.EventId == Guid.Empty || c.AssignmentId == Guid.Empty || c.AccountId == Guid.Empty ||
+            c.TermId == Guid.Empty || c.ShopId == Guid.Empty || c.AffiliationRequestId == Guid.Empty || c.ActorId == Guid.Empty ||
+            c.MembershipId == Guid.Empty || c.AuthorityVersion < 0 || c.ActiveMembers < 1 || c.MemberAllowance < 1 ||
+            !EntitlementSnapshotsV1.IsDigest(c.SeatHash) || !EntitlementSnapshotsV1.IsInstant(c.AcceptedAt))
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.SlotInvalid"));
+        return InEventAsync(c.AccountId, c.EventId, CoverageSlotsV1.Kind, body, proof, token => slots.ApplyAsync(c, token), ct);
     }
 
     public Task<ErrorOr<Success>> ReductionAsync(ReductionReceiptV1 ack, byte[] body, VerifiedServiceAssertion proof,

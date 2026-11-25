@@ -23,6 +23,7 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
         var path = message.Kind switch
         {
             "Acknowledgement" => EntitlementSnapshotsV1.AcknowledgementPath,
+            CoverageSlotsV1.Kind => CoverageSlotsV1.ReceiptPath,
             CapacityReservationV1.Receipt => CapacityReservationV1.ReceiptPath,
             ReductionTransportV1.ReceiptKind => ReductionTransportV1.ReceiptPath,
             "Reconciliation" => EntitlementSnapshotsV1.ReconciliationPath,

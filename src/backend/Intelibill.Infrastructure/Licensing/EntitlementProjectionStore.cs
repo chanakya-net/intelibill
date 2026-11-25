@@ -57,6 +57,8 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
         var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
         var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt) : "AffiliationUnresolved";
+        if (reason is null && await SlotExceedsAllowanceAsync(snapshot, account, shop, ct))
+            reason = "ConflictingShopScope";
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
         var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
         var nextShop = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
@@ -76,6 +78,25 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
             "Acknowledgement", receipt, SignedServiceAssertion.Digest(receipt), appliedAt, ct);
         return new EntitlementProjectionReceipt(receipt, nextAccount || nextShop);
+    }
+
+    // The projection fence also serializes member admission. Recheck the first activation if
+    // membership changed while the accepted consent was travelling between the two stores.
+    private async Task<bool> SlotExceedsAllowanceAsync(EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? account,
+        ShopLicenseState? shop, CancellationToken ct)
+    {
+        if (snapshot.Account?.Restriction != "Unrestricted" ||
+            snapshot.Shop is not { State: "Active", Basis: "Paid", Suspension: null, TermId: { } term, MemberAllowance: { } allowance } incoming ||
+            shop is not null && (incoming.Revision < shop.Revision || shop.TermId == term &&
+                shop.State == "Active" && shop.SuspensionMode is null && account?.Restriction == "Unrestricted"))
+            return false;
+        return await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS(SELECT FROM public.entitlement_messages m WHERE m.kind='CoverageSlotConsent'
+                AND m.shop_id={snapshot.ShopId} AND m.account_id={snapshot.AccountId}
+                AND convert_from(m.payload,'UTF8')::jsonb @> jsonb_build_object(
+                    'termId',{term},'affiliationRequestId',{snapshot.AffiliationRequestId}))
+                AND (SELECT count(*) FROM public.shop_memberships WHERE shop_id={snapshot.ShopId} AND status='Active')>{allowance} AS "Value"
+            """).SingleAsync(ct);
     }
 
     internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)

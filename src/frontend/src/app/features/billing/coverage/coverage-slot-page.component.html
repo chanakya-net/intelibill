@@ -1,0 +1,55 @@
+<section class="ib-panel">
+  <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+  <h1 class="ib-page-title">{{ 'billing.slot.heading' | transloco }}</h1>
+  @if (scope(); as s) {
+    @if (term(); as t) {
+      <p>{{ 'billing.slot.remaining' | transloco: { count: t.unusedSlots } }}</p>
+      <time data-testid="slot-shared-end" [attr.datetime]="t.paidThrough">{{ instant(t.paidThrough) }}</time>
+      @if (t.unusedSlots > 0 && t.eligibleShops.length && !draft()) {
+        <label>{{ 'billing.affiliation.shop' | transloco }}
+          <select #shop data-testid="slot-shop" [value]="selected()" (change)="selected.set(shop.value); shared.set(false); free.set(false)">
+            <option value="">—</option>
+            @for (item of t.eligibleShops; track item.shopId) { <option [value]="item.shopId">{{ item.shopName }}</option> }
+          </select>
+        </label>
+        <label><input #end type="checkbox" [checked]="shared()" (change)="shared.set(end.checked)"> {{ 'billing.slot.shared' | transloco }}</label>
+        <label><input #fee type="checkbox" [checked]="free()" (change)="free.set(fee.checked)"> {{ 'billing.slot.free' | transloco }}</label>
+        <button type="button" data-testid="slot-confirm" [disabled]="busy() || !selected() || !shared() || !free()"
+          (click)="submit('assign')">{{ 'billing.slot.confirm' | transloco }}</button>
+      }
+      @if (page() > 1 || t.hasMore) {
+        <nav>
+          <button [disabled]="busy() || page() === 1" (click)="load(s, page() - 1)">{{ 'expenses.previousPage' | transloco }}</button>
+          <button [disabled]="busy() || !t.hasMore" (click)="load(s, page() + 1)">{{ 'expenses.nextPage' | transloco }}</button>
+        </nav>
+      }
+      @for (a of t.assignments; track a.assignmentId) {
+        <article><strong>{{ a.shopName }}</strong>
+          <span data-testid="slot-status">{{ (a.activation === 'TermEnded' ? 'billing.status.states.Expired' : a.state === 'Applied' && a.activation !== 'NeedsReview' ? 'billing.slot.' + a.activation : a.state === 'Refused' ? 'billing.slot.changed' : 'billing.affiliation.status.' + (a.state === 'Applied' ? a.activation : a.state)) | transloco }}</span>
+          @if (a.state === 'AwaitingConsent') {
+            <a data-testid="slot-consent-link" [routerLink]="['/billing/slot-consent', s.account, a.shopId, a.assignmentId]">{{ 'billing.affiliation.ownerLink' | transloco }}</a>
+          }
+        </article>
+      }
+    }
+    @if (owner(); as o) {
+      <h2>{{ o.assignment.shopName }}</h2>
+      <p>{{ 'billing.slot.free' | transloco }} · <time>{{ instant(o.assignment.coverageEndsAt) }}</time></p>
+      <p role="status">{{ (o.status === 'Acknowledged' ? 'billing.slot.Acknowledged' : o.status === 'Accepted' ? 'billing.slot.Applying' : 'billing.affiliation.status.' + o.status) | transloco }}</p>
+      @if (!draft() && o.assignment.state === 'AwaitingConsent') {
+        @if (o.status === 'AwaitingConsent') {
+          <button [disabled]="busy()" data-testid="slot-grant" (click)="submit('grant')">{{ 'billing.affiliation.grant' | transloco }}</button>
+        }
+        @if (o.status === 'Granted') {
+          <button [disabled]="busy()" data-testid="slot-accept" (click)="submit('accept')">{{ 'billing.slot.confirm' | transloco }}</button>
+          <button [disabled]="busy()" (click)="submit('revoke')">{{ 'billing.affiliation.revoke' | transloco }}</button>
+        }
+      }
+    }
+    @if (draft(); as pending) {
+      <button [disabled]="busy()" (click)="submit(pending.action)">{{ 'billing.checkout.retry' | transloco }}</button>
+    }
+    <button [disabled]="busy()" data-testid="slot-refresh" (click)="load(s)">{{ 'billing.status.refresh' | transloco }}</button>
+    @if (error()) { <p role="alert">{{ error() | transloco }}</p> }
+  }
+</section>

@@ -27,9 +27,12 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
     internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct,
         DateTimeOffset? evaluatedAt = null) => await AppendSnapshotAsync(account, shop, reconcile, evaluatedAt, ct) is not null;
 
-    internal async Task<EntitlementSnapshotV1> PublishSuspensionAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
+    internal Task<EntitlementSnapshotV1> PublishSuspensionAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
+        PublishShopChangeAsync(account, shop, at, ct);
+
+    internal async Task<EntitlementSnapshotV1> PublishShopChangeAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
         await AppendSnapshotAsync(account, shop, false, at, ct)
-        ?? throw new InvalidOperationException("A suspension delivery requires the selected affiliation.");
+        ?? throw new InvalidOperationException("A shop change requires the selected affiliation.");
 
     internal async Task PublishClosureAsync(Guid account, Guid shop, Guid eventId, CancellationToken ct)
     {

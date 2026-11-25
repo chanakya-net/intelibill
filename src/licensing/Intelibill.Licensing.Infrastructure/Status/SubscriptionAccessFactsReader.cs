@@ -50,6 +50,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN LATERAL (SELECT l.term_id FROM public.payment_fulfilment_shops l
                 JOIN public.subscription_coverage_terms lt ON lt.account_id = l.account_id AND lt.term_id = l.term_id
                 WHERE l.shop_id = a.shop_id AND l.account_id = a.account_id AND l.affiliation_request_id = a.request_id
+                    AND (l.coverage_from IS NULL OR l.coverage_from <= {at})
                 ORDER BY lt.ends_at DESC LIMIT 1) p ON true
             LEFT JOIN public.subscription_coverage_terms t
                 ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, p.term_id, a.term_id)
