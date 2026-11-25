@@ -12,17 +12,42 @@ public sealed class EntitlementMerchantEvents
     private readonly LicensingDbContext db;
     private readonly TimeProvider clock;
     private readonly EntitlementPublisher publisher;
+    private readonly CoverageSlotConsentAcknowledgements slots;
+    private readonly ReplacementConsentAcknowledgements replacements;
     private readonly CapacityReservationAcknowledgements increases;
     private readonly ReductionReservationAcknowledgements reductions;
 
     internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
-        CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions)
+        CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions, CoverageSlotConsentAcknowledgements slots,
+        ReplacementConsentAcknowledgements replacements)
     {
+        this.slots = slots;
+        this.replacements = replacements;
         this.increases = increases;
         this.reductions = reductions;
         this.db = db;
         this.clock = clock;
         this.publisher = publisher;
+    }
+
+    public Task<ErrorOr<Success>> ReplacementConsentAsync(ReplacementConsentV1 c, byte[] body, VerifiedServiceAssertion proof, CancellationToken ct)
+    {
+        if (c.Kind is not ("Accepted" or "Revoked") || c.SchemaVersion != 1 || c.EventId == Guid.Empty || c.ReplacementId == Guid.Empty || c.AccountId == Guid.Empty ||
+            c.TermId == Guid.Empty || c.ShopId == Guid.Empty || c.AffiliationRequestId == Guid.Empty || c.ActorId == Guid.Empty ||
+            c.MembershipId == Guid.Empty || c.AuthorityVersion < 0 || c.ActiveMembers < 1 || c.MemberAllowance < 1 ||
+            !EntitlementSnapshotsV1.IsDigest(c.SeatHash) || !EntitlementSnapshotsV1.IsInstant(c.RecordedAt))
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.ReplacementInvalid"));
+        return InEventAsync(c.AccountId, c.EventId, CoverageReplacementsV1.Kind, body, proof, token => replacements.ApplyAsync(c, token), ct);
+    }
+
+    public Task<ErrorOr<Success>> SlotConsentAsync(CoverageSlotConsentV1 c, byte[] body, VerifiedServiceAssertion proof, CancellationToken ct)
+    {
+        if (c.SchemaVersion != 1 || c.EventId == Guid.Empty || c.AssignmentId == Guid.Empty || c.AccountId == Guid.Empty ||
+            c.TermId == Guid.Empty || c.ShopId == Guid.Empty || c.AffiliationRequestId == Guid.Empty || c.ActorId == Guid.Empty ||
+            c.MembershipId == Guid.Empty || c.AuthorityVersion < 0 || c.ActiveMembers < 1 || c.MemberAllowance < 1 ||
+            !EntitlementSnapshotsV1.IsDigest(c.SeatHash) || !EntitlementSnapshotsV1.IsInstant(c.AcceptedAt))
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.SlotInvalid"));
+        return InEventAsync(c.AccountId, c.EventId, CoverageSlotsV1.Kind, body, proof, token => slots.ApplyAsync(c, token), ct);
     }
 
     public Task<ErrorOr<Success>> ReductionAsync(ReductionReceiptV1 ack, byte[] body, VerifiedServiceAssertion proof,
@@ -141,7 +166,9 @@ public sealed class EntitlementMerchantEvents
                 USING (event_id, account_id, shop_id) WHERE s.event_id = {ack.EventId} AND s.account_id = {ack.AccountId}
                 AND s.shop_id = {ack.ShopId} AND s.affiliation_request_id = {ack.AffiliationRequestId}
                 AND s.account_revision = {ack.AccountRevision} AND s.shop_revision = {ack.ShopRevision}
-                AND m.digest = {ack.Digest}) AS "Value"
+                AND m.digest = {ack.Digest} AND ({ack.ActivatedReplacementId}::uuid IS NULL OR (
+                    {ack.Outcome}='Applied' AND {ack.Disposition}='Applied' AND {ack.AppliedShopRevision}=s.shop_revision
+                    AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'replacementId'={ack.ActivatedReplacementId}::text))) AS "Value"
             """).SingleAsync(ct);
         if (!matches) return false;
         return await db.Database.ExecuteSqlInterpolatedAsync($"""

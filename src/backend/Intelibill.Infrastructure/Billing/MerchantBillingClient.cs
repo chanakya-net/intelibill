@@ -19,7 +19,8 @@ internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials,
-    TimeProvider clock, MerchantClosureConsentStore closures)
+    TimeProvider clock, MerchantClosureConsentStore closures, CoverageSlotConsentStore slotConsents,
+    ReplacementConsentStore replacementConsents)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
         IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders, IMerchantShopClosures
 {
@@ -164,6 +165,19 @@ internal sealed partial class MerchantBillingClient(
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
+                CoverageReplacementsV1.Read or CoverageReplacementsV1.Schedule or CoverageReplacementsV1.Recover or CoverageReplacementsV1.OwnerRead:
+                return await ReadProblemCodeAsync(response, cancellationToken) switch
+                {
+                    "Coverage.ReplacementInvalid" => Error.Validation("Coverage.ReplacementInvalid"),
+                    "Coverage.ReplacementChanged" => Error.Conflict("Coverage.ReplacementChanged"),
+                    "Coverage.ReplacementNotFound" => Error.NotFound("Coverage.ReplacementNotFound"),
+                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+                    _ => MerchantBillingErrors.Unavailable,
+                };
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
+                CoverageSlotsV1.Read or CoverageSlotsV1.Recover or CoverageSlotsV1.Request or CoverageSlotsV1.OwnerRead:
+                return SlotError(await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
                 return await ReadProblemCodeAsync(response, cancellationToken) switch
                 {

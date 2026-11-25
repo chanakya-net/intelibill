@@ -25,6 +25,10 @@ internal static class BillingDelegationRegistration
         services.AddScoped<IBillingAccountStore, BillingAccountStore>();
         services.AddScoped<IShopAffiliationStore, ShopAffiliationStore>();
         services.AddScoped<ShopAffiliationHandlers>();
+        services.AddScoped<ICoverageSlotAssignmentStore, CoverageSlotAssignmentStore>();
+        services.AddScoped<AssignUnusedCoverageSlotHandler>();
+        services.AddScoped<ICoverageReplacementStore, CoverageReplacementStore>();
+        services.AddScoped<ScheduleCoverageReplacementHandler>();
         services.AddScoped<IBillingInvitationStore, BillingInvitationStore>();
         services.AddScoped<BillingInvitationSecrets>();
         services.AddScoped<BillingInvitationHandlers>();

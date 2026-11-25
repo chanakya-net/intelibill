@@ -84,11 +84,11 @@ public static class LeasedHttpOutboxSchema
         $$;
         """;
 
-    public static string Workers => Claim(false) + $$"""
-
-        CREATE FUNCTION public.finish_entitlement_delivery(p_event uuid, p_lease uuid, p_now timestamptz,
+    public static string Finish(string beforeFinish = "") => $$"""
+        CREATE OR REPLACE FUNCTION public.finish_entitlement_delivery(p_event uuid, p_lease uuid, p_now timestamptz,
             p_success boolean, p_wait_ack boolean, p_failure text)
         RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
+            {{beforeFinish}}
             UPDATE public.entitlement_outbox
             SET status = CASE WHEN p_success AND NOT p_wait_ack THEN 'Delivered'
                     WHEN attempts >= 12 THEN 'DeadLetter'
@@ -99,6 +99,10 @@ public static class LeasedHttpOutboxSchema
                     WHEN p_success THEN NULL ELSE p_failure END
             WHERE event_id = p_event AND status = 'Leased' AND lease_token = p_lease AND lease_expires_at > p_now AND {{Unscoped}}
         $$;
+        """;
+
+    public static string Workers => Claim(false) + Finish() + """
+
         REVOKE ALL ON FUNCTION public.claim_entitlement_delivery(timestamptz, uuid) FROM PUBLIC;
         REVOKE ALL ON FUNCTION public.finish_entitlement_delivery(uuid, uuid, timestamptz, boolean, boolean, text) FROM PUBLIC;
         """;

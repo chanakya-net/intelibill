@@ -62,11 +62,13 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             ? await db.Set<AccountLicenseRestriction>().AsNoTracking().SingleOrDefaultAsync(row => row.AccountId == id, ct)
             : null;
         var proofs = shop is null ? null : await ReadProofIssuanceAsync(shopId, ct);
+        // A sibling can advance the shared account head; the shop's own slot activation still gates its trading.
+        var pending = await CoverageActivationEvidence.IsPendingAsync(db, shop, ct);
         var now = clock.GetUtcNow();
         return new ShopLicenceLease(shopId, accountId, account?.Revision, shop?.Revision,
-            policy.Decide(action, shop, account, proofs, now))
+            policy.Decide(action, shop, account, proofs, now, pending))
         {
-            Reevaluate = () => policy.Decide(action, shop, account, proofs, clock.GetUtcNow()),
+            Reevaluate = () => policy.Decide(action, shop, account, proofs, clock.GetUtcNow(), pending),
             EffectiveSuspension = LicenseProjectionPolicy.EffectiveSuspension(shop, account, now),
             ReleasedAccountRestriction = account?.ReleasedRevision ?? account?.PreviousReleaseRevision,
             ReleasedShopRestriction = Math.Max(shop?.ReleasedRevision ?? 0, shop?.ReopenedRevision ?? 0),

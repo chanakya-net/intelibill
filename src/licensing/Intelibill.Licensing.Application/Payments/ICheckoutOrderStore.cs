@@ -21,6 +21,9 @@ public sealed record CheckoutTrialSource(Guid ShopId, Guid TermId, int Revision,
 public sealed record CheckoutSource(CheckoutSourceShop[] Shops, CheckoutRenewalSource? Prior,
     CheckoutTrialSource[]? Trials = null)
 {
+    public Guid[] OrderShopIds(CoverageReplacementOrderV1? change) =>
+        [.. Shops.Select(s => change is not null && s.ShopId == change.OutgoingShopId ? change.IncomingShopId : s.ShopId)];
+
     public CheckoutFreshStartV1 FreshStart() => new(CheckoutOrdersV1.FreshStartPolicy, Trials?.Length ?? 0,
         CheckoutOrdersV1.Digest(CheckoutOrdersV1.FreshStartPolicy, "trials",
             Trials?.Select(t => new object[] { t.ShopId, t.TermId, t.Revision, CheckoutOrdersV1.Instant(t.EndsAt) }).ToArray()
@@ -55,10 +58,14 @@ public sealed record StoredCheckoutAcceptance(Guid OrderId, Guid ActorId, string
 
 public interface ICheckoutOrderStore
 {
+    Task<CoverageReplacementOrderV1?> ReplacementAsync(Guid account, Guid term, int capacity, int allowance,
+        DateTimeOffset boundary, DateTimeOffset now, CancellationToken ct);
     Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct);
     Task<bool> IsIncreaseOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
     Task<bool> ReductionOrderCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct);
     Task<bool> IsReductionOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
+    Task<bool> HasConflictingPaidCoverageAsync(Guid account, Guid[] shops, Guid? excludeTerm, DateTimeOffset startsAt,
+        DateTimeOffset endsAt, CancellationToken ct);
     Task<StoredCheckoutQuote?> FindAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<CheckoutSource?> SourceAsync(Guid account, Guid? term, Guid[] requested, CancellationToken ct);
     Task SaveAsync(CheckoutQuoteV1 quote, CheckoutSource source, Guid actor, Guid key, string requestHash, Guid replay, CancellationToken ct);

@@ -13,7 +13,8 @@ namespace Intelibill.Licensing.Infrastructure.Status;
 /// Reads coverage rows, ended ones included, with their optional supplement in one statement under the
 /// transaction's row-level scope. A missing supplement stays missing; overlapping sources are not merged.
 /// Complimentary grants are read as separate candidates beside the baseline term, never in its place. A shop's
-/// latest paid fulfilment link (a renewal chain's tail) precedes an affiliation-assigned term it may have renewed.
+/// most recently joined or renewed paid link (<c>shop_paid_link</c>) precedes an affiliation-assigned term it may
+/// have renewed. A successor verified after the evaluation instant neither replaces nor ends its predecessor there.
 /// </summary>
 internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
     [FromKeyedServices(SubscriptionStatusRegistration.ClockKey)] TimeProvider clock) : ISubscriptionAccessFactsReader
@@ -21,65 +22,89 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
     public async Task<ShopCoverage?> ReadShopAsync(Guid shop, CancellationToken ct, DateTimeOffset? evaluatedAt = null)
     {
         var at = evaluatedAt ?? SubscriptionStatusProjection.EvaluationInstant(clock);
-        var rows = await db.Database.SqlQuery<ShopRow>($"""
-            SELECT a.account_id AS affiliation_account_id, t.term_id AS term_id, t.account_id AS account_id,
-                CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, coalesce(i.capacity,t.capacity) AS capacity, t.starts_at AS starts_at, t.ends_at AS ends_at,
-                f.basis AS basis, f.billing_period AS billing_period, f.anchor_local AS anchor_local,
-                f.time_zone AS time_zone, f.period_ordinal AS period_ordinal, coalesce(i.members,f.member_allowance) AS member_allowance,
-                coalesce(i.gross,f.price_paise) AS price_paise, f.currency AS currency, coalesce(i.plan_version,f.plan_version_id) AS plan_version_id,
-                f.source_reference AS source_reference, f.development_fixture AS development_fixture,
-                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
+        var bindings = await db.Database.SqlQuery<ShopBindingRow>($"""
+            SELECT a.account_id AS affiliation_account_id, a.request_id AS request_id, a.term_id AS affiliation_term_id,
+                h.account_id AS trial_account_id, h.term_id AS trial_term_id,
                 e.ends_at AS extended_ends_at, x.paid_starts_at AS converted_paid_starts_at,
-                CASE WHEN c.change_id IS NOT NULL THEN jsonb_build_object(
-                    'ChangeId', coalesce(c.withdraws_change_id, c.change_id), 'Version', c.revision, 'EffectiveAt', c.effective_at,
-                    'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count,
-                    'WithdrawnAt', CASE WHEN c.kind = 'WithdrawCancellation' THEN c.recorded_at END)::text END AS cancellation,
                 CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
-                    'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial,
-                EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
-                    AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
-                        SELECT FROM public.paid_fresh_starts pf WHERE pf.account_id = s.account_id
-                            AND pf.order_id = s.order_id AND pf.kind = 'RestoredAccess')) AS renewed_at_end,
-                rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at
+                    'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial
             FROM public.shop_affiliations a
             LEFT JOIN public.payment_trial_conversions x ON x.account_id = a.account_id AND x.shop_id = a.shop_id
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
                 AND (x.paid_starts_at IS NULL OR x.paid_starts_at > {at})
-            LEFT JOIN LATERAL (SELECT l.term_id FROM public.payment_fulfilment_shops l
-                JOIN public.subscription_coverage_terms lt ON lt.account_id = l.account_id AND lt.term_id = l.term_id
-                WHERE l.shop_id = a.shop_id AND l.account_id = a.account_id AND l.affiliation_request_id = a.request_id
-                ORDER BY lt.ends_at DESC LIMIT 1) p ON true
-            LEFT JOIN public.subscription_coverage_terms t
-                ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, p.term_id, a.term_id)
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
-            LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
-                WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
-            LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
-            LEFT JOIN LATERAL public.refund_boundary(t.account_id, t.term_id) rd ON true
-            LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
-                WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE a.shop_id = {shop}
             """).ToListAsync(ct);
-        return rows switch
+        return bindings switch
         {
             [] => null,
-            [var row] => await ReadCoverageAsync(shop, row, ct),
+            [var binding] => await ReadBoundCoverageAsync(shop, binding, at, ct),
             _ => throw new InvalidOperationException("A shop has at most one affiliation."),
         };
     }
 
-    private async Task<ShopCoverage> ReadCoverageAsync(Guid shop, ShopRow row, CancellationToken ct)
+    private async Task<ShopCoverage> ReadBoundCoverageAsync(Guid shop, ShopBindingRow binding, DateTimeOffset at, CancellationToken ct)
     {
-        var term = row.TermId is null ? null : row.ToTerm();
+        PaidLinkRow? paidLink = null;
+        if (binding.TrialTermId is null)
+        {
+            paidLink = await db.Database.SqlQuery<PaidLinkRow>($"""
+                SELECT term_id, coverage_from, slot_assignment_id
+                FROM public.shop_paid_link({binding.AffiliationAccountId}, {shop}, {binding.RequestId}, {at})
+                """).SingleOrDefaultAsync(ct);
+        }
+
+        TermFactsRow? term = null;
+        var targetAccount = binding.TrialAccountId ?? binding.AffiliationAccountId;
+        var targetTerm = binding.TrialTermId ?? paidLink?.TermId ?? binding.AffiliationTermId;
+        if (targetTerm is { } termId)
+        {
+            var termRow = await db.Database.SqlQuery<ShopTermRow>($"""
+                SELECT t.term_id AS term_id, t.account_id AS account_id,
+                    CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, coalesce(i.capacity,t.capacity) AS capacity,
+                    t.starts_at AS starts_at, t.ends_at AS ends_at,
+                    f.basis AS basis, f.billing_period AS billing_period, f.anchor_local AS anchor_local,
+                    f.time_zone AS time_zone, f.period_ordinal AS period_ordinal, coalesce(i.members,f.member_allowance) AS member_allowance,
+                    coalesce(i.gross,f.price_paise) AS price_paise, f.currency AS currency, coalesce(i.plan_version,f.plan_version_id) AS plan_version_id,
+                    f.source_reference AS source_reference, f.development_fixture AS development_fixture,
+                    f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
+                    CASE WHEN c.change_id IS NOT NULL THEN jsonb_build_object(
+                        'ChangeId', coalesce(c.withdraws_change_id, c.change_id), 'Version', c.revision, 'EffectiveAt', c.effective_at,
+                        'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count,
+                        'WithdrawnAt', CASE WHEN c.kind = 'WithdrawCancellation' THEN c.recorded_at END)::text END AS cancellation,
+                    EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
+                        AND s.predecessor_term_id = t.term_id AND s.fulfilled_at <= {at} AND NOT EXISTS (
+                            SELECT FROM public.paid_fresh_starts pf WHERE pf.account_id = s.account_id
+                                AND pf.order_id = s.order_id AND pf.kind = 'RestoredAccess')) AS renewed_at_end,
+                    rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at
+                FROM public.subscription_coverage_terms t
+                LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
+                    WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
+                LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
+                LEFT JOIN LATERAL public.refund_boundary(t.account_id, t.term_id) rd ON true
+                LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
+                    WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
+                WHERE t.account_id = {targetAccount} AND t.term_id = {termId}
+                """).SingleOrDefaultAsync(ct);
+            term = termRow?.ToTerm(binding.Trial, binding.ExtendedEndsAt);
+        }
+
         var predecessors = term is { Basis: "Paid", PeriodOrdinal: > 0 }
             ? await ReadPaidPredecessorsAsync(shop, term, ct) : [];
-        if (term is not null && predecessors.Count > 0)
-            term = term with { PaidFrom = predecessors[^1].StartsAt };
-        return new ShopCoverage(row.AffiliationAccountId, term, await ReadGrantsAsync(shop, row.AffiliationAccountId, ct),
-            predecessors, row.ConvertedPaidStartsAt?.ToUniversalTime());
+        if (term is not null)
+        {
+            var chainStart = predecessors.Count > 0 ? predecessors[^1].StartsAt : term.StartsAt;
+            var paidFrom = binding.Trial is null && paidLink?.CoverageFrom is { } joined && joined.ToUniversalTime() > chainStart
+                ? joined.ToUniversalTime() : predecessors.Count > 0 ? chainStart : (DateTimeOffset?)null;
+            var slotAssignmentId = binding.Trial is null ? paidLink?.SlotAssignmentId : null;
+            if (paidFrom is not null || slotAssignmentId is not null)
+                term = term with { PaidFrom = paidFrom, SlotAssignmentId = slotAssignmentId };
+        }
+        return new ShopCoverage(binding.AffiliationAccountId, term, await ReadGrantsAsync(shop, binding.AffiliationAccountId, ct),
+            predecessors, binding.ConvertedPaidStartsAt?.ToUniversalTime());
     }
 
     private async Task<List<TermFactsRow>> ReadPaidPredecessorsAsync(Guid shop, TermFactsRow tail, CancellationToken ct)
@@ -231,17 +256,22 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             ORDER BY t.term_id LIMIT {take}
             """);
 
-    private sealed record ShopRow(Guid AffiliationAccountId, Guid? TermId, Guid? AccountId, string? Mode, int? Capacity,
-        DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
+    private sealed record ShopBindingRow(Guid AffiliationAccountId, Guid RequestId, Guid? AffiliationTermId,
+        Guid? TrialAccountId, Guid? TrialTermId, DateTimeOffset? ExtendedEndsAt,
+        DateTimeOffset? ConvertedPaidStartsAt, string? Trial);
+
+    private sealed record PaidLinkRow(Guid TermId, DateTimeOffset? CoverageFrom, Guid? SlotAssignmentId);
+
+    private sealed record ShopTermRow(Guid TermId, Guid AccountId, string Mode, int Capacity,
+        DateTimeOffset StartsAt, DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
         Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
-        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation, DateTimeOffset? ConvertedPaidStartsAt, bool RenewedAtEnd,
-        DateTimeOffset? RefundPaidThrough, DateTimeOffset? RefundAccessEndsAt)
+        string? Cancellation, bool RenewedAtEnd, DateTimeOffset? RefundPaidThrough, DateTimeOffset? RefundAccessEndsAt)
     {
-        internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
-            EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
+        internal TermFactsRow ToTerm(string? trial, DateTimeOffset? extendedEndsAt) => new(TermId, AccountId, Mode, Capacity,
+            StartsAt, EndsAt, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
             Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion,
-            ParseTrial(Trial, ExtendedEndsAt), Cancellation: ParseCancellation(Cancellation), RenewedAtEnd: RenewedAtEnd,
+            ParseTrial(trial, extendedEndsAt), Cancellation: ParseCancellation(Cancellation), RenewedAtEnd: RenewedAtEnd,
             RefundBoundary: Boundary(RefundPaidThrough, RefundAccessEndsAt));
     }
 

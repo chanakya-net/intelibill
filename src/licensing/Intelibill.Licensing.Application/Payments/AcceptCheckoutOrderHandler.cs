@@ -35,10 +35,7 @@ public sealed class AcceptCheckoutOrderHandler(IBillingDelegationAccess access, 
             if (Now() >= quote.ExpiresAt)
                 return CheckoutOrderErrors.Expired;
 
-            var ids = quote.TermId is null ? await store.ShopIdsAsync(account, order, token) : [];
-            var source = await store.SourceAsync(account, quote.TermId, ids, token);
-            if (source?.Matches(quote) != true || !await store.IncreaseStillCurrentAsync(quote, Now(), token) ||
-                !await store.ReductionOrderCurrentAsync(quote, Now(), token))
+            if (!await CheckoutRenewalPolicy.SourceIsCurrentAsync(store, quote, Now(), token))
                 return CheckoutOrderErrors.Changed;
             var now = Now();
             if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))

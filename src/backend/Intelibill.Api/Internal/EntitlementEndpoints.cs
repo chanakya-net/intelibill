@@ -172,6 +172,8 @@ internal static class EntitlementEndpoints
                 if (result.Value.Changed) notifications.Schedule(snapshot.ShopId);
                 return Results.Bytes(result.Value.Acknowledgement, "application/json");
             }
+            if (result.FirstError.Code == CoverageReplacementsV1.AwaitingRelease)
+                return Results.StatusCode(StatusCodes.Status423Locked);
             if (result.FirstError.Code == LicenceErrors.BusyCode)
                 return Results.StatusCode(503);
             return result.FirstError.Type == ErrorType.Conflict ? Results.Conflict() : Results.Unauthorized();

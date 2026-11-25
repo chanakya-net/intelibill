@@ -3433,6 +3433,39 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "replacement": {
+      "heading": "Replace a covered shop at renewal",
+      "outgoing": "Outgoing shop",
+      "incoming": "Incoming shop",
+      "selection": "I confirm the selected shops.",
+      "renewal": "Keep the current shop covered until renewal.",
+      "permitWait": "Wait for outstanding offline permits to end.",
+      "permit": "Latest known offline permission ends",
+      "unknown": "No active permit reported. Disconnected devices are checked before activation.",
+      "scheduled": "Scheduled for renewal",
+      "waiting": "Renewal verified. Waiting for existing permission to end."
+    },
+    "slot": {
+      "heading": "Assign an unused paid slot",
+      "remaining": "Unused paid slots: {{count}}",
+      "shared": "I accept the package end date shown above.",
+      "free": "No additional fee is due.",
+      "confirm": "Confirm coverage",
+      "Applying": "Activating coverage",
+      "AppliedLocally": "Applied on this shop, awaiting billing confirmation",
+      "Acknowledged": "Active, confirmed by the shop",
+      "Closed": "Closed",
+      "changed": "Coverage could not be assigned. Review the current selection.",
+      "pendingConflict": "An earlier unconfirmed action is still pending. Review and retry it before starting another.",
+      "pendingNotice": "Pending action: {{ action }} for {{ shop }}.",
+      "retryNamed": "Retry {{ action }} for {{ shop }}",
+      "actions": {
+        "assign": "Assign unused slot",
+        "grant": "Grant consent",
+        "accept": "Confirm coverage",
+        "revoke": "Revoke consent"
+      }
+    },
     "reopening": {
       "received": "Reopening decision received by the merchant service.",
       "reopenedAt": "Reopening saved at {{time}}.",

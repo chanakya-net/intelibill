@@ -43,6 +43,8 @@ internal static class CustomerBillingEndpoints
         app.MapBillingMembers(policy);
         app.MapOwnershipTransfers(policy);
         app.MapShopAffiliations(policy);
+        app.MapCoverageSlots(policy);
+        app.MapCoverageReplacements(policy);
         app.MapCustomerSubscriptionStatus(policy);
         app.MapCustomerSubscriptionCancellation(policy);
         app.MapCustomerClosures(policy);

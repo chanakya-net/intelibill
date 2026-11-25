@@ -16,9 +16,9 @@ public sealed record PaidTerm(Guid TermId, string Mode, int Capacity, DateTimeOf
 public sealed record PaymentFulfilment(Guid AccountId, Guid OrderId, StoredPaymentAttempt? Attempt, Guid? ManualReceiptId,
     long AmountPaise, string Currency, PaidTerm Term,
     Guid PlanVersionId, int MemberAllowance, bool DevelopmentFixture, Guid[] ShopIds, DateTimeOffset At,
-    RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null);
+    RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, CoverageReplacementOrderV1? Replacement = null);
 
-public sealed record PaymentShopDelivery(Guid ShopId, long? ShopRevision);
+public sealed record PaymentShopDelivery(Guid ShopId, long? ShopRevision, bool AwaitingReplacementReceipt = false);
 
 public sealed record PaymentStatusRow(StoredPaymentAttempt? Attempt, bool VerificationRequested, DateTimeOffset? VerifiedAt,
     bool DefinitivelyFailed, bool NeedsReview, Guid? TermId, DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt,

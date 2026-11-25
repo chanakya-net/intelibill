@@ -76,6 +76,24 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   shellRoute('billing/accounts/:accountId/members', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/replacements', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/replacement-consent/:accountId/:shopId/:replacementId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    replacementId: '00000000-0000-4000-8000-000000000003',
+  })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/slots', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/slot-consent/:accountId/:shopId/:assignmentId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    assignmentId: '00000000-0000-4000-8000-000000000003',
+  })),
   shellRoute('billing/accounts/:accountId/coverage', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),

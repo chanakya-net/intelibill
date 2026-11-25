@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { existsSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const runIndex = args.indexOf('--run');
@@ -73,6 +74,9 @@ if (exitCode === 0 && runsFullSuite) {
 process.exit(exitCode);
 
 function normalizeIncludePath(path) {
-  if (path.startsWith('tests/')) return `../${path}`;
+  if (path.startsWith('tests/')) {
+    const spec = !existsSync(path) && existsSync(path + '.spec.ts') ? path + '.spec.ts' : path;
+    return `../${spec}`;
+  }
   return path.includes('/') || path.includes('*') ? path : `**/*${path}*.spec.ts`;
 }

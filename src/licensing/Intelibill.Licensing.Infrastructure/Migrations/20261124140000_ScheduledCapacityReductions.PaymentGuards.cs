@@ -24,7 +24,7 @@ public sealed partial class ScheduledCapacityReductions
         """;
 
     // Allow reduction renewal orders to name exactly the frozen retained subset of their scheduled reduction.
-    private const string CheckoutOrderGuard = """
+    internal const string CheckoutOrderGuard = """
         CREATE OR REPLACE FUNCTION public.guard_checkout_order() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE named bigint;
         DECLARE hash text;
