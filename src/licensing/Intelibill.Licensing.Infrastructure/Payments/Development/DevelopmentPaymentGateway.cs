@@ -20,7 +20,7 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
         new(ProviderId, "local-simulator", "Development", "development-simulator/1");
 
     public PaymentProviderPin Pin => configuredPin ?? LocalPin;
-    public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: false, Webhooks: WebhookSignature.Secret(webhook.WebhookSecret));
+    public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: true, Webhooks: WebhookSignature.Secret(webhook.WebhookSecret));
 
     public async Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
@@ -84,9 +84,6 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
             .ToListAsync(token), ct);
         return GatewayResult.Success<IReadOnlyList<PaymentObservation>>([.. rows.Select(row => row.ToObservation(Pin))]);
     }
-
-    public Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct) =>
-        Task.FromResult(GatewayResult.Unsupported<RefundObservation>());
 
     public Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<RefundObservation>());

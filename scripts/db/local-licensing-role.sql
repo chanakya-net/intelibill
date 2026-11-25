@@ -190,6 +190,11 @@ DO $$ BEGIN
   IF to_regprocedure('public.finish_gateway_inbox_event(uuid,uuid,timestamptz,text,text,boolean)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.finish_gateway_inbox_event(uuid,uuid,timestamptz,text,text,boolean) TO intelibill_licensing_app;
   END IF;
+  IF to_regprocedure('public.claim_refund(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_refund(timestamptz,uuid), public.start_refund_send(uuid,timestamptz), public.finish_refund(uuid,timestamptz,text,text,text),
+            public.refund_outcome(uuid,uuid), public.refund_finance_observation(uuid,uuid), public.recheck_refund(uuid,uuid,timestamptz,text),
+            public.receive_refund_hint(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO intelibill_licensing_app;
+  END IF;
   IF to_regprocedure('public.claim_pending_payment(timestamptz,uuid)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO intelibill_licensing_app;
   END IF;

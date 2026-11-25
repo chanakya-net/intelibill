@@ -7,7 +7,13 @@ namespace Intelibill.Licensing.Infrastructure.Payments;
 internal sealed class GatewayInboxStore(LicensingDbContext db) : IGatewayInboxStore
 {
     public Task<bool> ReceiveAsync(VerifiedGatewayEvent parsed, byte[] hash, byte[] evidence, DateTimeOffset now,
-        CancellationToken ct) => db.Database.SqlQuery<bool>($"""
+        CancellationToken ct) => parsed.Refund is { } refund
+        ? db.Database.SqlQuery<bool>($"""
+            SELECT public.receive_refund_hint({Guid.NewGuid()}, {parsed.Pin.ProviderId}, {parsed.Pin.ProviderAccountId},
+                {parsed.Pin.Environment}, {parsed.Pin.ConfigurationVersion}, {parsed.ProviderEventId}, {refund.PaymentReference},
+                {refund.RefundReference}, {refund.Receipt}, {hash}, {evidence}, {now}) AS "Value"
+            """).SingleAsync(ct)
+        : db.Database.SqlQuery<bool>($"""
         SELECT public.receive_gateway_inbox_event({Guid.NewGuid()}, {parsed.Pin.ProviderId}, {parsed.Pin.ProviderAccountId},
             {parsed.Pin.Environment}, {parsed.Pin.ConfigurationVersion}, {parsed.ProviderEventId}, {parsed.Kind},
             {parsed.Payment?.ProviderOrderReference}, {parsed.Payment?.ProviderPaymentReference}, {hash}, {evidence}, {now}) AS "Value"

@@ -10,7 +10,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0310Tests
 {
-    private const string SecretA = "p0310-simulator-a-webhook-fixture";
+    internal const string SecretA = "p0310-simulator-a-webhook-fixture";
     private const string SecretB = "p0310-simulator-b-webhook-fixture";
 
     internal static Dictionary<string, string?> WebhookSettings(bool ambiguous = false)
@@ -65,7 +65,7 @@ public sealed partial class P0310Tests
         var original = Assert.IsAssignableFrom<IPaymentGateway>(resolver.ForPin(A));
         Assert.Equal(A, original.Pin);
         Assert.Equal(B, (await scope.ServiceProvider.GetRequiredService<IPaymentProviderSelection>().SelectedAsync(false, default)).Pin);
-        Assert.False(original.Capabilities.Refunds);
+        Assert.True(original.Capabilities.Refunds);
         Assert.Equal(GatewayOutcome.Unsupported, (await original.RequestRefundAsync(new(A, "unused-contract-only", 12000, "INR", Guid.NewGuid()), default)).Outcome);
         Assert.Equal(GatewayOutcome.Unsupported, (await original.GetRefundAsync("unused-contract-only", default)).Outcome);
     }
@@ -73,6 +73,11 @@ public sealed partial class P0310Tests
     internal static async Task<HttpResponseMessage> SimulatorEventAsync(HttpClient client, string order, string id, string secret)
     {
         var body = JsonSerializer.Serialize(new { kind = "PaymentCaptured", orderReference = order });
+        return await SignedSimulatorEventAsync(client, body, id, secret);
+    }
+
+    internal static async Task<HttpResponseMessage> SignedSimulatorEventAsync(HttpClient client, string body, string id, string secret)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/payments/webhooks/development-simulator");
         request.Content = new StringContent(body, Encoding.UTF8, "application/json");
         request.Headers.Add("X-Intelibill-Event-Id", id);

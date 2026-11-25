@@ -22,7 +22,7 @@ describe('approvalPreviewAndScopedRecovery', () => {
       { provide: ActivatedRoute, useValue: { queryParamMap: new BehaviorSubject(convertToParamMap({ account })) } },
       { provide: AdminSessionService, useValue: { adminId: signal(admin), sessionId: signal('s'), capabilities: signal(['billing']) } },
       { provide: RefundIntakeApi, useValue: { list: async () => ({ schemaVersion: 1, accountId: account, nextCursor: null,
-        items: [item, { ...item, refundRequestId: request.replace(/1$/, '2'), status: 'Pending' }] }) } },
+        items: [item, { ...item, refundRequestId: request.replace(/1$/, '2'), status: 'Unknown' }] }) } },
     ] });
     const intake = TestBed.createComponent(RefundIntakePageComponent);
     const links = await vi.waitFor(() => {

@@ -13,7 +13,7 @@ import type { CheckoutScope } from '../checkout/checkout.models';
 import { CONFIRMATION_PAGE_SIZE, type PaymentConfirmation } from '../payments/payment-confirmation.models';
 import { PaymentConfirmationService } from '../payments/payment-confirmation.service';
 import {
-  normalizeRefundReason, REFUND_STATUSES, type CreateRefundRequest, type RefundRequestItem, type RefundRequestPage,
+  normalizeRefundReason, validateRefundPage, REFUND_STATUSES, type CreateRefundRequest, type RefundRequestItem, type RefundRequestPage,
 } from './refund-request.models';
 import { RefundRequestService } from './refund-request.service';
 import { RefundRequestsPageComponent } from './refund-requests-page.component';
@@ -127,6 +127,16 @@ afterEach(() => {
 });
 
 describe('merchant refund requests page', () => {
+  it('validates legacy and settled rows together and rejects contradictory access or amounts', () => {
+    const legacy = makeRow('Requested', 1);
+    const settled = { ...makeRow('Confirmed', 2), approvedAmountPaise: 2000, providerState: 'Confirmed', accessDisposition: 'NeedsReview' };
+    const response = { schemaVersion: 1, accountId: account, items: [legacy, settled], nextCursor: null };
+    expect(validateRefundPage(response, account).items).toEqual([legacy, settled]);
+    for (const change of [{ approvedAmountPaise: 4501 }, { accessDisposition: 'AwaitingConfirmation' }, { providerState: 'Failed' }]) {
+      expect(() => validateRefundPage({ ...response, items: [legacy, { ...settled, ...change }] }, account)).toThrow();
+    }
+  });
+
   it('renders distinct copy for all five refund statuses and states no approval or access change', async () => {
     const rows = REFUND_STATUSES.map((status, index) => makeRow(status, index));
     const { page, settle } = setup({ items: rows });

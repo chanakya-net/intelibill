@@ -1,3 +1,4 @@
+import { validRefundOutcome, type RefundOutcome } from '@intelibill/api';
 import { isUuid } from '../checkout/checkout.models';
 
 export type RefundRequestStatus = 'Requested' | 'Pending' | 'Confirmed' | 'Failed' | 'Unknown';
@@ -18,7 +19,7 @@ export interface CreateRefundRequest {
   readonly reason: string;
 }
 
-export interface RefundRequestItem {
+export interface RefundRequestItem extends RefundOutcome {
   readonly schemaVersion: 1;
   readonly refundRequestId: string;
   readonly accountId: string;
@@ -109,7 +110,7 @@ export function isValidRefundRequest(value: unknown, account: string): value is 
     r['paymentAmountPaise'] > 0 && r['paymentAmountPaise'] <= REFUND_MAX_PAISE &&
     typeof r['amountPaise'] === 'number' && Number.isSafeInteger(r['amountPaise']) &&
     r['amountPaise'] > 0 && r['amountPaise'] <= (r['paymentAmountPaise'] as number) &&
-    r['currency'] === 'INR' &&
+    validRefundOutcome(r) && r['currency'] === 'INR' &&
     typeof r['reason'] === 'string' && normalizeRefundReason(r['reason']) === r['reason'] &&
     typeof r['requestedAt'] === 'string' && Number.isFinite(Date.parse(r['requestedAt']));
 }

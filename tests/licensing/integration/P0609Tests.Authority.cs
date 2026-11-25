@@ -25,6 +25,7 @@ public sealed partial class P0609Tests
             var preview = await PreviewAsync(billing, package.Account, id, 2000, "EndAt", end);
             await ReadAsync(await ApproveAsync(billing, package.Account, id, Command(preview, 2000, "EndAt", end)),
                 HttpStatusCode.Created);
+            await P0610Tests.PumpRefundsAsync(fixture);
         }
         foreach (var shop in grouped.Shops)
         {

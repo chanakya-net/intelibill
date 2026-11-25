@@ -34,6 +34,12 @@ public sealed record RefundIntakeItem(
     string Environment,
     string ConfigurationVersion)
 {
+    public string? RefundReference { get; init; }
+    public string? ObservationReason { get; init; }
+    public DateTimeOffset? LastCheckedAt { get; init; }
+    public long? ApprovedAmountPaise { get; init; }
+    public string? ProviderState { get; init; }
+    public string? AccessDisposition { get; init; }
     public override string ToString() => "[REDACTED]";
 }
 
@@ -44,6 +50,7 @@ public sealed record RefundIntakePage(Guid AccountId, RefundIntakeItem[] Items, 
 
 public interface IRefundRequestStore
 {
+    Task<bool> ScheduleLookupAsync(Guid account, Guid request, DateTimeOffset at, string? simulated, CancellationToken ct);
     Task<StoredRefundRequest?> FindAsync(Guid account, Guid operationKey, CancellationToken ct);
     Task<RefundablePayment?> PaymentAsync(Guid account, Guid order, Guid confirmation, CancellationToken ct);
     Task SaveAsync(RefundRequestV1 request, RefundablePayment payment, Guid actor, Guid operationKey,

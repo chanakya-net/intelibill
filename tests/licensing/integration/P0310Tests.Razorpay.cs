@@ -59,8 +59,10 @@ public sealed partial class P0310Tests
         Assert.Equal(1, first.Posts);
         Assert.Equal(1, second.Posts);
         Assert.Equal(attempt, (await StartAsync(old.Payer.Client, old.Quote, HttpStatusCode.OK, key)).GetProperty("attemptId").GetGuid());
-        await AssertRefundRouteAsync(fixture, old.Quote.AmountPaise, payment);
-        Assert.Equal(1, first.Posts);
+        var callsOnB = second.Calls.Count;
+        await AssertRefundRouteAsync(fixture, new(old.Account, old.Quote.OrderId, attempt, old.Quote.AmountPaise, "INR"), payment, first);
+        Assert.Equal(2, first.Posts);
+        Assert.Equal(callsOnB, second.Calls.Count);
     }
 
     private static async Task AssertMissingRazorpayCredentialAsync(P0302Fixture fixture, Purchase original, Guid attempt,
@@ -74,7 +76,7 @@ public sealed partial class P0310Tests
         configuration["FixtureCredentials:0:KeySecret"] = SecretA + "-api";
     }
 
-    private static async Task AssertRefundRouteAsync(P0302Fixture fixture, long amount, string payment)
+    private static async Task AssertRefundRouteAsync(P0302Fixture fixture, CheckoutRequest original, string payment, FakeRazorpay fake)
     {
         var persisted = JsonSerializer.Deserialize<PaymentProviderPin>((string)(await LicensingPostgreSqlFixture.ReadScalarAsync(
             fixture.Hosts.LicensingOwner, """
@@ -84,10 +86,28 @@ public sealed partial class P0310Tests
         Assert.Equal(new("razorpay", "acc_a0310", "Test", "a/1"), persisted);
         using var scope = fixture.Hosts.Licensing.Services.CreateScope();
         var gateway = scope.ServiceProvider.GetRequiredService<IPaymentGatewayResolver>().ForPin(persisted)!;
-        var probe = new RefundContractProbe(gateway);
-        Assert.Equal(GatewayOutcome.Unsupported, (await probe.RequestAsync(new(persisted, payment, amount, "INR", Guid.NewGuid()))).Outcome);
-        Assert.Equal(GatewayOutcome.Unsupported, (await probe.LookupAsync("contract-only")).Outcome);
-        Assert.Equal(new[] { persisted, persisted }, probe.Pins);
+        Assert.True(gateway.Capabilities.Refunds);
+        var intent = new RefundRequest(persisted, payment, 4500, "INR", Guid.NewGuid(), fake.OrderId(), original);
+        for (var i = 0; i < 10; i++) fake.Refunds.Add(fake.RefundRecord(payment, Guid.NewGuid().ToString("N"), 4500));
+        fake.TruncateWhen = call => call.EndsWith("/refund", StringComparison.Ordinal);
+        Assert.Equal(GatewayOutcome.Unavailable, (await gateway.RequestRefundAsync(intent, default)).Outcome);
+        var recovered = (await gateway.GetRefundAsync(intent, null, default)).Value;
+        Assert.Equal(ObservedRefundState.Processed, recovered?.State);
+        Assert.Equal(intent.Receipt, recovered!.Receipt);
+        Assert.Equal(persisted, recovered.Pin);
+        Assert.Contains(fake.Calls, call => call.Contains("skip=10", StringComparison.Ordinal));
+        var selected = fake.Refunds.Last();
+        foreach (var (field, replacement) in new (string, System.Text.Json.Nodes.JsonNode?)[]
+            { ("currency", "USD"), ("amount", 4499), ("receipt", Guid.NewGuid().ToString("N")), ("status", "unrecognized") })
+        {
+            var old = selected[field]?.DeepClone();
+            selected[field] = replacement;
+            Assert.Equal(GatewayOutcome.Rejected, (await gateway.GetRefundAsync(intent, recovered.ProviderRefundReference, default)).Outcome);
+            selected[field] = old;
+        }
+        fake.Refunds.Add(fake.RefundRecord(payment, intent.Receipt, 4500));
+        Assert.Null((await gateway.GetRefundAsync(intent, null, default)).Value);
+        Assert.Equal(GatewayOutcome.Unsupported, (await gateway.RequestRefundAsync(intent with { AmountPaise = 1 }, default)).Outcome);
     }
 
     [Fact]
@@ -149,10 +169,10 @@ public sealed partial class P0310Tests
         return settings;
     }
 
-    private static async Task SelectProfileAsync(P0110CookieBrowser owner, string profile, int revision)
+    internal static async Task SelectProfileAsync(P0110CookieBrowser owner, string profile, int revision, string origin = P0110CookieBrowser.Origin)
     {
         using var result = await P0212Fixture.PostAsync(owner, ProvidersPath + "/selection",
-            new { profileId = profile, operationKey = Guid.NewGuid(), expectedRevision = revision, reason = "Contract fixture switch" });
+            new { profileId = profile, operationKey = Guid.NewGuid(), expectedRevision = revision, reason = "Contract fixture switch" }, origin);
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
     }
 
@@ -169,18 +189,4 @@ public sealed partial class P0310Tests
         }
     }
 
-    private sealed class RefundContractProbe(IPaymentGateway original)
-    {
-        internal List<PaymentProviderPin> Pins { get; } = [];
-        internal Task<GatewayResult<RefundObservation>> RequestAsync(RefundRequest request)
-        {
-            Pins.Add(original.Pin);
-            return original.RequestRefundAsync(request, default);
-        }
-        internal Task<GatewayResult<RefundObservation>> LookupAsync(string reference)
-        {
-            Pins.Add(original.Pin);
-            return original.GetRefundAsync(reference, default);
-        }
-    }
 }

@@ -50,18 +50,23 @@ public sealed record PaymentObservation(PaymentProviderPin Pin, string ProviderO
     bool CheckoutDefinitivelyFailed = false, DateTimeOffset? CreatedAt = null, bool ConfirmedUnpaid = false,
     bool FundingAmbiguous = false);
 
-public sealed record RefundRequest(PaymentProviderPin Pin, string ProviderPaymentReference, long AmountPaise, string Currency, Guid RefundId);
+public sealed record RefundRequest(PaymentProviderPin Pin, string ProviderPaymentReference, long AmountPaise, string Currency, Guid RefundId,
+    string? ProviderOrderReference = null, CheckoutRequest? Payment = null)
+{
+    public string Receipt => RefundId.ToString("N");
+}
 
 public enum ObservedRefundState { Pending, Processed, Failed }
 
 public sealed record RefundObservation(PaymentProviderPin Pin, string ProviderRefundReference, ObservedRefundState State,
-    long AmountPaise, string Currency);
+    long AmountPaise, string Currency, string? ProviderPaymentReference = null, string? Receipt = null);
 
 public static class GatewayEventKinds
 {
     public const string PaymentCaptured = "PaymentCaptured";
     public const string PaymentAuthorized = "PaymentAuthorized";
     public const string PaymentFailed = "PaymentFailed";
+    public const string RefundChanged = "RefundChanged";
     public const string Other = "Other";
 }
 
@@ -69,6 +74,8 @@ public static class GatewayEventKinds
 public sealed record GatewayEventPayment(string ProviderOrderReference, string? ProviderPaymentReference = null,
     ObservedPaymentState? State = null, long? AmountPaise = null, string? Currency = null);
 
+public sealed record GatewayEventRefund(string PaymentReference, string RefundReference, string? Receipt);
+
 public sealed record VerifiedGatewayEvent(PaymentProviderPin Pin, string ProviderEventId, string Kind,
     GatewayEventPayment? Payment, string? ProviderKind = null, string? PayloadAccountId = null,
-    DateTimeOffset? OccurredAt = null);
+    DateTimeOffset? OccurredAt = null, GatewayEventRefund? Refund = null);

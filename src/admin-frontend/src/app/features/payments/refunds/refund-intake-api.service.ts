@@ -1,3 +1,4 @@
+import { validRefundOutcome, type RefundOutcome } from '@intelibill/api';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
@@ -31,7 +32,10 @@ export const REFUND_INTAKE_STATUS_META: Readonly<Record<RefundIntakeStatus, { re
   },
 };
 
-export interface RefundIntakeItem {
+export interface RefundIntakeItem extends RefundOutcome {
+  readonly refundReference?: string | null;
+  readonly observationReason?: string | null;
+  readonly lastCheckedAt?: string | null;
   readonly refundRequestId: string;
   readonly accountId: string;
   readonly orderId: string;
@@ -95,7 +99,10 @@ function isValidItem(value: unknown, account: string): value is RefundIntakeItem
     r['paymentAmountPaise'] > 0 &&
     typeof r['amountPaise'] === 'number' && Number.isSafeInteger(r['amountPaise']) &&
     r['amountPaise'] > 0 && r['amountPaise'] <= (r['paymentAmountPaise'] as number) &&
-    r['currency'] === 'INR' &&
+    (r['refundReference'] == null || typeof r['refundReference'] === 'string' && r['refundReference'].length <= 120) &&
+    (r['observationReason'] == null || typeof r['observationReason'] === 'string' && r['observationReason'].length <= 80) &&
+    (r['lastCheckedAt'] == null || typeof r['lastCheckedAt'] === 'string' && Number.isFinite(Date.parse(r['lastCheckedAt']))) &&
+    validRefundOutcome(r) && r['currency'] === 'INR' &&
     typeof r['reason'] === 'string' && normalizeRefundIntakeReason(r['reason']) === r['reason'] &&
     typeof r['requestedAt'] === 'string' && Number.isFinite(Date.parse(r['requestedAt'])) &&
     typeof r['providerId'] === 'string' && r['providerId'].length > 0 &&

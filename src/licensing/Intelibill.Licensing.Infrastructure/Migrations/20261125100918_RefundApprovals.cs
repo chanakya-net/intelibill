@@ -136,10 +136,20 @@ public sealed partial class RefundApprovals : Migration
         CREATE POLICY decision_read ON public.refund_access_decisions FOR SELECT USING (account_id = {Account});
         -- The migration owner executes the narrow shop projection under forced RLS.
         CREATE POLICY decision_projection ON public.refund_access_decisions FOR SELECT TO CURRENT_USER USING (true);
-        CREATE FUNCTION public.refund_boundary(scope_account uuid, scope_term uuid)
+        {Boundary(false)}
+        CREATE POLICY decision_insert ON public.refund_access_decisions FOR INSERT WITH CHECK (
+            account_id = {Account} AND {Admin} IS NOT NULL AND {Session} IS NOT NULL);
+        CREATE TRIGGER refund_approval_retained BEFORE UPDATE OR DELETE OR TRUNCATE ON public.refund_approvals
+            FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
+        CREATE TRIGGER refund_access_decision_retained BEFORE UPDATE OR DELETE OR TRUNCATE ON public.refund_access_decisions
+            FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
+        """;
+
+    internal static string Boundary(bool appliedOnly) => $"""
+        CREATE OR REPLACE FUNCTION public.refund_boundary(scope_account uuid, scope_term uuid)
         RETURNS TABLE (new_paid_through timestamptz, new_access_ends_at timestamptz)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
-            SELECT d.new_paid_through, d.new_access_ends_at FROM public.refund_access_decisions d
+            SELECT d.new_paid_through, d.new_access_ends_at FROM public.{(appliedOnly ? "applied_refund_decisions" : "refund_access_decisions")} d
             WHERE d.account_id = scope_account AND d.term_id = scope_term AND d.term_revision IS NOT NULL
                 AND (scope_account = {Account} OR EXISTS (
                     SELECT FROM public.shop_affiliations a
@@ -148,12 +158,6 @@ public sealed partial class RefundApprovals : Migration
                             AND p.term_id = scope_term AND p.shop_id = a.shop_id AND p.affiliation_request_id = a.request_id))))
             ORDER BY d.term_revision DESC LIMIT 1
         $$;
-        CREATE POLICY decision_insert ON public.refund_access_decisions FOR INSERT WITH CHECK (
-            account_id = {Account} AND {Admin} IS NOT NULL AND {Session} IS NOT NULL);
-        CREATE TRIGGER refund_approval_retained BEFORE UPDATE OR DELETE OR TRUNCATE ON public.refund_approvals
-            FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
-        CREATE TRIGGER refund_access_decision_retained BEFORE UPDATE OR DELETE OR TRUNCATE ON public.refund_access_decisions
-            FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
         """;
 
     protected override void Down(MigrationBuilder migrationBuilder)

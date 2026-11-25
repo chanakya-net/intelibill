@@ -74,8 +74,10 @@ public sealed partial class RefundApprovals
             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.require_refund_access_decision();
         """;
 
-    private const string DecisionGuards = """
-        CREATE FUNCTION public.guard_refund_access_decision() RETURNS trigger LANGUAGE plpgsql
+    private static string DecisionGuards => DecisionGuard(false) + DecisionTrigger;
+
+    internal static string DecisionGuard(bool appliedOnly) => $$"""
+        CREATE OR REPLACE FUNCTION public.guard_refund_access_decision() RETURNS trigger LANGUAGE plpgsql
         SET search_path = pg_catalog AS $$
         DECLARE
             approval record;
@@ -120,12 +122,12 @@ public sealed partial class RefundApprovals
             IF NEW.treatment = 'Preserve' THEN
                 RETURN NEW;
             END IF;
-            SELECT coalesce(d.term_revision, 0), coalesce(d.new_paid_through, t.ends_at),
+            SELECT {{(appliedOnly ? "(SELECT coalesce(max(r.term_revision), 0) FROM public.refund_access_decisions r WHERE r.account_id = t.account_id AND r.term_id = t.term_id)" : "coalesce(d.term_revision, 0)")}}, coalesce(d.new_paid_through, t.ends_at),
                 coalesce(d.new_access_ends_at, CASE WHEN c.kind = 'ScheduleCancellation' THEN t.ends_at
                     ELSE t.ends_at + interval '168 hours' END)
             INTO prior, actual_paid, actual_end
             FROM public.subscription_coverage_terms t JOIN public.subscription_term_facts f USING (account_id, term_id)
-            LEFT JOIN LATERAL (SELECT * FROM public.refund_access_decisions d WHERE d.account_id = t.account_id
+            LEFT JOIN LATERAL (SELECT * FROM public.{{(appliedOnly ? "applied_refund_decisions" : "refund_access_decisions")}} d WHERE d.account_id = t.account_id
                 AND d.term_id = t.term_id AND d.term_revision IS NOT NULL ORDER BY d.term_revision DESC LIMIT 1) d ON true
             LEFT JOIN LATERAL (SELECT kind FROM public.scheduled_subscription_changes c WHERE c.account_id = t.account_id
                 AND c.term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
@@ -138,6 +140,9 @@ public sealed partial class RefundApprovals
             END IF;
             RETURN NEW;
         END $$;
+        """;
+
+    private const string DecisionTrigger = """
         CREATE TRIGGER refund_access_decision_guard BEFORE INSERT ON public.refund_access_decisions
             FOR EACH ROW EXECUTE FUNCTION public.guard_refund_access_decision();
         """;

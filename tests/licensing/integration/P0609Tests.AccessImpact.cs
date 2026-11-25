@@ -50,6 +50,7 @@ public sealed partial class P0609Tests
         Assert.True(closed.GetProperty("restricted").GetBoolean());
         await ReadAsync(await ApproveAsync(billing, package.Account, request, Command(latest, 4500, "EndAt", Boundary)),
             HttpStatusCode.Created);
+        await P0610Tests.PumpRefundsAsync(fixture);
         fixture.At(Boundary);
         Assert.Equal("Closed", (await delivery.LatestSnapshotAsync(named.Shops[0].ShopId)).Shop!.State);
         Assert.Equal("Complimentary", (await TermAsync(named.Shops[1])).GetProperty("basis").GetString());

@@ -73,7 +73,7 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db, Subscripti
                     WHERE f.account_id = {account} AND f.predecessor_term_id = {term})
                 OR EXISTS (SELECT FROM public.payment_trial_conversions c
                     WHERE c.account_id = {account} AND c.trial_term_id = {term})
-                OR EXISTS (SELECT FROM public.refund_access_decisions rd
+                OR EXISTS (SELECT FROM public.applied_refund_decisions rd
                     WHERE rd.account_id = {account} AND rd.term_id = {term} AND rd.treatment <> 'Preserve') AS "Value"
             """).SingleAsync(ct);
 

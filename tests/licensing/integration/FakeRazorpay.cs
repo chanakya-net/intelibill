@@ -10,7 +10,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// In-process stand-in for the documented Razorpay order and payment endpoints. It is the only transport the
 /// adapter sees in tests: nothing here reaches api.razorpay.com and every credential is a fixture value.
 /// </summary>
-internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, string fixtureKeySecret = FakeRazorpay.KeySecret, int sequenceStart = 0) : HttpMessageHandler
+internal sealed partial class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, string fixtureKeySecret = FakeRazorpay.KeySecret, int sequenceStart = 0) : HttpMessageHandler
 {
     internal const string KeyId = "rzp_test_fixture";
     internal const string KeySecret = "fixture-secret";
@@ -239,13 +239,14 @@ internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, str
     {
         var path = request.RequestUri!.AbsolutePath.TrimEnd('/');
         var query = request.RequestUri.Query;
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (RefundRoute(request, parts, body) is { } refund) return refund;
         if (request.Method == HttpMethod.Post && path == "/v1/orders")
             return Create(JsonNode.Parse(body!)!.AsObject());
         if (request.Method != HttpMethod.Get)
             return Json(HttpStatusCode.BadRequest, new JsonObject());
         if (path == "/v1/orders")
             return Collection(orders.Values.Where(o => query.Contains($"receipt={o["receipt"]}", StringComparison.Ordinal)));
-        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         return parts switch
         {
             ["v1", "orders", var id] when orders.ContainsKey(id) && FailOrderReads > 0 => FailOrderRead(),

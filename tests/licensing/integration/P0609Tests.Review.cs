@@ -62,6 +62,9 @@ public sealed partial class P0609Tests
         var preview = await PreviewAsync(billing, paid.Account, request, 4500L, treatment, Boundary);
         await ReadAsync(await ApproveAsync(billing, paid.Account, request, Command(preview, 4500L, treatment, Boundary)),
             HttpStatusCode.Created);
+        Assert.Equal(original.GetProperty("accessEndsAt").GetDateTimeOffset(),
+            (await TermAsync(paid.Shops[0])).GetProperty("accessEndsAt").GetDateTimeOffset());
+        await P0610Tests.PumpRefundsAsync(fixture);
         using var rejected = await paid.Payer.Client.PostAsJsonAsync(P0301Tests.AcceptPath(stale), P0301Tests.Accept(stale));
         Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
         var restoredAt = Boundary.AddDays(graceDays).AddSeconds(1);

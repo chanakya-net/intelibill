@@ -35,6 +35,15 @@ internal sealed partial class DevelopmentPaymentGateway
     private VerifiedGatewayEvent? ParseEvent(JsonElement root, string id)
     {
         var kind = Text(root, "kind");
+        if (kind == GatewayEventKinds.RefundChanged)
+        {
+            var paymentId = Text(root, "paymentReference");
+            var refundId = Text(root, "refundReference");
+            var receipt = Text(root, "receipt");
+            if (!WebhookSignature.Identifier(paymentId, 120) || !WebhookSignature.Identifier(refundId, 120) ||
+                receipt?.Length > 120) return null;
+            return new(Pin, id, kind, null, kind, Pin.ProviderAccountId, Refund: new(paymentId!, refundId!, receipt));
+        }
         var state = kind switch
         {
             GatewayEventKinds.PaymentCaptured => ObservedPaymentState.Captured,

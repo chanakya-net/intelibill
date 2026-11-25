@@ -149,6 +149,17 @@ export class RefundApprovalPageComponent {
     });
   }
 
+  protected checkProvider() {
+    void this.run(async invocation => {
+      await this.api.recheck(invocation);
+      if (invocation.current()) await this.load(invocation);
+    });
+  }
+
+  protected refreshOutcome() {
+    void this.run(invocation => this.load(invocation));
+  }
+
   protected resolve(lookup: boolean) {
     const command = this.pending();
     if (command) void this.run(invocation => this.send(invocation, command, lookup));
@@ -209,7 +220,9 @@ export class RefundApprovalPageComponent {
     this.revision++;
     this.pending.set(null);
     this.receipt.set(result);
-    this.item.update(item => item ? { ...item, status: result.status } : null);
+    this.item.update(item => item?.status === 'Requested' ? { ...item, status: result.status, approvedAmountPaise: result.approvedAmountPaise,
+      providerState: item.paymentSource === 'Online' ? 'Reserved' : 'Manual',
+      accessDisposition: item.paymentSource === 'Online' ? 'AwaitingConfirmation' : 'Applied' } : item);
   }
 
   private scope(invocation: Invocation) {
@@ -260,7 +273,7 @@ export class RefundApprovalPageComponent {
     const balance = code === 'Refund.AmountExceedsRemaining' && Number.isSafeInteger(remaining) && remaining >= 0
       ? ` Remaining refundable: ${this.money(remaining)}.` : '';
     this.error.set(refusalMessage(code, !!this.pending(), !!pending) + balance);
-    if (code === 'Refund.AlreadyDecided' && this.item())
+    if (code === 'Refund.AlreadyDecided' && this.item()?.status === 'Requested')
       this.item.set({ ...this.item()!, status: 'Pending' });
   }
 }

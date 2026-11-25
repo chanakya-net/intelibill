@@ -45,6 +45,7 @@
       { "name": "blank is refused", "input": " \u2003\u0085 ", "normalized": null }
     ]
   },
+  "optionalOutcomeFields": ["approvedAmountPaise", "providerState", "accessDisposition"],
   "customerFields": [
     "schemaVersion",
     "refundRequestId",

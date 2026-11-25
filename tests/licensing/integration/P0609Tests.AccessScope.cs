@@ -118,6 +118,7 @@ public sealed partial class P0609Tests
         await ReadAsync(await ApproveAsync(billing, package.Account, request,
             Command(preview, order.AmountPaise, "EndAt", at)), HttpStatusCode.Created);
         Assert.Equal(1L, await fixture.CountAsync("refund_access_decisions", $"term_id = '{term:D}' AND treatment = 'EndAt'"));
+        await P0610Tests.PumpRefundsAsync(fixture);
         // The applied capacity and the purchased calendar are retained; only access ends at the reviewed instant.
         Assert.Equal(1L, await fixture.CountAsync("capacity_increases", "state = 'Applied'"));
         Assert.Equal(at, (await P0601Tests.AccountTermAsync(package, term)).GetProperty("accessEndsAt").GetDateTimeOffset());
@@ -143,6 +144,7 @@ public sealed partial class P0609Tests
         var id = await runtime.ApproveAsync(originalRequest, 500, 12000, 1);
         await runtime.EndAsync(id, term, 2, at, at, end, names);
         await runtime.CommitAsync();
+        await P0610Tests.PumpRefundsAsync(fixture);
         Assert.Equal(2L, await fixture.CountAsync("refund_approvals"));
         Assert.Equal(end, (await P0601Tests.AccountTermAsync(package, term)).GetProperty("accessEndsAt").GetDateTimeOffset());
     }

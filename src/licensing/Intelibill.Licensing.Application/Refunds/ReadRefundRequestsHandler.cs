@@ -10,8 +10,13 @@ namespace Intelibill.Licensing.Application.Refunds;
 public sealed class ReadRefundRequestsHandler(
     IBillingDelegationAccess access,
     IManualPaymentStore admins,
-    IRefundRequestStore store)
+    IRefundRequestStore store, RefundApprovalClocks clocks)
 {
+    public Task<ErrorOr<bool>> RecheckAsync(AdminSessionCaller caller, Guid account, Guid request, string? simulated,
+        CancellationToken ct) => admins.InManualScopeAsync<bool>(caller, account, Guid.Empty, recentMfa: true, lockAccount: true,
+            async (_, token) => await store.ScheduleLookupAsync(account, request, clocks.Lifecycle.GetUtcNow(), simulated, token)
+                ? true : RefundApprovalErrors.RequestMissing, ct);
+
     public Task<ErrorOr<RefundRequestPageV1>> ListAsync(
         VerifiedBillingDelegation proof, Guid account, Guid? after, CancellationToken ct) =>
         access.ExecuteAsync<RefundRequestPageV1>(proof, async (_, token) =>

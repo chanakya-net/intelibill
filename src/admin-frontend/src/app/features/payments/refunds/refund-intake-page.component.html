@@ -79,9 +79,9 @@
                     Review and approve
                   </a>
                 </div>
-              } @else if (item.status === 'Pending') {
+              } @else {
                 <a pButton data-testid="refund-intake-view"
-                  [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">View approval</a>
+                  [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">View refund</a>
               }
             </article>
           } @empty {

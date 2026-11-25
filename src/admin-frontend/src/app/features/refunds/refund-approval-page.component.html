@@ -7,7 +7,7 @@
     <h1 class="ib-page-title">Approve a refund</h1>
     <p class="ib-subtitle">
       Approving reserves an amount against the original verified payment and records one explicit access decision.
-      It does not send money: the refund is then pending with the original payment provider.
+      Online refunds use the original payment provider.
     </p>
   </header>
 
@@ -31,11 +31,26 @@
         <dl>
           <dt>Status</dt><dd data-testid="refund-approval-status">{{ statusLabel(shown.status) }}</dd>
           <dt>Requested</dt><dd>{{ money(shown.amountPaise) }} of {{ money(shown.paymentAmountPaise) }} · {{ instant(shown.requestedAt) }}</dd>
+          @if (shown.approvedAmountPaise) {
+            <dt>Approved amount</dt><dd>{{ money(shown.approvedAmountPaise) }}</dd>
+            <dt>Provider outcome</dt><dd data-testid="refund-provider-outcome">{{ shown.providerState === 'Manual' ? 'Manual follow-up' : shown.providerState }}</dd>
+            @if (shown.refundReference) { <dt>Original refund reference</dt><dd>{{ shown.refundReference }}</dd> }
+            @if (shown.lastCheckedAt) { <dt>Last checked</dt><dd>{{ instant(shown.lastCheckedAt) }}</dd> }
+            @if (shown.observationReason) { <dt>Observation</dt><dd>{{ shown.observationReason }}</dd> }
+            <dt>Access decision</dt><dd>{{ shown.accessDisposition === 'AwaitingConfirmation' ? 'Awaiting confirmation' :
+              shown.accessDisposition === 'NeedsReview' ? 'Finance review required' : 'Applied' }}</dd>
+          }
           <dt>Customer reason</dt><dd>{{ shown.reason }}</dd>
           <dt>Request ID</dt><dd>{{ shown.refundRequestId }}</dd>
           <dt>Original payment</dt>
           <dd>{{ shown.paymentSource }} · {{ shown.providerId }} · {{ shown.providerAccountId }} · {{ shown.environment }}</dd>
         </dl>
+        @if (shown.status !== 'Requested') {
+          <button pButton type="button" [disabled]="busy()" (click)="refreshOutcome()">Refresh status</button>
+          @if (shown.providerState === 'Pending' || shown.providerState === 'Unknown' || shown.providerState === 'Failed') {
+            <button pButton type="button" [disabled]="busy()" (click)="checkProvider()">Check original provider</button>
+          }
+        }
       </section>
     } @else if (loaded()) {
       <section class="ib-panel"><p class="adm-callout" data-testid="refund-approval-missing">This refund request is unavailable for this billing account.</p></section>
@@ -60,7 +75,7 @@
       </section>
     } @else if (receipt(); as saved) {
       <section class="ib-panel" data-testid="refund-approval-receipt" aria-labelledby="refund-approval-receipt-title">
-        <h2 class="ib-panel__title" id="refund-approval-receipt-title">Refund approved — pending with the provider</h2>
+        <h2 class="ib-panel__title" id="refund-approval-receipt-title">Original approval receipt</h2>
         <dl>
           <dt>Approved amount</dt><dd>{{ money(saved.approvedAmountPaise) }} of {{ money(saved.requestedAmountPaise) }} requested</dd>
           <dt>Remaining refundable</dt><dd>{{ money(saved.remainingAfterPaise) }} of {{ money(saved.verifiedAmountPaise) }} verified</dd>

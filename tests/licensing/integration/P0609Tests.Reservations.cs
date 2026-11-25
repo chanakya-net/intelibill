@@ -30,6 +30,10 @@ public sealed partial class P0609Tests
         Assert.Equal(6000L, receipt.GetProperty("requestedAmountPaise").GetInt64());
         Assert.Equal(6000L, receipt.GetProperty("remainingAfterPaise").GetInt64());
         Assert.Equal(1L, await fixture.CountAsync("refund_approvals", "manual_receipt_id IS NOT NULL AND attempt_id IS NULL"));
+        await P0610Tests.PumpRefundsAsync(fixture);
+        Assert.Equal(1L, await fixture.CountAsync("refund_applications", "disposition='Applied'"));
+        Assert.Equal(0L, await fixture.CountAsync("refund_attempts"));
+        Assert.Equal(0L, await fixture.CountAsync("refund_sends"));
         // The customer's own request still states what they asked for.
         Assert.Equal(1L, await fixture.CountAsync("refund_requests", "amount_paise = 6000"));
         Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments"));

@@ -84,7 +84,7 @@ public sealed class ApproveRefundHandler(IManualPaymentStore admins, IRefundAppr
         var target = preview.Access.Treatment == RefundApprovalRules.Preserve ? null : preview.Target;
         await store.SaveAsync(new(source, receipt, caller.SessionId, authorized, hash, preview.ImpactDigest,
             target?.TermRevision + 1), ct);
-        if (target is not null)
+        if (target is not null && source.AttemptId is null)
             foreach (var shop in target.Shops)
                 await publisher.PublishAsync(account, shop.ShopId, ct, decided);
         return new RefundApprovalOutcome(receipt, true);

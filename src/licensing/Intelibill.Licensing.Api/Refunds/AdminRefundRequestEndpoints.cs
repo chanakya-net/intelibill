@@ -16,9 +16,30 @@ internal static class AdminRefundRequestEndpoints
         var routes = app.MapGroup("/api/admin/accounts/{account:guid}/refund-requests")
             .RequireAuthorization(ProviderSessions.PaymentPolicy);
         routes.MapGet("", IntakeAsync);
+        routes.MapPost("/{request:guid}/reconcile", (HttpContext context, Guid account, Guid request,
+            AdminSignInHttp http, ReadRefundRequestsHandler handler) => RecheckAsync(context, account, request, http, handler, false));
+        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
+            routes.MapPost("/{request:guid}/simulator", (HttpContext context, Guid account, Guid request,
+                AdminSignInHttp http, ReadRefundRequestsHandler handler) => RecheckAsync(context, account, request, http, handler, true));
         routes.MapPost("/{request:guid}/approval-preview", PreviewAsync);
         routes.MapPost("/{request:guid}/approvals", ApproveAsync);
         routes.MapGet("/{request:guid}/approvals/operations/{operationKey:guid}", RecoverAsync);
+    }
+
+    private sealed record RefundControl(string? Outcome);
+
+    private static async Task<IResult> RecheckAsync(HttpContext context, Guid account, Guid request, AdminSignInHttp http,
+        ReadRefundRequestsHandler handler, bool simulator)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        if (await CatalogueDraftEndpoints.AcceptAsync(context, http) is { } refused) return refused;
+        if (AdminManualPaymentEndpoints.Caller(context) is not { } caller) return AdminManualPaymentEndpoints.SessionEnded(context);
+        var body = await CatalogueDraftEndpoints.ReadAsync<RefundControl>(context, 512);
+        if (body.Refusal is not null) return body.Refusal;
+        var outcome = body.Value?.Outcome;
+        if (simulator ? outcome is not ("Timeout" or "Delayed" or "Processed" or "Pending" or "Failed" or "Mismatch") : outcome is not null)
+            return Results.BadRequest();
+        return AdminManualPaymentEndpoints.Respond(context, await handler.RecheckAsync(caller, account, request, outcome, context.RequestAborted));
     }
 
     private static async Task<IResult> IntakeAsync(
