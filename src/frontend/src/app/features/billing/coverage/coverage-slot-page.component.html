@@ -25,7 +25,7 @@
       }
       @for (a of t.assignments; track a.assignmentId) {
         <article><strong>{{ a.shopName }}</strong>
-          <span data-testid="slot-status">{{ (a.activation === 'TermEnded' ? 'billing.status.states.Expired' : a.state === 'Applied' && a.activation !== 'NeedsReview' ? 'billing.slot.' + a.activation : a.state === 'Refused' ? 'billing.slot.changed' : 'billing.affiliation.status.' + (a.state === 'Applied' ? a.activation : a.state)) | transloco }}</span>
+          <span data-testid="slot-status">{{ billingStatusKey(a) | transloco }}</span>
           @if (a.state === 'AwaitingConsent') {
             <a data-testid="slot-consent-link" [routerLink]="['/billing/slot-consent', s.account, a.shopId, a.assignmentId]">{{ 'billing.affiliation.ownerLink' | transloco }}</a>
           }
@@ -35,19 +35,24 @@
     @if (owner(); as o) {
       <h2>{{ o.assignment.shopName }}</h2>
       <p>{{ 'billing.slot.free' | transloco }} · <time>{{ instant(o.assignment.coverageEndsAt) }}</time></p>
-      <p role="status">{{ (o.status === 'Acknowledged' ? 'billing.slot.Acknowledged' : o.status === 'Accepted' ? 'billing.slot.Applying' : 'billing.affiliation.status.' + o.status) | transloco }}</p>
+      <p role="status">{{ ownerStatusKey(o) | transloco }}</p>
       @if (!draft() && o.assignment.state === 'AwaitingConsent') {
         @if (o.status === 'AwaitingConsent') {
           <button [disabled]="busy()" data-testid="slot-grant" (click)="submit('grant')">{{ 'billing.affiliation.grant' | transloco }}</button>
         }
         @if (o.status === 'Granted') {
           <button [disabled]="busy()" data-testid="slot-accept" (click)="submit('accept')">{{ 'billing.slot.confirm' | transloco }}</button>
-          <button [disabled]="busy()" (click)="submit('revoke')">{{ 'billing.affiliation.revoke' | transloco }}</button>
+          <button [disabled]="busy()" data-testid="slot-revoke" (click)="submit('revoke')">{{ 'billing.affiliation.revoke' | transloco }}</button>
         }
       }
     }
     @if (draft(); as pending) {
-      <button [disabled]="busy()" (click)="submit(pending.action)">{{ 'billing.checkout.retry' | transloco }}</button>
+      <div data-testid="slot-pending-intent">
+        <p>{{ 'billing.slot.pendingNotice' | transloco: { action: (actionLabelKey(pending.action) | transloco), shop: pending.shopName } }}</p>
+        <button type="button" data-testid="slot-retry-pending" [disabled]="busy()" (click)="retryPending(pending.operationKey)">
+          {{ 'billing.slot.retryNamed' | transloco: { action: (actionLabelKey(pending.action) | transloco), shop: pending.shopName } }}
+        </button>
+      </div>
     }
     <button [disabled]="busy()" data-testid="slot-refresh" (click)="load(s)">{{ 'billing.status.refresh' | transloco }}</button>
     @if (error()) { <p role="alert">{{ error() | transloco }}</p> }

@@ -2,6 +2,7 @@ using ErrorOr;
 using System.Text.Json;
 using Intelibill.Application.Features.Licensing;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Policies;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
@@ -56,9 +57,16 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         var regresses = snapshot.Account?.UpstreamVerifiedAt < account?.UpstreamVerifiedAt ||
             snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
         var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
-        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt) : "AffiliationUnresolved";
-        if (reason is null && await SlotExceedsAllowanceAsync(snapshot, account, shop, ct))
-            reason = "ConflictingShopScope";
+        var savedSlot = bound && shop is not null && snapshot.Shop?.Revision == shop.Revision
+            ? await ReadSavedSlotAssignmentAsync(shop.EvidenceId, ct) : null;
+        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt, savedSlot) : "AffiliationUnresolved";
+        Guid? activatingAssignment = null;
+        if (reason is null)
+        {
+            var slotCheck = await CheckSlotActivationAsync(snapshot, account, shop, ct);
+            if (slotCheck.ExceedsAllowance) reason = "ConflictingShopScope";
+            else activatingAssignment = slotCheck.ActivatingAssignmentId;
+        }
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
         var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
         var nextShop = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
@@ -75,28 +83,108 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         if (nextAccount) UpdateAccount(snapshot, account);
         if (nextShop) UpdateShop(snapshot, shop);
         await db.SaveChangesAsync(ct);
+        if (activatingAssignment is { } activatedId)
+            await RecordSlotActivationAsync(activatedId, snapshot, appliedAt, ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
             "Acknowledgement", receipt, SignedServiceAssertion.Digest(receipt), appliedAt, ct);
         return new EntitlementProjectionReceipt(receipt, nextAccount || nextShop);
     }
 
-    // The projection fence also serializes member admission. Recheck the first activation if
-    // membership changed while the accepted consent was travelling between the two stores.
-    private async Task<bool> SlotExceedsAllowanceAsync(EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? account,
-        ShopLicenseState? shop, CancellationToken ct)
+    // The projection fence also serializes member admission. Recheck live seats whenever applying the head
+    // could enable trading permission for an unactivated slot assignment (including Grace, future suspensions
+    // and out-of-order early-renewal successors), while letting immediately restrictive updates through.
+    private async Task<(bool ExceedsAllowance, Guid? ActivatingAssignmentId)> CheckSlotActivationAsync(
+        EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? account, ShopLicenseState? shop, CancellationToken ct)
     {
-        if (snapshot.Account?.Restriction != "Unrestricted" ||
-            snapshot.Shop is not { State: "Active", Basis: "Paid", Suspension: null, TermId: { } term, MemberAllowance: { } allowance } incoming ||
-            shop is not null && (incoming.Revision < shop.Revision || shop.TermId == term &&
-                shop.State == "Active" && shop.SuspensionMode is null && account?.Restriction == "Unrestricted"))
-            return false;
-        return await db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS(SELECT FROM public.entitlement_messages m WHERE m.kind='CoverageSlotConsent'
-                AND m.shop_id={snapshot.ShopId} AND m.account_id={snapshot.AccountId}
-                AND convert_from(m.payload,'UTF8')::jsonb @> jsonb_build_object(
-                    'termId',{term},'affiliationRequestId',{snapshot.AffiliationRequestId}))
-                AND (SELECT count(*) FROM public.shop_memberships WHERE shop_id={snapshot.ShopId} AND status='Active')>{allowance} AS "Value"
+        var incomingShop = snapshot.Shop!;
+        var incomingAccount = snapshot.Account!;
+        var nextAccount = account is null || incomingAccount.Revision > account.Revision;
+        var nextShop = shop is null || incomingShop.Revision > shop.Revision;
+        if (!nextShop && !nextAccount) return (false, null);
+
+        var candShop = BuildCandidateShop(snapshot, shop, nextShop);
+        var candAccount = BuildCandidateAccount(snapshot, account, nextAccount);
+        if (!CanEnableTrading(candShop, candAccount, out var allowance)) return (false, null);
+
+        var pendingId = await FindPendingSlotAssignmentAsync(snapshot, candShop.TermId!.Value, ct);
+        if (pendingId is not { } assignmentId) return (false, null);
+
+        var activeMembers = await db.Database.SqlQuery<int>($"""
+            SELECT count(*)::int AS "Value" FROM public.shop_memberships
+            WHERE shop_id = {snapshot.ShopId} AND status = 'Active'
             """).SingleAsync(ct);
+        return activeMembers > allowance ? (true, null) : (false, assignmentId);
+    }
+
+    private static bool CanEnableTrading(ShopLicenseState shop, AccountLicenseRestriction account, out int allowance)
+    {
+        allowance = shop.MemberAllowance ?? 0;
+        if (shop.State is not ("Active" or "Grace") || shop.Basis != "Paid" || shop.TermId is null || allowance <= 0)
+            return false;
+        var evalAt = shop.UpstreamVerifiedAt > account.UpstreamVerifiedAt ? shop.UpstreamVerifiedAt : account.UpstreamVerifiedAt;
+        if (shop.StartsAt is not { } starts || shop.AccessEndsAt is not { } ends || starts > evalAt || ends <= evalAt)
+            return false;
+        return LicenseProjectionPolicy.EffectiveSuspension(shop, account, evalAt) is null;
+    }
+
+    private static ShopLicenseState BuildCandidateShop(EntitlementSnapshotV1 snapshot, ShopLicenseState? saved, bool advance)
+    {
+        if (!advance && saved is not null) return saved;
+        var s = snapshot.Shop!;
+        var copy = new ShopLicenseState { ShopId = snapshot.ShopId, AccountId = snapshot.AccountId, AffiliationRequestId = snapshot.AffiliationRequestId };
+        copy.Apply(s.Revision, s.UpstreamVerifiedAt, s.State, s.TermId, s.Basis, s.StartsAt, s.AccessEndsAt,
+            s.NextBoundary, s.ShopCapacity, s.MemberAllowance, snapshot.EventId, s.Suspension?.Mode,
+            s.Suspension?.EffectiveAt, s.Suspension?.CustomerExplanation, s.ReleasedRevision, s.ReopenedRevision, s.ClosureRevision);
+        return copy;
+    }
+
+    private static AccountLicenseRestriction BuildCandidateAccount(EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? saved, bool advance)
+    {
+        if (!advance && saved is not null) return saved;
+        var a = snapshot.Account!;
+        var copy = new AccountLicenseRestriction { AccountId = snapshot.AccountId };
+        copy.Apply(a.Revision, a.UpstreamVerifiedAt, a.Restriction, a.ReleasedRevision, snapshot.EventId,
+            a.Suspension?.EffectiveAt, a.Suspension?.CustomerExplanation, a.PreviousReleaseRevision);
+        return copy;
+    }
+
+    private async Task<Guid?> FindPendingSlotAssignmentAsync(EntitlementSnapshotV1 snapshot, Guid termId, CancellationToken ct)
+    {
+        if (snapshot.Shop?.SlotAssignmentId is { } explicitId)
+        {
+            return await db.Database.SqlQuery<Guid?>($"""
+                SELECT e.assignment_id AS "Value" FROM public.coverage_slot_consent_events e
+                WHERE e.shop_id = {snapshot.ShopId} AND e.account_id = {snapshot.AccountId}
+                  AND e.affiliation_request_id = {snapshot.AffiliationRequestId}
+                  AND e.assignment_id = {explicitId} AND e.kind = 'Accepted'
+                  AND NOT EXISTS (SELECT FROM public.coverage_slot_activations a WHERE a.assignment_id = e.assignment_id)
+                LIMIT 1
+                """).SingleOrDefaultAsync(ct);
+        }
+        return await db.Database.SqlQuery<Guid?>($"""
+            SELECT e.assignment_id AS "Value" FROM public.coverage_slot_consent_events e
+            WHERE e.shop_id = {snapshot.ShopId} AND e.account_id = {snapshot.AccountId}
+              AND e.affiliation_request_id = {snapshot.AffiliationRequestId}
+              AND e.term_id = {termId} AND e.kind = 'Accepted'
+              AND NOT EXISTS (SELECT FROM public.coverage_slot_activations a WHERE a.assignment_id = e.assignment_id)
+            ORDER BY e.recorded_at DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
+    }
+
+    private Task<int> RecordSlotActivationAsync(Guid assignmentId, EntitlementSnapshotV1 snapshot, DateTimeOffset at, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.coverage_slot_activations (assignment_id, shop_id, account_id, event_id, activated_at)
+            VALUES ({assignmentId}, {snapshot.ShopId}, {snapshot.AccountId}, {snapshot.EventId}, {at})
+            ON CONFLICT (assignment_id) DO NOTHING
+            """, ct);
+
+    private async Task<Guid?> ReadSavedSlotAssignmentAsync(Guid evidenceId, CancellationToken ct)
+    {
+        var raw = await db.Database.SqlQuery<string?>($"""
+            SELECT convert_from(payload, 'UTF8')::jsonb->'shop'->>'slotAssignmentId' AS "Value"
+            FROM public.license_grant_evidence WHERE event_id = {evidenceId}
+            """).SingleOrDefaultAsync(ct);
+        return Guid.TryParse(raw, out var id) ? id : null;
     }
 
     internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)

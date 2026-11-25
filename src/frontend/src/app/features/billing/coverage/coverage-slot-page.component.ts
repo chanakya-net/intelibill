@@ -6,7 +6,10 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { formatBillingInstant } from '../status/subscription-status.models';
-import { CoverageSlotDrafts, CoverageSlotService, type Decision, type OwnerConsent, type SlotIntent, type SlotScope, type SlotTerm } from './coverage-slot.service';
+import {
+  CoverageSlotDrafts, CoverageSlotService, type Assignment, type Decision, type OwnerConsent,
+  type SlotIntent, type SlotScope, type SlotTerm,
+} from './coverage-slot.service';
 
 @Component({
   selector: 'app-coverage-slot-page', imports: [RouterLink, TranslocoPipe],
@@ -19,7 +22,7 @@ export class CoverageSlotPageComponent {
   private readonly context = inject(ShopContextService);
   private readonly locale = inject(LocalizationService);
   private readonly route = inject(ActivatedRoute);
-  private readonly params = toSignal(this.route.paramMap, {initialValue: this.route.snapshot.paramMap});
+  private readonly params = toSignal(this.route.paramMap, { initialValue: this.route.snapshot.paramMap });
   protected readonly scope = computed<SlotScope | null>(() => {
     const owner = this.context.scope(), params = this.params();
     const account = params.get('accountId');
@@ -54,12 +57,9 @@ export class CoverageSlotPageComponent {
         const row = await this.api.owner(scope);
         if (scope === this.scope()) this.owner.set(row);
       } else {
+        const prev = this.term();
         const row = await this.api.read(scope, page);
-        if (scope === this.scope()) {
-          if (this.page() !== page) this.reset();
-          this.page.set(page);
-          this.term.set(row);
-        }
+        if (scope === this.scope()) this.applyTerm(prev, row, page);
       }
     } catch {
       if (scope === this.scope()) this.error.set('billing.unavailable');
@@ -73,19 +73,92 @@ export class CoverageSlotPageComponent {
   protected async submit(action: 'assign' | Decision) {
     const scope = this.scope();
     if (!scope || this.busy()) return;
-    let intent = this.draft();
-    if (!intent) {
-      const term = this.term(), owner = this.owner();
-      if (action === 'assign' && (!this.selected() || !this.shared() || !this.free() || !term)) return;
-      if (action !== 'assign' && !owner) return;
-      intent = { action, operationKey: crypto.randomUUID(), shopId: owner?.assignment.shopId ?? this.selected(),
-        observedCapacity: term?.capacity ?? 1, observedPaidThrough: term?.paidThrough ?? owner!.assignment.coverageEndsAt };
+    const command = this.buildCommand(action);
+    if (!command) return;
+    this.busy.set(true); this.error.set('');
+    try {
+      const frozen = await this.drafts.freeze(scope, command);
+      if (scope !== this.scope()) return;
+      this.draft.set(frozen.intent);
+      if (frozen.kind === 'existing') { this.error.set('billing.slot.pendingConflict'); return; }
+      await this.dispatch(scope, frozen.intent);
+    } finally {
+      if (scope === this.scope()) this.busy.set(false);
+    }
+  }
+
+  protected async retryPending(expectedKey: string) {
+    const scope = this.scope();
+    if (!scope || this.busy()) return;
+    const saved = this.drafts.read(scope);
+    if (!saved) { this.draft.set(null); await this.load(scope); return; }
+    if (saved.operationKey !== expectedKey) {
+      this.draft.set(saved); this.error.set('billing.slot.pendingConflict'); return;
     }
     this.busy.set(true); this.error.set('');
     try {
-      intent = await this.drafts.freeze(scope, intent);
-      if (scope !== this.scope()) return;
-      this.draft.set(intent);
+      await this.dispatch(scope, saved);
+    } finally {
+      if (scope === this.scope()) this.busy.set(false);
+    }
+  }
+
+  protected billingStatusKey(a: Assignment): string {
+    if (a.state === 'Refused') return 'billing.slot.changed';
+    if (a.state !== 'Applied') return 'billing.affiliation.status.' + a.state;
+    return this.activationKey(a.activation);
+  }
+
+  protected ownerStatusKey(o: OwnerConsent): string {
+    if (o.status === 'AppliedLocally') return 'billing.slot.AppliedLocally';
+    if (o.status === 'Accepted') return 'billing.slot.Applying';
+    if (o.status === 'Expired') return o.assignment.state === 'Applied' ? 'billing.status.states.Expired' : 'billing.affiliation.status.Expired';
+    if (['Applying', 'Acknowledged', 'Grace', 'Suspended', 'Closed', 'NeedsReview'].includes(o.status))
+      return this.activationKey(o.status);
+    return 'billing.affiliation.status.' + o.status;
+  }
+
+  protected actionLabelKey(action: SlotIntent['action']): string {
+    return 'billing.slot.actions.' + action;
+  }
+
+  private activationKey(status: string): string {
+    switch (status) {
+      case 'TermEnded': return 'billing.status.states.Expired';
+      case 'Grace': return 'billing.status.states.Grace';
+      case 'Suspended': return 'billing.status.states.Suspended';
+      case 'Closed': return 'billing.slot.Closed';
+      case 'NeedsReview': return 'billing.affiliation.status.NeedsReview';
+      case 'Acknowledged': return 'billing.slot.Acknowledged';
+      default: return 'billing.slot.Applying';
+    }
+  }
+
+  private applyTerm(prev: SlotTerm | null, row: SlotTerm, page: number) {
+    if (this.page() !== page) this.reset();
+    else if (prev && (prev.paidThrough !== row.paidThrough || prev.capacity !== row.capacity)) {
+      this.shared.set(false); this.free.set(false);
+      if (this.selected() && !row.eligibleShops.some(s => s.shopId === this.selected())) this.selected.set('');
+    }
+    this.page.set(page);
+    this.term.set(row);
+  }
+
+  private buildCommand(action: 'assign' | Decision): SlotIntent | null {
+    const term = this.term(), owner = this.owner();
+    if (action === 'assign') {
+      const shop = term?.eligibleShops.find(s => s.shopId === this.selected());
+      if (!shop || !this.shared() || !this.free() || !term) return null;
+      return { action, operationKey: crypto.randomUUID(), shopId: shop.shopId, shopName: shop.shopName,
+        observedCapacity: term.capacity, observedPaidThrough: term.paidThrough };
+    }
+    if (!owner) return null;
+    return { action, operationKey: crypto.randomUUID(), shopId: owner.assignment.shopId, shopName: owner.assignment.shopName,
+      observedCapacity: 1, observedPaidThrough: owner.assignment.coverageEndsAt };
+  }
+
+  private async dispatch(scope: SlotScope, intent: SlotIntent) {
+    try {
       await this.api.submit(scope, intent);
       await this.drafts.settle(scope, intent.operationKey);
       if (scope === this.scope()) { this.reset(); await this.load(scope); }
@@ -98,8 +171,6 @@ export class CoverageSlotPageComponent {
         if (scope === this.scope()) this.error.set(e.error?.code === 'Coverage.MemberCapacityExceeded'
           ? 'billing.trial.reasons.MemberCap' : 'billing.slot.changed');
       } else this.error.set('billing.unavailable');
-    } finally {
-      if (scope === this.scope()) this.busy.set(false);
     }
   }
 

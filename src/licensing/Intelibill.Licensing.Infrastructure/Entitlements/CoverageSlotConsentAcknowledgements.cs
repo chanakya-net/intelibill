@@ -18,7 +18,7 @@ internal sealed class CoverageSlotConsentAcknowledgements(LicensingDbContext db,
                 pg_advisory_xact_lock(hashtextextended('g'||{consent.ShopId}::text,0))
             """, ct);
         var row = await db.Database.SqlQuery<RequestRow>($"""
-            SELECT requester_id,requester_revision,created_at,expires_at,capacity,state
+            SELECT requester_id,requester_revision,created_at,expires_at,capacity,cancellation_revision,state
             FROM public.coverage_slot_assignments WHERE assignment_id={consent.AssignmentId} AND account_id={consent.AccountId}
                 AND shop_id={consent.ShopId} AND affiliation_request_id={consent.AffiliationRequestId} AND term_id={consent.TermId}
                 AND coverage_ends_at={consent.CoverageEndsAt} AND member_allowance={consent.MemberAllowance}
@@ -40,7 +40,8 @@ internal sealed class CoverageSlotConsentAcknowledgements(LicensingDbContext db,
 
     private async Task<string?> RefusalAsync(CoverageSlotConsentV1 c, RequestRow row, DateTimeOffset now, CancellationToken ct)
     {
-        if (now >= c.CoverageEndsAt) return "TermEnded";
+        var source = await slots.SourceAsync(c.AccountId, c.TermId, now, ct);
+        if (now >= c.CoverageEndsAt || source is not null && now >= source.EndsAt) return "TermEnded";
         if (now >= row.ExpiresAt) return "RequestExpired";
         if (c.ActiveMembers > c.MemberAllowance) return "MemberCapacityExceeded";
         if (await ClosureStore.AccountClosedAsync(db, c.AccountId, ct)) return "AccountClosed";
@@ -50,12 +51,13 @@ internal sealed class CoverageSlotConsentAcknowledgements(LicensingDbContext db,
                 AND merchant_user_id={row.RequesterId} AND status=1 AND role IN (1,2) FOR SHARE
             """).ToListAsync(ct);
         if (authorized is not [var revision] || revision != row.RequesterRevision) return "RequesterChanged";
-        var source = await slots.SourceAsync(c.AccountId, c.TermId, now, ct);
-        if (source is null || source.Capacity != row.Capacity || source.Members != c.MemberAllowance || source.EndsAt != c.CoverageEndsAt)
+        if (source is null || source.Capacity != row.Capacity || source.Members != c.MemberAllowance
+            || source.EndsAt != c.CoverageEndsAt || source.CancellationRevision != row.CancellationRevision
+            || source.CancellationRevision % 2 != 0)
             return "SourceChanged";
         if (!source.Available) return "SlotUnavailable";
         var eligible = await db.Database.SqlQuery<bool>($"""
-            SELECT public.slot_shop_eligible({c.AccountId},{c.ShopId},{now},{c.CoverageEndsAt}) AS "Value"
+            SELECT public.slot_shop_eligible({c.AccountId},{c.ShopId},{now},{source.EndsAt}) AS "Value"
             """).SingleAsync(ct);
         return eligible ? null : "ShopCovered";
     }
@@ -75,5 +77,5 @@ internal sealed class CoverageSlotConsentAcknowledgements(LicensingDbContext db,
     }
 
     private sealed record RequestRow(Guid RequesterId, int RequesterRevision, DateTimeOffset CreatedAt,
-        DateTimeOffset ExpiresAt, int Capacity, string State);
+        DateTimeOffset ExpiresAt, int Capacity, long CancellationRevision, string State);
 }

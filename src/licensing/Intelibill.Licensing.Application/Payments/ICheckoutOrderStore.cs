@@ -59,6 +59,8 @@ public interface ICheckoutOrderStore
     Task<bool> IsIncreaseOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
     Task<bool> ReductionOrderCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct);
     Task<bool> IsReductionOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct);
+    Task<bool> HasConflictingPaidCoverageAsync(Guid account, Guid[] shops, Guid? excludeTerm, DateTimeOffset startsAt,
+        DateTimeOffset endsAt, CancellationToken ct);
     Task<StoredCheckoutQuote?> FindAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<CheckoutSource?> SourceAsync(Guid account, Guid? term, Guid[] requested, CancellationToken ct);
     Task SaveAsync(CheckoutQuoteV1 quote, CheckoutSource source, Guid actor, Guid key, string requestHash, Guid replay, CancellationToken ct);

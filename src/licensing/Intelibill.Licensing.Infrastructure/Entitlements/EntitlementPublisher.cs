@@ -78,9 +78,11 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
             """).SingleAsync(ct);
         var closure = await ReadClosureAsync(account, shop, request, eventId, revision, ct);
         var state = closure.Closed ? ShopClosuresV1.Closed : term?.State ?? "PendingActivation";
+        var slotAssignmentId = !closure.Closed && term is not null && coverage.Term is { } baseline && term.TermId == baseline.TermId
+            ? baseline.SlotAssignmentId : null;
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, state, term?.TermId,
             term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance,
-            suspension, released, closure.OpeningCutoff, closure.Revision);
+            suspension, released, closure.OpeningCutoff, closure.Revision, slotAssignmentId);
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, eventId ?? Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);

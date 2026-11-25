@@ -46,15 +46,30 @@ test('payer selects North and the shop owner accepts the remaining paid term', a
   await owner.getByTestId('slot-accept').click();
   await expect(owner.getByRole('status')).toHaveText('Activating coverage');
   writeFileSync(join(evidence, 'accepted.txt'), 'accepted');
+
+  // Stage 1: before merchant delivery -> both views show Activating coverage.
   await expect.poll(() => existsSync(join(evidence, 'licensed.txt'))).toBe(true);
   await payer.getByTestId('slot-refresh').click();
   await expect(payer.getByTestId('slot-status')).toHaveText('Activating coverage');
+  await owner.getByTestId('slot-refresh').click();
+  await expect(owner.getByRole('status')).toHaveText('Activating coverage');
   writeFileSync(join(evidence, 'applying.txt'), 'observed');
+
+  // Stage 2: after merchant commit, BEFORE return receipt reaches licensing.
+  await expect.poll(() => existsSync(join(evidence, 'merchant-committed.txt'))).toBe(true);
+  await payer.getByTestId('slot-refresh').click();
+  await expect(payer.getByTestId('slot-status')).toHaveText('Activating coverage');
+  await owner.getByTestId('slot-refresh').click();
+  await expect(owner.getByRole('status')).toHaveText('Applied on this shop, awaiting billing confirmation');
+  writeFileSync(join(evidence, 'committed-observed.txt'), 'observed');
+
+  // Stage 3: after licensing consumes the return receipt -> both views show Active, confirmed by the shop.
   await expect.poll(() => existsSync(join(evidence, 'delivered.txt'))).toBe(true);
   await payer.getByTestId('slot-refresh').click();
   await expect(payer.getByTestId('slot-status')).toHaveText('Active, confirmed by the shop');
   await owner.getByTestId('slot-refresh').click();
   await expect(owner.getByRole('status')).toHaveText('Active, confirmed by the shop');
+
   const response = await payer.request.post(env('WEB') + '/api/shops/switch', { data: { shopId: env('SHOP') },
     headers: { Authorization: (await payerRequest.headerValue('authorization'))! } });
   expect(response.status()).toBe(403);

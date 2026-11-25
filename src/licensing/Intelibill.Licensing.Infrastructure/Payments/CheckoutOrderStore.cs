@@ -17,6 +17,15 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
     public Task<bool> IsReductionOwnerAsync(Guid account, Guid order, Guid actor, CancellationToken ct) =>
         reductions.IsReductionOwnerAsync(account, order, actor, ct);
 
+    public Task<bool> HasConflictingPaidCoverageAsync(Guid account, Guid[] shops, Guid? excludeTerm, DateTimeOffset startsAt,
+        DateTimeOffset endsAt, CancellationToken ct) =>
+        shops.Length == 0 ? Task.FromResult(false) : db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (
+                SELECT FROM unnest({shops}) AS s(shop_id)
+                WHERE public.shop_has_conflicting_paid_coverage({account}, s.shop_id, {excludeTerm}::uuid, {startsAt}, {endsAt})
+            ) AS "Value"
+            """).SingleAsync(ct);
+
     public async Task<bool> IncreaseStillCurrentAsync(CheckoutQuoteV1 quote, DateTimeOffset now, CancellationToken ct)
     {
         if (quote.Increase is null) return true;

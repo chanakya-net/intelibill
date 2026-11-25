@@ -37,16 +37,14 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
             """).SingleAsync(ct);
         if (!eligible) return Error.Conflict("Coverage.SlotShopIneligible");
         var id = Guid.NewGuid();
-        await db.Database.ExecuteSqlAsync($"""
-            UPDATE public.coverage_slot_assignments SET state='Expired'
-            WHERE account_id={account} AND shop_id={command.ShopId} AND state='AwaitingConsent' AND expires_at<={now}
-            """, ct);
+        await ExpireStalePendingAsync(account, command.ShopId, now, ct);
         var inserted = await db.Database.ExecuteSqlAsync($"""
             INSERT INTO public.coverage_slot_assignments(assignment_id,account_id,term_id,order_id,shop_id,shop_name,
                 affiliation_request_id,requester_id,requester_revision,operation_key,capacity,member_allowance,
-                coverage_ends_at,created_at,expires_at,state)
+                cancellation_revision,coverage_ends_at,created_at,expires_at,state)
             SELECT {id},a.account_id,{term},{source.OrderId},a.shop_id,a.shop_name,a.request_id,{actor},m.revision,
-                {command.OperationKey},{source.Capacity},{source.Members},{source.EndsAt},{now},least({source.EndsAt},{now.AddDays(7)}),'AwaitingConsent'
+                {command.OperationKey},{source.Capacity},{source.Members},{source.CancellationRevision},
+                {source.EndsAt},{now},least({source.EndsAt},{now.AddDays(7)}),'AwaitingConsent'
             FROM public.shop_affiliations a JOIN public.billing_account_members m USING(account_id)
             WHERE a.account_id={account} AND a.shop_id={command.ShopId} AND m.merchant_user_id={actor} AND m.status=1
             ON CONFLICT DO NOTHING
@@ -65,12 +63,14 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
         var shops = await db.Database.SqlQuery<SlotShopV1>($"""
             SELECT shop_id,shop_name FROM public.shop_affiliations a WHERE account_id={account}
                 AND public.slot_shop_eligible({account},shop_id,{now},{source.EndsAt})
-                AND NOT EXISTS(SELECT FROM public.coverage_slot_assignments r WHERE r.shop_id=a.shop_id
-                    AND r.state='AwaitingConsent' AND r.expires_at>{now}) ORDER BY shop_name,shop_id LIMIT {size + 1} OFFSET {offset}
+                AND NOT EXISTS(SELECT FROM public.coverage_slot_assignments r
+                    CROSS JOIN LATERAL public.slot_assignment_status(r.account_id,r.assignment_id,{now}) st
+                    WHERE r.shop_id=a.shop_id AND st.projected_state='AwaitingConsent')
+            ORDER BY shop_name,shop_id LIMIT {size + 1} OFFSET {offset}
             """).ToArrayAsync(ct);
         var assignments = await Rows(account, now).Where(r => r.TermId == term).OrderByDescending(r => r.CreatedAt)
             .ThenBy(r => r.AssignmentId).Skip(offset).Take(size + 1).ToArrayAsync(ct);
-        return new CoverageSlotTermV1(term, source.Capacity, source.Available ? source.Capacity-source.Occupied : 0,
+        return new CoverageSlotTermV1(term, source.Capacity, source.Available ? source.Capacity - source.Occupied : 0,
             source.EndsAt, [.. shops.Take(size)], [.. assignments.Take(size)], shops.Length > size || assignments.Length > size);
     }
 
@@ -87,6 +87,14 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
             is { } row ? row : Missing;
     }
 
+    private Task<int> ExpireStalePendingAsync(Guid account, Guid shop, DateTimeOffset now, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"""
+            UPDATE public.coverage_slot_assignments a SET state='Expired'
+            WHERE a.account_id={account} AND a.shop_id={shop} AND a.state='AwaitingConsent'
+              AND EXISTS (SELECT FROM public.slot_assignment_status(a.account_id,a.assignment_id,{now}) st
+                  WHERE st.projected_state IN ('Expired','Stale'))
+            """, ct);
+
     private async Task<CoverageSlotAssignmentV1?> ByKeyAsync(Guid account, Guid actor, Guid key, CancellationToken ct)
     {
         var id = await db.Database.SqlQuery<Guid>($"""
@@ -100,33 +108,31 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
         db.Database.SqlQuery<CoverageSlotAssignmentV1>($"""
             SELECT a.assignment_id,a.account_id,a.term_id,a.shop_id,a.affiliation_request_id,a.shop_name,a.capacity,
                 a.member_allowance,a.coverage_ends_at,a.created_at,a.expires_at,a.applied_at,a.reason,
-                CASE WHEN a.state='AwaitingConsent' AND a.expires_at<={now} THEN 'Expired' ELSE a.state END AS state,
-                CASE WHEN a.state<>'Applied' THEN 'NotApplicable' WHEN a.coverage_ends_at<={now} THEN 'TermEnded'
-                    WHEN EXISTS(SELECT FROM public.applied_entitlement_shop_receipts r
-                        JOIN public.entitlement_snapshots s USING(account_id,shop_id,shop_revision)
-                        JOIN public.entitlement_messages m USING(event_id,account_id,shop_id)
-                        WHERE r.account_id=a.account_id AND r.shop_id=a.shop_id AND r.affiliation_request_id=a.affiliation_request_id
-                            AND r.shop_revision>=initial.shop_revision
-                            AND convert_from(m.payload,'UTF8')::jsonb->'shop'->>'termId'=a.term_id::text)
-                        THEN 'Acknowledged'
-                    WHEN o.status IN ('NeedsReview','DeadLetter','Applied') THEN 'NeedsReview' ELSE 'Applying' END AS activation
-            FROM public.coverage_slot_assignments a LEFT JOIN public.coverage_slot_assignment_deliveries d USING(assignment_id)
-            LEFT JOIN public.entitlement_snapshots initial ON initial.event_id=d.event_id
-            LEFT JOIN public.entitlement_outbox o ON o.event_id=d.event_id WHERE a.account_id={account}
+                st.projected_state AS state,st.activation AS activation,st.merchant_receipt AS merchant_receipt
+            FROM public.coverage_slot_assignments a
+            CROSS JOIN LATERAL public.slot_assignment_status(a.account_id,a.assignment_id,{now}) st
+            WHERE a.account_id={account}
             """);
 
     internal Task<Source?> SourceAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct) =>
         db.Database.SqlQuery<Source>($"""
-            SELECT f.order_id,t.ends_at,coalesce(i.capacity,t.capacity) AS capacity,coalesce(i.members,s.member_allowance) AS members,
+            SELECT f.order_id,ep.paid_through AS ends_at,coalesce(i.capacity,t.capacity) AS capacity,
+                coalesce(i.members,s.member_allowance) AS members,
+                coalesce(cancel.rev,0) AS cancellation_revision,
                 (SELECT count(*)::int FROM (SELECT shop_id FROM public.payment_fulfilment_shops WHERE term_id=t.term_id
                     UNION SELECT shop_id FROM public.shop_affiliations WHERE term_id=t.term_id) shops) AS occupied,
-                (t.starts_at<={now} AND {now}<t.ends_at AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)) AS available
+                (t.starts_at<={now} AND {now}<ep.paid_through AND coalesce(cancel.rev,0)%2=0
+                    AND public.capacity_slot_available(t.account_id,t.term_id,t.capacity)) AS available
             FROM public.subscription_coverage_terms t JOIN public.payment_fulfilments f USING(account_id,term_id)
             JOIN public.subscription_term_facts s USING(account_id,term_id)
-            LEFT JOIN LATERAL(SELECT capacity,members FROM public.capacity_increases
+            CROSS JOIN LATERAL (SELECT public.term_effective_paid_through(t.account_id,t.term_id) AS paid_through) ep
+            LEFT JOIN LATERAL (SELECT max(c.revision) AS rev FROM public.scheduled_subscription_changes c
+                WHERE c.account_id=t.account_id AND c.term_id=t.term_id) cancel ON true
+            LEFT JOIN LATERAL (SELECT capacity,members FROM public.capacity_increases
                 WHERE account_id=t.account_id AND term_id=t.term_id AND state='Applied' ORDER BY target_revision DESC LIMIT 1) i ON true
             WHERE t.account_id={account} AND t.term_id={term} AND s.basis='Paid'
             """).SingleOrDefaultAsync(ct);
 
-    internal sealed record Source(Guid OrderId, DateTimeOffset EndsAt, int Capacity, int Members, int Occupied, bool Available);
+    internal sealed record Source(Guid OrderId, DateTimeOffset EndsAt, int Capacity, int Members, long CancellationRevision,
+        int Occupied, bool Available);
 }

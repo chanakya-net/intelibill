@@ -40,6 +40,9 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
                 return CheckoutOrderErrors.Changed;
             if (source is null || BuildQuote(account, offer, request, source, now) is not { } quote)
                 return CheckoutOrderErrors.Invalid;
+            if (await store.HasConflictingPaidCoverageAsync(account, [.. source.Shops.Select(s => s.ShopId)],
+                    request.TermId, quote.PreviewStartsAt, quote.PreviewEndsAt, token))
+                return CheckoutOrderErrors.Invalid;
             await store.SaveAsync(quote, source, proof.ActorId, request.OperationKey, hash, proof.ReplayId, token);
             return new CheckoutQuoteCreation(quote, true);
         }, ct);

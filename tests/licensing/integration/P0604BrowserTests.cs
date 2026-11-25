@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Intelibill.Shared.Contracts.V1;
 using Xunit.Abstractions;
 using static Intelibill.Licensing.Integration.Tests.BillingBrowserHarness;
 
@@ -32,7 +33,7 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
         await File.WriteAllTextAsync(Path.Combine(evidence, "playwright.log"), log, limit.Token);
         Assert.True(browser.Process.ExitCode == 0 && log.Contains("1 passed", StringComparison.Ordinal), log);
         Assert.Equal(original, await P0308Tests.TermRowAsync(f, term));
-        await VerifyPersistenceAsync(f, package, term);
+        var receipt = await VerifyPersistenceAsync(f, package, term);
         var git = new ProcessStartInfo("git", "rev-parse HEAD") { WorkingDirectory = ProjectPaths.Root, RedirectStandardOutput = true };
         await using var revision = new OwnedProcess(git);
         var sha = (await revision.Process.StandardOutput.ReadToEndAsync(limit.Token)).Trim();
@@ -41,8 +42,17 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
         using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
             Path.Combine(frontend, "dist/INVENTORY/browser/ngsw.json"), limit.Token));
         var buildId = manifest.RootElement.GetProperty("appData").GetProperty("buildId").GetString();
-        var payload = new { sha, buildId, term, paidThrough=P0601Tests.February29, assignedAt=P0601Tests.February14,
-            shop=package.Shops[2].ShopId, name="North", merchantReceipt="Applied", paidLinks=3, verifiedPayments=1, payerMembershipsInNorth=0 };
+        var payload = new
+        {
+            sha, buildId, term, paidThrough = P0601Tests.February29, assignedAt = P0601Tests.February14,
+            shop = package.Shops[2].ShopId, name = "North",
+            merchantReceipt = new
+            {
+                receipt.EventId, receipt.Outcome, receipt.Disposition, receipt.AccountRevision, receipt.ShopRevision,
+                receipt.AppliedAccountRevision, receipt.AppliedShopRevision, receipt.AppliedAt, receipt.Digest,
+            },
+            paidLinks = 3, verifiedPayments = 1, payerMembershipsInNorth = 0,
+        };
         await File.WriteAllTextAsync(Path.Combine(evidence, "postgres.json"), JsonSerializer.Serialize(payload), limit.Token);
         output.WriteLine($"Chromium and PostgreSQL evidence: {evidence}");
     }
@@ -58,12 +68,16 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
         await f.Checkout.Delivery.DrainAsync(false);
         await File.WriteAllTextAsync(Path.Combine(dir, "licensed.txt"), "applied", ct);
         if (!await WaitAsync("applying.txt")) return;
+        // Deliver ONLY licensing -> merchant so the browser verifies the intermediate state before the return receipt.
         await f.Checkout.Delivery.DrainAsync(true);
+        await File.WriteAllTextAsync(Path.Combine(dir, "merchant-committed.txt"), "committed", ct);
+        if (!await WaitAsync("committed-observed.txt")) return;
+        // Now deliver merchant -> licensing return receipt so licensing consumes the acknowledgement.
         await f.Checkout.Delivery.DrainAsync(false);
         await File.WriteAllTextAsync(Path.Combine(dir, "delivered.txt"), "delivered", ct);
     }
 
-    private static async Task VerifyPersistenceAsync(P0308Fixture f, P0308Fixture.Package p, Guid term)
+    private static async Task<EntitlementAcknowledgementV1> VerifyPersistenceAsync(P0308Fixture f, P0308Fixture.Package p, Guid term)
     {
         var shop = p.Shops[2].ShopId;
         Assert.Equal(3L, await f.CountAsync("payment_fulfilment_shops", $"term_id='{term}'"));
@@ -71,15 +85,29 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.Equal(1L, await f.CountAsync("checkout_orders"));
         Assert.Equal(1L, await f.CountAsync("verified_payments"));
         Assert.Equal(1L, await f.Checkout.Delivery.MerchantScalarAsync(
-            $"SELECT count(*) FROM shop_license_states WHERE shop_id='{shop}' AND term_id='{term}' AND next_boundary='2028-02-29T04:30:00Z'"));
+            $"SELECT count(*) FROM shop_license_states WHERE shop_id='{shop}' AND term_id='{term}' AND starts_at='2028-02-14T04:30:00Z' AND next_boundary='2028-02-29T04:30:00Z'"));
         Assert.Equal(0L, await f.Checkout.Delivery.MerchantScalarAsync(
             $"SELECT count(*) FROM shop_memberships WHERE shop_id='{shop}' AND user_id='{p.Payer.UserId}'"));
+
+        var deliveryEventId = (Guid)(await f.ScalarAsync(
+            $"SELECT event_id FROM public.coverage_slot_assignment_deliveries WHERE shop_id='{shop}'"))!;
+        var receiptBytes = (byte[])(await f.ScalarAsync($"""
+            SELECT payload FROM public.entitlement_merchant_inbox
+            WHERE event_id='{deliveryEventId}' AND kind='Acknowledgement'
+            """))!;
+        var receipt = JsonSerializer.Deserialize<EntitlementAcknowledgementV1>(receiptBytes, EntitlementSnapshotsV1.Json)!;
+        Assert.Equal(deliveryEventId, receipt.EventId);
+        Assert.Equal("Applied", receipt.Outcome);
+        Assert.Equal("Applied", receipt.Disposition);
+        Assert.Equal(shop, receipt.ShopId);
+        Assert.Equal(receipt.ShopRevision, receipt.AppliedShopRevision);
+        return receipt;
     }
 
     private static ProcessStartInfo Playwright(string frontend, string evidence, string origin, P0308Fixture.Package p, Guid term)
     {
-        var run = new ProcessStartInfo("bun") { WorkingDirectory=frontend, RedirectStandardOutput=true, RedirectStandardError=true };
-        foreach (var arg in new[] { "x","playwright","test","--config","../../tests/licensing/browser/playwright.p0604.config.ts" })
+        var run = new ProcessStartInfo("bun") { WorkingDirectory = frontend, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/licensing/browser/playwright.p0604.config.ts" })
             run.ArgumentList.Add(arg);
         run.Environment["P0604_EVIDENCE_DIR"] = evidence;
         run.Environment["P0604_WEB"] = origin;
@@ -89,7 +117,7 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
         run.Environment["P0604_ACCOUNT"] = p.Account.ToString("D");
         run.Environment["P0604_TERM"] = term.ToString("D");
         run.Environment["P0604_SHOP"] = p.Shops[2].ShopId.ToString("D");
-        run.Environment["NODE_PATH"] = Path.Combine(frontend,"node_modules");
+        run.Environment["NODE_PATH"] = Path.Combine(frontend, "node_modules");
         return run;
     }
 }

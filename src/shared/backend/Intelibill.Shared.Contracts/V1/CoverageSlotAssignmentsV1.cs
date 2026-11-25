@@ -30,7 +30,8 @@ public sealed record AssignUnusedCoverageSlotV1(
 
 public sealed record CoverageSlotAssignmentV1(Guid AssignmentId, Guid AccountId, Guid TermId, Guid ShopId,
     Guid AffiliationRequestId, string ShopName, int Capacity, int MemberAllowance, DateTimeOffset CoverageEndsAt,
-    DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, DateTimeOffset? AppliedAt, string State, string? Reason, string Activation);
+    DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, DateTimeOffset? AppliedAt, string State, string? Reason,
+    string Activation, string MerchantReceipt = "None");
 
 public sealed record SlotShopV1(Guid ShopId, string ShopName);
 public sealed record CoverageSlotTermV1(Guid TermId, int Capacity, int UnusedSlots, DateTimeOffset PaidThrough,

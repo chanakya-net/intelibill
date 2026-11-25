@@ -3440,8 +3440,19 @@
       "free": "No additional fee is due.",
       "confirm": "Confirm coverage",
       "Applying": "Activating coverage",
+      "AppliedLocally": "Applied on this shop, awaiting billing confirmation",
       "Acknowledged": "Active, confirmed by the shop",
-      "changed": "Coverage could not be assigned. Review the current selection."
+      "Closed": "Closed",
+      "changed": "Coverage could not be assigned. Review the current selection.",
+      "pendingConflict": "An earlier unconfirmed action is still pending. Review and retry it before starting another.",
+      "pendingNotice": "Pending action: {{ action }} for {{ shop }}.",
+      "retryNamed": "Retry {{ action }} for {{ shop }}",
+      "actions": {
+        "assign": "Assign unused slot",
+        "grant": "Grant consent",
+        "accept": "Confirm coverage",
+        "revoke": "Revoke consent"
+      }
     },
     "reopening": {
       "received": "Reopening decision received by the merchant service.",

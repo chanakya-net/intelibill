@@ -83,10 +83,20 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutPaymentErrors.AlreadyStarted;
         if (!CheckoutPaymentStatusReader.Startable(quote))
             return CheckoutPaymentErrors.Unsupported;
-        return await orders.IncreaseStillCurrentAsync(quote, clock.GetUtcNow(), ct) &&
-            await orders.ReductionOrderCurrentAsync(quote, clock.GetUtcNow(), ct) &&
-            (await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct))?.Matches(quote) == true
-            ? null : CheckoutOrderErrors.Changed;
+        var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
+        var source = await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct);
+        if (!await orders.IncreaseStillCurrentAsync(quote, now, ct) ||
+            !await orders.ReductionOrderCurrentAsync(quote, now, ct) ||
+            source?.Matches(quote) != true)
+            return CheckoutOrderErrors.Changed;
+        if (quote.Increase is null)
+        {
+            var start = CheckoutRenewalPolicy.IsRestoredAccess(quote) && now > quote.PreviewStartsAt ? now : quote.PreviewStartsAt;
+            var end = quote.PreviewEndsAt > start ? quote.PreviewEndsAt : start.AddDays(1);
+            if (await orders.HasConflictingPaidCoverageAsync(account, [.. source.Shops.Select(s => s.ShopId)], quote.TermId, start, end, ct))
+                return CheckoutOrderErrors.Changed;
+        }
+        return null;
     }
 
     private async Task DispatchAsync(StoredPaymentAttempt attempt, CancellationToken ct)

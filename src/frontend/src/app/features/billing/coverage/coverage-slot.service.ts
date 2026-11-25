@@ -8,17 +8,18 @@ import { isUuid, type CheckoutScope } from '../checkout/checkout.models';
 export interface SlotScope extends CheckoutScope { term: string; assignment: string; target: string }
 export interface Assignment {
   assignmentId: string; accountId: string; termId: string; shopId: string; shopName: string;
-  state: string; reason: string | null; activation: string; coverageEndsAt: string;
+  state: string; reason: string | null; activation: string; merchantReceipt: string; coverageEndsAt: string;
 }
 export interface SlotTerm {
   termId: string; capacity: number; unusedSlots: number; paidThrough: string;
-  eligibleShops: {shopId: string; shopName: string}[]; assignments: Assignment[]; hasMore: boolean;
+  eligibleShops: { shopId: string; shopName: string }[]; assignments: Assignment[]; hasMore: boolean;
 }
 export type Decision = 'grant' | 'accept' | 'revoke';
 export interface SlotIntent {
-  operationKey: string; action: 'assign' | Decision; shopId: string;
+  operationKey: string; action: 'assign' | Decision; shopId: string; shopName: string;
   observedCapacity: number; observedPaidThrough: string;
 }
+export type FreezeResult = { kind: 'created' | 'existing'; intent: SlotIntent };
 export interface OwnerConsent { assignment: Assignment; status: string }
 
 @Injectable({ providedIn: 'root' })
@@ -36,7 +37,7 @@ export class CoverageSlotService {
   async submit(scope: SlotScope, intent: SlotIntent) {
     const options = { context: scopedRequestContext(scope) };
     if (intent.action === 'assign') {
-      const { action: _action, ...request } = intent;
+      const { action: _action, shopName: _shopName, ...request } = intent;
       const row = await firstValueFrom(this.http.post<Assignment>(this.path(scope),
         { ...request, acknowledgedSharedEnd: true, acknowledgedNoNewFee: true }, options));
       if (row.accountId !== scope.account || row.termId !== scope.term || row.shopId !== intent.shopId ||
@@ -66,19 +67,19 @@ export class CoverageSlotDrafts {
     const raw = localStorage.getItem(this.key(s));
     if (raw === null) return null;
     const draft = JSON.parse(raw) as SlotIntent;
-    if (!isUuid(draft?.operationKey) || !isUuid(draft.shopId) || !Number.isFinite(Date.parse(draft.observedPaidThrough)) ||
-        !Number.isSafeInteger(draft.observedCapacity) || draft.observedCapacity < 1 ||
-        (s.assignment ? !['grant','accept','revoke'].includes(draft.action) || draft.shopId !== s.target : draft.action !== 'assign'))
+    if (!isUuid(draft?.operationKey) || !isUuid(draft.shopId) || typeof draft.shopName !== 'string' || !draft.shopName.trim() ||
+        !Number.isFinite(Date.parse(draft.observedPaidThrough)) || !Number.isSafeInteger(draft.observedCapacity) || draft.observedCapacity < 1 ||
+        (s.assignment ? !['grant', 'accept', 'revoke'].includes(draft.action) || draft.shopId !== s.target : draft.action !== 'assign'))
       throw new Error('Invalid coverage slot draft');
     return draft;
   }
 
-  freeze(s: SlotScope, command: SlotIntent) {
+  freeze(s: SlotScope, command: SlotIntent): Promise<FreezeResult> {
     return navigator.locks.request(this.key(s), () => {
       const saved = this.read(s);
-      if (saved) return saved;
+      if (saved) return { kind: 'existing', intent: saved } as const;
       localStorage.setItem(this.key(s), JSON.stringify(command));
-      return command;
+      return { kind: 'created', intent: command } as const;
     });
   }
 

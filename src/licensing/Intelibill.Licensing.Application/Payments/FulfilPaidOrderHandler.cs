@@ -106,7 +106,7 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         if (quote.Reduction is { } red)
             return await ReductionDecisionAsync(quote, red, source, effectiveAt, latestPossible, now, recovery is not null, ct);
         if (CheckoutRenewalPolicy.IsRenewal(quote))
-            return RenewalDecision(quote, source, effectiveAt, latestPossible, now, ids);
+            return await RenewalDecisionAsync(quote, source, effectiveAt, latestPossible, now, ids, ct);
 
         // Qualify the accepted quote using the earliest possible capture. Persist the same effective
         // instant as the verified payment so restoration retries retain the original evidence.
@@ -118,6 +118,8 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
     {
         if (CheckoutRenewalPolicy.FreshTerm(quote, source, earliestCaptureAt, now) is not { } fresh)
             return new(null, [], now, "TermUnavailable");
+        if (await orders.HasConflictingPaidCoverageAsync(quote.AccountId, ids, quote.TermId, fresh.Term.StartsAt, fresh.Term.EndsAt, ct))
+            return new(null, [], now, "CoverageChanged");
         var evidence = await store.ReadRestorationEvidenceAsync(quote.AccountId, now, ct);
         if (evidence.State != PaymentRestorationState.Ready || retry is not null && !evidence.Resolves(retry))
             return new(null, [], now, "RestorationPending", Hold: evidence);
@@ -146,8 +148,8 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         return true;
     }
 
-    private static PaidOrderDecision RenewalDecision(CheckoutQuoteV1 quote, CheckoutSource source, DateTimeOffset effectiveAt,
-        DateTimeOffset latestPossible, DateTimeOffset now, Guid[] ids)
+    private async Task<PaidOrderDecision> RenewalDecisionAsync(CheckoutQuoteV1 quote, CheckoutSource source, DateTimeOffset effectiveAt,
+        DateTimeOffset latestPossible, DateTimeOffset now, Guid[] ids, CancellationToken ct)
     {
         if (source.Prior is not { } prior ||
             CheckoutRenewalPolicy.Successor(quote, prior, effectiveAt, now, out var grace) is not { } successor)
@@ -155,6 +157,8 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         if (latestPossible != effectiveAt &&
             (CheckoutRenewalPolicy.Successor(quote, prior, latestPossible, now, out var late) is null || late != grace))
             return new(null, [], now, "CaptureTimeUnproven");
+        if (await orders.HasConflictingPaidCoverageAsync(quote.AccountId, ids, quote.TermId, successor.StartsAt, successor.EndsAt, ct))
+            return new(null, [], now, "CoverageChanged");
         return new(successor, ids, now, null, new(quote.TermId!.Value, latestPossible, grace));
     }
 

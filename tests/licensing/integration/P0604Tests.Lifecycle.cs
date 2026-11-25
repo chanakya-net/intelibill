@@ -172,7 +172,7 @@ public sealed partial class P0604Tests
         await BeginAsync(p, term, p.Shops[2].ShopId);
         await using var db = f.Hosts.Fixture.OpenMigrationContext();
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            db.GetService<IMigrator>().MigrateAsync("20261124140000_ScheduledCapacityReductions"));
+            db.GetService<IMigrator>().MigrateAsync("20261125100918_RefundApprovals"));
         Assert.Equal("55000", Assert.IsType<PostgresException>(ex.GetBaseException()).SqlState);
         Assert.Equal(1L, await f.CountAsync("coverage_slot_assignments"));
     }
