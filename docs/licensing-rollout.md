@@ -18,7 +18,20 @@ against isolated databases use their own container. Tests that inspect merchant
 log capture or modify process-wide settings run alone.
 
 Set `INTEGRATION_TEST_PARALLELISM=1` before running the script to run classes
-serially. The local script builds Debug binaries.
+serially. Do not lower it for an ordinary local run: the default (up to eight
+classes) is what keeps the suite near half an hour, and `2` roughly triples it.
+Lower it only when several suites share one Docker host. The local script builds
+Debug binaries.
+
+Test hosts (`LicensingApiFactory`, `MerchantStartupProbeFactory`) differ from
+production in four ways, each to keep thousands of short-lived hosts cheap:
+BCrypt hashes at the minimum work factor (`FastPasswordHashing`), named
+HttpClient handlers never expire (an expiry timer otherwise keeps every disposed
+host reachable for two minutes), merchant consent and trial deliveries poll every
+50 ms instead of 3 s (`MerchantDeliveryPolling:Interval`), and delegated licensing
+calls may take 30 s instead of 5 s (`MerchantBillingDelegation:RequestTimeout`),
+so a loaded machine is not mistaken for an outage. Merchant databases are cloned
+from a migrated `merchant_template`, like the licensing ones.
 
 ## Start, restart, stop
 

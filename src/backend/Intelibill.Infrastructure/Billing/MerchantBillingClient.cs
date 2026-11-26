@@ -96,12 +96,13 @@ internal sealed partial class MerchantBillingClient(
         int responseLimit, Func<HttpResponseMessage, CancellationToken, Task<ErrorOr<T>>> read,
         CancellationToken cancellationToken, string mediaType = "application/json")
     {
-        var origin = options.CurrentValue.GetOrigin(environment);
+        var settings = options.CurrentValue;
+        var origin = settings.GetOrigin(environment);
         if (origin is null)
             return Unavailable("InvalidLicensingOrigin");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        timeout.CancelAfter(settings.EffectiveRequestTimeout);
         try
         {
             return await SendAsync(origin, caller, intent, responseLimit, read, mediaType, timeout.Token);

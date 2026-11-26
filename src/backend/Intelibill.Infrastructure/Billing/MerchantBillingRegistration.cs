@@ -64,6 +64,10 @@ internal static class MerchantBillingRegistration
         LeasedHttpDeliveryPump.Register(services);
         services.TryAddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection,
             (provider, _) => provider.GetRequiredService<TimeProvider>());
+        services.AddOptions<MerchantDeliveryPollingOptions>()
+            .BindConfiguration(MerchantDeliveryPollingOptions.Section)
+            .Validate(options => options.IsValid(), "MerchantDeliveryPolling:Interval must be between 10 ms and 5 minutes.")
+            .ValidateOnStart();
         services.AddScoped<TrialActivationConsentStore>();
         services.AddScoped<TrialActivationDelivery>();
         services.AddHostedService<TrialActivationDeliveryWorker>();

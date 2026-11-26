@@ -39,6 +39,11 @@ internal sealed class MerchantStartupProbeFactory(
                 ["Observability:NewRelic:ApiKey"] = "test-only",
                 // Merchant Serilog creates its own OTLP transport outside the named clients.
                 ["Observability:NewRelic:OtlpEndpoint"] = "http://127.0.0.1:1",
+                // Consent and trial deliveries otherwise wait up to 3 s for the worker's next tick;
+                // most fixtures link several shops, so that idle time dominated the suite.
+                ["MerchantDeliveryPolling:Interval"] = "00:00:00.050",
+                // A parallel run can delay one in-process licensing reply past production's 5 s budget.
+                ["MerchantBillingDelegation:RequestTimeout"] = "00:00:30",
             });
             if (settings is not null) configuration.AddInMemoryCollection(settings);
         });
@@ -60,6 +65,7 @@ internal sealed class MerchantStartupProbeFactory(
                 });
             }
 
+            TestHostResources.Configure(services);
             configure?.Invoke(services);
         });
     }

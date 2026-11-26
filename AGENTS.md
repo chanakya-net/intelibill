@@ -12,7 +12,7 @@
 
 **Licensing Service** (`src/licensing/Intelibill.Licensing.slnx`):
 - Build: `dotnet build src/licensing/Intelibill.Licensing.slnx`
-- Integration tests (requires Docker): `scripts/dev/test-integration.sh --licensing [--filter "..."]`
+- Integration tests (requires Docker): `scripts/dev/test-integration.sh --licensing [--filter "..."]` (reuses cached generated handlers while the merchant backend is unchanged; do not set `INTEGRATION_TEST_PARALLELISM` below the default for a local run, see `docs/licensing-rollout.md`)
 - Verification scoping: run targeted `--filter` suites for touched features/seams first; run the unfiltered licensing suite only when shared licensing DB, entitlement, or delegation seams change.
 
 **EF Core Migrations** — API startup never applies migrations automatically; run `database update` locally (deployed environments use the migration job):

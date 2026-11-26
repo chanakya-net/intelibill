@@ -180,7 +180,7 @@ public sealed partial class P0203bTests
     internal static async Task WaitForLockAsync(NpgsqlConnection db, NpgsqlTransaction transaction, string type, int waiters = 1,
         params int[] backendPids)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var wait = new NpgsqlCommand("""
             SELECT (SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a USING (pid)
                 WHERE NOT l.granted AND l.locktype = $1 AND a.datname = current_database()

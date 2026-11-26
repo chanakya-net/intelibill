@@ -25,7 +25,7 @@ public sealed partial class P0106Tests
         try
         {
             var owner = database.Bootstrap(runtime.Database);
-            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             while (await ScalarAsync(owner, """
                 SELECT EXISTS (SELECT FROM pg_stat_activity WHERE datname = current_database()
                   AND usename = 'licensing_runtime' AND wait_event_type = 'Lock'

@@ -1174,9 +1174,12 @@ Every test starts its own API host. A plain `dotnet test` lets each host compile
 handlers at run time. `scripts/dev/test-integration.sh` and CI instead run `codegen write`,
 build, and set `INTEGRATION_TEST_PREGENERATED_HANDLERS=1`, so hosts load the pre-built handler
 classes in `Static` mode, as the deployed image does: roughly half the time and a quarter of
-the memory. The switch is only ever set right after regenerating, and the script deletes
-`Internal/Generated` afterwards, so pre-built handlers are never stale. Never commit that
-folder.
+the memory. The switch is only ever set right after the handlers are put in place, and the
+script deletes `Internal/Generated` afterwards, so pre-built handlers are never stale. Never
+commit that folder. The script caches generation output in `.cache/wolverine-codegen/` (git
+ignored), keyed by a hash of every merchant and shared backend source, project, package and SDK
+file, and reuses it while that hash is unchanged; `INTEGRATION_CODEGEN_CACHE=0` forces a fresh
+`codegen write`.
 
 Rules for a new test class:
 

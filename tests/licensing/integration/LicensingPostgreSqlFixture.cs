@@ -16,12 +16,15 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
     internal const string MigratorRole = "licensing_migrator";
     internal const string MerchantRole = "merchant_runtime";
     private const string LicensingTemplate = "licensing_template";
+    private const string MerchantTemplate = "merchant_template";
     private const string Password = "integration;fixture=password";
 
     // Testcontainers reaps the shared server when the test process exits.
     private static readonly PostgreSqlContainer SharedContainer = BuildContainer();
     private static readonly Lazy<Task> StartShared = new(() => StartAsync(SharedContainer));
     private static readonly Lazy<Task> SharedTemplate = new(() => PrepareLicensingTemplateAsync(SharedContainer));
+    // Replaying the merchant migration chain costs seconds; each class clones this database instead.
+    private static readonly Lazy<Task> SharedMerchantTemplate = new(() => PrepareMerchantTemplateAsync(SharedContainer));
 
     private static PostgreSqlContainer BuildContainer() => new PostgreSqlBuilder()
         .WithImage("postgres:17-alpine")
@@ -67,7 +70,15 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         var licensing = DatabaseName(LicensingDatabase);
         var merchant = DatabaseName(MerchantDatabase);
         await CreateEmptyLicensingDatabaseAsync(LicensingDatabase);
-        await CreateDatabaseAsync(merchant, "");
+        if (_isolated)
+        {
+            await CreateDatabaseAsync(merchant, "");
+        }
+        else
+        {
+            await SharedMerchantTemplate.Value;
+            await CreateDatabaseAsync(merchant, $"TEMPLATE {MerchantTemplate}");
+        }
         await ExecuteAsync(Bootstrap(), $"""
             REVOKE ALL ON DATABASE "{licensing}", "{merchant}" FROM PUBLIC;
             GRANT CONNECT ON DATABASE "{licensing}" TO licensing_runtime;
@@ -188,15 +199,30 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         await ExecuteAsync(admin, $"ALTER DATABASE {LicensingTemplate} WITH ALLOW_CONNECTIONS false IS_TEMPLATE true");
     }
 
-    internal async Task PrepareMerchantAsync()
+    private static async Task PrepareMerchantTemplateAsync(PostgreSqlContainer container)
     {
-        var owner = Bootstrap(MerchantDatabase);
+        var admin = Bootstrap(container, "bootstrap");
+        await ExecuteAsync(admin, $"CREATE DATABASE {MerchantTemplate}");
+        await ExecuteAsync(admin, $"REVOKE ALL ON DATABASE {MerchantTemplate} FROM PUBLIC");
+        // Fixture connections are unpooled, so no session stays attached to the template.
+        await MigrateMerchantAsync(Bootstrap(container, MerchantTemplate));
+        await ExecuteAsync(admin, $"ALTER DATABASE {MerchantTemplate} WITH ALLOW_CONNECTIONS false IS_TEMPLATE true");
+    }
+
+    /// <summary>
+    /// Brings the class's merchant database to the current schema and runtime grants. Shared fixtures clone an
+    /// already migrated template, so this is a quick no-op check there; isolated servers migrate from scratch.
+    /// </summary>
+    internal Task PrepareMerchantAsync() => MigrateMerchantAsync(Bootstrap(MerchantDatabase));
+
+    private static async Task MigrateMerchantAsync(NpgsqlConnectionStringBuilder owner)
+    {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(owner.ConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options;
-        await using var context = new ApplicationDbContext(options);
-        await context.Database.MigrateAsync();
+        await using (var context = new ApplicationDbContext(options))
+            await context.Database.MigrateAsync();
 
         await ExecuteAsync(owner, """
             REVOKE ALL ON SCHEMA public FROM PUBLIC;

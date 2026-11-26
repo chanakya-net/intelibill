@@ -77,7 +77,9 @@ public sealed partial class P0301Tests
         {
             "UPDATE checkout_orders SET amount_paise = 1",
             "DELETE FROM checkout_order_shops",
-            "TRUNCATE checkout_order_acceptances",
+            // CASCADE: billing_document_versions references acceptances, and without it PostgreSQL refuses the
+            // statement on that foreign key (0A000) before the retention trigger can.
+            "TRUNCATE checkout_order_acceptances CASCADE",
         })
         {
             var failure = await Assert.ThrowsAsync<PostgresException>(() =>

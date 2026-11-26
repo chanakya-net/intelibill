@@ -143,7 +143,7 @@ public sealed partial class P0113Tests(LicensingPostgreSqlFixture database) : IC
     private async Task WaitForFenceAsync(Fixture fixture, int expected = 2)
     {
         var monitor = database.Bootstrap(fixture.Runtime.Database);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         while (!deadline.IsCancellationRequested)
         {
             var waiting = await LicensingPostgreSqlFixture.ReadScalarAsync(monitor, """

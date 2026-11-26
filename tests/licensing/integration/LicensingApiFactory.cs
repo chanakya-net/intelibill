@@ -20,6 +20,7 @@ internal sealed class LicensingApiFactory(
         builder.ConfigureTestServices(services =>
         {
             if (clock is not null) services.AddSingleton(clock);
+            TestHostResources.Configure(services);
             configure?.Invoke(services);
         });
         builder.ConfigureAppConfiguration((_, configuration) =>
