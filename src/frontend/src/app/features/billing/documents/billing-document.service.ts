@@ -28,11 +28,18 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 export class BillingDocumentService {
   private readonly http = inject(HttpClient);
 
-  async list(scope: CheckoutScope, order: string): Promise<readonly BillingDocument[]> {
+  async list(scope: CheckoutScope, order: string, beforeVersion?: number): Promise<readonly BillingDocument[]> {
+    if (beforeVersion !== undefined && (!Number.isSafeInteger(beforeVersion) || beforeVersion <= 1)) {
+      throw new Error('Invalid billing document cursor');
+    }
+    const url =
+      beforeVersion === undefined
+        ? this.path(scope, order)
+        : `${this.path(scope, order)}/before/${beforeVersion}`;
     const value = await firstValueFrom(
-      this.http.get<unknown>(this.path(scope, order), { context: scopedRequestContext(scope) }),
+      this.http.get<unknown>(url, { context: scopedRequestContext(scope) }),
     );
-    return parseBillingDocumentList(value, scope.account, order);
+    return parseBillingDocumentList(value, scope.account, order, beforeVersion);
   }
 
   async content(scope: CheckoutScope, order: string, doc: BillingDocument): Promise<Blob> {

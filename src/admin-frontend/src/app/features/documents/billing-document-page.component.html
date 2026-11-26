@@ -2,7 +2,7 @@
   <header class="adm-page-head">
     <a class="adm-back-link" routerLink="/"><i class="pi pi-arrow-left" aria-hidden="true"></i>Provider console</a>
     <h1 class="ib-page-title">Accounting invoices</h1>
-    <p class="ib-subtitle">Attach the externally issued invoice for an accepted order. Payment confirmations are issued separately.</p>
+    <p class="ib-subtitle">Attach or supersede the externally issued invoice for an accepted order. Earlier versions remain immutable; payment confirmations are issued separately.</p>
   </header>
 
   @if (!allowed()) {
@@ -24,12 +24,21 @@
     }
     @if (pending(); as intent) {
       <section class="ib-panel" aria-labelledby="pending-heading">
-        <h2 class="ib-panel__title" id="pending-heading">Saved upload operation</h2>
+        <h2 class="ib-panel__title" id="pending-heading">
+          {{ isCorrection(intent) ? 'Saved correction operation' : 'Saved upload operation' }}
+        </h2>
         <p>{{ intent.metadata.fileName }} · {{ intent.metadata.issuerReference }}</p>
+        @if (isCorrection(intent)) {
+          <p>Supersedes version {{ intent.supersedesVersion }} ({{ intent.supersedesReference }}) · {{ intent.reason }}</p>
+        }
         <p>Operation <code>{{ intent.operationKey }}</code></p>
         <div class="adm-actions">
-          <button pButton type="button" severity="secondary" [outlined]="true" [disabled]="busy()" (click)="recover(true)">Check original upload</button>
-          <button pButton type="button" [disabled]="busy()" (click)="recover(false)">Retry original upload</button>
+          <button pButton type="button" severity="secondary" [outlined]="true" [disabled]="busy()" (click)="recover(true)">
+            {{ isCorrection(intent) ? 'Check original correction' : 'Check original upload' }}
+          </button>
+          <button pButton type="button" [disabled]="busy()" (click)="recover(false)">
+            {{ isCorrection(intent) ? 'Retry original correction' : 'Retry original upload' }}
+          </button>
         </div>
       </section>
     }
@@ -46,13 +55,78 @@
         </dl>
       </section>
 
-      @if (saved()) {
-        <p class="adm-callout adm-callout--success" role="status">Accounting invoice attached.</p>
+      @if (savedMessage()) {
+        <p class="adm-callout adm-callout--success" role="status">{{ savedMessage() }}</p>
       }
+
+      @if (correcting() && currentDocument(); as outgoing) {
+        @if (!pending()) {
+          <form class="ib-panel" (submit)="reviewCorrection($event, correctionPdf.files?.item(0) ?? null)" (input)="clearPreview()">
+            <h2 class="ib-panel__title">Issue corrective invoice</h2>
+            <p>Superseding current version {{ outgoing.version }} · {{ outgoing.issuerReference }} (<code>{{ outgoing.versionId }}</code>)</p>
+            <fieldset [disabled]="busy()">
+              <label>Corrective PDF (up to 10 MiB) <input #correctionPdf name="pdf" type="file" accept=".pdf,application/pdf" required></label>
+              <div class="adm-grid-2">
+                <label>Issuer name <input name="issuerName" maxlength="200" [value]="outgoing.issuerName" required></label>
+                <label>Issuing reference <input name="issuerReference" maxlength="64" required></label>
+              </div>
+              <label>Issue date <input name="issuedOn" type="date" min="2000-01-01" [value]="outgoing.issuedOn" required></label>
+              <label>Correction reason (finance only) <textarea name="reason" maxlength="400" rows="3" required></textarea></label>
+            </fieldset>
+            <div class="adm-actions">
+              <button pButton type="button" severity="secondary" [outlined]="true" [disabled]="busy()" (click)="cancelCorrection()">Cancel</button>
+              <button pButton type="submit" [disabled]="busy()">Preview correction</button>
+            </div>
+          </form>
+        }
+      }
+
+      @if (correctionPreview(); as reviewed) {
+        <section class="ib-panel" aria-labelledby="correction-preview-heading">
+          <h2 class="ib-panel__title" id="correction-preview-heading">Correction preview</h2>
+          <dl>
+            <dt>Outgoing version</dt><dd>Version {{ reviewed.supersedesVersion }} · {{ currentDocument()?.issuerReference }} (<code>{{ reviewed.supersedesVersionId }}</code>)</dd>
+            <dt>Correction reason</dt><dd>{{ reviewed.reason }}</dd>
+          </dl>
+          <ng-container [ngTemplateOutlet]="metadata" [ngTemplateOutletContext]="{ $implicit: reviewed.metadata, version: reviewed.version }" />
+          <label class="adm-check">
+            <input type="checkbox" [checked]="confirmed()" (change)="confirmed.set(corrConfirm.checked)" #corrConfirm>
+            I confirm this corrective invoice supersedes version {{ reviewed.supersedesVersion }} for the displayed account and order.
+          </label>
+          <div class="adm-actions">
+            <button pButton type="button" [disabled]="busy() || !confirmed()" (click)="supersede()">Attach corrective invoice</button>
+          </div>
+        </section>
+      }
+
       @for (document of item.documents; track document.versionId) {
-        <section class="ib-panel" aria-labelledby="saved-invoice-heading">
-          <h2 class="ib-panel__title" id="saved-invoice-heading">Attached accounting invoice</h2>
+        <section
+          class="ib-panel"
+          [attr.aria-labelledby]="'saved-invoice-heading-' + document.version"
+          [attr.data-version]="document.version"
+        >
+          <div class="adm-version-head">
+            <h2 class="ib-panel__title" [id]="'saved-invoice-heading-' + document.version">
+              Attached accounting invoice · Version {{ document.version }}
+            </h2>
+            <span class="adm-version-badge">
+              {{ document.versionId === currentDocument()?.versionId ? 'Current' : 'Historical' }}
+            </span>
+          </div>
           <ng-container [ngTemplateOutlet]="metadata" [ngTemplateOutletContext]="{ $implicit: document, version: document.version }" />
+          @if (document.supersedesVersionId) {
+            <dl>
+              <dt>Supersedes</dt><dd><code>{{ document.supersedesVersionId }}</code></dd>
+              <dt>Correction reason</dt><dd>{{ document.supersessionReason }}</dd>
+            </dl>
+          }
+          @if (document.versionId === currentDocument()?.versionId && !pending() && !correcting()) {
+            <div class="adm-actions">
+              <button pButton type="button" severity="secondary" [outlined]="true" [disabled]="busy()" (click)="startCorrection()">
+                Supersede current invoice
+              </button>
+            </div>
+          }
         </section>
       } @empty {
         @if (!pending()) {
@@ -69,6 +143,14 @@
             <div class="adm-actions"><button pButton type="submit" [disabled]="busy()">Preview invoice metadata</button></div>
           </form>
         }
+      }
+
+      @if (nextBeforeVersion() !== null) {
+        <div class="adm-actions">
+          <button pButton type="button" severity="secondary" [outlined]="true" [disabled]="busy()" (click)="loadOlder()">
+            Load older versions
+          </button>
+        </div>
       }
     }
 

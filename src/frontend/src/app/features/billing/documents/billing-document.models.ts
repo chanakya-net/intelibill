@@ -8,6 +8,8 @@ export const MAX_ISSUER_REFERENCE_LENGTH = 64;
 export const EARLIEST_ISSUE_DATE = '2000-01-01';
 export const BILLING_DOCUMENT_FILENAME_PREFIX = 'accounting-invoice-';
 export const BILLING_DOCUMENT_FILENAME_SUFFIX = '.pdf';
+export const BILLING_DOCUMENT_LIST_BEFORE_TEMPLATE =
+  '/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents/before/{beforeVersion}';
 
 export interface BillingDocument {
   readonly accountId: string;
@@ -108,7 +110,11 @@ export function parseBillingDocumentList(
   value: unknown,
   account: string,
   order: string,
+  beforeVersion?: number,
 ): readonly BillingDocument[] {
+  if (beforeVersion !== undefined && (!Number.isSafeInteger(beforeVersion) || beforeVersion <= 1)) {
+    throw new Error('Invalid billing document cursor');
+  }
   if (!value || typeof value !== 'object') {
     throw new Error('Invalid billing documents');
   }
@@ -121,9 +127,18 @@ export function parseBillingDocumentList(
     !Array.isArray(rows) ||
     rows.length > BILLING_DOCUMENT_PAGE_SIZE ||
     !rows.every((row) => isValidDocument(row, account, order)) ||
+    (beforeVersion !== undefined && !rows.every((row) => row.version < beforeVersion)) ||
+    !hasStrictDescendingVersions(rows) ||
     new Set(rows.map((row) => row.versionId)).size !== rows.length
   ) {
     throw new Error('Invalid billing documents');
   }
   return rows;
+}
+
+function hasStrictDescendingVersions(rows: readonly BillingDocument[]): boolean {
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].version >= rows[i - 1].version) return false;
+  }
+  return true;
 }

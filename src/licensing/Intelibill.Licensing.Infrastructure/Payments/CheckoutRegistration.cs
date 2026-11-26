@@ -35,7 +35,10 @@ internal static class CheckoutRegistration
         services.AddScoped<ReadBillingDocumentHandler>();
         services.AddScoped<BillingDocumentMetadataValidator>();
         services.AddScoped<UploadBillingDocumentValidator>();
+        services.AddScoped<SupersedeBillingDocumentMetadataValidator>();
+        services.AddScoped<SupersedeBillingDocumentValidator>();
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<UploadBillingDocumentHandler>(provider, CheckoutClock(provider)));
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<SupersedeBillingDocumentHandler>(provider, CheckoutClock(provider)));
     }
 
     private static void AddRefundRequests(this IServiceCollection services)

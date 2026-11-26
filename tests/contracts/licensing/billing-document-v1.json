@@ -18,6 +18,7 @@
   "fileNamePrefix": "accounting-invoice-",
   "fileNameSuffix": ".pdf",
   "listPathTemplate": "/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents",
+  "listBeforePathTemplate": "/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents/before/{beforeVersion}",
   "contentPathTemplate": "/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents/{version}/content",
   "sample": {
     "schemaVersion": 1,

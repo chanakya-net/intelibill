@@ -14,17 +14,9 @@ public sealed partial class P0607Tests
         using var rsa = RSA.Create(2048);
         await using var s = await StartAsync(database, rsa);
         var doc = await AttachOriginalAsync(s);
-        var authClock = s.F.Hosts.Fixture.Clock.Now;
         var confirmation = await s.Source.Payer.Client.GetStringAsync(doc.Confirmation);
         var originalConfirmation = await s.Source.Payer.Client.GetByteArrayAsync(doc.ConfirmationContent);
-        var transfer = await ConsentedAsync(s, s.Permit.ValidUntil);
-        var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("privacy@example.test");
-        using var session = manager;
-        var key = await ApproveAsync(s, transfer, manager);
-        await DrainAsync(s);
-        await AdvanceAsync(s, s.Permit.ValidUntil);
-        await AssertStateAsync(manager, AdminPath(s, transfer), key, "Applied");
-        s.F.Hosts.Fixture.Clock.Now = authClock;
+        await ApplyTransferAsync(s, managerEmail: "privacy@example.test");
         Assert.Equal(0L, await RuntimeCountAsync(s, null, "coverage_transfer_bindings", "true"));
         Assert.Equal(0L, await RuntimeCountAsync(s, Guid.NewGuid(), "coverage_transfer_approvals", "true"));
         Assert.Equal(0L, await RuntimeCountAsync(s, s.Destination.Account, "coverage_transfer_approvals", "true"));
@@ -38,6 +30,26 @@ public sealed partial class P0607Tests
     }
 
     internal sealed record OriginalDocument(Guid Order, Guid Version, string List, string Content, string Confirmation, string ConfirmationContent);
+
+    internal static async Task ApplyTransferAsync(Scenario s, P0110CookieBrowser? existingManager = null,
+        string managerEmail = "privacy@example.test")
+    {
+        var authClock = s.F.Hosts.Fixture.Clock.Now;
+        var transfer = await ConsentedAsync(s, s.Permit.ValidUntil);
+        P0110CookieBrowser? owned = null;
+        var manager = existingManager;
+        if (manager is null)
+        {
+            (owned, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync(managerEmail);
+            manager = owned;
+        }
+        using var session = owned;
+        var key = await ApproveAsync(s, transfer, manager);
+        await DrainAsync(s);
+        await AdvanceAsync(s, s.Permit.ValidUntil);
+        await AssertStateAsync(manager, AdminPath(s, transfer), key, "Applied");
+        s.F.Hosts.Fixture.Clock.Now = authClock;
+    }
 
     internal static async Task<OriginalDocument> AttachOriginalAsync(Scenario s)
     {

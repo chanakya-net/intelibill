@@ -12,8 +12,9 @@ namespace Intelibill.Licensing.Api.Documents;
 internal static class BillingDocumentMultipart
 {
     internal const int CommandLimit = 2048;
+    internal const int SupersedeCommandLimit = 8192;
     private const int ContentLimit = BillingDocumentMetadataValidator.MaxBytes;
-    private const int RequestLimit = ContentLimit + 16 * 1024;
+    private const int OverheadLimit = 16 * 1024;
 
     private static readonly JsonSerializerOptions Strict = new(JsonSerializerDefaults.Web)
     {
@@ -22,14 +23,22 @@ internal static class BillingDocumentMultipart
         AllowDuplicateProperties = false,
     };
 
-    internal sealed record UploadParts(UploadBillingDocument Command, string? FileName, byte[] Content)
+    internal sealed record UploadParts<TCommand>(TCommand Command, string? FileName, byte[] Content)
     {
         public override string ToString() => "[REDACTED]";
     }
 
-    internal static async Task<ErrorOr<UploadParts>> ReadAsync(HttpContext context)
+    internal static Task<ErrorOr<UploadParts<UploadBillingDocument>>> ReadAsync(HttpContext context) =>
+        ReadAsync<UploadBillingDocument>(context, CommandLimit);
+
+    internal static Task<ErrorOr<UploadParts<SupersedeBillingDocument>>> ReadSupersedeAsync(HttpContext context) =>
+        ReadAsync<SupersedeBillingDocument>(context, SupersedeCommandLimit);
+
+    private static async Task<ErrorOr<UploadParts<TCommand>>> ReadAsync<TCommand>(HttpContext context, int commandLimit)
+        where TCommand : class
     {
-        if (context.Request.ContentLength > RequestLimit) return BillingDocumentErrors.TooLarge;
+        var requestLimit = ContentLimit + commandLimit + OverheadLimit;
+        if (context.Request.ContentLength > requestLimit) return BillingDocumentErrors.TooLarge;
         if (!MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var media)
             || !media.MediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase))
             return BillingDocumentErrors.MediaType;
@@ -37,12 +46,12 @@ internal static class BillingDocumentMultipart
         if (boundary.Length is < 1 or > 70 || boundary.Value!.Any(c => c < ' ' || c > '~'))
             return BillingDocumentErrors.Invalid;
         if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
-            limit.MaxRequestBodySize = RequestLimit;
+            limit.MaxRequestBodySize = requestLimit;
 
         try
         {
             var reader = new MultipartReader(boundary.Value!, context.Request.Body) { HeadersCountLimit = 8, HeadersLengthLimit = 4096 };
-            return await ReadPartsAsync(reader, context.RequestAborted);
+            return await ReadPartsAsync<TCommand>(reader, commandLimit, context.RequestAborted);
         }
         catch (BadHttpRequestException error) when (error.StatusCode == 413)
         {
@@ -55,13 +64,14 @@ internal static class BillingDocumentMultipart
         }
     }
 
-    private static async Task<ErrorOr<UploadParts>> ReadPartsAsync(MultipartReader reader, CancellationToken ct)
+    private static async Task<ErrorOr<UploadParts<TCommand>>> ReadPartsAsync<TCommand>(MultipartReader reader,
+        int commandLimit, CancellationToken ct) where TCommand : class
     {
         var metadata = await reader.ReadNextSectionAsync(ct);
         if (Disposition(metadata, "command") is null || !HasMediaType(metadata!, "application/json"))
             return BillingDocumentErrors.Invalid;
-        var json = await ReadBoundedAsync(metadata!.Body, CommandLimit, ct);
-        var command = json is null ? null : JsonSerializer.Deserialize<UploadBillingDocument>(json, Strict);
+        var json = await ReadBoundedAsync(metadata!.Body, commandLimit, ct);
+        var command = json is null ? null : JsonSerializer.Deserialize<TCommand>(json, Strict);
         if (command is null) return BillingDocumentErrors.Invalid;
 
         var file = await reader.ReadNextSectionAsync(ct);
@@ -73,7 +83,7 @@ internal static class BillingDocumentMultipart
         if (bytes is null) return BillingDocumentErrors.TooLarge;
         if (await reader.ReadNextSectionAsync(ct) is not null) return BillingDocumentErrors.Invalid;
         var name = disposition.FileNameStar.HasValue ? disposition.FileNameStar : disposition.FileName;
-        return new UploadParts(command, HeaderUtilities.RemoveQuotes(name).Value, bytes);
+        return new UploadParts<TCommand>(command, HeaderUtilities.RemoveQuotes(name).Value, bytes);
     }
 
     private static ContentDispositionHeaderValue? Disposition(MultipartSection? part, string name) =>

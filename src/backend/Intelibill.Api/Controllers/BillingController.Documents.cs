@@ -18,6 +18,16 @@ public sealed partial class BillingController
         return CheckoutResponse(await service.ListDocumentsAsync(caller, accountId, orderId, ct));
     }
 
+    [HttpGet(OrdersRoute + "/{orderId:guid}/billing-documents/before/{beforeVersion:int}")]
+    [LicenceAction(LicenceAction.Billing)]
+    public async Task<IActionResult> ListBillingDocumentsBefore(Guid accountId, Guid orderId, int beforeVersion,
+        [FromServices] IMerchantBillingDocuments service, CancellationToken ct)
+    {
+        if (ReadCaller() is not { } caller) return SessionInvalid();
+        Response.Headers.CacheControl = "no-store";
+        return CheckoutResponse(await service.ListDocumentsAsync(caller, accountId, orderId, ct, beforeVersion));
+    }
+
     [HttpGet(OrdersRoute + "/{orderId:guid}/billing-documents/{versionId:guid}/content")]
     [RateLimit(Limit = 60, PeriodInMinutes = 60, BackoffMinutes = 5, FailClosed = true)]
     [LicenceAction(LicenceAction.Billing)]

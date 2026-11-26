@@ -25,6 +25,22 @@ public sealed record UploadBillingDocument : BillingDocumentMetadata
     public override string ToString() => "[REDACTED]";
 }
 
+public record SupersedeBillingDocumentMetadata : BillingDocumentMetadata
+{
+    public string Reason { get; init; } = "";
+
+    public override string ToString() => "[REDACTED]";
+}
+
+public sealed record SupersedeBillingDocument : SupersedeBillingDocumentMetadata
+{
+    public Guid OperationKey { get; init; }
+    public string PreviewDigest { get; init; } = "";
+    public bool Confirmed { get; init; }
+
+    public override string ToString() => "[REDACTED]";
+}
+
 public sealed record BillingDocumentOrder(string PlanName, string Period, long AmountPaise, string Currency,
     DateTimeOffset AcceptedAt, int Revision, string SnapshotHash);
 
@@ -43,10 +59,18 @@ public sealed record BillingDocumentPreview(Guid AccountId, Guid OrderId, Billin
     public override string ToString() => "[REDACTED]";
 }
 
+public sealed record BillingDocumentSupersessionPreview(Guid AccountId, Guid OrderId, BillingDocumentOrder Order,
+    int PaymentConfirmations, Guid DocumentId, Guid SupersedesVersionId, int SupersedesVersion, int Version,
+    BillingDocumentMetadata Metadata, string Reason, string PreviewDigest)
+{
+    public int SchemaVersion { get; } = 1;
+    public override string ToString() => "[REDACTED]";
+}
+
 public sealed record BillingDocumentVersionView(Guid AccountId, Guid OrderId, Guid DocumentId, Guid VersionId,
     int Version, Guid? SupersedesVersionId, string Kind, string FileName, string MediaType, int ByteLength,
     string Sha256, string IssuerName, string IssuerReference, DateOnly IssuedOn, Guid OperationKey,
-    Guid UploadedBy, DateTimeOffset MfaVerifiedAt, DateTimeOffset UploadedAt)
+    Guid UploadedBy, DateTimeOffset MfaVerifiedAt, DateTimeOffset UploadedAt, string? SupersessionReason = null)
 {
     public int SchemaVersion { get; } = 1;
     public override string ToString() => "[REDACTED]";
@@ -61,7 +85,9 @@ public sealed record BillingDocumentUpload(BillingDocumentVersionView Document, 
 
 public interface IBillingDocumentStore
 {
-    Task<BillingDocumentVersionView[]> ListAsync(Guid account, Guid order, CancellationToken ct);
+    Task<BillingDocumentVersionView[]> ListAsync(Guid account, Guid order, int? beforeVersion, int limit, CancellationToken ct);
+    Task<BillingDocumentVersionView?> FindVersionAsync(Guid account, Guid order, Guid version, CancellationToken ct);
+    Task<BillingDocumentVersionView?> FindLatestAsync(Guid account, Guid order, CancellationToken ct);
     Task<StoredBillingDocumentContent?> FindContentAsync(Guid account, Guid order, Guid version, CancellationToken ct);
     Task<StoredBillingDocument?> FindOperationAsync(Guid account, Guid key, CancellationToken ct);
     Task<int> CountConfirmationsAsync(Guid account, Guid order, CancellationToken ct);
@@ -76,8 +102,10 @@ public static class BillingDocumentErrors
     public static Error TooLarge => Error.Validation("BillingDocument.TooLarge", "PDFs must be no larger than 10 MiB.");
     public static Error MediaType => Error.Validation("BillingDocument.MediaTypeUnsupported", "Only PDF content is accepted.");
     public static Error OrderNotFound => Error.NotFound("BillingDocument.OrderNotFound", "The accepted order was not found for this account.");
+    public static Error PredecessorNotFound => Error.NotFound("BillingDocument.PredecessorNotFound", "The invoice version to supersede was not found for this order.");
     public static Error OperationNotFound => Error.NotFound("BillingDocument.OperationNotFound", "The upload was not found.");
     public static Error AlreadyAttached => Error.Conflict("BillingDocument.AlreadyAttached", "An accounting invoice already exists for this order.");
+    public static Error PredecessorStale => Error.Conflict("BillingDocument.PredecessorStale", "A newer accounting invoice version already exists. Review the current invoice before superseding.");
     public static Error PayloadMismatch => Error.Conflict("BillingDocument.PayloadMismatch", "This operation key belongs to different upload evidence.");
     public static Error PreviewStale => Error.Conflict("BillingDocument.PreviewStale", "Review the order and invoice again before attaching.");
 }

@@ -95,14 +95,23 @@ public sealed partial class P0612Tests
     {
         var account = Guid.NewGuid();
         var order = Guid.NewGuid();
-        var rows = Enumerable.Range(0, BillingDocumentsV1.PageSize).Select(_ => new BillingDocumentV1(
-            account, order, Guid.NewGuid(), Guid.NewGuid(), 1, null, BillingDocumentsV1.AccountingInvoice,
-            BillingDocumentsV1.MediaType, BillingDocumentsV1.MaxDocumentBytes, new string('a', 64),
-            new string('店', BillingDocumentsV1.MaxIssuerNameLength),
-            new string('R', BillingDocumentsV1.MaxIssuerReferenceLength),
-            new DateOnly(2027, 3, 10), P0209Fixture.Utc("9998-12-31T23:59:59.999999Z"))).ToArray();
+        var docId = Guid.NewGuid();
+        var ids = Enumerable.Range(0, BillingDocumentsV1.PageSize).Select(_ => Guid.NewGuid()).ToArray();
+        var rows = Enumerable.Range(0, BillingDocumentsV1.PageSize).Select(index =>
+        {
+            var version = BillingDocumentsV1.PageSize - index;
+            Guid? supersedes = version == 1 ? null : ids[index + 1];
+            return new BillingDocumentV1(
+                account, order, docId, ids[index], version, supersedes, BillingDocumentsV1.AccountingInvoice,
+                BillingDocumentsV1.MediaType, BillingDocumentsV1.MaxDocumentBytes, new string('a', 64),
+                new string('店', BillingDocumentsV1.MaxIssuerNameLength),
+                new string('R', BillingDocumentsV1.MaxIssuerReferenceLength),
+                new DateOnly(2027, 3, 10), P0209Fixture.Utc("9998-12-31T23:59:59.999999Z"));
+        }).ToArray();
         var list = new BillingDocumentListV1(account, order, rows);
         Assert.True(BillingDocumentsV1.IsValidList(list, account, order));
+        Assert.True(BillingDocumentsV1.IsValidList(list, account, order, BillingDocumentsV1.PageSize + 1));
+        Assert.False(BillingDocumentsV1.IsValidList(list, account, order, BillingDocumentsV1.PageSize));
         Assert.InRange(JsonSerializer.SerializeToUtf8Bytes(list, JsonSerializerOptions.Web).Length, 1, BillingDocumentsV1.MaxListBytes);
     }
 
@@ -127,6 +136,8 @@ public sealed partial class P0612Tests
             root.GetProperty("earliestIssueDate").GetString());
         Assert.Equal(BillingDocumentsV1.NotFound, root.GetProperty("notFound").GetString());
         Assert.Equal(BillingDocumentsV1.DigestHeader, root.GetProperty("digestHeader").GetString());
+        Assert.Equal("/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents/before/{beforeVersion}",
+            root.GetProperty("listBeforePathTemplate").GetString());
         var sample = root.GetProperty("sample").Deserialize<BillingDocumentListV1>(JsonSerializerOptions.Web)!;
         Assert.True(BillingDocumentsV1.IsValidList(sample, sample.AccountId, sample.OrderId));
 
@@ -184,8 +195,13 @@ public sealed partial class P0612Tests
 
     private sealed class StubDocumentStore(StoredBillingDocumentContent? stored) : IBillingDocumentStore
     {
-        public Task<BillingDocumentVersionView[]> ListAsync(Guid account, Guid order, CancellationToken ct) =>
+        public Task<BillingDocumentVersionView[]> ListAsync(Guid account, Guid order, int? beforeVersion, int limit,
+            CancellationToken ct) =>
             Task.FromResult(Array.Empty<BillingDocumentVersionView>());
+        public Task<BillingDocumentVersionView?> FindVersionAsync(Guid account, Guid order, Guid version, CancellationToken ct) =>
+            Task.FromResult<BillingDocumentVersionView?>(null);
+        public Task<BillingDocumentVersionView?> FindLatestAsync(Guid account, Guid order, CancellationToken ct) =>
+            Task.FromResult<BillingDocumentVersionView?>(null);
         public Task<StoredBillingDocumentContent?> FindContentAsync(Guid account, Guid order, Guid version, CancellationToken ct) =>
             Task.FromResult(stored);
         public Task<StoredBillingDocument?> FindOperationAsync(Guid account, Guid key, CancellationToken ct) =>

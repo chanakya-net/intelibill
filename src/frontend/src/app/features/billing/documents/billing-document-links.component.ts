@@ -23,15 +23,30 @@ import { BillingDocumentService } from './billing-document.service';
         type="button"
         data-testid="billing-documents-list"
         [disabled]="busy()"
-        [label]="'billing.documents.view' | transloco"
+        [label]="(loaded() ? 'billing.documents.refresh' : 'billing.documents.view') | transloco"
         (click)="load()"
       ></button>
       @if (loaded() && rows().length === 0) {
         <p data-testid="billing-documents-empty">{{ 'billing.documents.empty' | transloco }}</p>
       }
       @for (doc of rows(); track doc.versionId) {
-        <div class="grid gap-1 min-w-0" data-testid="billing-document-item">
+        <div
+          class="grid gap-1 min-w-0"
+          data-testid="billing-document-item"
+          [attr.data-version]="doc.version"
+          [attr.data-version-id]="doc.versionId"
+        >
           <dl class="grid gap-1 min-w-0" data-testid="billing-document-metadata">
+            <div class="min-w-0">
+              <dt>{{ 'billing.documents.status' | transloco }}</dt>
+              <dd class="m-0 min-w-0" data-testid="billing-document-status">
+                {{
+                  (doc.versionId === currentVersionId()
+                    ? 'billing.documents.current'
+                    : 'billing.documents.historical') | transloco
+                }}
+              </dd>
+            </div>
             <div class="min-w-0">
               <dt>{{ 'billing.documents.issuer' | transloco }}</dt>
               <dd class="m-0 min-w-0" data-testid="billing-document-issuer">{{ doc.issuerName }}</dd>
@@ -48,6 +63,14 @@ import { BillingDocumentService } from './billing-document.service';
               <dt>{{ 'billing.documents.version' | transloco }}</dt>
               <dd class="m-0 min-w-0" data-testid="billing-document-version">{{ doc.version }}</dd>
             </div>
+            @if (doc.supersedesVersionId) {
+              <div class="min-w-0">
+                <dt>{{ 'billing.documents.supersedes' | transloco }}</dt>
+                <dd class="m-0 min-w-0" data-testid="billing-document-supersedes">
+                  <code class="break-all">{{ doc.supersedesVersionId }}</code>
+                </dd>
+              </div>
+            }
             <div class="min-w-0">
               <dt>{{ 'billing.documents.hash' | transloco }}</dt>
               <dd class="m-0 min-w-0" data-testid="billing-document-hash"><code class="break-all">{{ doc.sha256 }}</code></dd>
@@ -62,6 +85,18 @@ import { BillingDocumentService } from './billing-document.service';
             (click)="download(doc)"
           ></button>
         </div>
+      }
+      @if (nextBeforeVersion() !== null) {
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          data-testid="billing-documents-older"
+          [disabled]="busy()"
+          [label]="'billing.documents.loadOlder' | transloco"
+          (click)="loadOlder()"
+        ></button>
       }
       @if (error()) {
         <p role="alert" data-testid="billing-documents-error">{{ 'billing.documents.error' | transloco }}</p>
@@ -82,6 +117,12 @@ export class BillingDocumentLinksComponent {
   });
 
   protected readonly rows = signal<readonly BillingDocument[]>([]);
+  protected readonly currentVersionId = computed(() => this.rows()[0]?.versionId ?? null);
+  protected readonly nextBeforeVersion = computed(() => {
+    const list = this.rows();
+    const oldest = list[list.length - 1];
+    return oldest && oldest.version > 1 ? oldest.version : null;
+  });
   protected readonly loaded = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal(false);
@@ -106,6 +147,23 @@ export class BillingDocumentLinksComponent {
       if (this.destroyed || this.scope() !== scope) return;
       this.rows.set(documents);
       this.loaded.set(true);
+    });
+  }
+
+  protected loadOlder() {
+    const before = this.nextBeforeVersion();
+    if (before === null) return;
+    void this.run(async (scope) => {
+      const older = await this.api.list(scope, scope.order, before);
+      if (this.destroyed || this.scope() !== scope || this.nextBeforeVersion() !== before) return;
+      if (older.length === 0) return;
+      const existing = this.rows();
+      const tail = existing[existing.length - 1];
+      if (!tail || older[0].version >= tail.version) {
+        this.error.set(true);
+        return;
+      }
+      this.rows.set([...existing, ...older]);
     });
   }
 

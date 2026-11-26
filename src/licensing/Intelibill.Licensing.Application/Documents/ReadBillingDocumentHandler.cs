@@ -15,19 +15,22 @@ public sealed class ReadBillingDocumentHandler(IBillingDelegationAccess access, 
     IBillingDocumentStore documents)
 {
     public Task<ErrorOr<BillingDocumentListV1>> ListAsync(VerifiedBillingDelegation proof, Guid account, Guid order,
-        CancellationToken ct) =>
-        access.ExecuteAsync(proof, (_, token) => ReadListAsync(account, order, token), ct);
+        CancellationToken ct, int? beforeVersion = null) =>
+        access.ExecuteAsync(proof, (_, token) => ReadListAsync(account, order, beforeVersion, token), ct);
 
     public Task<ErrorOr<BillingDocumentContent>> ContentAsync(VerifiedBillingDelegation proof, Guid account, Guid order,
         Guid version, CancellationToken ct) =>
         access.ExecuteAsync(proof, (_, token) => ReadContentAsync(account, order, version, token), ct);
 
-    private async Task<ErrorOr<BillingDocumentListV1>> ReadListAsync(Guid account, Guid order, CancellationToken ct)
+    private async Task<ErrorOr<BillingDocumentListV1>> ReadListAsync(Guid account, Guid order, int? beforeVersion,
+        CancellationToken ct)
     {
+        if (beforeVersion is <= 1)
+            return Error.Validation("BillingDocument.Invalid", "The version cursor must be greater than one.");
         if (await orders.FindAsync(account, order, false, ct) is null)
             return Missing;
-        var rows = await documents.ListAsync(account, order, ct);
-        var mapped = rows.Take(BillingDocumentsV1.PageSize).Select(ToContract).ToArray();
+        var rows = await documents.ListAsync(account, order, beforeVersion, BillingDocumentsV1.PageSize, ct);
+        var mapped = rows.Select(ToContract).ToArray();
         return new BillingDocumentListV1(account, order, mapped);
     }
 

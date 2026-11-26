@@ -13,13 +13,15 @@ public sealed class UploadBillingDocumentHandler(IManualPaymentStore authority, 
 {
     private const string Policy = "billing-document/1";
 
-    public Task<ErrorOr<BillingDocumentList>> ReadAsync(AdminSessionCaller caller, Guid account, Guid order, CancellationToken ct) =>
+    public Task<ErrorOr<BillingDocumentList>> ReadAsync(AdminSessionCaller caller, Guid account, Guid order,
+        CancellationToken ct, int? beforeVersion = null) =>
         authority.InManualScopeAsync<BillingDocumentList>(caller, account, order, false, false, async (_, token) =>
         {
-            var accepted = await AcceptedOrderAsync(account, order, token);
+            if (beforeVersion is <= 1) return BillingDocumentErrors.Invalid;
+            var accepted = await AcceptedOrderAsync(orders, account, order, token);
             if (accepted is null) return BillingDocumentErrors.OrderNotFound;
             return new BillingDocumentList(account, order, accepted, await documents.CountConfirmationsAsync(account, order, token),
-                await documents.ListAsync(account, order, token));
+                await documents.ListAsync(account, order, beforeVersion, BillingDocumentsV1.PageSize, token));
         }, ct);
 
     public Task<ErrorOr<BillingDocumentPreview>> PreviewAsync(AdminSessionCaller caller, Guid account, Guid order,
@@ -29,7 +31,7 @@ public sealed class UploadBillingDocumentHandler(IManualPaymentStore authority, 
             if (metadata is null) return BillingDocumentErrors.Invalid;
             if (MetadataRefusal(metadata, clock.GetUtcNow()) is { } refusal) return refusal;
             if (!metadataValidator.Validate(metadata).IsValid) return BillingDocumentErrors.Invalid;
-            var accepted = await AcceptedOrderAsync(account, order, token);
+            var accepted = await AcceptedOrderAsync(orders, account, order, token);
             if (accepted is null) return BillingDocumentErrors.OrderNotFound;
             return new BillingDocumentPreview(account, order, accepted, await documents.CountConfirmationsAsync(account, order, token),
                 metadata, PreviewDigest(account, order, accepted, metadata));
@@ -65,9 +67,9 @@ public sealed class UploadBillingDocumentHandler(IManualPaymentStore authority, 
         var existing = await documents.FindOperationAsync(account, command.OperationKey, ct);
         if (existing is not null) return Replay(existing, caller, order, hash);
 
-        var accepted = await AcceptedOrderAsync(account, order, ct);
+        var accepted = await AcceptedOrderAsync(orders, account, order, ct);
         if (accepted is null) return BillingDocumentErrors.OrderNotFound;
-        if ((await documents.ListAsync(account, order, ct)).Length > 0) return BillingDocumentErrors.AlreadyAttached;
+        if (await documents.FindLatestAsync(account, order, ct) is not null) return BillingDocumentErrors.AlreadyAttached;
         if (command.PreviewDigest != PreviewDigest(account, order, accepted, command)) return BillingDocumentErrors.PreviewStale;
 
         var view = new BillingDocumentVersionView(account, order, Guid.NewGuid(), Guid.NewGuid(), 1, null, command.Kind,
@@ -83,7 +85,7 @@ public sealed class UploadBillingDocumentHandler(IManualPaymentStore authority, 
         return existing is null ? BillingDocumentErrors.AlreadyAttached : Replay(existing, caller, order, hash);
     }
 
-    private static Error? MetadataRefusal(BillingDocumentMetadata value, DateTimeOffset now)
+    internal static Error? MetadataRefusal(BillingDocumentMetadata value, DateTimeOffset now)
     {
         if (value.ByteLength > BillingDocumentMetadataValidator.MaxBytes) return BillingDocumentErrors.TooLarge;
         if (value.MediaType != BillingDocumentMetadataValidator.PdfMediaType) return BillingDocumentErrors.MediaType;
@@ -91,7 +93,8 @@ public sealed class UploadBillingDocumentHandler(IManualPaymentStore authority, 
             ? BillingDocumentErrors.Invalid : null;
     }
 
-    private async Task<BillingDocumentOrder?> AcceptedOrderAsync(Guid account, Guid order, CancellationToken ct)
+    internal static async Task<BillingDocumentOrder?> AcceptedOrderAsync(ICheckoutOrderStore orders, Guid account, Guid order,
+        CancellationToken ct)
     {
         var quote = (await orders.FindAsync(account, order, false, ct))?.Quote;
         return quote?.Acceptance is { } accepted
@@ -100,12 +103,12 @@ public sealed class UploadBillingDocumentHandler(IManualPaymentStore authority, 
     }
 
     private static ErrorOr<BillingDocumentUpload> Replay(StoredBillingDocument saved, AdminSessionCaller caller, Guid order, string hash) =>
-        saved.View.OrderId == order && saved.View.UploadedBy == caller.AdminId && saved.PayloadHash == hash
+        saved.View.OrderId == order && saved.View.Version == 1 && saved.View.UploadedBy == caller.AdminId && saved.PayloadHash == hash
             ? new BillingDocumentUpload(saved.View, false) : BillingDocumentErrors.PayloadMismatch;
 
     private static string PreviewDigest(Guid account, Guid order, BillingDocumentOrder accepted, BillingDocumentMetadata metadata) =>
         CheckoutOrdersV1.Digest(Policy, "preview", account, order, accepted.Revision, accepted.SnapshotHash, MetadataDigest(metadata));
 
-    private static string MetadataDigest(BillingDocumentMetadata value) => CheckoutOrdersV1.Digest(value.Kind, value.FileName,
+    internal static string MetadataDigest(BillingDocumentMetadata value) => CheckoutOrdersV1.Digest(value.Kind, value.FileName,
         value.MediaType, value.ByteLength, value.Sha256, value.IssuerName, value.IssuerReference, value.IssuedOn);
 }

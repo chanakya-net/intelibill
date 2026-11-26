@@ -28,6 +28,9 @@ public static class BillingDocumentsV1
     public static string ListPath(Guid account, Guid order) =>
         $"{CheckoutOrdersV1.DetailPath(account, order)}/billing-documents";
 
+    public static string ListBeforePath(Guid account, Guid order, int beforeVersion) =>
+        $"{ListPath(account, order)}/before/{beforeVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
     public static string ContentPath(Guid account, Guid order, Guid version) =>
         $"{ListPath(account, order)}/{version:D}/content";
 
@@ -51,14 +54,25 @@ public static class BillingDocumentsV1
         value.IssuedOn >= EarliestIssueDate &&
         EntitlementSnapshotsV1.IsInstant(value.UploadedAt);
 
-    public static bool IsValidList(BillingDocumentListV1? value, Guid account, Guid order) =>
+    public static bool IsValidList(BillingDocumentListV1? value, Guid account, Guid order, int? beforeVersion = null) =>
+        beforeVersion is null or > 1 &&
         value is not null &&
         value.SchemaVersion == 1 &&
         value.AccountId == account &&
         value.OrderId == order &&
         value.Documents is { Length: <= PageSize } rows &&
-        rows.All(row => IsValid(row, account, order)) &&
-        rows.Select(row => row.VersionId).Distinct().Count() == rows.Length;
+        rows.All(row => IsValid(row, account, order) && (beforeVersion is null || row.Version < beforeVersion)) &&
+        rows.Select(row => row.VersionId).Distinct().Count() == rows.Length &&
+        IsDescendingVersions(rows);
+
+    private static bool IsDescendingVersions(BillingDocumentV1[] rows)
+    {
+        for (var i = 1; i < rows.Length; i++)
+        {
+            if (rows[i].Version >= rows[i - 1].Version) return false;
+        }
+        return true;
+    }
 
     private static bool IsIssuerField(string? value, int max) =>
         value is { Length: > 0 } && value.Length <= max &&
