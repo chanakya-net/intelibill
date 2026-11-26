@@ -15,8 +15,10 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0614Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     /// <summary>
-    /// Stories 2–4: a spare paid slot consumed after the owner reviewed a reduction invalidates that selection, and the
-    /// renewal applies only the shops the owner explicitly retains from a fresh preview, without touching any roster.
+    /// Stories 2–4: a spare paid slot consumed after the owner reviewed a reduction invalidates that selection (stale
+    /// submission refused with 409), and a fresh explicit selection naming the slot shop is funded once. At paid-through
+    /// the renewal does not apply: prerequisite gap G1 (#911 × #912) holds it as recoverable NeedsReview/SourceChanged
+    /// with one finance review case, the verified payment evidence preserved, no term created and every roster unchanged.
     /// </summary>
     [Fact]
     public async Task FinalSlotReceiptInvalidatesEarlierReductionSelection()

@@ -7,7 +7,10 @@ This record closes slice **P06-14** ([#923](https://github.com/chanakya-net/inte
 - **Parent baseline SHA**: `e22bf98f66a3002da5b832f2af9fc2c5862420b5` (includes the #916 and #922 merges and every earlier P06 slice).
 - **New test sources**: `tests/licensing/integration/P0614Tests.cs`, `P0614Tests.Refunds.cs`, `P0614Tests.Transfer.cs` (one partial class, three composed facts). No product, API, migration, dependency or configuration file changes.
 - **Verification toolchain**: `.NET SDK 10.0.300` from `/usr/local/share/dotnet` (satisfies `global.json` `10.0.105`, `latestMinor`); `Bun 1.3.11` (repository pin; `bun install --frozen-lockfile`); Playwright `1.62.0` Chromium from the lockfile; PostgreSQL `postgres:17-alpine` through Testcontainers on Docker `29.8.2` (OrbStack).
-- **Clocks**: every composed fact uses fixed business instants (`2028-01-31T04:30Z` purchase, `2028-02-14T04:30Z` change, `2028-02-29T04:30Z` paid-through) separate from the admin auth/MFA clock, the signed-transport clock and the refund lease clock.
+- **Clocks**: each composed fact uses its own fixed business instants, separate from the admin auth/MFA clock, the signed-transport clock and the refund lease clock:
+  - Fact 1: `2028-01-31T04:30Z` purchase, `2028-02-14T04:30Z` change, `2028-02-29T04:30Z` paid-through.
+  - Fact 2: `2028-01-31T04:30Z` purchase/request/approval, `2028-01-31T04:31Z` recovery (clock +1 min).
+  - Fact 3: `2028-01-31T04:30Z` purchase, `2028-02-14T10:00Z` early-start (`P0606Tests.EarlyStart`), `2028-02-16T10:00Z` permit `ValidUntil` cutover.
 - **Attribution**: all money movement is the local development payment simulator (profiles `simulator-a` / `simulator-b`, environment `Development`). Provider timeouts, the delayed `Processed` result and the profile switch are explicit simulator controls (`POST …/refund-requests/{id}/simulator`, `PaymentProfiles` selection) — fixture faults, not live provider observations. No live Razorpay or bank endpoint was contacted, no credentials or production flags were enabled, and nothing was deployed or published.
 - **Evidence location**: measured command output, browser captures and the PR handoff live outside the repository under `.run-with-it/issues/923/evidence/<commit>/<attempt>/` (`pr-handoff.md`, `summary.md`). This record pins the invariants and commands; identifiers and timestamps are per-run values.
 
@@ -37,12 +40,13 @@ All three composed facts passed on the untouched merged product (baseline GREEN)
 | Fact | Controlled change (temporary, never committed) | Observed failure | Restored result |
 | --- | --- | --- | --- |
 | `FinalSlotReceiptInvalidatesEarlierReductionSelection` | Removed the signed slot-receipt drain (`DrainSlotAsync`) and its applied-state check before the stale reduction submission, so the old two-shop preview is submitted while the third shop's slot is still undelivered. | `Assert.Equal() Failure: Expected: Conflict, Actual: Created` — the stale selection schedules (`201`) when the receipt has not yet landed. | Passed (`1/1`), stale submission `409 Billing.CapacityReductionSourceChanged`. |
-| `UnknownRefundKeepsReceiptBoundAcrossSwitchAndContention` | Replaced the delayed `Processed` simulator control on the held reservation with another `Timeout`, leaving the original provider result uncertain when confirmation is expected. | `Assert.Equal() Failure: Expected: "Confirmed", Actual: "Pending"` — the customer status never claims a refund the original provider did not confirm. | Passed (`1/1`). |
+| `UnknownRefundKeepsReceiptBoundAcrossSwitchAndContention` | Replaced the delayed `Processed` simulator control on the held reservation with another `Timeout`. On the recovery read the simulator maps `Control = Timeout` to `ObservedRefundState.Pending` (`DevelopmentPaymentGateway.Refunds.cs`), so the original provider reports the refund as still pending (unconfirmed — not the P06-10 `Unknown` state, which only a `Mismatch`/rejected read produces) when confirmation is expected. | `Assert.Equal() Failure: Expected: "Confirmed", Actual: "Pending"` — the customer status never claims a refund the original provider did not confirm. | Passed (`1/1`). |
 
-Command (both controlled and restored runs):
+Commands (each used for both its controlled and restored runs):
 
 ```bash
 INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0614Tests.FinalSlotReceiptInvalidatesEarlierReductionSelection' --logger 'console;verbosity=normal'
+INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0614Tests.UnknownRefundKeepsReceiptBoundAcrossSwitchAndContention' --logger 'console;verbosity=normal'
 ```
 
 ## Composed Scenario Evidence (new)
@@ -55,7 +59,7 @@ INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --fi
 2. North's billing-owner request → shop-owner grant/accept → signed consent receipt → `coverage_slot_assignments.state = Applied`, exactly one assignment, three `payment_fulfilment_shops` rows on the one term, North `paidThrough = 2028-02-29T04:30Z` (shared end; no new fee or term).
 3. The stale preview with the two originally valid retained shops (Central, East) is refused: `409 Billing.CapacityReductionSourceChanged`; zero `scheduled_capacity_reductions`, unchanged `checkout_orders` count.
 4. Exact redelivery of North's signed consent receipt answers `204` and changes nothing (one assignment, three links, one term).
-5. A fresh preview names all three shops (`sourceShopCount = 3`, `minimumShopsToRemove = 1`, every `retained = null`); the owner explicitly retains East + North. The reduction order is accepted and fully paid once through simulator A (`Funded`).
+5. A fresh preview names all three shops (`sourceShopCount = 3`, `minimumShopsToRemove = 1`, every `retained = null`); the owner explicitly retains East + North. The reduction order is accepted and fully paid once through the default local simulator (`P0302Fixture.SimulatorSettings`, profile `local-simulator`) (`Funded`).
 6. At `2028-02-29T04:30Z − 1µs` the schedule stays `Funded`; at exactly `2028-02-29T04:30Z` it moves to **`NeedsReview / SourceChanged`** — see known gap **G1**. No successor term, no `applied_shop_reductions`, no shop `Expired`, one `verified_payments` row and zero `payment_fulfilments` for the reduction order, one finance `payment-reviews` case classified `SourceChanged` for that order.
 7. Every `shop_memberships` row of the four shops and of the payer is byte-for-byte identical before and after (including the Staff member in omitted Central); the payer holds no membership in East/North/South.
 
@@ -70,8 +74,8 @@ INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --fi
 | Switch | owner selects profile `b` (revision 1) | new attempts would pin B; nothing in flight moves. |
 | Previews | α on `5,000`, β (second operator, own session) on `4,000` | both show `occupied = 4,500`, `remaining = 7,500`. |
 | Contention | `HoldReceiptAsync` (`lock_refund_receipt`) + PostgreSQL `pg_blocking_pids` wait | exactly one `201`, one `409`; loser's refreshed preview `409 Refund.AmountExceedsRemaining` (either contender may win). |
-| Recovery | simulator control `Processed`, clock +1 min, two pumps | held reservation: one send, one original-provider read, `refund_work = Confirmed`, one `refund_applications` `Applied`; customer status `Confirmed`; operator recovery `GET …/approvals/operations/{key}` returns the same `reservationId`. |
-| Pins | SQL on `refund_attempts`, `development_gateway_refunds` | attempt pinned to `simulator-a` / `Development` / `a/1`; one A refund of `4,500`; zero B refunds and zero B-pinned attempts. |
+| Recovery | simulator control `Processed`, clock +1 min, drain (exactly two claims: held read + winner send) then one post-settlement idempotency pump | idempotency pump claims nothing and adds no `refund_sends`, `refund_observations`, `refund_bindings`, `refund_applications` or simulator refund rows; held reservation: one send, exactly one `refund_observations` row `Confirmed`/`OriginalProviderRead`, one `refund_bindings` row pinned to `development-simulator`/`simulator-a`, `refund_work = Confirmed`, one `refund_applications` `Applied`; customer status `Confirmed`; operator recovery `GET …/approvals/operations/{key}` returns the same `reservationId`. |
+| Pins | SQL on `refund_attempts`, `development_gateway_refunds` | attempt pinned to `development-simulator` / `simulator-a` / `Development` / `a/1`; one A refund of `4,500`; zero B refunds and zero B-pinned attempts. |
 | Cap | SQL distinct reservations + refreshed preview | occupied = `4,500 + winner`, each reservation counted once across held/confirmed, ≤ `12,000`; one paisa above the exact remainder refused; service `paidThrough` unchanged (`Preserve`). |
 
 ### 3. Financial history stays with the payer through cutover — stories 6, 7, 8, 10, 11

@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using Intelibill.Licensing.Application.Payments;
+using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0609Tests;
 
@@ -37,8 +39,8 @@ public sealed partial class P0614Tests
             new { outcome = "Processed" });
         Assert.Equal(HttpStatusCode.OK, processed.StatusCode);
         fixture.At(Instant.AddMinutes(1));
-        await P0610Tests.PumpRefundsAsync(fixture);
-        await P0610Tests.PumpRefundsAsync(fixture);
+        Assert.Equal(2, await DrainRefundsAsync(fixture));
+        await AssertSettledPumpIsIdempotentAsync(fixture, held);
 
         var recovered = await ReadAsync(await alpha.SendAsync(HttpMethod.Get,
             $"{RequestPath(package.Account, first)}/approvals/operations/{key:D}"), HttpStatusCode.OK);
@@ -120,10 +122,16 @@ public sealed partial class P0614Tests
         var only = $"reservation_id = '{reservation:D}'";
         Assert.Equal(1L, await fixture.CountAsync("refund_sends", only));
         Assert.Equal(1L, await fixture.CountAsync("refund_attempts", $"""
-            {only} AND provider_account_id = '{P0310Tests.A.ProviderAccountId}' AND environment = '{P0310Tests.A.Environment}'
+            {only} AND provider_id = '{P0310Tests.A.ProviderId}' AND provider_account_id = '{P0310Tests.A.ProviderAccountId}'
+                AND environment = '{P0310Tests.A.Environment}'
                 AND configuration_version = '{P0310Tests.A.ConfigurationVersion}'
             """));
         Assert.Equal(1L, await fixture.CountAsync("refund_work", $"{only} AND state = 'Confirmed'"));
+        Assert.Equal(1L, await fixture.CountAsync("refund_observations",
+            $"{only} AND outcome = 'Confirmed' AND reason = 'OriginalProviderRead'"));
+        Assert.Equal(1L, await fixture.CountAsync("refund_bindings", $"""
+            {only} AND provider_id = '{P0310Tests.A.ProviderId}' AND provider_account_id = '{P0310Tests.A.ProviderAccountId}'
+            """));
         Assert.Equal(1L, await fixture.CountAsync("refund_applications a", $"""
             disposition = 'Applied' AND EXISTS (SELECT FROM public.refund_attempts t
                 WHERE t.decision_id = a.decision_id AND t.{only})
@@ -134,6 +142,39 @@ public sealed partial class P0614Tests
             $"provider_account_id = '{P0310Tests.B.ProviderAccountId}'"));
         Assert.Equal(1L, await fixture.CountAsync("development_gateway_refunds",
             $"provider_account_id = '{P0310Tests.A.ProviderAccountId}' AND amount_paise = {Held}"));
+    }
+
+    /// <summary>Claims due refund work until none remains (held read + winner send), bounded against a runaway loop.</summary>
+    private static async Task<int> DrainRefundsAsync(P0308Fixture fixture)
+    {
+        var claimed = 0;
+        while (claimed < 8 && await RunOneRefundAsync(fixture)) claimed++;
+        return claimed;
+    }
+
+    /// <summary>A pump after both due items settled claims nothing and adds no send, read, binding or application.</summary>
+    private static async Task AssertSettledPumpIsIdempotentAsync(P0308Fixture fixture, Guid held)
+    {
+        string[] tables = ["refund_sends", "refund_observations", "refund_bindings", "refund_applications",
+            "development_gateway_refunds"];
+        var before = await CountAllAsync(fixture, tables);
+        Assert.False(await RunOneRefundAsync(fixture), "Settled refund work was claimed again.");
+        Assert.Equal(before, await CountAllAsync(fixture, tables));
+        Assert.Equal(1L, await fixture.CountAsync("refund_observations",
+            $"reservation_id = '{held:D}' AND reason = 'OriginalProviderRead'"));
+    }
+
+    private static async Task<long[]> CountAllAsync(P0308Fixture fixture, string[] tables)
+    {
+        var counts = new long[tables.Length];
+        for (var i = 0; i < tables.Length; i++) counts[i] = await fixture.CountAsync(tables[i]);
+        return counts;
+    }
+
+    private static async Task<bool> RunOneRefundAsync(P0308Fixture fixture)
+    {
+        await using var scope = fixture.Hosts.Licensing.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<IRefundReconciliation>().RunOneAsync(default);
     }
 
     private static async Task<JsonElement> CustomerRefundAsync(Package package, Guid request) =>
