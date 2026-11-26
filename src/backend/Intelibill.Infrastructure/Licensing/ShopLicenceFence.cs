@@ -97,7 +97,8 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
     private async Task ApplyExceptionCutoffAsync(ShopLicenseState shop, Guid termId, CancellationToken ct)
     {
         var cutoff = await db.Database.SqlQuery<DateTimeOffset?>($"""
-            SELECT min(cutoff_at) AS "Value" FROM public.merchant_coverage_exception_cutoffs
+            SELECT least(public.transfer_source_cutoff({shop.ShopId},{shop.AffiliationRequestId}),min(cutoff_at)) AS "Value"
+            FROM public.merchant_coverage_exception_cutoffs
             WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
                 AND affiliation_request_id = {shop.AffiliationRequestId} AND term_id = {termId}
             """).SingleAsync(ct);

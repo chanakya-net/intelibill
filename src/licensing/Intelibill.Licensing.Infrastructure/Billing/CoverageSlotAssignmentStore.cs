@@ -45,7 +45,7 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
             SELECT {id},a.account_id,{term},{source.OrderId},a.shop_id,a.shop_name,a.request_id,{actor},m.revision,
                 {command.OperationKey},{source.Capacity},{source.Members},{source.CancellationRevision},
                 {source.EndsAt},{now},least({source.EndsAt},{now.AddDays(7)}),'AwaitingConsent'
-            FROM public.shop_affiliations a JOIN public.billing_account_members m USING(account_id)
+            FROM public.current_shop_affiliations a JOIN public.billing_account_members m USING(account_id)
             WHERE a.account_id={account} AND a.shop_id={command.ShopId} AND m.merchant_user_id={actor} AND m.status=1
             ON CONFLICT DO NOTHING
             """, ct);
@@ -61,7 +61,7 @@ internal sealed class CoverageSlotAssignmentStore(LicensingDbContext db,
         var source = await SourceAsync(account, term, now, ct);
         if (source is null) return Missing;
         var shops = await db.Database.SqlQuery<SlotShopV1>($"""
-            SELECT shop_id,shop_name FROM public.shop_affiliations a WHERE account_id={account}
+            SELECT shop_id,shop_name FROM public.current_shop_affiliations a WHERE account_id={account}
                 AND public.slot_shop_eligible({account},shop_id,{now},{source.AccessEndsAt})
                 AND NOT EXISTS(SELECT FROM public.coverage_slot_assignments r
                     CROSS JOIN LATERAL public.slot_assignment_status(r.account_id,r.assignment_id,{now}) st

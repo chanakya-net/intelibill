@@ -63,13 +63,13 @@ internal sealed partial class CoverageTransferStore
         string? destinationName)
     {
         var consents = Purposes.Select(purpose => Status(purpose, rows)).ToArray();
-        var collected = p.Blocker is null && consents.All(c => c.Status == Accepted);
-        var state = p.Blocker switch
+        var collected = (p.Blocker is null || p.ApprovalState is not null) && consents.All(c => c.Status == Accepted);
+        var state = p.ApprovalState ?? (p.Blocker switch
         {
             null => collected ? ConsentsCollected : AwaitingConsents,
             "Expired" => Expired,
             _ => Retired,
-        };
+        });
         // The destination is named to the other parties only once its own live owner has accepted.
         destinationName ??= Current(DestinationBillingOwner, rows) is { Kind: Accepted, Current: true } accepted
             ? accepted.AccountName : null;
@@ -77,7 +77,7 @@ internal sealed partial class CoverageTransferStore
         return new(p.TransferId, p.ProposalRevision, p.TermsDigest, p.SourceAccountId, p.SourceAccountName,
             p.DestinationAccountId, destinationName, p.ShopId, p.ShopName, p.Treatment, p.CutoverAt, p.SourcePaidThroughAt,
             p.ObservedPermitCount, p.ObservedPermitDeadline, true, p.CreatedAt, p.ExpiresAt, state,
-            p.Blocker is null or "Expired" ? null : p.Blocker, consents, collected, collected, purposes, viewer?.Revision);
+            p.ApprovalState is not null || p.Blocker is null or "Expired" ? null : p.Blocker, consents, collected, collected && p.ApprovalState is null, purposes, viewer?.Revision);
     }
 
     /// <summary>The latest decision of a purpose. A revocation always wins its generation, whatever order rows arrived in.</summary>
@@ -100,7 +100,8 @@ internal sealed partial class CoverageTransferStore
                 p.destination_account_id, p.source_term_id, p.shop_id, p.shop_name, p.source_affiliation_id, p.treatment,
                 p.cutover_at, p.source_paid_through_at, p.observed_permit_count, p.observed_permit_deadline,
                 p.created_at, p.expires_at, public.coverage_transfer_blocker(p.transfer_id, {now},
-                    {merchant?.EvaluatedAt}::timestamptz, {merchant?.PermitDigest}::text) AS blocker
+                    {merchant?.EvaluatedAt}::timestamptz, {merchant?.PermitDigest}::text) AS blocker,
+                public.coverage_transfer_participant_state(p.transfer_id) AS approval_state
             FROM public.coverage_transfer_proposals p WHERE p.transfer_id = {transfer}
             """).SingleOrDefaultAsync(ct);
 
@@ -117,7 +118,7 @@ internal sealed partial class CoverageTransferStore
         string SourceAccountName, Guid DestinationAccountId, Guid SourceTermId, Guid ShopId, string ShopName,
         Guid SourceAffiliationId, string Treatment, DateTimeOffset? CutoverAt, DateTimeOffset SourcePaidThroughAt,
         int ObservedPermitCount, DateTimeOffset? ObservedPermitDeadline, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt,
-        string? Blocker);
+        string? Blocker, string? ApprovalState);
 
     private sealed record ConsentRow(Guid EventId, string Purpose, int Generation, string Kind, Guid AccountId,
         string? AccountName, Guid ActorId, Guid MemberId, long AuthorityRevision, Guid? OperationKey, string? RequestHash,

@@ -1,0 +1,62 @@
+<main>
+  <header class="adm-page-head">
+    <a routerLink="/">Provider Console</a>
+    <h1 class="ib-page-title">Review coverage transfers</h1>
+  </header>
+  @if (!allowed()) {
+    <p role="alert">Licensing Manager access is required.</p>
+  } @else {
+    <section class="ib-panel">
+      <h2>Transfer requests</h2>
+      @for (item of items(); track item.transferId) {
+        <a [routerLink]="['/accounts', account(), 'coverage-transfers']" [queryParams]="{transfer: item.transferId}">
+          {{ item.shopName }} → {{ item.destinationAccountId }}
+        </a>
+      } @empty { @if (!busy()) { <p>No transfers for this account.</p> } }
+    </section>
+    @if (review(); as p) {
+      <section class="ib-panel" data-testid="transfer-allocation">
+        <h2>{{ p.shopName }}</h2>
+        <p>{{ p.sourceAccountName }} ({{ p.sourceAccountId }}) → {{ p.destinationAccountName ?? p.destinationAccountId }} ({{ p.destinationAccountId }})</p>
+        <h3>Original account periods</h3>
+        @for (term of p.sourceTerms; track term.termId) {
+          <p>{{ instant(term.startsAt) }} → {{ instant(term.paidThroughAt) }}</p>
+        }
+        <h3>Independent destination periods</h3>
+        @for (term of p.destinationTerms; track term.termId) {
+          <p>{{ instant(term.startsAt) }} → {{ instant(term.paidThroughAt) }}</p>
+        } @empty { <p>No existing period.</p> }
+        <h3>Agreed remaining access</h3>
+        @if (p.treatment === 'ReviewedAllocation') {
+          <p>Carry one funded slot for {{ p.shopName }} from {{ instant(p.cutoverAt) }} until {{ instant(p.sourcePaidThroughAt) }}. Member limit {{ p.memberAllowance }}.</p>
+        } @else {
+          <p>Transfer at {{ instant(p.cutoverAt) }}, when the original paid period ends. The destination receives no remaining paid time.</p>
+        }
+        <p>Historical bills and payment confirmations stay with {{ p.sourceAccountName }}.</p>
+        <p>Known permits {{ p.observedPermitCount }} @if (p.observedPermitDeadline) { · Latest expiry {{ instant(p.observedPermitDeadline) }} }. Disconnected queues are unknown.</p>
+        <ul>@for (c of p.consents; track c.purpose) { <li>{{ label(c.purpose) }} · {{ label(c.status) }}</li> }</ul>
+        @if (p.approvalState || receipt(); as saved) {
+          <p role="status" data-testid="transfer-outcome">{{ label(receipt()?.state ?? p.approvalState) }} {{ label(receipt()?.outcomeReason) }}</p>
+        } @else if (p.blocker) { <p role="status">Review required · {{ label(p.blocker) }}</p> }
+        @if (!pending() && !p.approvalState && !receipt() && !p.blocker) {
+          <label class="adm-field">Approval reason
+            <textarea #input maxlength="500" [value]="reason()" (input)="reason.set(input.value)"></textarea>
+          </label>
+          <label><input #check type="checkbox" [checked]="confirmed()" (change)="confirmed.set(check.checked)" />
+            I confirm the allocation, permit limits, unknown queues and original-account document ownership.</label>
+          <button pButton type="button" [disabled]="!canApprove()" (click)="submit('approve')">Approve transfer</button>
+        }
+      </section>
+    }
+    @if (!review() && receipt(); as recovered) {
+      <p role="status" data-testid="transfer-outcome">{{ label(recovered.state) }} {{ label(recovered.outcomeReason) }}</p>
+    }
+    @if (pending(); as intent) {
+      <section class="ib-panel"><p>Saved approval · {{ intent.operationKey }}</p>
+        <button pButton type="button" [disabled]="busy()" (click)="submit('lookup')">Check saved decision</button>
+        <button pButton type="button" [disabled]="busy()" (click)="submit('retry')">Retry same decision</button>
+      </section>
+    }
+    @if (error()) { <p role="alert">{{ error() }}</p> }
+  }
+</main>

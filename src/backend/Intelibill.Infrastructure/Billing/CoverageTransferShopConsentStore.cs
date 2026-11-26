@@ -53,6 +53,7 @@ internal sealed class CoverageTransferShopConsentStore(
             return replay.TransferId != t.TransferId || replay.RequestHash != hash ? MerchantBillingErrors.PayloadMismatch
                 : replay.Matches(owner) ? View(t, own, status, owner) : AuthorityChanged;
 
+        if (t.State is "PendingActivation" or "Applied" or "NeedsReview") return Changed;
         if (decision.ExpectedProposalRevision != t.ProposalRevision || decision.ExpectedTermsDigest != t.TermsDigest ||
             decision.ExpectedAuthorityRevision != owner.Version)
             return Changed;
@@ -104,7 +105,7 @@ internal sealed class CoverageTransferShopConsentStore(
     // The shop must still be bound to the source account by the exact affiliation the proposal froze.
     private Task<bool> BoundAsync(CoverageTransferV1 t, Guid affiliation, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.shop_affiliation_consent_events a
+            SELECT EXISTS (SELECT FROM public.merchant_entitlement_bindings a
                 LEFT JOIN public.shop_affiliation_delivery_receipts r ON r.event_id = a.id
                 LEFT JOIN public.shop_license_states s ON s.shop_id = a.shop_id
                 WHERE a.shop_id = {t.ShopId} AND a.account_id = {t.SourceAccountId} AND a.request_id = {affiliation}

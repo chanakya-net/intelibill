@@ -427,10 +427,13 @@ route	PUT api/suppliers/{supplierId:guid}	OperationalCapacity	M04	protected/requ
 route	PUT api/users/me	Authentication	M01	protected/request
 route	PUT api/users/{targetUserId:guid}	OperationalCapacity	M04	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents/{versionId:guid}/content	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfers	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/operations/{key:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers/operations/{key:guid}	Billing	M01/M13	protected/request
+route	POST /internal/licensing/v1/coverage-transfers/apply	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/coverage-transfers/check-shop-authority	InternalService	internal	anonymous/request
 route	POST api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent/{decision}	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/{decision}	Billing	M01/M13	protected/request

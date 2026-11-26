@@ -15,7 +15,7 @@ internal sealed partial class CheckoutOrderStore
                 AND effective_at={boundary} AND public.replacement_term_available({account},{term})
                 AND public.replacement_owner_current({account},replacement_id)
                 AND public.slot_shop_eligible({account},incoming_shop_id,{now},'infinity')
-                AND EXISTS(SELECT FROM public.shop_affiliations a WHERE a.account_id=r.account_id AND a.shop_id=r.incoming_shop_id
+                AND EXISTS(SELECT FROM public.current_shop_affiliations a WHERE a.account_id=r.account_id AND a.shop_id=r.incoming_shop_id
                     AND a.request_id=r.incoming_affiliation_id)
             """).SingleOrDefaultAsync(ct);
         if (candidate is null) return null;

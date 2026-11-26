@@ -13,6 +13,9 @@ public static class SubscriptionStatusProjection
 {
     public static SubscriptionAccessFacts ToFacts(TermFactsRow row)
     {
+        if (row.TransferAllocationId == row.TermId && row.Basis == "Paid" && row.PricePaise is null &&
+            row.HandoffEndsAt == row.EndsAt && row.StartsAt < row.EndsAt && row.MemberAllowance > 0)
+            return new(row.StartsAt, row.EndsAt, TermEvidenceState.Complete, SubscriptionBasis.Paid, HandoffEndsAt: row.EndsAt);
         if (row.Cancellation is { } change && (row.Basis != nameof(SubscriptionBasis.Paid)
             || change.EffectiveAt != row.EndsAt || change.PolicyVersion != SubscriptionCancellationsV1.Policy
             || change.ChangeId == Guid.Empty || !ValidRevision(change) || change.ShopCount <= 0 || change.ShopCount > row.Capacity
@@ -98,7 +101,7 @@ public static class SubscriptionStatusProjection
             complete ? row.Trial?.MemberCap ?? row.Complimentary?.MemberAllowance ?? row.MemberAllowance : null,
             row.Trial?.ComputationVersion ?? row.Complimentary?.PolicyVersion ?? row.SourceReference,
             row.Trial?.DevelopmentFixture ?? row.DevelopmentFixture == true,
-            commercial && row.Basis is not null && row.Trial is null && row.Complimentary is null
+            commercial && row.TransferAllocationId is null && row.Basis is not null && row.Trial is null && row.Complimentary is null
                 ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null,
             complete && ActiveCancellation(row) is { } saved
                 ? new(saved.ChangeId, saved.Version, saved.EffectiveAt, saved.PolicyVersion) : null);

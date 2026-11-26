@@ -35,7 +35,7 @@ internal sealed partial class SuspensionStore(LicensingDbContext db, Entitlement
     public async Task<IReadOnlyList<SuspensionShop>> ReadShopsAsync(Guid account, Guid? shop, CancellationToken ct) =>
         await db.Database.SqlQuery<SuspensionShop>($"""
             SELECT a.shop_id, a.shop_name, a.request_id AS affiliation_id, t.mode AS coverage_mode
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             LEFT JOIN public.subscription_coverage_terms t USING (account_id, term_id)
             WHERE a.account_id = {account} AND ({shop}::uuid IS NULL OR a.shop_id = {shop})
             ORDER BY a.shop_id
@@ -106,7 +106,7 @@ internal sealed partial class SuspensionStore(LicensingDbContext db, Entitlement
                     WHEN 'NeedsReview' THEN 'NeedsReview' WHEN 'DeadLetter' THEN 'NeedsReview'
                     ELSE 'Pending' END AS status
             FROM public.operational_restrictions r
-            JOIN public.shop_affiliations a ON a.account_id = r.account_id
+            JOIN public.current_shop_affiliations a ON a.account_id = r.account_id
                 AND (r.shop_id IS NULL OR r.shop_id = a.shop_id)
             LEFT JOIN public.operational_restriction_releases released ON released.restriction_id = r.id
             LEFT JOIN public.operational_restriction_deliveries d ON d.restriction_id = r.id AND d.shop_id = a.shop_id

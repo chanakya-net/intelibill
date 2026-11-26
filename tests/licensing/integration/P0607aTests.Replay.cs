@@ -28,7 +28,10 @@ public sealed partial class P0607aTests
         // Two different fresh keys race for the named shop: one proposal wins, the other gets a typed conflict.
         var keys = new[] { Guid.NewGuid(), Guid.NewGuid() };
         var raced = await Task.WhenAll(keys.Select(key => s.Source.Payer.Client.PostAsJsonAsync(path, RequestBody(preview, key))));
-        var winner = keys[Array.FindIndex(raced, r => r.StatusCode == HttpStatusCode.OK)];
+        var winningIndex = Array.FindIndex(raced, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.True(winningIndex >= 0, string.Join(" | ", await Task.WhenAll(raced.Select(async response =>
+            $"{(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}"))));
+        var winner = keys[winningIndex];
         var loser = raced.Single(r => r.StatusCode != HttpStatusCode.OK);
         Assert.Equal(HttpStatusCode.Conflict, loser.StatusCode);
         Assert.Equal("Coverage.TransferConflict", await CodeAsync(loser));

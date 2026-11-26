@@ -12,7 +12,7 @@ internal sealed partial class ClosureStore
         db.Database.SqlQuery<ShopClosureStatus>($"""
             SELECT closed.closed_at, reopening.reopened_at, reopening.shop_revision AS reopening_revision
             FROM (VALUES (1)) AS singleton(id)
-            LEFT JOIN public.shop_affiliations a ON a.account_id = {account} AND a.shop_id = {shop}
+            LEFT JOIN public.current_shop_affiliations a ON a.account_id = {account} AND a.shop_id = {shop}
             LEFT JOIN LATERAL (
                 SELECT min(c.recorded_at) AS closed_at FROM public.active_operational_closure_targets t
                 JOIN public.operational_closures c ON c.id = t.closure_id AND c.account_id = t.account_id

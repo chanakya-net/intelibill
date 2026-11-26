@@ -178,7 +178,7 @@ public sealed partial class P0606Tests
             confirmed,
         }, await P0206Fixture.ProofAsync(manager));
 
-    private static async Task AddActiveMembersAsync(LicensingPostgreSqlFixture db, Guid shopId, int count)
+    internal static async Task AddActiveMembersAsync(LicensingPostgreSqlFixture db, Guid shopId, int count)
     {
         var merchant = db.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase);
         for (var i = 0; i < count; i++)

@@ -224,7 +224,8 @@ public sealed partial class P0402LicensingTests
                 EXECUTE format('ALTER TABLE %s OWNER TO p0402_schema_owner', policy.relation);
             END LOOP;
         END $$;
-        GRANT SELECT ON public.shop_affiliation_consent_events TO p0402_schema_owner;
+        GRANT SELECT ON public.shop_affiliation_consent_events, public.merchant_transfer_decisions TO p0402_schema_owner;
+        ALTER FUNCTION public.original_licence_proof_issuance(uuid) OWNER TO p0402_schema_owner;
         ALTER FUNCTION public.merchant_licence_proof_issuance(uuid) OWNER TO p0402_schema_owner;
         """;
 

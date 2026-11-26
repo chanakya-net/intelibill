@@ -101,6 +101,7 @@ public sealed class Program
         app.MapAdminSubscriptionStatus();
         app.MapComplimentaryGrants();
         app.MapAdminCoverageReplacementExceptions();
+        app.MapAdminCoverageTransfers();
         app.MapTrialExtensions();
         app.MapSuspensions();
         app.MapReopenings();

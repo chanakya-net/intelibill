@@ -217,6 +217,9 @@
         <a class="adm-action-card__link" [routerLink]="['/accounts', account, 'coverage-exceptions']" data-testid="provider-coverage-exceptions-link">
           Review early coverage-replacement exceptions
         </a>
+        <a class="adm-action-card__link" [routerLink]="['/accounts', account, 'coverage-transfers']">
+          Review inter-account coverage transfers
+        </a>
       </section>
       <adm-complimentary-grant [accountId]="account" (granted)="reload()" />
       <adm-trial-extension [accountId]="account" [trials]="trialShops()" (extended)="reload()" />

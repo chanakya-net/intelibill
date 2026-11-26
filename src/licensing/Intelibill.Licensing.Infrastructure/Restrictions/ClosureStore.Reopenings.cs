@@ -22,7 +22,7 @@ internal sealed partial class ClosureStore
                 ) AS other_active_closures
             FROM public.operational_closure_targets t
             JOIN public.operational_closures c ON c.id = t.closure_id AND c.account_id = t.account_id
-            JOIN public.shop_affiliations a ON a.account_id = t.account_id AND a.shop_id = t.shop_id
+            JOIN public.current_shop_affiliations a ON a.account_id = t.account_id AND a.shop_id = t.shop_id
                 AND a.request_id = t.affiliation_request_id
             WHERE t.account_id = {account} AND t.closure_id = {closure} AND t.shop_id = {shop}
             """).SingleOrDefaultAsync(ct);

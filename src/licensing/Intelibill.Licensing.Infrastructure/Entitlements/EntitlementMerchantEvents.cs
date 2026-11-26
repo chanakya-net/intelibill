@@ -17,13 +17,15 @@ public sealed class EntitlementMerchantEvents
     private readonly CoverageExceptionAcknowledgements coverageExceptions;
     private readonly CapacityReservationAcknowledgements increases;
     private readonly ReductionReservationAcknowledgements reductions;
+    private readonly CoverageTransferAcknowledgements applications;
     private readonly CoverageTransferStore transfers;
 
     internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher,
         CapacityReservationAcknowledgements increases, ReductionReservationAcknowledgements reductions, CoverageSlotConsentAcknowledgements slots,
         ReplacementConsentAcknowledgements replacements, CoverageExceptionAcknowledgements coverageExceptions,
-        CoverageTransferStore transfers)
+        CoverageTransferStore transfers, CoverageTransferAcknowledgements applications)
     {
+        this.applications = applications;
         this.transfers = transfers;
         this.slots = slots;
         this.replacements = replacements;
@@ -34,6 +36,12 @@ public sealed class EntitlementMerchantEvents
         this.clock = clock;
         this.publisher = publisher;
     }
+
+    public Task<ErrorOr<Success>> TransferReceiptAsync(TransferReceiptV1 r, byte[] body, VerifiedServiceAssertion proof, CancellationToken ct) =>
+        !r.IsValid()
+            ? Task.FromResult<ErrorOr<Success>>(Error.Validation("Coverage.TransferReceiptInvalid"))
+            : InEventAsync(r.SourceAccountId,r.EventId,CoverageTransferApprovalsV1.Receipt,body,proof,
+                token => applications.ReceiveAsync(r,token),ct,r.DestinationAccountId);
 
     /// <summary>The named shop owner's transfer decision: evidence only, under the source account lock.</summary>
     public Task<ErrorOr<Success>> CoverageTransferConsentAsync(CoverageTransferShopConsentV1 c, byte[] body,
@@ -137,7 +145,7 @@ public sealed class EntitlementMerchantEvents
     }
 
     /// <summary>
-    /// Retains one device observation. Its account, shop and affiliation must be the shop's current binding;
+    /// Retains one device observation. Its account, shop and affiliation must match the binding at observation time;
     /// a permit is kept once, so a second event naming the same permit conflicts and stores nothing.
     /// </summary>
     public Task<ErrorOr<Success>> ObserveDeviceAsync(OfflineDeviceObservationV1 seen, byte[] body, VerifiedServiceAssertion proof,
@@ -159,17 +167,23 @@ public sealed class EntitlementMerchantEvents
             SELECT {seen.EventId}, a.account_id, a.shop_id, a.request_id, {seen.DeviceRef}, {seen.Observation}, {seen.ObservedAt},
                 {permit?.PermitId}::uuid, {permit?.NotBefore}::timestamptz, {permit?.ValidUntil}::timestamptz, {permit?.Limit}::text,
                 {permit?.AccountRevision}::bigint, {permit?.ShopRevision}::bigint, {permit?.AuthorityVerifiedAt}::timestamptz
-            FROM public.shop_affiliations a
+            FROM (
+                SELECT account_id, shop_id, request_id FROM public.current_shop_affiliations
+                UNION ALL
+                SELECT source_account_id, shop_id, predecessor_id FROM public.coverage_transfer_bindings
+                WHERE cutover_at > {seen.ObservedAt}
+            ) a
             WHERE a.account_id = {seen.AccountId} AND a.shop_id = {seen.ShopId} AND a.request_id = {seen.AffiliationRequestId}
             ON CONFLICT (permit_id) DO NOTHING
             """, ct) == 1;
     }
 
     private async Task<ErrorOr<Success>> InEventAsync(Guid account, Guid id, string kind, byte[] body, VerifiedServiceAssertion proof,
-        Func<CancellationToken, Task<bool>> apply, CancellationToken ct)
+        Func<CancellationToken, Task<bool>> apply, CancellationToken ct, Guid? counterparty = null)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await EnterAccountAsync(db, account, ct);
+        if (counterparty is { } other) await CoverageTransferAcknowledgements.EnterPairAsync(db,account,other,ct);
+        else await EnterAccountAsync(db, account, ct);
         if (!await ConsumeAsync(proof, ct))
             return Error.Unauthorized("Entitlement.Replayed");
 
@@ -213,7 +227,7 @@ public sealed class EntitlementMerchantEvents
     private async Task<bool> SaveReconciliationAsync(EntitlementReconciliationV1 request, CancellationToken ct)
     {
         var matches = await db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.shop_affiliations WHERE account_id = {request.AccountId}
+            SELECT EXISTS (SELECT FROM public.current_shop_affiliations WHERE account_id = {request.AccountId}
                 AND shop_id = {request.ShopId} AND request_id = {request.AffiliationRequestId}) AS "Value"
             """).SingleAsync(ct);
         return matches && await publisher.PublishAsync(request.AccountId, request.ShopId, reconcile: true, ct);

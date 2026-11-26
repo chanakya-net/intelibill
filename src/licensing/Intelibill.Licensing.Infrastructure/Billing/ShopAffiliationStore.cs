@@ -111,13 +111,18 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
             r.shop_id AS shop_id, r.term_id AS term_id, CASE WHEN adj.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode,
             coalesce(adj.capacity,t.capacity) AS capacity,
             t.starts_at AS starts_at, coalesce(a.coverage_ends_at, r.reviewed_refund_paid_through, t.ends_at) AS ends_at, r.expires_at AS expires_at, r.created_at AS created_at,
-            COALESCE(i.status, 'AwaitingConsent') AS status,
-            a.shop_name AS shop_name, a.owner_name AS owner_name, a.applied_at AS applied_at
+            CASE WHEN moved.transfer_id IS NOT NULL THEN 'Transferred'
+                WHEN received.transfer_id IS NOT NULL THEN CASE public.coverage_transfer_participant_state(received.transfer_id)
+                    WHEN 'Applied' THEN 'Applied' WHEN 'NeedsReview' THEN 'NeedsReview' ELSE 'Accepted' END
+                ELSE COALESCE(i.status, 'AwaitingConsent') END AS status,
+            coalesce(a.shop_name,received.shop_name) AS shop_name, a.owner_name AS owner_name, coalesce(a.applied_at,received.cutover_at) AS applied_at
         FROM public.shop_affiliation_requests r
         LEFT JOIN public.subscription_coverage_terms t ON r.term_id = t.term_id
         LEFT JOIN LATERAL (SELECT capacity FROM public.capacity_increases WHERE account_id=t.account_id AND term_id=t.term_id
             AND state='Applied' ORDER BY target_revision DESC LIMIT 1) adj ON true
         LEFT JOIN public.shop_affiliations a ON r.request_id = a.request_id
+        LEFT JOIN public.coverage_transfer_bindings moved ON moved.predecessor_id = r.request_id AND moved.source_account_id=r.account_id
+        LEFT JOIN public.coverage_transfer_bindings received ON received.transfer_id = r.request_id AND received.destination_account_id=r.account_id
         LEFT JOIN public.shop_affiliation_inbox i ON r.request_id = i.request_id
         WHERE r.account_id = {account}
         """);

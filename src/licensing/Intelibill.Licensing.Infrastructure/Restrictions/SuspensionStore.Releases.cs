@@ -71,7 +71,7 @@ internal sealed partial class SuspensionStore
                     ELSE 'Pending' END AS status
             FROM public.operational_restriction_releases l
             JOIN public.operational_restrictions r ON r.id = l.restriction_id
-            JOIN public.shop_affiliations a ON a.account_id = l.account_id AND (r.shop_id IS NULL OR r.shop_id = a.shop_id)
+            JOIN public.current_shop_affiliations a ON a.account_id = l.account_id AND (r.shop_id IS NULL OR r.shop_id = a.shop_id)
             LEFT JOIN public.operational_restriction_release_deliveries d ON d.release_id = l.id AND d.shop_id = a.shop_id
             LEFT JOIN public.entitlement_snapshots original ON original.event_id = d.event_id
             LEFT JOIN LATERAL (

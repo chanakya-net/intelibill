@@ -23,7 +23,7 @@ internal sealed partial class ClosureStore
         db.Database.SqlQuery<DateTimeOffset?>($"""
             SELECT min(c.recorded_at) AS "Value" FROM public.operational_closures c
             JOIN public.active_operational_closure_targets t ON t.closure_id = c.id AND t.account_id = c.account_id
-            JOIN public.shop_affiliations a ON a.account_id = t.account_id AND a.shop_id = t.shop_id
+            JOIN public.current_shop_affiliations a ON a.account_id = t.account_id AND a.shop_id = t.shop_id
                 AND a.request_id = t.affiliation_request_id
             WHERE c.account_id = {account} AND t.shop_id = {shop}
             """).SingleAsync(ct);
@@ -37,7 +37,7 @@ internal sealed partial class ClosureStore
                     WHERE receipt.account_id = a.account_id AND receipt.shop_id = a.shop_id
                         AND receipt.affiliation_request_id = a.request_id
                         AND receipt.closure_revision = opening.revision) AS reopening_acknowledged
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             LEFT JOIN LATERAL (
                 SELECT max(s.shop_revision) AS revision FROM public.operational_closure_reopenings r
                 JOIN public.entitlement_snapshots s ON s.event_id = r.event_id
