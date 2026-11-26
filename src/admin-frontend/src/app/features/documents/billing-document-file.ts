@@ -1,4 +1,5 @@
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
+export const MAX_REASON_LENGTH = 400;
 export const PDF_MEDIA_TYPE = 'application/pdf';
 export const ACCOUNTING_INVOICE = 'AccountingInvoice';
 const fileName = /^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,114}\.[Pp][Dd][Ff](?![\s\S])/;
@@ -16,10 +17,38 @@ export interface InvoiceMetadata {
 }
 
 export interface InvoiceIntent {
+  readonly mode?: 'upload' | 'supersede';
   readonly operationKey: string;
   readonly metadata: InvoiceMetadata;
   readonly previewDigest: string;
   readonly bytes: ArrayBuffer;
+  readonly supersedesVersionId?: string;
+  readonly supersedesVersion?: number;
+  readonly supersedesReference?: string;
+  readonly reason?: string;
+}
+
+export function isSupersedeIntent(intent: InvoiceIntent): boolean {
+  return intent.mode === 'supersede' || Boolean(intent.supersedesVersionId);
+}
+
+export function buildUploadIntent(metadata: InvoiceMetadata, previewDigest: string, bytes: ArrayBuffer): InvoiceIntent {
+  return { mode: 'upload', operationKey: crypto.randomUUID(), metadata, previewDigest, bytes };
+}
+
+export function buildSupersedeIntent(
+  metadata: InvoiceMetadata,
+  previewDigest: string,
+  bytes: ArrayBuffer,
+  supersedesVersionId: string,
+  supersedesVersion: number,
+  supersedesReference: string,
+  reason: string,
+): InvoiceIntent {
+  return {
+    mode: 'supersede', operationKey: crypto.randomUUID(), metadata, previewDigest, bytes,
+    supersedesVersionId, supersedesVersion, supersedesReference, reason,
+  };
 }
 
 export async function prepareInvoice(file: File | null, form: HTMLFormElement) {
@@ -45,6 +74,13 @@ export async function prepareInvoice(file: File | null, form: HTMLFormElement) {
     byteLength: bytes.byteLength, sha256, issuerName, issuerReference, issuedOn,
   };
   return { bytes, metadata };
+}
+
+export async function prepareCorrection(file: File | null, form: HTMLFormElement) {
+  const reason = issuerField(new FormData(form).get('reason'), MAX_REASON_LENGTH);
+  if (!reason) throw new InvoiceInputError('Enter a correction reason (1 to 400 characters).');
+  const prepared = await prepareInvoice(file, form);
+  return { ...prepared, reason };
 }
 
 function issuerField(value: FormDataEntryValue | null, max: number): string {

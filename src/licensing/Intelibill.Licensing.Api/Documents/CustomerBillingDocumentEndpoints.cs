@@ -14,6 +14,7 @@ internal static class CustomerBillingDocumentEndpoints
         var group = app.MapGroup(MerchantBillingDelegationV1.AccountsPath + "/{account:guid}/orders/{order:guid}/billing-documents")
             .RequireAuthorization(policy);
         group.MapGet("", ListAsync);
+        group.MapGet("/before/{beforeVersion:int}", ListBeforeAsync);
         group.MapGet("/{version:guid}/content", ContentAsync);
     }
 
@@ -24,6 +25,16 @@ internal static class CustomerBillingDocumentEndpoints
             BillingDocumentsV1.ListPath(account, order));
         if (proof is null) return Invalid(context);
         var result = await handler.ListAsync(proof, account, order, ct);
+        return result.IsError ? CustomerBillingEndpoints.Failure(context, result.FirstError) : Results.Ok(result.Value);
+    }
+
+    private static async Task<IResult> ListBeforeAsync(HttpContext context, Guid account, Guid order, int beforeVersion,
+        ReadBillingDocumentHandler handler, CancellationToken ct)
+    {
+        var proof = CustomerSubscriptionStatusEndpoints.ReadProof(context, account, BillingDocumentsV1.List,
+            BillingDocumentsV1.ListBeforePath(account, order, beforeVersion));
+        if (proof is null) return Invalid(context);
+        var result = await handler.ListAsync(proof, account, order, ct, beforeVersion);
         return result.IsError ? CustomerBillingEndpoints.Failure(context, result.FirstError) : Results.Ok(result.Value);
     }
 

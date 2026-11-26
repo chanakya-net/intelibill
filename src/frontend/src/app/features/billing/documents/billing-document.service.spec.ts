@@ -9,6 +9,7 @@ import {
   BILLING_DOCUMENT_FILENAME_PREFIX,
   BILLING_DOCUMENT_FILENAME_SUFFIX,
   BILLING_DOCUMENT_KIND,
+  BILLING_DOCUMENT_LIST_BEFORE_TEMPLATE,
   BILLING_DOCUMENT_MEDIA_TYPE,
   BILLING_DOCUMENT_PAGE_SIZE,
   BILLING_DOCUMENT_SCHEMA_VERSION,
@@ -86,8 +87,35 @@ describe('BillingDocumentService and contract', () => {
     expect(EARLIEST_ISSUE_DATE).toBe(contract.earliestIssueDate);
     expect(BILLING_DOCUMENT_FILENAME_PREFIX).toBe(contract.fileNamePrefix);
     expect(BILLING_DOCUMENT_FILENAME_SUFFIX).toBe(contract.fileNameSuffix);
+    expect(BILLING_DOCUMENT_LIST_BEFORE_TEMPLATE).toBe(contract.listBeforePathTemplate);
     expect(billingDocumentFileName(versionId)).toBe(`accounting-invoice-${versionId}.pdf`);
     expect(parseBillingDocumentList(contract.sample, contract.sample.accountId, contract.sample.orderId)).toHaveLength(1);
+  });
+
+  it('requests bounded older pages via /before/{beforeVersion} and rejects invalid cursors or order', async () => {
+    const v1 = sampleRow('a'.repeat(64));
+    const v2: BillingDocument = {
+      ...v1,
+      versionId: '00000000-0000-4000-8000-000000000005',
+      version: 2,
+      supersedesVersionId: versionId,
+      issuerReference: 'FIXTURE-INV-114-CORR-1',
+    };
+
+    const pending = service.list(scope, order, 2);
+    http
+      .expectOne(`${API_BASE_URL}/billing/accounts/${account}/orders/${order}/billing-documents/before/2`)
+      .flush({ schemaVersion: 1, accountId: account, orderId: order, documents: [v1] });
+    expect(await pending).toEqual([v1]);
+
+    await expect(service.list(scope, order, 1)).rejects.toThrow('Invalid billing document cursor');
+    await expect(service.list(scope, order, 0)).rejects.toThrow('Invalid billing document cursor');
+    expect(() =>
+      parseBillingDocumentList({ schemaVersion: 1, accountId: account, orderId: order, documents: [v1, v2] }, account, order),
+    ).toThrow();
+    expect(() =>
+      parseBillingDocumentList({ schemaVersion: 1, accountId: account, orderId: order, documents: [v2] }, account, order, 2),
+    ).toThrow();
   });
 
   it('validates listed metadata and rejects cross-account, bad hash, oversize and duplicate rows', () => {

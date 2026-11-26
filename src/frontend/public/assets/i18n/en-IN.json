@@ -4210,7 +4210,13 @@
       "reference": "Invoice reference",
       "issuedOn": "Issued on",
       "version": "Version",
-      "hash": "Document hash (SHA-256)"
+      "hash": "Document hash (SHA-256)",
+      "status": "Version status",
+      "current": "Current",
+      "historical": "Historical",
+      "supersedes": "Supersedes version",
+      "loadOlder": "Load older versions",
+      "refresh": "Refresh accounting invoices"
     }
   }
 }

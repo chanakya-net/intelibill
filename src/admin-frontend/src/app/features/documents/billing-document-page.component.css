@@ -1,0 +1,5 @@
+section, dd, code { overflow-wrap: anywhere; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 0.9rem; min-width: 0; }
+.adm-version-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.adm-version-badge { font-size: 0.8rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid currentColor; }
+@media (min-width: 40rem) { dl { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 0.35rem 1rem; } }

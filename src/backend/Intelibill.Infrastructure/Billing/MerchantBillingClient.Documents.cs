@@ -8,15 +8,23 @@ namespace Intelibill.Infrastructure.Billing;
 internal sealed partial class MerchantBillingClient : IMerchantBillingDocuments
 {
     public Task<ErrorOr<BillingDocumentListV1>> ListDocumentsAsync(MerchantBillingCaller caller, Guid account, Guid order,
-        CancellationToken ct) =>
-        RunAsync<BillingDocumentListV1>(caller, new(BillingDocumentsV1.List, HttpMethod.Get,
-            BillingDocumentsV1.ListPath(account, order), account, []), BillingDocumentsV1.MaxListBytes,
+        CancellationToken ct, int? beforeVersion = null)
+    {
+        if (beforeVersion is <= 1)
+            return Task.FromResult<ErrorOr<BillingDocumentListV1>>(
+                Error.Validation("BillingDocument.Invalid", "The version cursor must be greater than one."));
+        var path = beforeVersion is { } cursor
+            ? BillingDocumentsV1.ListBeforePath(account, order, cursor)
+            : BillingDocumentsV1.ListPath(account, order);
+        return RunAsync<BillingDocumentListV1>(caller, new(BillingDocumentsV1.List, HttpMethod.Get, path, account, []),
+            BillingDocumentsV1.MaxListBytes,
             async (response, token) =>
             {
                 var list = await ReadJsonAsync<BillingDocumentListV1>(response, token);
-                return BillingDocumentsV1.IsValidList(list, account, order)
+                return BillingDocumentsV1.IsValidList(list, account, order, beforeVersion)
                     ? list! : Unavailable("InvalidBillingDocumentList");
             }, ct);
+    }
 
     public Task<ErrorOr<MerchantBillingDocument>> DownloadDocumentAsync(MerchantBillingCaller caller, Guid account, Guid order,
         Guid version, CancellationToken ct) =>

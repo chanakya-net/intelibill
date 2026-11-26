@@ -428,6 +428,7 @@ route	PUT api/users/me	Authentication	M01	protected/request
 route	PUT api/users/{targetUserId:guid}	OperationalCapacity	M04	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents/before/{beforeVersion:int}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents/{versionId:guid}/content	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfers	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}	Billing	M01/M13	protected/request

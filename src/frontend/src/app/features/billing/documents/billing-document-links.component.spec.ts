@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -34,8 +35,8 @@ const row: BillingDocument = {
 afterEach(() => TestBed.resetTestingModule());
 
 function setup(
-  content: () => Promise<Blob>,
-  list: () => Promise<readonly BillingDocument[]> = async () => [row],
+  content: (scope: unknown, orderId: string, doc: BillingDocument) => Promise<Blob>,
+  list: (scope: unknown, orderId: string, beforeVersion?: number) => Promise<readonly BillingDocument[]> = async () => [row],
 ) {
   const scope = signal<{ userId: string; shopId: string } | null>({ userId: 'payer', shopId: 'shop' });
   const download = vi.fn();
@@ -66,6 +67,32 @@ function setup(
     fixture.detectChanges();
   };
   return { fixture, root, click, text, settle, scope, download, openPdf };
+}
+
+async function assertDeniedOperationClearsView(
+  initial: readonly BillingDocument[],
+  actionTestId: string,
+  content: (scope: unknown, orderId: string, doc: BillingDocument) => Promise<Blob>,
+  list: (scope: unknown, orderId: string, beforeVersion?: number) => Promise<readonly BillingDocument[]>,
+) {
+  const page = setup(content, list);
+  page.click('billing-documents-list');
+  await page.settle();
+  expect(page.root.querySelectorAll('[data-testid="billing-document-item"]')).toHaveLength(initial.length);
+  page.click(actionTestId);
+  await page.settle();
+  expect(page.download).not.toHaveBeenCalled();
+  expect(page.root.querySelectorAll('[data-testid="billing-document-item"]')).toHaveLength(0);
+  expect(page.root.querySelectorAll('[data-testid="billing-document-metadata"]')).toHaveLength(0);
+  expect(page.root.querySelectorAll('[data-testid="billing-document-download"]')).toHaveLength(0);
+  expect(page.root.querySelector('[data-testid="billing-documents-older"]')).toBeNull();
+  expect(page.root.querySelector('[data-testid="billing-documents-empty"]')).toBeNull();
+  for (const doc of initial) {
+    expect(page.root.textContent).not.toContain(doc.issuerReference);
+    expect(page.root.textContent).not.toContain(doc.sha256);
+  }
+  expect(page.text('billing-documents-error')).toBe(en.billing.denied);
+  TestBed.resetTestingModule();
 }
 
 describe('BillingDocumentLinksComponent', () => {
@@ -127,5 +154,107 @@ describe('BillingDocumentLinksComponent', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(page.download).not.toHaveBeenCalled();
+  });
+
+  it('labels only the head Current, earlier rows Historical, paginates older versions and ignores stale pages', async () => {
+    const v2Id = '00000000-0000-4000-8000-000000000005';
+    const v3Id = '00000000-0000-4000-8000-000000000006';
+    const v2: BillingDocument = { ...row, versionId: v2Id, version: 2, supersedesVersionId: versionId, issuerReference: 'INV-V2' };
+    const v3: BillingDocument = { ...row, versionId: v3Id, version: 3, supersedesVersionId: v2Id, issuerReference: 'INV-V3' };
+
+    const calls: (number | undefined)[] = [];
+    const list = vi.fn(async (_scope: unknown, _order: string, beforeVersion?: number) => {
+      calls.push(beforeVersion);
+      return beforeVersion === undefined ? [v3, v2] : [row];
+    });
+    const page = setup(async () => new Blob(['%PDF-1.7'], { type: 'application/octet-stream' }), list);
+
+    page.click('billing-documents-list');
+    await page.settle();
+
+    const statuses = () => [...page.root.querySelectorAll('[data-testid="billing-document-status"]')].map((n) => n.textContent?.trim());
+    const versions = () => [...page.root.querySelectorAll('[data-testid="billing-document-version"]')].map((n) => n.textContent?.trim());
+    expect(versions()).toEqual(['3', '2']);
+    expect(statuses()).toEqual([en.billing.documents.current, en.billing.documents.historical]);
+    expect(page.root.querySelector('[data-testid="billing-documents-older"]')).not.toBeNull();
+
+    page.click('billing-documents-older');
+    await page.settle();
+
+    expect(calls).toEqual([undefined, 2]);
+    expect(versions()).toEqual(['3', '2', '1']);
+    expect(statuses()).toEqual([
+      en.billing.documents.current,
+      en.billing.documents.historical,
+      en.billing.documents.historical,
+    ]);
+    expect(page.root.querySelector('[data-testid="billing-documents-older"]')).toBeNull();
+  });
+
+  it('drops an older-page response that finishes after scope changes', async () => {
+    const v2Id = '00000000-0000-4000-8000-000000000005';
+    const v3Id = '00000000-0000-4000-8000-000000000006';
+    const v2: BillingDocument = { ...row, versionId: v2Id, version: 2, supersedesVersionId: versionId, issuerReference: 'INV-V2' };
+    const v3: BillingDocument = { ...row, versionId: v3Id, version: 3, supersedesVersionId: v2Id, issuerReference: 'INV-V3' };
+
+    let resolveOlder!: (docs: readonly BillingDocument[]) => void;
+    const delayed = setup(
+      async () => new Blob(['%PDF-1.7'], { type: 'application/octet-stream' }),
+      (_scope, _order, beforeVersion) =>
+        beforeVersion === undefined ? Promise.resolve([v3, v2]) : new Promise((resolve) => { resolveOlder = resolve; }),
+    );
+    delayed.click('billing-documents-list');
+    await delayed.settle();
+    delayed.click('billing-documents-older');
+    delayed.scope.set({ userId: 'other-payer', shopId: 'other-shop' });
+    delayed.fixture.detectChanges();
+    resolveOlder([row]);
+    await delayed.settle();
+    expect(delayed.root.querySelectorAll('[data-testid="billing-document-item"]')).toHaveLength(0);
+  });
+
+  it('clears displayed metadata and actions on 403 account denial for continuation, refresh and download without scope change', async () => {
+    const v2: BillingDocument = { ...row, versionId: '00000000-0000-4000-8000-000000000005', version: 2, supersedesVersionId: versionId, issuerReference: 'INV-V2' };
+    const v3: BillingDocument = { ...row, versionId: '00000000-0000-4000-8000-000000000006', version: 3, supersedesVersionId: v2.versionId, issuerReference: 'INV-V3' };
+    const deniedJson = () => new HttpErrorResponse({ status: 403, error: { code: 'Billing.AccountAccessDenied' } });
+    const deniedBlob = () => new HttpErrorResponse({
+      status: 403,
+      error: new Blob([JSON.stringify({ code: 'Billing.AccountAccessDenied' })], { type: 'application/problem+json' }),
+    });
+
+    await assertDeniedOperationClearsView([v3, v2], 'billing-documents-older',
+      async () => new Blob(['%PDF-1.7']), async (_s, _o, before) => (before === undefined ? [v3, v2] : Promise.reject(deniedJson())));
+
+    let calls = 0;
+    await assertDeniedOperationClearsView([v3, v2], 'billing-documents-list',
+      async () => new Blob(['%PDF-1.7']), async () => (++calls === 1 ? [v3, v2] : Promise.reject(deniedJson())));
+
+    await assertDeniedOperationClearsView([v3, v2], 'billing-document-download',
+      async () => Promise.reject(deniedBlob()), async () => [v3, v2]);
+  });
+
+  it('ignores a delayed 403 account denial after scope changes', async () => {
+    const v2Id = '00000000-0000-4000-8000-000000000005';
+    const v3Id = '00000000-0000-4000-8000-000000000006';
+    const v2: BillingDocument = { ...row, versionId: v2Id, version: 2, supersedesVersionId: versionId, issuerReference: 'INV-V2' };
+    const v3: BillingDocument = { ...row, versionId: v3Id, version: 3, supersedesVersionId: v2Id, issuerReference: 'INV-V3' };
+
+    let rejectOlder!: (err: unknown) => void;
+    const page = setup(
+      async () => new Blob(['%PDF-1.7'], { type: 'application/octet-stream' }),
+      (_scope, _order, beforeVersion) =>
+        beforeVersion === undefined ? Promise.resolve([v3, v2]) : new Promise((_res, rej) => { rejectOlder = rej; }),
+    );
+    page.click('billing-documents-list');
+    await page.settle();
+    page.click('billing-documents-older');
+    page.scope.set({ userId: 'other-payer', shopId: 'other-shop' });
+    page.fixture.detectChanges();
+    page.click('billing-documents-list');
+    await page.settle();
+    rejectOlder(new HttpErrorResponse({ status: 403, error: { code: 'Billing.AccountAccessDenied' } }));
+    await page.settle();
+    expect(page.root.querySelectorAll('[data-testid="billing-document-item"]')).toHaveLength(2);
+    expect(page.text('billing-documents-error')).toBeNull();
   });
 });
