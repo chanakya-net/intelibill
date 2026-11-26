@@ -1,3 +1,4 @@
+import { BillingDocumentLinksComponent } from '../documents/billing-document-links.component';
 import { PaymentConfirmationLinksComponent } from '../payments/payment-confirmation-links.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
@@ -58,7 +59,7 @@ function draftAhead(state: PaymentDraftState | undefined, payment: CheckoutPayme
 
 @Component({
   selector: 'app-checkout-payment',
-  imports: [PaymentConfirmationLinksComponent, ButtonDirective, TranslocoPipe, DevelopmentSimulatorLauncherComponent, RazorpayLauncherComponent],
+  imports: [PaymentConfirmationLinksComponent, BillingDocumentLinksComponent, ButtonDirective, TranslocoPipe, DevelopmentSimulatorLauncherComponent, RazorpayLauncherComponent],
   templateUrl: './checkout-payment.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(window:storage)': 'onStorage($event)' },

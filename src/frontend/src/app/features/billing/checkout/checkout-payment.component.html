@@ -53,6 +53,7 @@
     }
     @if (status.manualPayment || status.payment === 'Verified') {
       <app-payment-confirmation-links [account]="quote().accountId" [order]="quote().orderId" />
+      <app-billing-document-links [account]="quote().accountId" [order]="quote().orderId" />
       @if (status.fulfilment === 'Pending') {
         @if (quote().reduction) {
           <p role="status" data-testid="reduction-pending">{{ 'billing.checkout.payment.reductionPending' | transloco }}</p>

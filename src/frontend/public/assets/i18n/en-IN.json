@@ -4191,6 +4191,19 @@
         "Revoked": "Consent withdrawn",
         "Stale": "Needs fresh consent (ownership changed)"
       }
+    },
+    "documents": {
+      "heading": "Accounting invoice",
+      "purpose": "Provider-issued accounting invoice, separate from your automatic payment confirmation.",
+      "view": "View accounting invoices",
+      "download": "Download accounting invoice (PDF)",
+      "empty": "No accounting invoice has been attached for this order yet.",
+      "error": "Could not load or verify the accounting invoice. Try again.",
+      "issuer": "Issuer",
+      "reference": "Invoice reference",
+      "issuedOn": "Issued on",
+      "version": "Version",
+      "hash": "Document hash (SHA-256)"
     }
   }
 }

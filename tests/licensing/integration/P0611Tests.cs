@@ -89,7 +89,7 @@ public sealed partial class P0611Tests(LicensingPostgreSqlFixture database) : IC
     internal static Task<P0302Fixture> StartAsync(LicensingPostgreSqlFixture database, bool browser = false) =>
         P0302Fixture.StartAsync(database, new P0201Clock { Now = Instant }, P0306Tests.Settings, browser: browser);
 
-    private static async Task<P0110CookieBrowser> SignInBillingAsync(P0302Fixture fixture)
+    internal static async Task<P0110CookieBrowser> SignInBillingAsync(P0302Fixture fixture)
     {
         using var owner = await fixture.Trial.Catalogue.SignInOwnerAsync();
         var seed = await EnrollAsync(fixture, owner, P0306Tests.BillingEmail, "billing");
@@ -140,7 +140,7 @@ public sealed partial class P0611Tests(LicensingPostgreSqlFixture database) : IC
     private static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode expected, string code) =>
         Assert.Equal(code, (await ReadAsync(response, expected)).GetProperty("code").GetString());
 
-    private static async Task<JsonElement> AttachAsync(P0110CookieBrowser billing, string path, byte[] bytes)
+    internal static async Task<JsonElement> AttachAsync(P0110CookieBrowser billing, string path, byte[] bytes)
     {
         var metadata = Metadata(bytes);
         var preview = await PreviewAsync(billing, path, metadata);

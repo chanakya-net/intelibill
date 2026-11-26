@@ -53,11 +53,16 @@ public sealed record BillingDocumentVersionView(Guid AccountId, Guid OrderId, Gu
 }
 
 public sealed record StoredBillingDocument(BillingDocumentVersionView View, string PayloadHash);
+public sealed record StoredBillingDocumentContent(BillingDocumentVersionView View, byte[] Content)
+{
+    public override string ToString() => "[REDACTED]";
+}
 public sealed record BillingDocumentUpload(BillingDocumentVersionView Document, bool Created);
 
 public interface IBillingDocumentStore
 {
     Task<BillingDocumentVersionView[]> ListAsync(Guid account, Guid order, CancellationToken ct);
+    Task<StoredBillingDocumentContent?> FindContentAsync(Guid account, Guid order, Guid version, CancellationToken ct);
     Task<StoredBillingDocument?> FindOperationAsync(Guid account, Guid key, CancellationToken ct);
     Task<int> CountConfirmationsAsync(Guid account, Guid order, CancellationToken ct);
     Task<bool> InsertAsync(StoredBillingDocument document, Guid session, byte[] content, CancellationToken ct);

@@ -32,6 +32,7 @@ internal static class CheckoutRegistration
         services.AddCapacityChangeQuotes();
         services.AddRefundRequests();
         services.AddScoped<IBillingDocumentStore, BillingDocumentStore>();
+        services.AddScoped<ReadBillingDocumentHandler>();
         services.AddScoped<BillingDocumentMetadataValidator>();
         services.AddScoped<UploadBillingDocumentValidator>();
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<UploadBillingDocumentHandler>(provider, CheckoutClock(provider)));

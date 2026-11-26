@@ -13,6 +13,18 @@ internal sealed class BillingDocumentStore(LicensingDbContext db) : IBillingDocu
         return rows.Select(row => row.ToView()).ToArray();
     }
 
+    public async Task<StoredBillingDocumentContent?> FindContentAsync(Guid account, Guid order, Guid version, CancellationToken ct)
+    {
+        var row = await db.Database.SqlQuery<DocumentContentRow>($"""
+            SELECT account_id, order_id, document_id, version_id, version_number AS version, supersedes_version_id,
+                kind, file_name, media_type, byte_length, content_sha256 AS sha256, issuer_name, issuer_reference, issued_on,
+                operation_key, admin_id AS uploaded_by, mfa_verified_at, uploaded_at, content
+            FROM public.billing_document_versions
+            WHERE account_id = {account} AND order_id = {order} AND version_id = {version}
+            """).SingleOrDefaultAsync(ct);
+        return row is null ? null : new(row.ToView(), row.Content);
+    }
+
     public async Task<StoredBillingDocument?> FindOperationAsync(Guid account, Guid key, CancellationToken ct)
     {
         var row = await Rows(account).SingleOrDefaultAsync(item => item.OperationKey == key, ct);
@@ -51,6 +63,16 @@ internal sealed class BillingDocumentStore(LicensingDbContext db) : IBillingDocu
         Guid? SupersedesVersionId, string Kind, string FileName, string MediaType, int ByteLength, string Sha256, string IssuerName,
         string IssuerReference, DateOnly IssuedOn, Guid OperationKey, Guid UploadedBy, DateTimeOffset MfaVerifiedAt,
         DateTimeOffset UploadedAt, string PayloadHash)
+    {
+        public BillingDocumentVersionView ToView() => new(AccountId, OrderId, DocumentId, VersionId, Version, SupersedesVersionId,
+            Kind, FileName, MediaType, ByteLength, Sha256, IssuerName, IssuerReference, IssuedOn, OperationKey, UploadedBy,
+            MfaVerifiedAt, UploadedAt);
+    }
+
+    private sealed record DocumentContentRow(Guid AccountId, Guid OrderId, Guid DocumentId, Guid VersionId, int Version,
+        Guid? SupersedesVersionId, string Kind, string FileName, string MediaType, int ByteLength, string Sha256, string IssuerName,
+        string IssuerReference, DateOnly IssuedOn, Guid OperationKey, Guid UploadedBy, DateTimeOffset MfaVerifiedAt,
+        DateTimeOffset UploadedAt, byte[] Content)
     {
         public BillingDocumentVersionView ToView() => new(AccountId, OrderId, DocumentId, VersionId, Version, SupersedesVersionId,
             Kind, FileName, MediaType, ByteLength, Sha256, IssuerName, IssuerReference, IssuedOn, OperationKey, UploadedBy,
