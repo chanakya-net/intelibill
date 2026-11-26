@@ -96,6 +96,9 @@
     }
     @case ('account') {
       @if (accountId(); as account) { <app-account-closure [account]="account" /> }
+      @if (accountId(); as account) {
+        <p><a [routerLink]="['/billing/accounts', account, 'transfers']" data-testid="transfer-list-open">{{ 'billing.coverageTransfer.incoming' | transloco }}</a></p>
+      }
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.evaluatedAt) } }}</p>
       @for (item of current.items; track item.status.termId) {
         <article class="ib-panel" data-testid="account-term">
@@ -109,6 +112,8 @@
                 data-testid="slot-open">{{ 'billing.slot.heading' | transloco }}</a>
               <a [routerLink]="['/billing/accounts', account, 'subscriptions', item.status.termId, 'replacements']"
                 data-testid="replacement-open">{{ 'billing.replacement.heading' | transloco }}</a>
+              <a [routerLink]="['/billing/accounts', account, 'subscriptions', item.status.termId, 'transfers']"
+                data-testid="transfer-open">{{ 'billing.coverageTransfer.open' | transloco }}</a>
               <app-capacity-reduction-preview [account]="account" [term]="item.status" (changed)="load()" />
             }
             @if (item.status.basis === 'Paid' || item.status.basis === 'Trial') {

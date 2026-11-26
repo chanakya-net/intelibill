@@ -39,6 +39,38 @@ internal static class EntitlementEndpoints
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(ShopClosuresV1.ValidationPath, ValidateClosureAsync).AllowAnonymous()
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+        endpoints.MapPost(CoverageTransfersV1.ShopAuthorityPath, CheckTransferAuthorityAsync).AllowAnonymous()
+            .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+    }
+
+    // P06-07a: licensing's signed review-time question about one named shop; the answer is signed back.
+    private static async Task<IResult> CheckTransferAuthorityAsync(HttpContext context, MerchantEntitlementTransport transport,
+        ICoverageTransferAuthorityReceiver receiver)
+    {
+        const string path = CoverageTransfersV1.ShopAuthorityPath;
+        var ct = context.RequestAborted;
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, CoverageTransfersV1.MaxRequestBytes) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof)
+            return Results.Unauthorized();
+        try
+        {
+            var input = JsonSerializer.Deserialize<CoverageTransferShopAuthorityCheckV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (input?.IsValid() != true) return Results.BadRequest();
+            var answer = await receiver.CheckAsync(input, proof, ct);
+            if (answer.IsError) return answer.FirstError.Type switch
+            {
+                ErrorType.Validation => Results.BadRequest(),
+                ErrorType.Unauthorized => Results.Unauthorized(),
+                _ => Results.StatusCode(503),
+            };
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(answer.Value, EntitlementSnapshotsV1.Json);
+            if (await transport.SignCoverageTransferAuthorityAsync(bytes, ct) is not { } signature) return Results.StatusCode(503);
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers[CoverageTransfersV1.ProofHeader] = signature;
+            return Results.Bytes(bytes, "application/json");
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
     }
 
     private static async Task<IResult> CapacityAsync(HttpContext context, MerchantEntitlementTransport transport,

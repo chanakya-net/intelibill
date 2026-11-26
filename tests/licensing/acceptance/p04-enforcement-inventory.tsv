@@ -426,6 +426,16 @@ route	PUT api/shops/{shopId:guid}/till-settings	OperationalCapacity	M04	protecte
 route	PUT api/suppliers/{supplierId:guid}	OperationalCapacity	M04	protected/request
 route	PUT api/users/me	Authentication	M01	protected/request
 route	PUT api/users/{targetUserId:guid}	OperationalCapacity	M04	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfers	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/operations/{key:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers/operations/{key:guid}	Billing	M01/M13	protected/request
+route	POST /internal/licensing/v1/coverage-transfers/check-shop-authority	InternalService	internal	anonymous/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers/preview	Billing	M01/M13	protected/request
 writer	Intelibill.Api.Internal.LicenceAuthorityNotifications	InternalService	internal	-
 writer	Intelibill.Api.Services.Realtime.RealtimeRevocationWorker	InternalService	internal	-
 writer	Intelibill.Api.Startup.ApplicationModelWarmupService	InternalService	internal	-

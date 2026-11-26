@@ -76,6 +76,18 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   shellRoute('billing/accounts/:accountId/members', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/transfers', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/accounts/:accountId/transfers', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+  })),
+  shellRoute('billing/transfer-consent/:accountId/:shopId/:transferId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    transferId: '00000000-0000-4000-8000-000000000004',
+  })),
   shellRoute('billing/accounts/:accountId/subscriptions/:termId/early-replacements', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
     termId: '00000000-0000-4000-8000-000000000002',
