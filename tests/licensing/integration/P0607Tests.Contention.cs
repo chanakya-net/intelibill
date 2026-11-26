@@ -1,4 +1,8 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0607aTests;
 
@@ -35,6 +39,92 @@ public sealed partial class P0607Tests
         await AssertStateAsync(manager, AdminPath(s, id), key, applyFirst ? "Applied" : "NeedsReview");
         Assert.Equal(applyFirst ? s.Destination.Account : s.Source.Account, await BindingAsync(s));
         Assert.Equal(applyFirst ? 1L : 0L, await s.F.CountAsync("coverage_transfer_bindings"));
+    }
+
+    [Theory]
+    [InlineData("authority-version")]
+    [InlineData("shop-owner-revoke")]
+    public async Task PostConsumeShopOwnerChangeOrRevokeNeverOrphansBinding(string mutation)
+    {
+        using var rsa = RSA.Create(2048);
+        await using var s = await StartAsync(database, rsa);
+        var id = await ConsentedAsync(s, s.Permit.ValidUntil);
+        var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("post-consume@example.test");
+        using var session = manager;
+        var key = await ApproveAsync(s, id, manager);
+        await DrainAsync(s);
+        await AssertStateAsync(manager, AdminPath(s, id), key, "Scheduled");
+
+        var delivery = s.F.Checkout.Delivery;
+        s.F.At(s.Permit.ValidUntil);
+        s.F.Hosts.Fixture.Clock.Now = s.Permit.ValidUntil;
+        delivery.Transport.LeaseClock.Now = s.Permit.ValidUntil.AddSeconds(1);
+        await delivery.ScanAsync(true);
+        await delivery.DrainAsync(true);
+        Assert.Equal(1L, await delivery.MerchantScalarAsync(
+            $"SELECT count(*) FROM merchant_transfer_decisions WHERE transfer_id='{id}' AND outcome='Consumed'"));
+
+        s.F.Hosts.Fixture.Clock.Now = s.Permit.ValidUntil.AddSeconds(1);
+        var revoke = await MutateAfterConsumeAsync(s, id, mutation);
+        await DrainAsync(s);
+        await DrainAsync(s);
+
+        var state = await OperationStateAsync(manager, AdminPath(s, id), key);
+        var bindings = await s.F.CountAsync("coverage_transfer_bindings");
+        var account = (Guid)(await BindingAsync(s))!;
+        var trading = await P0606Tests.FencedTradingAtAsync(s.F, s.North.ShopId, s.Permit.ValidUntil);
+        Assert.False(bindings == 1L && account == s.Source.Account,
+            $"Orphaned binding after post-consume {mutation}: state={state}, bindings={bindings}, account={account}, trading={trading}");
+        if (bindings == 1L)
+        {
+            Assert.Equal("Applied", state);
+            Assert.Equal(s.Destination.Account, account);
+            if (revoke is { } r)
+            {
+                Assert.Equal(HttpStatusCode.Conflict, r.Status);
+                Assert.Equal("Coverage.TransferChanged", r.Code);
+                Assert.Equal("PendingActivation", r.ShownState);
+            }
+        }
+        else
+        {
+            Assert.Equal("NeedsReview", state);
+            Assert.Equal(0L, bindings);
+            Assert.Equal(s.Source.Account, account);
+        }
+        Assert.Equal("Allowed", trading);
+    }
+
+    private static async Task<(HttpStatusCode Status, string? Code, string? ShownState)?> MutateAfterConsumeAsync(
+        Scenario s, Guid id, string mutation)
+    {
+        if (mutation == "authority-version")
+        {
+            await LicensingPostgreSqlFixture.ExecuteAsync(s.F.Checkout.Delivery.MerchantDb, $"""
+                UPDATE public.shop_memberships SET authority_version = authority_version + 1
+                WHERE shop_id = '{s.North.ShopId}' AND user_id = '{s.North.UserId}'
+                """);
+            return null;
+        }
+
+        using var owner = s.F.Hosts.Merchant.CreateClient();
+        owner.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            await P0201Tests.LoginAsync(owner, s.North.Email));
+        var path = ShopConsentPath(s.Source.Account, s.North.ShopId, id);
+        var shown = await owner.GetFromJsonAsync<JsonElement>(path);
+        var shownState = shown.GetProperty("state").GetString();
+        using var revoked = await DecideAsync(owner, path, "revoke", shown);
+        var code = revoked.StatusCode == HttpStatusCode.Conflict ? await CodeAsync(revoked) : null;
+        Assert.True(revoked.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict,
+            await revoked.Content.ReadAsStringAsync());
+        return (revoked.StatusCode, code, shownState);
+    }
+
+    private static async Task<string?> OperationStateAsync(P0110CookieBrowser manager, string path, Guid operation)
+    {
+        using var result = await manager.SendAsync(HttpMethod.Get, path + $"/operations/{operation}");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        return (await P0206Fixture.BodyAsync(result)).GetProperty("state").GetString();
     }
 
     private static async Task RaceFinalReceiptAsync(Scenario s, bool applyFirst)

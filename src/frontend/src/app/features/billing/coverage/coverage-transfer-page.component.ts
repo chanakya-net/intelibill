@@ -135,6 +135,10 @@ export class CoverageTransferPageComponent {
     return item.consents.find(c => c.purpose === purpose)?.status ?? 'AwaitingConsent';
   }
 
+  protected canDecide(state: string) {
+    return state === 'AwaitingConsents' || state === 'ConsentsCollected' || state === 'Preparing' || state === 'Scheduled';
+  }
+
   protected request() {
     const p = this.review();
     if (!p || !this.ready()) return;

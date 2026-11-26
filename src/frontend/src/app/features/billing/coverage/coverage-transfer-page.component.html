@@ -87,7 +87,7 @@
           }
         </ul>
         <p data-testid="transfer-progress">{{ 'billing.coverageTransfer.progress' | transloco: { accepted: accepted(item) } }}</p>
-        @if (item.state === 'AwaitingConsents' || item.state === 'ConsentsCollected' || ['Preparing','Scheduled','Consuming'].includes(item.state)) {
+        @if (canDecide(item.state)) {
           @for (purpose of item.viewerPurposes; track purpose) {
             @if (status(item, purpose) === 'Accepted') {
               <button type="button" [attr.data-testid]="'transfer-revoke-' + purpose" [disabled]="busy() || !!draft()"
@@ -120,7 +120,7 @@
         <p data-testid="transfer-owner-status" [attr.data-status]="o.consentStatus" [attr.data-delivery]="o.delivery">
           {{ 'billing.coverageTransfer.purpose.ShopOwner' | transloco }} · {{ 'billing.coverageTransfer.status.' + o.consentStatus | transloco }}
           @if (o.delivery === 'Pending') { · {{ 'billing.coverageTransfer.deliveryPending' | transloco }} }</p>
-        @if (o.state === 'AwaitingConsents' || o.state === 'ConsentsCollected' || ['Preparing','Scheduled','Consuming'].includes(o.state)) {
+        @if (canDecide(o.state)) {
           @if (o.consentStatus === 'Accepted') {
             <button type="button" data-testid="transfer-revoke-ShopOwner" [disabled]="busy() || !!draft()"
               (click)="decide('revoke', 'ShopOwner', o)">{{ 'billing.coverageTransfer.revoke' | transloco }}</button>

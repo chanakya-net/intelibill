@@ -42,18 +42,8 @@ public sealed partial class EntitlementProjectionStore
         var now = EntitlementSnapshotsV1.Instant(businessClock ?? clock);
         if (now < c.CutoverAt || next.StartsAt < c.CutoverAt || next.AccessEndsAt > c.PaidThroughAt ||
             next.MemberAllowance > c.MemberAllowance) return false;
-        // Serialize activation with a change to the exact owner epoch, including disabling their sign-in.
-        await db.Database.ExecuteSqlAsync($"SELECT id FROM public.users WHERE id={c.ShopOwner} FOR UPDATE", ct);
-        await db.Database.ExecuteSqlAsync($"SELECT id FROM public.shops WHERE id={c.ShopId} FOR UPDATE", ct);
-        await db.Database.ExecuteSqlAsync($"SELECT id FROM public.shop_memberships WHERE id={c.MembershipId} FOR UPDATE", ct);
-        await db.Database.ExecuteSqlAsync($"SELECT set_config('app.entitlement_account_id',{c.SourceAccountId.ToString("D")},true)", ct);
-        var ready = await db.Database.SqlQuery<bool>($"""
-            SELECT reason IS NULL AND permit_count=0 AND (SELECT count(*) FROM public.shop_memberships
-                WHERE shop_id={c.ShopId} AND status='Active')<={c.MemberAllowance} AS "Value"
-            FROM public.coverage_transfer_shop_inspect({c.SourceAccountId},{c.ShopId},{c.AffiliationId},{c.TransferId},{c.ShopConsent},
-                {c.ShopOwner},{c.MembershipId},{c.AuthorityRevision},{c.ProposalRevision},{c.TermsDigest},{now})
-            """).SingleOrDefaultAsync(ct);
-        await db.Database.ExecuteSqlAsync($"SELECT set_config('app.entitlement_account_id',{s.AccountId.ToString("D")},true)", ct);
-        return ready;
+        // Owner consent, owner epoch, permits and active members were verified under the same fence at Consume.
+        // Once licensing commits on that receipt, later local owner changes must not veto successor activation.
+        return true;
     }
 }
