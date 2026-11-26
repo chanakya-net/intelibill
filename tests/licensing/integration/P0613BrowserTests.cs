@@ -129,6 +129,9 @@ public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITest
         return start;
     }
 
+    private sealed record StoredDocumentRow(
+        int Version, Guid VersionId, Guid? Predecessor, string Hash, byte[] Bytes, string? Reason);
+
     private static async Task RecordDatabaseEvidenceAsync(Scenario s, P0607Tests.OriginalDocument doc, byte[] v1Pdf,
         byte[] v2Pdf, string evidence, string adminRoot, string merchantRoot, CancellationToken ct)
     {
@@ -137,31 +140,8 @@ public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.Equal(v1Pdf, await File.ReadAllBytesAsync(Path.Combine(evidence, "merchant-invoice-v1.pdf"), ct));
         Assert.Equal(v2Pdf, await File.ReadAllBytesAsync(Path.Combine(evidence, "merchant-invoice-v2.pdf"), ct));
 
-        var rows = new List<(int Version, Guid VersionId, Guid? Predecessor, string Hash, byte[] Bytes, string? Reason)>();
-        await using (var conn = new NpgsqlConnection(s.F.Hosts.LicensingOwner.ConnectionString))
-        {
-            await conn.OpenAsync(ct);
-            await using var cmd = new NpgsqlCommand("""
-                SELECT version_number, version_id, supersedes_version_id, content_sha256, content, supersession_reason
-                FROM public.billing_document_versions
-                WHERE account_id = $1 AND order_id = $2
-                ORDER BY version_number ASC
-                """, conn);
-            cmd.Parameters.AddWithValue(s.Source.Account);
-            cmd.Parameters.AddWithValue(doc.Order);
-            await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct))
-                rows.Add((r.GetInt32(0), r.GetGuid(1), r.IsDBNull(2) ? null : r.GetGuid(2), r.GetString(3),
-                    (byte[])r.GetValue(4), r.IsDBNull(5) ? null : r.GetString(5)));
-        }
-
-        Assert.Equal(2, rows.Count);
-        Assert.Equal((1, doc.Version, (Guid?)null, v1Hash, (string?)null),
-            (rows[0].Version, rows[0].VersionId, rows[0].Predecessor, rows[0].Hash, rows[0].Reason));
-        Assert.Equal(v1Pdf, rows[0].Bytes);
-        Assert.Equal((2, (Guid?)doc.Version, v2Hash), (rows[1].Version, rows[1].Predecessor, rows[1].Hash));
-        Assert.Equal(v2Pdf, rows[1].Bytes);
-        Assert.False(string.IsNullOrWhiteSpace(rows[1].Reason));
+        var rows = await ReadStoredDocumentRowsAsync(s.F.Hosts.LicensingOwner.ConnectionString, s.Source.Account, doc.Order, ct);
+        AssertStoredVersionsMatch(rows, doc.Version, v1Pdf, v1Hash, v2Pdf, v2Hash);
 
         var active = await s.F.Checkout.Delivery.MerchantScalarAsync(
             $"SELECT account_id FROM public.shop_license_states WHERE shop_id='{s.North.ShopId:D}'");
@@ -169,6 +149,49 @@ public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.Equal(1L, await s.F.CountAsync("payment_confirmations",
             $"account_id = '{s.Source.Account:D}' AND order_id = '{doc.Order:D}'"));
 
+        await WriteBrowserPostgresEvidenceAsync(s.Source.Account, active!, doc.Order, rows, v1Pdf.Length, v1Hash,
+            v2Pdf.Length, v2Hash, evidence, adminRoot, merchantRoot, ct);
+    }
+
+    private static async Task<List<StoredDocumentRow>> ReadStoredDocumentRowsAsync(
+        string connectionString, Guid accountId, Guid orderId, CancellationToken ct)
+    {
+        var rows = new List<StoredDocumentRow>();
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand("""
+            SELECT version_number, version_id, supersedes_version_id, content_sha256, content, supersession_reason
+            FROM public.billing_document_versions
+            WHERE account_id = $1 AND order_id = $2
+            ORDER BY version_number ASC
+            """, conn);
+        cmd.Parameters.AddWithValue(accountId);
+        cmd.Parameters.AddWithValue(orderId);
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct))
+        {
+            rows.Add(new(r.GetInt32(0), r.GetGuid(1), r.IsDBNull(2) ? null : r.GetGuid(2),
+                r.GetString(3), (byte[])r.GetValue(4), r.IsDBNull(5) ? null : r.GetString(5)));
+        }
+        return rows;
+    }
+
+    private static void AssertStoredVersionsMatch(List<StoredDocumentRow> rows, Guid v1VersionId,
+        byte[] v1Pdf, string v1Hash, byte[] v2Pdf, string v2Hash)
+    {
+        Assert.Equal(2, rows.Count);
+        Assert.Equal((1, v1VersionId, (Guid?)null, v1Hash, (string?)null),
+            (rows[0].Version, rows[0].VersionId, rows[0].Predecessor, rows[0].Hash, rows[0].Reason));
+        Assert.Equal(v1Pdf, rows[0].Bytes);
+        Assert.Equal((2, (Guid?)v1VersionId, v2Hash), (rows[1].Version, rows[1].Predecessor, rows[1].Hash));
+        Assert.Equal(v2Pdf, rows[1].Bytes);
+        Assert.False(string.IsNullOrWhiteSpace(rows[1].Reason));
+    }
+
+    private static async Task WriteBrowserPostgresEvidenceAsync(Guid sourceAccount, object activeAccount, Guid orderId,
+        List<StoredDocumentRow> rows, int v1Length, string v1Hash, int v2Length, string v2Hash,
+        string evidence, string adminRoot, string merchantRoot, CancellationToken ct)
+    {
         using var ngsw = JsonDocument.Parse(await File.ReadAllTextAsync(
             Path.Combine(merchantRoot, "dist/INVENTORY/browser/ngsw.json"), ct));
         var merchantBuildId = ngsw.RootElement.GetProperty("appData").GetProperty("buildId").GetString();
@@ -180,13 +203,13 @@ public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITest
         await File.WriteAllTextAsync(Path.Combine(evidence, "browser-postgres.json"), JsonSerializer.Serialize(new
         {
             boundary = "Shipping admin and merchant web builds, real merchant and licensing APIs, real PostgreSQL, development simulator payment and local PDF fixtures only. No live provider verification.",
-            sourceAccount = s.Source.Account,
-            destinationAccount = active,
-            orderId = doc.Order,
+            sourceAccount,
+            destinationAccount = activeAccount,
+            orderId,
             documentVersions = rows.Count,
             paymentConfirmations = 1,
-            v1 = new { versionId = rows[0].VersionId, sha256 = v1Hash, byteLength = v1Pdf.Length, bytesMatch = true },
-            v2 = new { versionId = rows[1].VersionId, supersedesVersionId = rows[1].Predecessor, sha256 = v2Hash, byteLength = v2Pdf.Length, bytesMatch = true },
+            v1 = new { versionId = rows[0].VersionId, sha256 = v1Hash, byteLength = v1Length, bytesMatch = true },
+            v2 = new { versionId = rows[1].VersionId, supersedesVersionId = rows[1].Predecessor, sha256 = v2Hash, byteLength = v2Length, bytesMatch = true },
             adminIndexSha256,
             merchantBuildId,
             merchantIndexSha256,

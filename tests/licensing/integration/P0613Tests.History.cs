@@ -24,13 +24,58 @@ public sealed partial class P0613Tests
         var adminPath = P0611Tests.Path(purchase.Quote);
         var customerPath = P0612Tests.DocumentsPath(purchase.Quote);
 
-        // Create 26 versions at equal timestamps so ordering must rely on version_number, not uploaded_at.
+        var versions = await IssueEqualTimestampVersionsAsync(billing, adminPath, 26);
+        await AssertPaginationAcrossMidAppendAsync(purchase, billing, adminPath, customerPath, versions);
+        await AssertPagedDownloadsAndInvalidCursorsAsync(purchase, emptyOrder, billing, adminPath, customerPath, versions);
+    }
+
+    [Fact]
+    public async Task AppliedCoverageTransferKeepsCorrectionHistoryWithOriginalPayer()
+    {
+        using var rsa = RSA.Create(2048);
+        await using var s = await StartAsync(database, rsa);
+        var doc = await P0607Tests.AttachOriginalAsync(s);
+        var adminPath = $"/api/admin/accounts/{s.Source.Account:D}/orders/{doc.Order:D}/billing-documents";
+        var confirmationBefore = await s.Source.Payer.Client.GetStringAsync(doc.Confirmation);
+        var confirmationBytesBefore = await s.Source.Payer.Client.GetByteArrayAsync(doc.ConfirmationContent);
+
+        var manager = await P0209Fixture.SignInAsync(s.F.Hosts, ShopRole.Owner);
+        var memberId = await P0204Tests.InviteManagerAsync(s.Source.Payer.Client, s.Source.Account, manager.Client, manager.Email);
+        var (financeSeed, transferManagerSeed) = await EnrollTransferOperatorsAsync(s);
+
+        var pdf1 = P0611Tests.Pdf();
+        var pdf2 = DistinctPdf("Pre-transfer correction v2");
+        var v2Id = await SupersedeAsFinanceAsync(s, financeSeed, adminPath, doc.Version, pdf2, "pre-transfer-v2.pdf",
+            SecondIssuer, SecondReference, SecondReason);
+
+        using (var transferManager = await s.F.Checkout.Trial.Catalogue.SignInOperatorAsync(
+            transferManagerSeed, "p0613.transfer.manager@example.test"))
+            await P0607Tests.ApplyTransferAsync(s, transferManager);
+        var moved = await s.F.Checkout.Delivery.MerchantScalarAsync(
+            $"SELECT account_id FROM public.shop_license_states WHERE shop_id='{s.North.ShopId:D}'");
+        Assert.Equal(s.Destination.Account, moved);
+
+        var pdf3 = DistinctPdf("Post-transfer correction v3");
+        var v3Id = await SupersedeAsFinanceAsync(s, financeSeed, adminPath, v2Id, pdf3, "post-transfer-v3.pdf",
+            ThirdIssuer, ThirdReference, ThirdReason);
+
+        var expected = new[] { (v3Id, 3, pdf3), (v2Id, 2, pdf2), (doc.Version, 1, pdf1) };
+        await AssertSourceMembersReadAllVersionsAsync(doc, s.Source.Payer.Client, manager.Client, expected);
+        await AssertRevokedAndDestinationDeniedAsync(s, doc, manager.Client, memberId, v2Id, v3Id);
+
+        Assert.Equal(confirmationBefore, await s.Source.Payer.Client.GetStringAsync(doc.Confirmation));
+        Assert.Equal(confirmationBytesBefore, await s.Source.Payer.Client.GetByteArrayAsync(doc.ConfirmationContent));
+    }
+
+    private static async Task<List<(int Version, Guid VersionId, byte[] Bytes)>> IssueEqualTimestampVersionsAsync(
+        P0110CookieBrowser billing, string adminPath, int count)
+    {
         var versions = new List<(int Version, Guid VersionId, byte[] Bytes)>();
         var pdf1 = DistinctPdf("Paged version 1");
         var v1 = await P0611Tests.AttachAsync(billing, adminPath, pdf1);
         versions.Add((1, v1.GetProperty("versionId").GetGuid(), pdf1));
 
-        for (var version = 2; version <= 26; version++)
+        for (var version = 2; version <= count; version++)
         {
             var pdf = DistinctPdf($"Paged version {version}");
             var meta = SupersedeMetadata(pdf, $"paged-v{version}.pdf", "Paged Issuer", $"PAGE-REF-{version:D2}",
@@ -40,8 +85,13 @@ public sealed partial class P0613Tests
             var saved = await SupersedeAsync(billing, adminPath, prev, meta, Digest(preview), pdf);
             versions.Add((version, saved.GetProperty("versionId").GetGuid(), pdf));
         }
+        return versions;
+    }
 
-        // First page returns versions 26..2 (25 rows) in strict descending version order.
+    private static async Task AssertPaginationAcrossMidAppendAsync(
+        P0302Fixture.Purchase purchase, P0110CookieBrowser billing, string adminPath, string customerPath,
+        List<(int Version, Guid VersionId, byte[] Bytes)> versions)
+    {
         var page1 = await ReadCustomerPageAsync(purchase.Payer.Client, customerPath);
         Assert.Equal(25, page1.Length);
         Assert.Equal(Enumerable.Range(2, 25).Reverse().ToArray(), page1.Select(r => r.GetProperty("version").GetInt32()).ToArray());
@@ -65,7 +115,6 @@ public sealed partial class P0613Tests
         Assert.Equal(versions[0].VersionId, oldest.GetProperty("versionId").GetGuid());
         Assert.Equal(JsonValueKind.Null, oldest.GetProperty("supersedesVersionId").ValueKind);
 
-        // Admin continuation matches and exposes finance-only reason on versions > 1.
         using (var adminPage2 = await billing.SendAsync(HttpMethod.Get, $"{adminPath}/before/2"))
         {
             var adminOldest = Assert.Single((await ReadAsync(adminPage2, HttpStatusCode.OK))
@@ -73,12 +122,15 @@ public sealed partial class P0613Tests
             Assert.Equal(1, adminOldest.GetProperty("version").GetInt32());
         }
 
-        // Refreshing page 1 now surfaces v27 as head (27..3).
         var refreshed = await ReadCustomerPageAsync(purchase.Payer.Client, customerPath);
         Assert.Equal(27, refreshed[0].GetProperty("version").GetInt32());
         Assert.Equal(3, refreshed[^1].GetProperty("version").GetInt32());
+    }
 
-        // Download oldest v1 and newest v27 and verify exact bytes and hashes.
+    private static async Task AssertPagedDownloadsAndInvalidCursorsAsync(
+        P0302Fixture.Purchase purchase, P0302Fixture.Purchase emptyOrder, P0110CookieBrowser billing,
+        string adminPath, string customerPath, List<(int Version, Guid VersionId, byte[] Bytes)> versions)
+    {
         foreach (var target in new[] { versions[0], versions[^1] })
         {
             using var download = await purchase.Payer.Client.GetAsync($"{customerPath}/{target.VersionId:D}/content");
@@ -87,7 +139,6 @@ public sealed partial class P0613Tests
             Assert.Equal(target.Bytes, await download.Content.ReadAsByteArrayAsync());
         }
 
-        // Invalid cursors (<= 1), empty order and foreign account refusals.
         foreach (var invalid in new[] { 1, 0, -3 })
         {
             using var badMember = await purchase.Payer.Client.GetAsync($"{customerPath}/before/{invalid}");
@@ -102,65 +153,28 @@ public sealed partial class P0613Tests
             Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
     }
 
-    [Fact]
-    public async Task AppliedCoverageTransferKeepsCorrectionHistoryWithOriginalPayer()
+    private static async Task<(string FinanceSeed, string TransferManagerSeed)> EnrollTransferOperatorsAsync(Scenario s)
     {
-        using var rsa = RSA.Create(2048);
-        await using var s = await StartAsync(database, rsa);
-        var doc = await P0607Tests.AttachOriginalAsync(s);
-        var adminPath = $"/api/admin/accounts/{s.Source.Account:D}/orders/{doc.Order:D}/billing-documents";
-        var confirmationBefore = await s.Source.Payer.Client.GetStringAsync(doc.Confirmation);
-        var confirmationBytesBefore = await s.Source.Payer.Client.GetByteArrayAsync(doc.ConfirmationContent);
+        using var owner = await s.F.Checkout.Trial.Catalogue.SignInOwnerAsync();
+        var financeSeed = await P0611Tests.EnrollAsync(s.F.Checkout, owner, "p0613.finance@example.test", "billing");
+        var managerSeed = await P0611Tests.EnrollAsync(s.F.Checkout, owner, "p0613.transfer.manager@example.test", "licensing-manager");
+        return (financeSeed, managerSeed);
+    }
 
-        // Invite a billing manager on the source account before transfer.
-        var manager = await P0209Fixture.SignInAsync(s.F.Hosts, ShopRole.Owner);
-        var memberId = await P0204Tests.InviteManagerAsync(s.Source.Payer.Client, s.Source.Account, manager.Client, manager.Email);
+    private static async Task<Guid> SupersedeAsFinanceAsync(Scenario s, string financeSeed, string adminPath,
+        Guid predecessorId, byte[] pdf, string fileName, string issuer, string reference, string reason)
+    {
+        using var finance = await s.F.Checkout.Trial.Catalogue.SignInOperatorAsync(financeSeed, "p0613.finance@example.test");
+        var meta = SupersedeMetadata(pdf, fileName, issuer, reference, P0611Tests.IssueDate, reason);
+        var saved = await SupersedeAsync(finance, adminPath, predecessorId, meta,
+            Digest(await PreviewSupersedeAsync(finance, adminPath, predecessorId, meta)), pdf);
+        return saved.GetProperty("versionId").GetGuid();
+    }
 
-        // Enroll one billing operator and one licensing manager under a single owner sign-in.
-        const string financeEmail = "p0613.finance@example.test";
-        const string transferManagerEmail = "p0613.transfer.manager@example.test";
-        string financeSeed, transferManagerSeed;
-        using (var owner = await s.F.Checkout.Trial.Catalogue.SignInOwnerAsync())
-        {
-            financeSeed = await P0611Tests.EnrollAsync(s.F.Checkout, owner, financeEmail, "billing");
-            transferManagerSeed = await P0611Tests.EnrollAsync(s.F.Checkout, owner, transferManagerEmail, "licensing-manager");
-        }
-
-        // Append v2 before transfer.
-        var pdf1 = P0611Tests.Pdf();
-        var pdf2 = DistinctPdf("Pre-transfer correction v2");
-        Guid v2Id;
-        using (var finance1 = await s.F.Checkout.Trial.Catalogue.SignInOperatorAsync(financeSeed, financeEmail))
-        {
-            var meta2 = SupersedeMetadata(pdf2, "pre-transfer-v2.pdf", SecondIssuer, SecondReference,
-                P0611Tests.IssueDate, SecondReason);
-            var v2 = await SupersedeAsync(finance1, adminPath, doc.Version, meta2,
-                Digest(await PreviewSupersedeAsync(finance1, adminPath, doc.Version, meta2)), pdf2);
-            v2Id = v2.GetProperty("versionId").GetGuid();
-        }
-
-        // Complete consent, approval, drain and cutover -> Applied; shop affiliation moves to Destination.
-        using (var transferManager = await s.F.Checkout.Trial.Catalogue.SignInOperatorAsync(transferManagerSeed, transferManagerEmail))
-            await P0607Tests.ApplyTransferAsync(s, transferManager);
-        var moved = await s.F.Checkout.Delivery.MerchantScalarAsync(
-            $"SELECT account_id FROM public.shop_license_states WHERE shop_id='{s.North.ShopId:D}'");
-        Assert.Equal(s.Destination.Account, moved);
-
-        // Append v3 against the original account/order after transfer cutover with fresh finance authority.
-        var pdf3 = DistinctPdf("Post-transfer correction v3");
-        Guid v3Id;
-        using (var finance2 = await s.F.Checkout.Trial.Catalogue.SignInOperatorAsync(financeSeed, financeEmail))
-        {
-            var meta3 = SupersedeMetadata(pdf3, "post-transfer-v3.pdf", ThirdIssuer, ThirdReference,
-                P0611Tests.IssueDate, ThirdReason);
-            var v3 = await SupersedeAsync(finance2, adminPath, v2Id, meta3,
-                Digest(await PreviewSupersedeAsync(finance2, adminPath, v2Id, meta3)), pdf3);
-            v3Id = v3.GetProperty("versionId").GetGuid();
-        }
-
-        // Source owner and source manager can list, paginate and download v1, v2 and v3 with exact bytes.
-        var expected = new[] { (v3Id, 3, pdf3), (v2Id, 2, pdf2), (doc.Version, 1, pdf1) };
-        foreach (var client in new[] { s.Source.Payer.Client, manager.Client })
+    private static async Task AssertSourceMembersReadAllVersionsAsync(P0607Tests.OriginalDocument doc,
+        HttpClient ownerClient, HttpClient managerClient, (Guid VersionId, int Version, byte[] Bytes)[] expected)
+    {
+        foreach (var client in new[] { ownerClient, managerClient })
         {
             var listed = await ReadCustomerPageAsync(client, doc.List);
             Assert.Equal(ThreeVersions, listed.Select(r => r.GetProperty("version").GetInt32()).ToArray());
@@ -168,25 +182,27 @@ public sealed partial class P0613Tests
             Assert.Equal(TwoVersions, older.Select(r => r.GetProperty("version").GetInt32()).ToArray());
             foreach (var item in expected)
             {
-                using var dl = await client.GetAsync($"{doc.List}/{item.Item1:D}/content");
+                using var dl = await client.GetAsync($"{doc.List}/{item.VersionId:D}/content");
                 Assert.Equal(HttpStatusCode.OK, dl.StatusCode);
                 Assert.True(dl.Headers.CacheControl?.NoStore);
-                Assert.Equal(item.Item3, await dl.Content.ReadAsByteArrayAsync());
+                Assert.Equal(item.Bytes, await dl.Content.ReadAsByteArrayAsync());
             }
         }
+    }
 
-        // Remove source manager -> 403 on list, continuation and content.
+    private static async Task AssertRevokedAndDestinationDeniedAsync(Scenario s, P0607Tests.OriginalDocument doc,
+        HttpClient managerClient, Guid memberId, Guid v2Id, Guid v3Id)
+    {
         using (var removed = await s.Source.Payer.Client.PostAsJsonAsync(
             $"/api/billing/accounts/{s.Source.Account:D}/members/{memberId:D}/remove",
             new RemoveBillingManagerV1(Guid.NewGuid(), 1, "Removed after transfer check")))
             Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
         foreach (var path in new[] { doc.List, $"{doc.List}/before/3", $"{doc.List}/{v3Id:D}/content" })
         {
-            using var denied = await manager.Client.GetAsync(path);
+            using var denied = await managerClient.GetAsync(path);
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         }
 
-        // Receiving payer gets 403 under source account and 404 under its own account with the old order/versions.
         foreach (var path in new[]
         {
             doc.List, $"{doc.List}/before/3", doc.Content, $"{doc.List}/{v2Id:D}/content", $"{doc.List}/{v3Id:D}/content"
@@ -198,10 +214,6 @@ public sealed partial class P0613Tests
             using var guessed = await s.Destination.Payer.Client.GetAsync(underDest);
             Assert.Equal(HttpStatusCode.NotFound, guessed.StatusCode);
         }
-
-        // Original liability and payment confirmation remain unchanged.
-        Assert.Equal(confirmationBefore, await s.Source.Payer.Client.GetStringAsync(doc.Confirmation));
-        Assert.Equal(confirmationBytesBefore, await s.Source.Payer.Client.GetByteArrayAsync(doc.ConfirmationContent));
     }
 
     private static async Task<JsonElement[]> ReadCustomerPageAsync(HttpClient client, string path)

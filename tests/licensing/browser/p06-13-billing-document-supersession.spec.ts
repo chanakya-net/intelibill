@@ -52,7 +52,7 @@ async function signInMerchant(browser: Browser, email: string) {
   return state;
 }
 
-async function runFinanceCorrection(page: Page) {
+async function previewFinanceCorrection(page: Page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAdmin(page);
   await page.goto(adminDocsUrl);
@@ -77,7 +77,9 @@ async function runFinanceCorrection(page: Page) {
   await expect(preview).toContainText(reason);
   await expect(page.locator('iframe, embed, object')).toHaveCount(0);
   await page.screenshot({ path: join(evidence, 'desktop-correction-preview.png'), fullPage: true });
+}
 
+async function submitAndRecoverCorrection(page: Page) {
   const submit = page.getByRole('button', { name: 'Attach corrective invoice' });
   await expect(submit).toBeDisabled();
   await page.getByRole('checkbox').check();
@@ -110,6 +112,12 @@ async function runFinanceCorrection(page: Page) {
     accountId: cfg.sourceAccount, orderId: cfg.order, version: 2,
     supersedesVersionId: cfg.v1VersionId, sha256: cfg.v2Sha256, supersessionReason: reason,
   });
+  return { v2VersionId: record.versionId as string, committedStatus, recoveredStatus: recoveryResponse.status() };
+}
+
+async function runFinanceCorrection(page: Page) {
+  await previewFinanceCorrection(page);
+  const result = await submitAndRecoverCorrection(page);
 
   await expect(page.getByRole('status')).toHaveText('Corrective invoice version attached.');
   await expect(page.locator('[data-version="2"]')).toContainText('Current');
@@ -121,8 +129,7 @@ async function runFinanceCorrection(page: Page) {
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: join(evidence, 'admin-history-mobile.png'), fullPage: true, animations: 'disabled' });
-
-  return { v2VersionId: record.versionId as string, committedStatus, recoveredStatus: recoveryResponse.status() };
+  return result;
 }
 
 async function downloadVersion(page: Page, version: number, versionId: string, expectedHash: string, file: string) {

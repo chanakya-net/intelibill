@@ -13,6 +13,7 @@ import {
   type InvoicePreview,
   type InvoiceScope,
   type InvoiceSupersessionPreview,
+  type InvoiceVersion,
 } from './billing-document-api.service';
 import { BillingDocumentDrafts } from './billing-document-drafts';
 import {
@@ -80,6 +81,8 @@ export class BillingDocumentPageComponent {
   protected readonly pending = signal<InvoiceIntent | null>(null);
   protected readonly busy = signal(false);
   protected readonly confirmed = signal(false);
+  protected readonly historyStale = signal(false);
+  protected readonly confirmedVersion = signal<InvoiceVersion | null>(null);
   protected readonly savedMessage = signal('');
   protected readonly reauthenticate = signal(false);
   protected readonly error = signal('');
@@ -138,11 +141,16 @@ export class BillingDocumentPageComponent {
     void this.run(async scope => {
       const { bytes, metadata } = await prepareInvoice(file, form);
       if (!scope.current()) return;
-      const preview = await this.api.preview(scope, metadata);
-      if (!scope.current()) return;
-      this.assertOrderUnchanged(preview.order);
-      this.reviewedBytes = bytes;
-      this.preview.set(preview);
+      try {
+        const preview = await this.api.preview(scope, metadata);
+        if (!scope.current()) return;
+        this.assertOrderUnchanged(preview.order);
+        this.reviewedBytes = bytes;
+        this.preview.set(preview);
+      } catch (error) {
+        if (scope.current() && this.isReloadRefusal(error)) await this.reloadAfterConflict(scope);
+        throw error;
+      }
     });
   }
 
@@ -155,11 +163,16 @@ export class BillingDocumentPageComponent {
     void this.run(async scope => {
       const { bytes, metadata, reason } = await prepareCorrection(file, form);
       if (!scope.current()) return;
-      const preview = await this.api.previewSupersede(scope, target.versionId, metadata, reason);
-      if (!scope.current()) return;
-      this.assertOrderUnchanged(preview.order);
-      this.reviewedBytes = bytes;
-      this.correctionPreview.set(preview);
+      try {
+        const preview = await this.api.previewSupersede(scope, target.versionId, metadata, reason);
+        if (!scope.current()) return;
+        this.assertOrderUnchanged(preview.order);
+        this.reviewedBytes = bytes;
+        this.correctionPreview.set(preview);
+      } catch (error) {
+        if (scope.current() && this.isReloadRefusal(error)) await this.reloadAfterConflict(scope);
+        throw error;
+      }
     });
   }
 
@@ -203,6 +216,11 @@ export class BillingDocumentPageComponent {
     if (intent) void this.run(scope => this.finish(scope, intent, lookup));
   }
 
+  protected refreshHistory() {
+    if (!this.historyStale()) return;
+    void this.run(scope => this.refreshCanonicalHistory(scope));
+  }
+
   protected isCorrection(intent: InvoiceIntent) {
     return isSupersedeIntent(intent);
   }
@@ -238,6 +256,8 @@ export class BillingDocumentPageComponent {
     this.clearPreview();
     this.correcting.set(false);
     this.view.set(null);
+    this.historyStale.set(false);
+    this.confirmedVersion.set(null);
     this.pending.set(null);
     this.savedMessage.set('');
     this.error.set('');
@@ -252,33 +272,85 @@ export class BillingDocumentPageComponent {
     this.revision = draft.revision;
     this.pending.set(draft.pending ?? null);
     const view = await this.api.list(scope);
-    if (scope.current()) this.view.set(view);
+    if (!scope.current()) return;
+    this.view.set(view);
+    this.historyStale.set(false);
+    this.confirmedVersion.set(null);
   }
 
   private async finish(scope: Invocation, intent: InvoiceIntent, lookup: boolean) {
+    let saved: InvoiceVersion;
     try {
-      await this.api.finish(scope, intent, lookup);
-      if (!scope.current()) return;
-      await this.syncSettledDraft(scope, intent.operationKey);
-      if (!scope.current()) return;
+      saved = await this.api.finish(scope, intent, lookup);
+    } catch (error) {
+      await this.handleFinishFailure(scope, intent, lookup, error);
+      throw error;
+    }
+    if (!scope.current()) return;
+    await this.syncSettledDraft(scope, intent.operationKey);
+    if (!scope.current()) return;
+    this.recordConfirmedWrite(saved, intent);
+    await this.refreshCanonicalHistory(scope);
+  }
+
+  private async handleFinishFailure(scope: Invocation, intent: InvoiceIntent, lookup: boolean, error: unknown) {
+    const code = this.code(error);
+    if (!scope.current() || lookup || !code || !definiteRefusals.has(code)) return;
+    await this.syncSettledDraft(scope, intent.operationKey);
+    if (!scope.current()) return;
+    if (reloadCodes.has(code)) await this.reloadAfterConflict(scope);
+  }
+
+  private recordConfirmedWrite(saved: InvoiceVersion, intent: InvoiceIntent) {
+    this.correcting.set(false);
+    this.view.set(null);
+    this.historyStale.set(true);
+    this.confirmedVersion.set(saved);
+    this.savedMessage.set(isSupersedeIntent(intent)
+      ? 'Corrective invoice version attached.'
+      : 'Accounting invoice attached.');
+  }
+
+  private async refreshCanonicalHistory(scope: Invocation) {
+    try {
       const refreshed = await this.api.list(scope);
       if (!scope.current()) return;
       this.view.set(refreshed);
-      this.correcting.set(false);
-      this.savedMessage.set(isSupersedeIntent(intent)
-        ? 'Corrective invoice version attached.'
-        : 'Accounting invoice attached.');
+      this.historyStale.set(false);
+      this.confirmedVersion.set(null);
     } catch (error) {
-      const code = this.code(error);
-      if (!scope.current() || lookup || !code || !definiteRefusals.has(code)) throw error;
-      await this.syncSettledDraft(scope, intent.operationKey);
-      if (!scope.current()) return;
-      if (reloadCodes.has(code)) {
-        const view = await this.api.list(scope);
-        if (scope.current()) this.view.set(view);
-      }
-      throw error;
+      if (scope.current()) this.refuseHistoryRefresh(error);
     }
+  }
+
+  private async reloadAfterConflict(scope: Invocation) {
+    this.clearPreview();
+    this.correcting.set(false);
+    this.savedMessage.set('');
+    this.confirmedVersion.set(null);
+    this.view.set(null);
+    this.historyStale.set(true);
+    try {
+      const refreshed = await this.api.list(scope);
+      if (!scope.current()) return;
+      this.view.set(refreshed);
+      this.historyStale.set(false);
+    } catch {
+      // Keep obsolete view invalidated until finance refreshes history.
+    }
+  }
+
+  private refuseHistoryRefresh(error: unknown) {
+    const code = this.code(error);
+    this.reauthenticate.set(code === 'ManualPayment.RecentMfaRequired' || (error instanceof HttpErrorResponse && error.status === 401));
+    if (this.reauthenticate()) this.error.set('Sign in with MFA to refresh invoice history.');
+    else if (code === 'ManualPayment.AccessDenied') this.error.set('Billing capability is required.');
+    else this.error.set('Version history could not be refreshed. Retry loading history.');
+  }
+
+  private isReloadRefusal(error: unknown) {
+    const code = this.code(error);
+    return code !== null && reloadCodes.has(code);
   }
 
   private async syncSettledDraft(scope: Invocation, operationKey: string) {

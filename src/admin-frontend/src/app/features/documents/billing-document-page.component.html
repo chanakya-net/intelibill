@@ -43,6 +43,23 @@
       </section>
     }
 
+    @if (savedMessage()) {
+      <p class="adm-callout adm-callout--success" role="status">{{ savedMessage() }}</p>
+    }
+
+    @if (historyStale()) {
+      <section class="ib-panel" aria-labelledby="stale-history-heading">
+        <h2 class="ib-panel__title" id="stale-history-heading">Invoice history awaiting refresh</h2>
+        @if (confirmedVersion(); as saved) {
+          <ng-container [ngTemplateOutlet]="metadata" [ngTemplateOutletContext]="{ $implicit: saved, version: saved.version }" />
+          <p>Operation <code>{{ saved.operationKey }}</code></p>
+        }
+        <div class="adm-actions">
+          <button pButton type="button" [disabled]="busy()" (click)="refreshHistory()">Refresh invoice history</button>
+        </div>
+      </section>
+    }
+
     @if (view(); as item) {
       <section class="ib-panel" aria-labelledby="order-heading">
         <h2 class="ib-panel__title" id="order-heading">Accepted order</h2>
@@ -54,10 +71,6 @@
           <dt>Payment confirmations</dt><dd>{{ item.paymentConfirmations }}</dd>
         </dl>
       </section>
-
-      @if (savedMessage()) {
-        <p class="adm-callout adm-callout--success" role="status">{{ savedMessage() }}</p>
-      }
 
       @if (correcting() && currentDocument(); as outgoing) {
         @if (!pending()) {

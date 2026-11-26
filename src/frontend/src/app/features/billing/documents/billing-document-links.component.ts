@@ -1,10 +1,35 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
+import { problemCode } from '@intelibill/api';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonDirective } from 'primeng/button';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { BlobDownloadService } from '../../../shared/utils/blob-download.service';
+import { BillingAccountAuthority } from '../services/billing-account-authority.service';
 import { billingDocumentFileName, type BillingDocument } from './billing-document.models';
 import { BillingDocumentService } from './billing-document.service';
+
+const ACCOUNT_ACCESS_DENIED = 'Billing.AccountAccessDenied';
+
+async function isAccountAccessDenied(error: unknown): Promise<boolean> {
+  if (!(error instanceof HttpErrorResponse) || error.status !== 403) return false;
+  if (problemCode(error.error) === ACCOUNT_ACCESS_DENIED) return true;
+  if (error.error instanceof Blob) {
+    try {
+      return problemCode(JSON.parse(await error.error.text())) === ACCOUNT_ACCESS_DENIED;
+    } catch {
+      return false;
+    }
+  }
+  if (typeof error.error === 'string') {
+    try {
+      return problemCode(JSON.parse(error.error)) === ACCOUNT_ACCESS_DENIED;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
 
 @Component({
   selector: 'app-billing-document-links',
@@ -98,8 +123,8 @@ import { BillingDocumentService } from './billing-document.service';
           (click)="loadOlder()"
         ></button>
       }
-      @if (error()) {
-        <p role="alert" data-testid="billing-documents-error">{{ 'billing.documents.error' | transloco }}</p>
+      @if (error(); as errorKey) {
+        <p role="alert" data-testid="billing-documents-error">{{ errorKey | transloco }}</p>
       }
     </section>
   `,
@@ -111,6 +136,7 @@ export class BillingDocumentLinksComponent {
   private readonly context = inject(ShopContextService);
   private readonly api = inject(BillingDocumentService);
   private readonly blobs = inject(BlobDownloadService);
+  private readonly authority = inject(BillingAccountAuthority);
   private readonly scope = computed(() => {
     const current = this.context.scope();
     return current ? { ...current, account: this.account(), order: this.order() } : null;
@@ -125,7 +151,7 @@ export class BillingDocumentLinksComponent {
   });
   protected readonly loaded = signal(false);
   protected readonly busy = signal(false);
-  protected readonly error = signal(false);
+  protected readonly error = signal<string | null>(null);
   private destroyed = false;
 
   constructor() {
@@ -137,7 +163,7 @@ export class BillingDocumentLinksComponent {
       this.rows.set([]);
       this.loaded.set(false);
       this.busy.set(false);
-      this.error.set(false);
+      this.error.set(null);
     });
   }
 
@@ -160,7 +186,7 @@ export class BillingDocumentLinksComponent {
       const existing = this.rows();
       const tail = existing[existing.length - 1];
       if (!tail || older[0].version >= tail.version) {
-        this.error.set(true);
+        this.error.set('billing.documents.error');
         return;
       }
       this.rows.set([...existing, ...older]);
@@ -180,13 +206,29 @@ export class BillingDocumentLinksComponent {
     const scope = this.scope();
     if (!scope || this.busy()) return;
     this.busy.set(true);
-    this.error.set(false);
+    this.error.set(null);
     try {
       await work(scope);
-    } catch {
-      if (!this.destroyed && this.scope() === scope) this.error.set(true);
+    } catch (failure) {
+      await this.handleFailure(scope, failure);
     } finally {
       if (!this.destroyed && this.scope() === scope) this.busy.set(false);
     }
+  }
+
+  private async handleFailure(scope: NonNullable<ReturnType<typeof this.scope>>, failure: unknown) {
+    const denied = await isAccountAccessDenied(failure);
+    if (this.destroyed || this.scope() !== scope) return;
+    if (denied) {
+      this.rows.set([]);
+      this.loaded.set(false);
+      this.authority.deny(scope.userId, scope.account, new HttpErrorResponse({
+        status: 403,
+        error: { code: ACCOUNT_ACCESS_DENIED },
+      }));
+      this.error.set('billing.denied');
+      return;
+    }
+    this.error.set('billing.documents.error');
   }
 }
