@@ -120,7 +120,7 @@ internal sealed partial class CoverageExceptionAcknowledgements
             SELECT public.coverage_exception_owner_current({row.AccountId}, {row.ExceptionId}) AS owner_current,
                 coalesce((SELECT revision FROM public.complimentary_grant_scopes WHERE account_id = {row.AccountId}), 0) AS grant_version,
                 public.replacement_permit_end({row.AccountId}, {row.OutgoingShopId}, {row.OutgoingAffiliationId}, {now}) AS live_permit_end,
-                EXISTS (SELECT FROM public.shop_affiliations a WHERE a.account_id = {row.AccountId}
+                EXISTS (SELECT FROM public.current_shop_affiliations a WHERE a.account_id = {row.AccountId}
                     AND a.shop_id = {row.IncomingShopId} AND a.request_id = {row.IncomingAffiliationId}) AS incoming_affiliated,
                 EXISTS (SELECT FROM public.active_operational_closure_targets c WHERE c.account_id = {row.AccountId}
                     AND c.shop_id IN ({row.OutgoingShopId}, {row.IncomingShopId})) AS any_closed,

@@ -66,7 +66,7 @@ internal sealed partial class TrialExtensionStore(LicensingDbContext db, ILogger
 
     public Task<TrialExtensionShop?> ReadShopAsync(Guid account, Guid shop, CancellationToken ct) =>
         db.Database.SqlQuery<TrialExtensionShop>($"""
-            SELECT shop_name, request_id AS affiliation_request_id FROM public.shop_affiliations
+            SELECT shop_name, request_id AS affiliation_request_id FROM public.current_shop_affiliations
             WHERE account_id = {account} AND shop_id = {shop}
             """).SingleOrDefaultAsync(ct);
 

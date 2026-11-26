@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Licensing;
 
-public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence,
+public sealed partial class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence,
     [Microsoft.Extensions.DependencyInjection.FromKeyedServices(ShopTrialsV1.DeliverySection)] TimeProvider? businessClock = null)
 {
     private static Error Replayed => Error.Unauthorized("Entitlement.Replayed");
@@ -28,7 +28,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
     {
         var received = EntitlementSnapshotsV1.Instant(clock);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var entered = await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
+        var entered = await EnterSnapshotAsync(snapshot, ct);
         if (entered.IsError)
             return entered.Errors;
         if (!await ConsumeAsync(proof, ct))
@@ -49,11 +49,21 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             WHERE event_id = {snapshot.EventId}
             """).SingleOrDefaultAsync(ct);
         if (prior is not null)
-            return prior.Digest == proof.Digest ? new EntitlementProjectionReceipt(prior.Acknowledgement, false) : Conflict;
+        {
+            if (prior.Digest != proof.Digest) return Conflict;
+            if (snapshot.EventId == snapshot.AffiliationRequestId)
+                await db.Database.ExecuteSqlAsync($"""
+                    UPDATE public.entitlement_outbox SET status='Pending', attempts=0, last_failure=NULL, next_attempt_at={received}
+                    WHERE event_id={snapshot.EventId} AND status='DeadLetter'
+                    """, ct);
+            return new EntitlementProjectionReceipt(prior.Acknowledgement, false);
+        }
 
         var account = await db.Set<AccountLicenseRestriction>().SingleOrDefaultAsync(row => row.AccountId == snapshot.AccountId, ct);
         var shop = await db.Set<ShopLicenseState>().SingleOrDefaultAsync(row => row.ShopId == snapshot.ShopId, ct);
-        var bound = await HasBindingAsync(snapshot, shop, ct);
+        var transferring = shop is not null && shop.AccountId != snapshot.AccountId &&
+            await MayActivateTransferAsync(snapshot, shop, ct);
+        var bound = transferring || await HasBindingAsync(snapshot, shop, ct);
         // Only a backward stamp needs the preceding head's immutable signing time.
         var regresses = snapshot.Account?.UpstreamVerifiedAt < account?.UpstreamVerifiedAt ||
             snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
@@ -121,7 +131,15 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
 
         db.Add(Evidence(snapshot, body, proof, received, appliedAt));
         if (nextAccount) UpdateAccount(snapshot, account);
-        if (nextShop) UpdateShop(snapshot, shop);
+        if (nextShop)
+        {
+            if (transferring)
+            {
+                db.Entry(shop!).Property(s => s.AccountId).CurrentValue = snapshot.AccountId;
+                db.Entry(shop!).Property(s => s.AffiliationRequestId).CurrentValue = snapshot.AffiliationRequestId;
+            }
+            UpdateShop(snapshot, shop);
+        }
         await db.SaveChangesAsync(ct);
         if (replacement is { } activated)
             await ReplacementActivationGate.RecordAsync(db, snapshot, activated, appliedAt, ct);
@@ -222,16 +240,22 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return count == 1 && clock.GetUtcNow() < proof.ExpiresAt;
     }
 
-    private Task<bool> HasBindingAsync(EntitlementSnapshotV1 snapshot, ShopLicenseState? prior, CancellationToken ct)
+    private async Task<bool> HasBindingAsync(EntitlementSnapshotV1 snapshot, ShopLicenseState? prior, CancellationToken ct)
     {
         if (prior is not null && (prior.AccountId != snapshot.AccountId || prior.AffiliationRequestId != snapshot.AffiliationRequestId))
-            return Task.FromResult(false);
-        return db.Database.SqlQuery<bool>($"""
+            return false;
+        var original = await db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (SELECT FROM public.shop_affiliation_consent_events e
                 LEFT JOIN public.shop_affiliation_delivery_receipts r ON r.event_id = e.id
                 WHERE e.shop_id = {snapshot.ShopId} AND e.account_id = {snapshot.AccountId}
                     AND e.request_id = {snapshot.AffiliationRequestId} AND e.kind = 'Accepted'
                     AND r.status IS DISTINCT FROM 'NeedsReview') AS "Value"
+            """).SingleAsync(ct);
+        if (original || prior is null) return original;
+        return await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.merchant_transfer_decisions d WHERE d.shop_id={snapshot.ShopId}
+                AND d.destination_account_id={snapshot.AccountId} AND d.transfer_id={snapshot.AffiliationRequestId}
+                AND d.outcome='Consumed') AS "Value"
             """).SingleAsync(ct);
     }
 

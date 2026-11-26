@@ -26,7 +26,7 @@ internal sealed partial class CoverageReplacementStore(LicensingDbContext db, IC
             GROUP BY shop_id, affiliation_request_id
             """).ToDictionaryAsync(d => (d.ShopId,d.AffiliationRequestId), d => d.ValidUntil, ct);
         var shops = await db.Database.SqlQuery<SlotShopV1>($"""
-            SELECT shop_id,shop_name FROM public.shop_affiliations WHERE account_id={account}
+            SELECT shop_id,shop_name FROM public.current_shop_affiliations WHERE account_id={account}
                 AND public.slot_shop_eligible({account},shop_id,{now},'infinity')
             ORDER BY shop_name,shop_id LIMIT {size + 1} OFFSET {offset}
             """).ToArrayAsync(ct);

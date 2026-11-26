@@ -56,7 +56,7 @@ internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubsc
             """, ct);
         var now = evaluatedAt is { } at ? new DateTimeOffset(at.UtcTicks - at.UtcTicks % 10, TimeSpan.Zero) : Now;
         var request = await db.Database.SqlQuery<Guid>($"""
-            SELECT request_id AS "Value" FROM public.shop_affiliations WHERE shop_id = {shop} AND account_id = {account}
+            SELECT request_id AS "Value" FROM public.current_shop_affiliations WHERE shop_id = {shop} AND account_id = {account}
             """).SingleOrDefaultAsync(ct);
         if (request == Guid.Empty || await reader.ReadShopAsync(shop, ct, now) is not { } coverage || coverage.AccountId != account)
             return null;

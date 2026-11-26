@@ -26,7 +26,8 @@ public sealed class LeasedHttpDeliveryPump(LeasedHttpOutbox outbox, ILeasedHttpD
 
         var failure = await SendAsync(message, ct);
         await outbox.FinishAsync(message.EventId, lease, clock.GetUtcNow(), failure is null,
-            message.Kind is "Snapshot" or "CapacityReserve" or "CapacityConsume" or "ReductionReserve" or "ReductionConsume", failure, ct);
+            message.Kind is "Snapshot" or "CapacityReserve" or "CapacityConsume" or "ReductionReserve" or "ReductionConsume"
+                or "TransferPrepare" or "TransferConsume" or "TransferAbort", failure, ct);
         return true;
     }
 

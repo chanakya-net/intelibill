@@ -41,18 +41,23 @@ internal sealed class CoverageTransferShopConsentStore(
             return ShopAffiliationConsentErrors.OwnerRequired;
 
         var events = await EventsAsync(t, owner, decision?.OperationKey ?? Guid.Empty, ct);
+        var decisions = await DecisionsAsync(t.ShopId, t.TransferId, ct);
+        var state = EffectiveState(t.State, decisions);
         var own = events.Where(e => e.TransferId == t.TransferId).ToArray();
         var status = Status(own, owner);
         if (action == CoverageTransferShopAction.Read || decision is null)
-            return View(t, own, status, owner);
+            return View(t, own, status, owner, state);
 
         var kind = action == CoverageTransferShopAction.Accept ? Accepted : Revoked;
         var hash = SignedServiceAssertion.Digest(JsonSerializer.SerializeToUtf8Bytes(
             new { t.TransferId, kind, decision.ExpectedProposalRevision, decision.ExpectedTermsDigest, decision.ExpectedAuthorityRevision }));
         if (events.SingleOrDefault(e => e.ActorId == owner.ActorId && e.OperationKey == decision.OperationKey) is { } replay)
             return replay.TransferId != t.TransferId || replay.RequestHash != hash ? MerchantBillingErrors.PayloadMismatch
-                : replay.Matches(owner) ? View(t, own, status, owner) : AuthorityChanged;
+                : replay.Matches(owner) ? View(t, own, status, owner, state) : AuthorityChanged;
 
+        if (decisions.Any(o => o is "Consumed" or "Aborted" or "Refused") ||
+            state is "Consuming" or "PendingActivation" or "Applied" or "NeedsReview")
+            return Changed;
         if (decision.ExpectedProposalRevision != t.ProposalRevision || decision.ExpectedTermsDigest != t.TermsDigest ||
             decision.ExpectedAuthorityRevision != owner.Version)
             return Changed;
@@ -60,7 +65,7 @@ internal sealed class CoverageTransferShopConsentStore(
         var latest = own.Length == 0 ? 0 : own.Max(e => e.Generation);
         int? generation = kind switch
         {
-            Accepted when t.State is AwaitingConsents or ConsentsCollected && now < t.ExpiresAt
+            Accepted when state is AwaitingConsents or ConsentsCollected && now < t.ExpiresAt
                 && status is AwaitingConsent or Revoked or Stale => latest + 1,
             Revoked when status is Accepted or Stale => latest,
             _ => null,
@@ -70,8 +75,14 @@ internal sealed class CoverageTransferShopConsentStore(
         await SaveAsync(terms, owner, kind, generation.Value, decision.OperationKey, hash, now, ct);
         await tx.CommitAsync(ct);
         return View(t, [.. own, new(Guid.Empty, t.TransferId, generation.Value, kind, owner.ActorId, owner.MembershipId,
-            owner.Version, decision.OperationKey, hash)], kind, owner);
+            owner.Version, decision.OperationKey, hash)], kind, owner, state);
     }
+
+    private static string EffectiveState(string remote, string[] decisions) =>
+        remote is "PendingActivation" or "Applied" or "NeedsReview" ? remote
+        : decisions.Contains("Aborted") || decisions.Contains("Refused") ? "NeedsReview"
+        : decisions.Contains("Consumed") ? "PendingActivation"
+        : remote;
 
     // The latest generation decides; a revocation ends it. An acceptance stands only for the exact live owner epoch.
     private static string Status(ConsentEvent[] events, Owner owner)
@@ -81,7 +92,8 @@ internal sealed class CoverageTransferShopConsentStore(
         return latest.Any(e => e.Kind == Revoked) ? Revoked : latest.Single().Matches(owner) ? Accepted : Stale;
     }
 
-    private static CoverageTransferShopOwnerV1 View(CoverageTransferV1 t, ConsentEvent[] own, string status, Owner owner)
+    private static CoverageTransferShopOwnerV1 View(CoverageTransferV1 t, ConsentEvent[] own, string status, Owner owner,
+        string state)
     {
         var recorded = t.Consents.Single(c => c.Purpose == ShopOwner);
         var latest = own.Length == 0 ? 0 : own.Max(e => e.Generation);
@@ -91,8 +103,14 @@ internal sealed class CoverageTransferShopConsentStore(
         return new(t.TransferId, t.ProposalRevision, t.TermsDigest, t.SourceAccountId, t.SourceAccountName,
             t.DestinationAccountId, t.DestinationAccountName, t.ShopId, t.ShopName, t.Treatment, t.CutoverAt,
             t.SourcePaidThroughAt, t.ObservedPermitCount, t.ObservedPermitDeadline, t.DisconnectedQueuesUnknown,
-            t.ExpiresAt, t.State, status, delivery, owner.Version);
+            t.ExpiresAt, state, status, delivery, owner.Version);
     }
+
+    private Task<string[]> DecisionsAsync(Guid shop, Guid transfer, CancellationToken ct) =>
+        db.Database.SqlQuery<string>($"""
+            SELECT outcome AS "Value" FROM public.merchant_transfer_decisions
+            WHERE shop_id = {shop} AND transfer_id = {transfer}
+            """).ToArrayAsync(ct);
 
     private Task<ConsentEvent[]> EventsAsync(CoverageTransferV1 t, Owner owner, Guid key, CancellationToken ct) =>
         db.Database.SqlQuery<ConsentEvent>($"""
@@ -104,7 +122,7 @@ internal sealed class CoverageTransferShopConsentStore(
     // The shop must still be bound to the source account by the exact affiliation the proposal froze.
     private Task<bool> BoundAsync(CoverageTransferV1 t, Guid affiliation, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.shop_affiliation_consent_events a
+            SELECT EXISTS (SELECT FROM public.merchant_entitlement_bindings a
                 LEFT JOIN public.shop_affiliation_delivery_receipts r ON r.event_id = a.id
                 LEFT JOIN public.shop_license_states s ON s.shop_id = a.shop_id
                 WHERE a.shop_id = {t.ShopId} AND a.account_id = {t.SourceAccountId} AND a.request_id = {affiliation}

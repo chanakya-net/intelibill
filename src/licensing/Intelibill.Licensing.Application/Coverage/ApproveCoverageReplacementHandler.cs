@@ -165,7 +165,7 @@ public sealed class ApproveCoverageReplacementHandler(
 
     private DateTimeOffset BusinessNow() => SubscriptionStatusProjection.EvaluationInstant(lifecycleClock);
 
-    private async Task<(Error? Error, DateTimeOffset? MfaVerifiedAt, DateTimeOffset? AuthorizedAt)> AuthorizeAsync(
+    internal async Task<(Error? Error, DateTimeOffset? MfaVerifiedAt, DateTimeOffset? AuthorizedAt)> AuthorizeAsync(
         AdminSessionCaller caller, bool recentMfa, CancellationToken ct)
     {
         var (actor, session) = await store.LockProviderAsync(caller, ct);

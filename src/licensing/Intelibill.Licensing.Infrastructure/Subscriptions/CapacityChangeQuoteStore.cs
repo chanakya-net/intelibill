@@ -83,11 +83,11 @@ internal sealed class CapacityChangeQuoteStore(LicensingDbContext db, Subscripti
             SELECT shop_id, name, request_id FROM (
                 SELECT a.shop_id AS shop_id, a.shop_name AS name, a.request_id AS request_id
                 FROM public.term_effective_roster({account}, {term}, NULL) er
-                JOIN public.shop_affiliations a ON a.account_id = {account} AND a.shop_id = er.shop_id
+                JOIN public.current_shop_affiliations a ON a.account_id = {account} AND a.shop_id = er.shop_id
                     AND a.request_id = er.affiliation_request_id
                 UNION
                 SELECT a.shop_id, a.shop_name, a.request_id FROM public.trial_history h
-                JOIN public.shop_affiliations a ON a.account_id = h.account_id AND a.shop_id = h.shop_id
+                JOIN public.current_shop_affiliations a ON a.account_id = h.account_id AND a.shop_id = h.shop_id
                 WHERE h.account_id = {account} AND h.term_id = {term}
             ) covered ORDER BY shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
             """).ToArrayAsync(ct);

@@ -35,7 +35,7 @@ internal sealed partial class CoverageReplacementStore
             SELECT {id},{account},{term},{outgoing.ShopId},{outgoing.Name},{outgoing.RequestId},a.shop_id,a.shop_name,a.request_id,
                 {source.Capacity},{command.ObservedMemberAllowance},{source.EndsAt},{command.ObservedPermitDeadline}::timestamptz,
                 {now},{expires},{actor},m.revision,{command.OperationKey},{hash},{source.Hash()},'AwaitingConsent'
-            FROM public.shop_affiliations a JOIN public.billing_account_members m USING(account_id)
+            FROM public.current_shop_affiliations a JOIN public.billing_account_members m USING(account_id)
             WHERE a.account_id={account} AND a.shop_id={command.IncomingShopId}
                 AND m.merchant_user_id={actor} AND m.status=1 AND m.role=1
                 AND public.slot_shop_eligible({account},a.shop_id,{now},'infinity')

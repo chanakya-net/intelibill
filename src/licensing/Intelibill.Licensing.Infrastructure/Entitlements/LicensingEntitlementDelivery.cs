@@ -11,7 +11,7 @@ namespace Intelibill.Licensing.Infrastructure.Entitlements;
 
 internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, EntitlementPublisher publisher,
     LicensingEntitlementTransport transport, IHttpClientFactory clients,
-    Subscriptions.ScheduledCapacityReductionStore reductions) : ILeasedHttpDestination
+    Subscriptions.ScheduledCapacityReductionStore reductions, CoverageTransferAcknowledgements transfers) : ILeasedHttpDestination
 {
     public bool Enabled => transport.Origin is not null;
 
@@ -19,6 +19,8 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
     {
         var path = message.Kind switch
         {
+            CoverageTransferApprovalsV1.Prepare or CoverageTransferApprovalsV1.Consume or CoverageTransferApprovalsV1.Abort =>
+                CoverageTransferApprovalsV1.CommandPath,
             "Snapshot" => EntitlementSnapshotsV1.SnapshotPath,
             CapacityReservationV1.Reserve => CapacityReservationV1.ReservePath,
             CapacityReservationV1.Consume => CapacityReservationV1.ConsumePath,
@@ -90,6 +92,7 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
     public async Task QueueDueAsync(CancellationToken ct)
     {
         var now = publisher.Now;
+        await transfers.QueueDueAsync(now,ct);
         var dueReductions = await db.Database.SqlQuery<DueReduction>(
             $"SELECT * FROM public.due_scheduled_capacity_reductions({now})").ToListAsync(ct);
         foreach (var item in dueReductions)

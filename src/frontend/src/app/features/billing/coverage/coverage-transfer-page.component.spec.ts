@@ -244,4 +244,29 @@ describe('CoverageTransferPageComponent', () => {
     expect(find(fixture, 'transfer-revoke-ShopOwner')).not.toBeNull();
     http.verify();
   });
+
+  it.each([
+    ['Scheduled', true],
+    ['Consuming', false],
+    ['PendingActivation', false],
+    ['Applied', false],
+    ['NeedsReview', false],
+  ])('keeps billing-owner and shop-owner revoke actions %s for state %s', async (state, visible) => {
+    const { fixture: billing, http: billingHttp } = mount({ accountId: destinationId });
+    const row = { ...item(['SourceBillingOwner', 'DestinationBillingOwner', 'ShopOwner'], ['DestinationBillingOwner']), state };
+    billingHttp.expectOne(r => r.method === 'GET').flush({ accountId: destinationId, items: [row] });
+    await flush(billing);
+    expect(!!find(billing, 'transfer-revoke-DestinationBillingOwner')).toBe(visible);
+    expect(!!find(billing, 'transfer-shop-link')).toBe(visible);
+    billingHttp.verify();
+    TestBed.resetTestingModule();
+
+    const { fixture: shop, http: shopHttp } = mount({ accountId: sourceId, shopId: northId, transferId });
+    shopHttp.expectOne(r => r.method === 'GET').flush({
+      ...terms, state, consentStatus: 'Accepted', delivery: 'Recorded', authorityRevision: 7,
+    });
+    await flush(shop);
+    expect(!!find(shop, 'transfer-revoke-ShopOwner')).toBe(visible);
+    shopHttp.verify();
+  });
 });

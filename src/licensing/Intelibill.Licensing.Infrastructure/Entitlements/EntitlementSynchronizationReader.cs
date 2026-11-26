@@ -19,7 +19,7 @@ internal sealed class EntitlementSynchronizationReader(LicensingDbContext db, Li
         var rows = await db.Database.SqlQuery<DeliveryRow>($"""
             SELECT a.shop_id, saved.account_revision, saved.shop_revision, m.payload AS snapshot,
                 o.status, o.last_failure, ack.payload AS acknowledgement, confirmed.payload AS confirmation
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             JOIN LATERAL (
                 SELECT s.event_id, s.account_revision, s.shop_revision
                 FROM public.entitlement_snapshots s

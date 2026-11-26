@@ -30,9 +30,11 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
                     'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             LEFT JOIN public.payment_trial_conversions x ON x.account_id = a.account_id AND x.shop_id = a.shop_id
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
+                AND (h.account_id = a.account_id OR NOT EXISTS (SELECT FROM public.coverage_transfer_bindings b
+                    WHERE b.transfer_id = a.request_id AND b.shop_id = a.shop_id))
                 AND (x.paid_starts_at IS NULL OR x.paid_starts_at > {at})
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
@@ -92,6 +94,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             term = termRow?.ToTerm(binding.Trial, binding.ExtendedEndsAt);
         }
 
+        if (term is null && binding.TrialTermId is null)
+            term = await ReadTransferAllocationAsync(shop, binding, ct);
         var predecessors = term is { Basis: "Paid", PeriodOrdinal: > 0 }
             ? await ReadPaidPredecessorsAsync(shop, term, ct) : [];
         if (term is not null)
@@ -108,6 +112,21 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
         return new ShopCoverage(binding.AffiliationAccountId, term, await ReadGrantsAsync(shop, binding.AffiliationAccountId, ct),
             predecessors, binding.ConvertedPaidStartsAt?.ToUniversalTime());
     }
+
+    private async Task<TermFactsRow?> ReadTransferAllocationAsync(Guid shop, ShopBindingRow binding, CancellationToken ct)
+    {
+        var allocation = await db.Database.SqlQuery<Carry>($"""
+            SELECT transfer_id, cutover_at, paid_through_at, member_allowance FROM public.coverage_transfer_bindings
+            WHERE shop_id={shop} AND destination_account_id={binding.AffiliationAccountId} AND transfer_id={binding.RequestId}
+                AND cutover_at<paid_through_at
+            """).SingleOrDefaultAsync(ct);
+        return allocation is null ? null : new TermFactsRow(allocation.TransferId, binding.AffiliationAccountId, "Independent", 1,
+            allocation.CutoverAt, allocation.PaidThroughAt, "Paid", null, null, null, null, allocation.MemberAllowance, null,
+            null, null, CoverageTransfersV1.PolicyVersion, false, null, null, HandoffEndsAt: allocation.PaidThroughAt,
+            TransferAllocationId: allocation.TransferId);
+    }
+
+    private sealed record Carry(Guid TransferId, DateTimeOffset CutoverAt, DateTimeOffset PaidThroughAt, int MemberAllowance);
 
     private async Task<List<TermFactsRow>> ReadPaidPredecessorsAsync(Guid shop, TermFactsRow tail, CancellationToken ct)
     {
@@ -185,15 +204,15 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                     SELECT t.term_id, er.shop_id, a.shop_name
                     FROM unnest({ids}) AS t(term_id)
                     CROSS JOIN LATERAL public.term_effective_roster({account}, t.term_id, {at}) er
-                    JOIN public.shop_affiliations a
+                    JOIN public.current_shop_affiliations a
                         ON a.request_id = er.affiliation_request_id AND a.account_id = {account}
                     UNION ALL
                     SELECT h.term_id, h.shop_id, a.shop_name
-                    FROM public.trial_history h JOIN public.shop_affiliations a USING (account_id, shop_id)
+                    FROM public.trial_history h JOIN public.current_shop_affiliations a USING (account_id, shop_id)
                     WHERE h.account_id = {account} AND h.term_id = ANY({ids})
                     UNION ALL
                     SELECT l.term_id, l.shop_id, a.shop_name
-                    FROM public.complimentary_grant_shops l JOIN public.shop_affiliations a
+                    FROM public.complimentary_grant_shops l JOIN public.current_shop_affiliations a
                         ON a.request_id = l.affiliation_request_id AND a.account_id = l.account_id
                     WHERE l.account_id = {account} AND l.term_id = ANY({ids})
                 ) assignments
@@ -237,7 +256,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at
             FROM public.subscription_coverage_terms t
             LEFT JOIN public.trial_history h ON h.term_id = t.term_id AND h.account_id = t.account_id
-            LEFT JOIN public.shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
+            LEFT JOIN public.current_shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
             LEFT JOIN LATERAL (SELECT capacity,members,gross,plan_version FROM public.capacity_increases
@@ -249,7 +268,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE t.account_id = {account} AND ({term}::uuid IS NULL OR t.term_id = {term}::uuid) AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
                 AND ({paidShop}::uuid IS NULL OR f.basis = 'Paid' AND EXISTS (
-                    SELECT FROM public.shop_affiliations s
+                    SELECT FROM public.current_shop_affiliations s
                     WHERE s.shop_id = {paidShop} AND s.account_id = t.account_id
                         AND (s.term_id = t.term_id
                             OR EXISTS (SELECT FROM public.payment_fulfilment_shops l

@@ -16,6 +16,7 @@ namespace Intelibill.Licensing.Infrastructure.Billing;
 internal sealed partial class CoverageTransferStore(
     LicensingDbContext db,
     ICapacityChangeQuoteStore terms,
+    TimeProvider deliveryClock,
     [FromKeyedServices(CheckoutOrdersV1.Policy)] TimeProvider clock) : ICoverageTransferStore, ICoverageTransferReviewStore
 {
     public async Task<ErrorOr<CoverageTransferPreviewV1>> PreviewAsync(Guid source, Guid term, Guid actor,
@@ -28,7 +29,7 @@ internal sealed partial class CoverageTransferStore(
         if (query.CutoverAt is { } cutover && (cutover <= now || cutover >= f.PaidThroughAt))
             return CoverageTransferErrors.Invalid;
         return new CoverageTransferPreviewV1(source, query.DestinationAccountId, term, f.Shop.ShopId, f.Shop.Name,
-            f.Shop.RequestId, f.PaidThroughAt, f.Owner.Revision, f.EvidenceDigest, query.Treatment, query.CutoverAt,
+            f.Shop.RequestId, f.PaidThroughAt, f.Owner.Revision, f.PreviewDigest, query.Treatment, query.CutoverAt,
             f.Permits.OutstandingCount, f.Permits.ValidUntil, f.Permits.LastContactAt, now, true,
             CoverageTransfersV1.DisconnectedQueuesNotice, Expiry(now, query.CutoverAt, f.PaidThroughAt));
     }
@@ -49,7 +50,7 @@ internal sealed partial class CoverageTransferStore(
         if (facts.IsError) return facts.Errors;
         var f = facts.Value;
         if (f.Shop.RequestId != command.ExpectedSourceAffiliationId || f.PaidThroughAt != command.ExpectedSourcePaidThroughAt ||
-            f.Owner.Revision != command.ExpectedSourceOwnerRevision || f.EvidenceDigest != command.ExpectedEvidenceDigest)
+            f.Owner.Revision != command.ExpectedSourceOwnerRevision || f.PreviewDigest != command.ExpectedEvidenceDigest)
             return CoverageTransferErrors.Changed;
         if (command.CutoverAt is { } cutover && (cutover <= now || cutover >= f.PaidThroughAt))
             return CoverageTransferErrors.Invalid;
@@ -60,7 +61,7 @@ internal sealed partial class CoverageTransferStore(
         var id = Guid.NewGuid();
         var revision = await NextRevisionAsync(source, command.ShopId, ct);
         var digest = CoverageTransfersV1.TermsDigest(id, revision, source, command.DestinationAccountId, command.ShopId,
-            f.Shop.RequestId, term, command.Treatment, command.CutoverAt, f.PaidThroughAt, f.EvidenceDigest, f.PermitDigest, expires);
+            f.Shop.RequestId, term, command.Treatment, command.CutoverAt, f.PaidThroughAt, f.PreviewDigest, f.PermitDigest, expires);
         var inserted = await InsertAsync(id, revision, source, term, actor, command, reason, hash, digest, f, now, expires, ct);
         if (inserted != 1) return CoverageTransferErrors.Conflict;
         await db.Database.ExecuteSqlAsync($"SELECT public.coverage_transfer_freeze_evidence({id})", ct);
@@ -100,10 +101,11 @@ internal sealed partial class CoverageTransferStore(
         var row = await db.Database.SqlQuery<Frozen>($"""
             SELECT public.term_effective_paid_through({source}, {term}) AS paid_through_at,
                 public.coverage_transfer_evidence_digest({source}, {destination}) AS evidence_digest,
+                public.transfer_funding_digest({source}, {term}, {shop.ShopId}, {shop.RequestId}) AS funding_digest,
                 public.coverage_transfer_permit_digest({source}, {shop.ShopId}, {shop.RequestId}, {now}) AS permit_digest,
                 (SELECT name FROM public.billing_accounts WHERE id = {source}) AS source_name
             """).SingleAsync(ct);
-        if (row.PaidThroughAt is not { } paidThrough || paidThrough <= now || row.SourceName is null)
+        if (row.PaidThroughAt is not { } paidThrough || paidThrough <= now || row.SourceName is null || row.FundingDigest is null)
             return CoverageTransferErrors.NotFound;
         var permits = await db.Database.SqlQuery<PermitObservation>($"""
             SELECT max(valid_until) FILTER (WHERE valid_until > {now}) AS valid_until, max(observed_at) AS last_contact_at,
@@ -111,7 +113,7 @@ internal sealed partial class CoverageTransferStore(
             FROM public.offline_device_observations
             WHERE account_id = {source} AND shop_id = {shop.ShopId} AND affiliation_request_id = {shop.RequestId}
             """).SingleAsync(ct);
-        return new SourceFacts(owner, shop, paidThrough, row.EvidenceDigest, row.PermitDigest, row.SourceName, permits);
+        return new SourceFacts(owner, shop, paidThrough, row.EvidenceDigest, row.FundingDigest, row.PermitDigest, row.SourceName, permits);
     }
 
     private Task<int> InsertAsync(Guid id, long revision, Guid source, Guid term, Guid actor, RequestCoverageTransferV1 c,
@@ -121,12 +123,12 @@ internal sealed partial class CoverageTransferStore(
                 transfer_id, proposal_revision, source_account_id, source_account_name, destination_account_id,
                 source_term_id, shop_id, shop_name, source_affiliation_id, treatment, cutover_at, source_paid_through_at,
                 observed_permit_count, observed_permit_deadline, last_contact_at, observed_at, permit_digest,
-                evidence_digest, terms_digest, request_reason, requester_id, requester_member_id, requester_revision,
+                evidence_digest, funding_digest, terms_digest, request_reason, requester_id, requester_member_id, requester_revision,
                 operation_key, request_hash, created_at, expires_at, state)
             VALUES ({id}, {revision}, {source}, {f.SourceName}, {c.DestinationAccountId}, {term}, {f.Shop.ShopId},
                 {f.Shop.Name}, {f.Shop.RequestId}, {c.Treatment}, {c.CutoverAt}::timestamptz, {f.PaidThroughAt},
                 {f.Permits.OutstandingCount}, {f.Permits.ValidUntil}::timestamptz, {f.Permits.LastContactAt}::timestamptz,
-                {now}, {f.PermitDigest}, {f.EvidenceDigest}, {digest}, {reason}, {actor}, {f.Owner.Id}, {f.Owner.Revision},
+                {now}, {f.PermitDigest}, {f.EvidenceDigest}, {f.FundingDigest}, {digest}, {reason}, {actor}, {f.Owner.Id}, {f.Owner.Revision},
                 {c.OperationKey}, {hash}, {now}, {expires}, 'Open')
             ON CONFLICT DO NOTHING
             """, ct);
@@ -137,6 +139,9 @@ internal sealed partial class CoverageTransferStore(
             UPDATE public.coverage_transfer_proposals p
             SET state = 'Retired', retired_reason = public.coverage_transfer_blocker(p.transfer_id, {now}), retired_at = {now}
             WHERE p.source_account_id = {source} AND p.shop_id = {shop} AND p.state = 'Open'
+                AND NOT EXISTS (SELECT FROM public.coverage_transfer_approvals a WHERE a.transfer_id=p.transfer_id
+                    AND NOT EXISTS (SELECT FROM public.coverage_transfer_progress e WHERE e.transfer_id=a.transfer_id
+                        AND e.state IN ('NeedsReview','PendingActivation')))
                 AND public.coverage_transfer_blocker(p.transfer_id, {now}) IS NOT NULL
             """, ct);
 
@@ -165,8 +170,11 @@ internal sealed partial class CoverageTransferStore(
     {
         internal bool Matches(LiveOwner? owner) => owner?.Id == RequesterMemberId && owner.Revision == RequesterRevision;
     }
-    private sealed record Frozen(DateTimeOffset? PaidThroughAt, string EvidenceDigest, string PermitDigest, string? SourceName);
+    private sealed record Frozen(DateTimeOffset? PaidThroughAt, string EvidenceDigest, string? FundingDigest, string PermitDigest, string? SourceName);
     private sealed record PermitObservation(DateTimeOffset? ValidUntil, DateTimeOffset? LastContactAt, int OutstandingCount);
     private sealed record SourceFacts(LiveOwner Owner, CapacityChangeSourceShop Shop, DateTimeOffset PaidThroughAt,
-        string EvidenceDigest, string PermitDigest, string SourceName, PermitObservation Permits);
+        string EvidenceDigest, string FundingDigest, string PermitDigest, string SourceName, PermitObservation Permits)
+    {
+        public string PreviewDigest => CheckoutOrdersV1.Digest("coverage-transfer-allocation/1", EvidenceDigest, FundingDigest);
+    }
 }

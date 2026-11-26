@@ -72,6 +72,7 @@
       <article data-testid="transfer-item">
         <h2 data-testid="transfer-item-shop">{{ item.shopName }}</h2>
         <p data-testid="transfer-parties">{{ item.sourceAccountName }} → {{ item.destinationAccountName ?? item.destinationAccountId }}</p>
+        <p>{{ 'billing.coverageTransfer.ackBills' | transloco }}</p>
         <p data-testid="transfer-treatment-shown">{{ 'billing.coverageTransfer.' + (item.treatment === 'ReviewedAllocation' ? 'reviewed' : 'retain') | transloco }}
           · {{ 'billing.status.paidThrough' | transloco }} {{ instant(item.sourcePaidThroughAt) }}
           @if (item.cutoverAt) { · {{ instant(item.cutoverAt) }} }</p>
@@ -86,7 +87,7 @@
           }
         </ul>
         <p data-testid="transfer-progress">{{ 'billing.coverageTransfer.progress' | transloco: { accepted: accepted(item) } }}</p>
-        @if (item.state === 'AwaitingConsents' || item.state === 'ConsentsCollected') {
+        @if (canDecide(item.state)) {
           @for (purpose of item.viewerPurposes; track purpose) {
             @if (status(item, purpose) === 'Accepted') {
               <button type="button" [attr.data-testid]="'transfer-revoke-' + purpose" [disabled]="busy() || !!draft()"
@@ -108,16 +109,18 @@
       <article data-testid="transfer-owner">
         <h2 data-testid="transfer-owner-shop">{{ o.shopName }}</h2>
         <p data-testid="transfer-parties">{{ o.sourceAccountName }} → {{ o.destinationAccountName ?? o.destinationAccountId }}</p>
+        <p>{{ 'billing.coverageTransfer.ackBills' | transloco }}</p>
         <p data-testid="transfer-treatment-shown">{{ 'billing.coverageTransfer.' + (o.treatment === 'ReviewedAllocation' ? 'reviewed' : 'retain') | transloco }}
           · {{ 'billing.status.paidThrough' | transloco }} {{ instant(o.sourcePaidThroughAt) }}
           @if (o.cutoverAt) { · {{ instant(o.cutoverAt) }} }</p>
         <p>{{ 'billing.replacement.permit' | transloco }} ·
           {{ o.observedPermitDeadline ? instant(o.observedPermitDeadline) : ('billing.replacement.unknown' | transloco) }}</p>
         <p role="note" data-testid="transfer-unknown-queues">{{ 'billing.coverageTransfer.unknownQueues' | transloco }}</p>
+        <p>{{ 'billing.coverageTransfer.state.' + o.state | transloco }}</p>
         <p data-testid="transfer-owner-status" [attr.data-status]="o.consentStatus" [attr.data-delivery]="o.delivery">
           {{ 'billing.coverageTransfer.purpose.ShopOwner' | transloco }} · {{ 'billing.coverageTransfer.status.' + o.consentStatus | transloco }}
           @if (o.delivery === 'Pending') { · {{ 'billing.coverageTransfer.deliveryPending' | transloco }} }</p>
-        @if (o.state === 'AwaitingConsents' || o.state === 'ConsentsCollected') {
+        @if (canDecide(o.state)) {
           @if (o.consentStatus === 'Accepted') {
             <button type="button" data-testid="transfer-revoke-ShopOwner" [disabled]="busy() || !!draft()"
               (click)="decide('revoke', 'ShopOwner', o)">{{ 'billing.coverageTransfer.revoke' | transloco }}</button>

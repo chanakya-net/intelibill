@@ -157,7 +157,7 @@ public sealed partial class CoverageReplacementExceptions
         $$;
         """;
 
-    private const string UpdatedGuards = """
+    internal const string UpdatedGuards = """
         CREATE OR REPLACE FUNCTION public.shop_has_conflicting_paid_coverage(
             ac uuid, shop uuid, exclude_term uuid, win_start timestamptz, win_end timestamptz)
         RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog AS $$

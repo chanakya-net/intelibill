@@ -25,6 +25,9 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
 
     /// <summary>The runtime grant step for tables a test re-creates by migrating down and up again.</summary>
     internal const string RuntimeGrant = """
+        GRANT SELECT ON public.current_shop_affiliations TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.coverage_transfer_approvals, public.coverage_transfer_progress,
+            public.coverage_transfer_bindings TO licensing_runtime;
         GRANT SELECT, INSERT ON public.billing_document_versions TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE ON public.coverage_replacement_exceptions, public.coverage_replacement_exception_approvals TO licensing_runtime;
         GRANT SELECT, INSERT ON public.paid_slot_handoffs TO licensing_runtime;
@@ -36,6 +39,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         GRANT SELECT, INSERT ON public.capacity_reduction_previews, public.capacity_reduction_preview_shops,
             public.scheduled_capacity_reduction_shops, public.scheduled_capacity_reduction_resolutions TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE ON public.scheduled_capacity_reductions TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.due_transfer_applications(timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_refund(timestamptz,uuid), public.start_refund_send(uuid,timestamptz), public.finish_refund(uuid,timestamptz,text,text,text),
             public.refund_outcome(uuid,uuid), public.refund_finance_observation(uuid,uuid), public.recheck_refund(uuid,uuid,timestamptz,text),

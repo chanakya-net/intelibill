@@ -22,6 +22,7 @@ internal sealed partial class CoverageTransferStore
         if (await LookupDecisionAsync(account, actor, d.OperationKey, ct) is { } prior)
             return Replay(prior, hash, owner) ?? await ViewAsync(transfer, account, actor, now, ct);
 
+        if (p.ApprovalState is "Consuming" or "PendingActivation" or "Applied" or "NeedsReview") return CoverageTransferErrors.Changed;
         if (d.ExpectedProposalRevision != p.ProposalRevision || d.ExpectedTermsDigest != p.TermsDigest ||
             d.ExpectedAuthorityRevision != owner.Revision)
             return CoverageTransferErrors.Changed;

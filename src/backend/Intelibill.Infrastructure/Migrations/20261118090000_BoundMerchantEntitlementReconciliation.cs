@@ -107,7 +107,7 @@ public sealed class BoundMerchantEntitlementReconciliation : Migration
         $$;
         """;
 
-    private static string MinuteScan => $$"""
+    internal static string MinuteScan => $$"""
         CREATE OR REPLACE FUNCTION public.due_merchant_entitlement_reconciliation(p_now timestamptz)
         RETURNS TABLE (account_id uuid, shop_id uuid, affiliation_request_id uuid)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$

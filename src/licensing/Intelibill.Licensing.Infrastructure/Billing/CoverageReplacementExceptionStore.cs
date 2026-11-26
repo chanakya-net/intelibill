@@ -33,7 +33,7 @@ internal sealed partial class CoverageReplacementExceptionStore(
             .Skip(offset).Take(size).ToArray();
         var obs = await ReadObservedPermitsAsync(account, covered.Select(s => s.ShopId).ToArray(), now, ct);
         var eligible = await db.Database.SqlQuery<SlotShopV1>($"""
-            SELECT shop_id, shop_name FROM public.shop_affiliations WHERE account_id = {account}
+            SELECT shop_id, shop_name FROM public.current_shop_affiliations WHERE account_id = {account}
                 AND public.slot_shop_eligible({account}, shop_id, {now}, public.term_effective_access_end({account}, {term}))
             ORDER BY shop_name, shop_id LIMIT {size + 1} OFFSET {offset}
             """).ToArrayAsync(ct);
@@ -89,7 +89,7 @@ internal sealed partial class CoverageReplacementExceptionStore(
         if (outgoing is null) return CoverageReplacementExceptionErrors.Changed;
 
         var incoming = await db.Database.SqlQuery<IncomingAffiliation>($"""
-            SELECT shop_id, shop_name, request_id FROM public.shop_affiliations
+            SELECT shop_id, shop_name, request_id FROM public.current_shop_affiliations
             WHERE account_id = {account} AND shop_id = {command.IncomingShopId}
             """).SingleOrDefaultAsync(ct);
         if (incoming is null) return CoverageReplacementExceptionErrors.Changed;
@@ -138,7 +138,7 @@ internal sealed partial class CoverageReplacementExceptionStore(
                 {obs?.LastSynchronizedAt}::timestamptz, {obs?.OutstandingCount ?? 0}, {reason},
                 {now}, {expires}, {actor}, m.revision, {command.OperationKey}, {hash}, {source.Hash()}, {termsDigest},
                 'AwaitingConsents'
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             JOIN public.billing_account_members m USING (account_id)
             WHERE a.account_id = {account} AND a.shop_id = {incoming.ShopId} AND a.request_id = {incoming.RequestId}
                 AND m.merchant_user_id = {actor} AND m.status = 1 AND m.role = 1

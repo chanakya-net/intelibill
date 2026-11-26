@@ -98,6 +98,12 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.CoverageExceptionPageComponent),
       },
       {
+        path: 'accounts/:accountId/coverage-transfers',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/coverage-exceptions/transfer-review-page.component')
+          .then(m => m.TransferReviewPageComponent),
+      },
+      {
         path: 'accounts/:accountId/coverage-exceptions',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/coverage-exceptions/coverage-exception-page.component')

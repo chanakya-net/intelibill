@@ -95,7 +95,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
                    CASE WHEN p.term_id IS NOT NULL THEN CASE WHEN p.is_released THEN NULL::uuid ELSE p.term_id END
                        ELSE a.term_id END AS term_id,
                    a.applied_at AS applied_at, a.coverage_ends_at AS coverage_ends_at
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             LEFT JOIN LATERAL public.shop_effective_paid_link(a.account_id, a.shop_id, NULL, NULL) p ON true
             WHERE a.account_id = {account} AND a.shop_id = ANY({requested})
             ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
@@ -108,7 +108,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
                    a.applied_at AS applied_at,
                    coalesce(CASE WHEN a.term_id = {term} THEN a.coverage_ends_at END, t.ends_at) AS coverage_ends_at
             FROM public.term_effective_roster({account}, {term}, NULL) er
-            JOIN public.shop_affiliations a ON a.account_id = {account} AND a.shop_id = er.shop_id
+            JOIN public.current_shop_affiliations a ON a.account_id = {account} AND a.shop_id = er.shop_id
                 AND a.request_id = er.affiliation_request_id
             JOIN public.subscription_coverage_terms t ON t.account_id = {account} AND t.term_id = {term}
             ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
@@ -170,7 +170,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
         await db.Database.ExecuteSqlAsync($"""
             INSERT INTO public.checkout_order_shops (account_id, order_id, shop_id, shop_name, affiliation_request_id, replay_id)
             SELECT account_id, {q.OrderId}, shop_id, shop_name, request_id, {replay}
-            FROM public.shop_affiliations WHERE account_id = {q.AccountId} AND shop_id = ANY({ids})
+            FROM public.current_shop_affiliations WHERE account_id = {q.AccountId} AND shop_id = ANY({ids})
             """, ct);
         if (source.Trials is { Length: > 0 } trials)
             await SaveTrialSourcesAsync(q, trials, ct);
@@ -207,7 +207,7 @@ internal sealed partial class CheckoutOrderStore(LicensingDbContext db, Applicat
                 SELECT a.shop_id AS shop_id, a.shop_name AS name,
                    CASE WHEN p.term_id IS NOT NULL THEN CASE WHEN p.is_released THEN NULL::uuid ELSE p.term_id END
                        ELSE a.term_id END AS term_id
-                FROM public.shop_affiliations a
+                FROM public.current_shop_affiliations a
                 LEFT JOIN LATERAL public.shop_effective_paid_link(a.account_id, a.shop_id, NULL, NULL) p ON true
                 WHERE a.account_id = {account} AND ({after}::uuid IS NULL OR a.shop_id > {after})
                 ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.PageSize + 1}

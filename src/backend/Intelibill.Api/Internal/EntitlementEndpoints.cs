@@ -35,6 +35,8 @@ internal static class EntitlementEndpoints
             endpoints.MapPost(path, (HttpContext context, MerchantEntitlementTransport transport, ICoverageExceptionReceiver receiver) =>
                 CoverageExceptionAsync(context, transport, receiver, phase, path)).AllowAnonymous()
                 .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+        endpoints.MapPost(CoverageTransferApprovalsV1.CommandPath, TransferAsync).AllowAnonymous()
+            .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(EntitlementSnapshotsV1.SnapshotPath, ApplyAsync).AllowAnonymous()
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
         endpoints.MapPost(ShopClosuresV1.ValidationPath, ValidateClosureAsync).AllowAnonymous()
@@ -164,6 +166,23 @@ internal static class EntitlementEndpoints
         {
             var command = JsonSerializer.Deserialize<CoverageExceptionCommandV1>(request.Body, EntitlementSnapshotsV1.Json);
             if (command?.IsValid(phase) != true) return Results.BadRequest();
+            return MapInternalWrite(await receiver.ReceiveAsync(command, request.Body, proof, context.RequestAborted));
+        }
+        catch (JsonException) { return Results.BadRequest(); }
+        catch (NpgsqlException) { return Results.StatusCode(503); }
+    }
+
+    private static async Task<IResult> TransferAsync(HttpContext context, MerchantEntitlementTransport transport,
+        ICoverageTransferReceiver receiver)
+    {
+        const string path = CoverageTransferApprovalsV1.CommandPath;
+        if (await PrivateIntegrationRequest.ReadAsync(context, path, EntitlementSnapshotsV1.BodyLimit) is not { } request ||
+            transport.Verify(request.Token, request.Body, path) is not { } proof)
+            return Results.Unauthorized();
+        try
+        {
+            var command = JsonSerializer.Deserialize<TransferCommandV1>(request.Body, EntitlementSnapshotsV1.Json);
+            if (command?.IsValid() != true) return Results.BadRequest();
             return MapInternalWrite(await receiver.ReceiveAsync(command, request.Body, proof, context.RequestAborted));
         }
         catch (JsonException) { return Results.BadRequest(); }

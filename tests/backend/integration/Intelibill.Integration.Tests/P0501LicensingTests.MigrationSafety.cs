@@ -147,6 +147,7 @@ public sealed partial class P0501LicensingTests
         return ExecuteSqlAsync(dbConn, $"""
             GRANT CREATE ON SCHEMA public TO {role};
             {alters}
+            {TransferMigrationOwnership.Sql(role)}
             ALTER FUNCTION public.replacement_outgoing_released(uuid,timestamptz) OWNER TO {role};
             ALTER FUNCTION public.exception_outgoing_released(uuid,bigint,timestamptz) OWNER TO {role};
             ALTER FUNCTION public.exception_fence_inspect(uuid,uuid,uuid,bigint,text,uuid,uuid,uuid,uuid,uuid,uuid,int,timestamptz) OWNER TO {role};

@@ -175,6 +175,9 @@ DO $$ BEGIN
   IF to_regprocedure('public.due_entitlement_verification(timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO intelibill_licensing_app;
   END IF;
+  IF to_regprocedure('public.due_transfer_applications(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_transfer_applications(timestamptz) TO intelibill_licensing_app;
+  END IF;
   IF to_regprocedure('public.due_scheduled_capacity_reductions(timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO intelibill_licensing_app;
   END IF;

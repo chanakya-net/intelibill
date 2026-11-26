@@ -77,7 +77,7 @@ internal sealed partial class PaymentStore
     {
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.payment_fulfilment_shops (account_id, order_id, term_id, shop_id, affiliation_request_id)
-            SELECT account_id, {f.OrderId}, {f.Term.TermId}, shop_id, request_id FROM public.shop_affiliations
+            SELECT account_id, {f.OrderId}, {f.Term.TermId}, shop_id, request_id FROM public.current_shop_affiliations
             WHERE account_id = {f.AccountId} AND shop_id = ANY({f.ShopIds})
             """, ct);
         if (f.Attempt is { } attempt)

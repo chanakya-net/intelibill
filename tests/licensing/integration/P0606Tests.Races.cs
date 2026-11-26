@@ -145,7 +145,7 @@ public sealed partial class P0606Tests
         await AssertPermitInsertExceedingCutoffFailsAsync(merchantOwner, north.ShopId, oldPermit.GrantId, cutover);
     }
 
-    private static async Task AssertPermitInsertExceedingCutoffFailsAsync(
+    internal static async Task AssertPermitInsertExceedingCutoffFailsAsync(
         NpgsqlConnectionStringBuilder merchantOwner, Guid shopId, Guid grantId, DateTimeOffset cutoff)
     {
         var pg = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(merchantOwner, $"""

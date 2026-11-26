@@ -42,6 +42,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<EntitlementProjectionStore>();
         services.AddScoped<ICapacityReservationReceiver, MerchantCapacityReservationStore>();
         services.AddScoped<IReductionReservationReceiver, MerchantReductionReservationStore>();
+        services.AddScoped<ICoverageTransferReceiver, MerchantCoverageTransferReceiver>();
         services.AddScoped<ICoverageExceptionReceiver, MerchantCoverageExceptionReceiver>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();

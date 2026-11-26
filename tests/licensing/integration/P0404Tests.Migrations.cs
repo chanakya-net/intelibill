@@ -42,6 +42,11 @@ public sealed partial class P0404Tests
         var merchantRefusal = await Record.ExceptionAsync(() =>
             merchant.GetService<IMigrator>().MigrateAsync("20261118100000_ProjectOperationalRestrictions"));
         Assert.Equal("55000", Assert.IsType<PostgresException>(merchantRefusal?.GetBaseException()).SqlState);
+        // EF committed empty newer downgrades (including dropping current_shop_affiliations) before the retention fence refused.
+        // Restore the current schema and runtime grants before reading status through the current API.
+        await source.Database.MigrateAsync();
+        await source.Database.ExecuteSqlRawAsync(P0302Fixture.RuntimeGrant);
+        await merchant.Database.MigrateAsync();
         Assert.Equal("Acknowledged", await ReleasePropagationAsync(admin, path, id));
     }
 

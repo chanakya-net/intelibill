@@ -13,7 +13,8 @@ public sealed record CoverageTransferReviewObservation(
     Guid TransferId, long ProposalRevision, string TermsDigest, Guid SourceAccountId, Guid DestinationAccountId,
     Guid ShopId, Guid SourceAffiliationId, int ObservedPermitCount, DateTimeOffset? ObservedPermitDeadline,
     CoverageTransferConsentBinding[] Consents, DateTimeOffset ObservedAt,
-    int MerchantPermitCount = 0, DateTimeOffset? MerchantMaxPermitValidUntil = null, string? MerchantPermitDigest = null);
+    int MerchantPermitCount = 0, DateTimeOffset? MerchantMaxPermitValidUntil = null, string? MerchantPermitDigest = null,
+    CoverageTransferShopAuthorityV1? MerchantProof = null, DateTimeOffset? ProofDeadline = null);
 
 public sealed record CoverageTransferReviewCheck(
     CoverageTransferReviewOutcome Outcome, string? Reason, CoverageTransferReviewObservation? Observation)
@@ -86,7 +87,7 @@ public sealed class CoverageTransferAuthority(
         return SameEvidence(captured, current)
             ? second with { Observation = current with
                 { MerchantPermitCount = answer.OutstandingPermitCount, MerchantMaxPermitValidUntil = answer.MaxPermitValidUntil,
-                    MerchantPermitDigest = answer.PermitDigest } }
+                    MerchantPermitDigest = answer.PermitDigest, MerchantProof = answer, ProofDeadline = check.Deadline } }
             : CoverageTransferReviewCheck.Of(CoverageTransferReviewOutcome.Stale, "ChangedDuringCheck");
     }
 
