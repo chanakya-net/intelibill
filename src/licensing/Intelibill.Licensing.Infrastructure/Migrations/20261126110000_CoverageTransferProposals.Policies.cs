@@ -87,7 +87,8 @@ public sealed partial class CoverageTransferProposals
         END $$;
 
         -- NULL while the frozen proposal still matches every current fact; otherwise the first reason it does not.
-        CREATE FUNCTION public.coverage_transfer_blocker(id uuid, at_time timestamptz)
+        CREATE FUNCTION public.coverage_transfer_blocker(id uuid, at_time timestamptz,
+            merchant_at timestamptz DEFAULT NULL, merchant_digest text DEFAULT NULL)
         RETURNS text LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         DECLARE
             r public.coverage_transfer_proposals%ROWTYPE;
@@ -107,6 +108,9 @@ public sealed partial class CoverageTransferProposals
                     WHERE tr.shop_id = r.shop_id AND tr.affiliation_request_id = r.source_affiliation_id) THEN 'SourceChanged'
                 WHEN r.permit_digest IS DISTINCT FROM public.coverage_transfer_permit_digest(
                     r.source_account_id, r.shop_id, r.source_affiliation_id, r.created_at) THEN 'PermitEvidenceChanged'
+                WHEN merchant_at IS NOT NULL AND merchant_digest IS DISTINCT FROM public.coverage_transfer_permit_digest(
+                    r.source_account_id, r.shop_id, r.source_affiliation_id, greatest(r.created_at, merchant_at))
+                    THEN 'PermitEvidenceChanged'
             END INTO result;
             PERFORM set_config('app.billing_account_id', coalesce(previous, ''), true);
             RETURN result;

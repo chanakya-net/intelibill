@@ -75,6 +75,39 @@ public sealed partial class P0607aTests(LicensingPostgreSqlFixture database) : I
         Assert.Equal("Allowed", await P0606Tests.FencedTradingAtAsync(s.F, s.North.ShopId, RequestedAt));
     }
 
+    [Fact]
+    public async Task ReviewedAllocationRequiresCutoverWithinRemainingPaidAccess()
+    {
+        using var rsa = RSA.Create(2048);
+        await using var s = await StartAsync(database, rsa);
+        var before = await s.BaselineAsync();
+        var client = s.Source.Payer.Client;
+        var path = RequestPath(s.Source.Account, s.Term);
+        var cutover = RequestedAt.AddHours(12);
+        using var response = await client.PostAsJsonAsync(path + "/preview", s.PreviewBody("ReviewedAllocation", cutover));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(cutover, preview.GetProperty("proposedExpiresAt").GetDateTimeOffset());
+        foreach (var bound in new[] { RequestedAt, preview.GetProperty("sourcePaidThroughAt").GetDateTimeOffset() })
+        {
+            using var refused = await client.PostAsJsonAsync(path + "/preview", s.PreviewBody("ReviewedAllocation", bound));
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Equal("Coverage.TransferInvalid", await CodeAsync(refused));
+            var request = JsonSerializer.SerializeToNode(RequestBody(preview, Guid.NewGuid()))!;
+            request["cutoverAt"] = bound;
+            using var invalid = await client.PostAsJsonAsync(path, request);
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+            Assert.Equal("Coverage.TransferInvalid", await CodeAsync(invalid));
+        }
+        using var created = await client.PostAsJsonAsync(path, RequestBody(preview, Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var proposal = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("ReviewedAllocation", proposal.GetProperty("treatment").GetString());
+        Assert.Equal(cutover, proposal.GetProperty("cutoverAt").GetDateTimeOffset());
+        Assert.Equal(cutover, proposal.GetProperty("expiresAt").GetDateTimeOffset());
+        Assert.Equal(before, await s.BaselineAsync());
+    }
+
     internal static object RequestBody(JsonElement preview, Guid key, string reason = "Branch sold to the destination company") => new
     {
         operationKey = key,

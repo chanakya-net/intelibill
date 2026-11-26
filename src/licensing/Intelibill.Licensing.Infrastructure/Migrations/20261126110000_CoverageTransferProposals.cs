@@ -43,7 +43,7 @@ public sealed partial class CoverageTransferProposals : Migration
         END $$;
         ALTER TABLE public.entitlement_merchant_inbox DROP CONSTRAINT entitlement_merchant_inbox_kind_check,
             ADD CHECK (kind IN ({PreviousInboxKinds}));
-        DROP FUNCTION public.coverage_transfer_blocker(uuid,timestamptz);
+        DROP FUNCTION public.coverage_transfer_blocker(uuid,timestamptz,timestamptz,text);
         DROP FUNCTION public.coverage_transfer_owner_current(uuid,uuid,uuid,bigint);
         DROP FUNCTION public.coverage_transfer_freeze_evidence(uuid);
         DROP FUNCTION public.coverage_transfer_evidence_digest(uuid,uuid);

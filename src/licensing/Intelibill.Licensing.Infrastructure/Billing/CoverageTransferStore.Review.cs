@@ -9,12 +9,12 @@ namespace Intelibill.Licensing.Infrastructure.Billing;
 internal sealed partial class CoverageTransferStore
 {
     public async Task<CoverageTransferReviewCheck> CaptureAsync(Guid transferId, long expectedRevision, string termsDigest,
-        CancellationToken ct)
+        CoverageTransferShopAuthorityV1? merchant, CancellationToken ct)
     {
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            var check = await EvaluateInTransactionAsync(transferId, expectedRevision, termsDigest, ct);
+            var check = await EvaluateInTransactionAsync(transferId, expectedRevision, termsDigest, merchant, ct);
             await tx.CommitAsync(ct);
             return check;
         }
@@ -26,8 +26,10 @@ internal sealed partial class CoverageTransferStore
     }
 
     public async Task<CoverageTransferReviewCheck> EvaluateInTransactionAsync(Guid transferId, long expectedRevision,
-        string termsDigest, CancellationToken ct)
+        string termsDigest, CoverageTransferShopAuthorityV1? merchant, CancellationToken ct)
     {
+        if (db.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Coverage transfer review requires an open licensing transaction.");
         await db.Database.ExecuteSqlAsync(
             $"SELECT set_config('app.coverage_transfer_id', {transferId.ToString("D")}, true)", ct);
         var parties = await db.Database.SqlQuery<Parties>($"""
@@ -41,7 +43,7 @@ internal sealed partial class CoverageTransferStore
             await BillingAccountLock.TakeAsync(db, account, ct);
 
         var now = EntitlementSnapshotsV1.Instant(clock);
-        if (await ProposalAsync(transferId, now, ct) is not { } p || p.ProposalRevision != expectedRevision ||
+        if (await ProposalAsync(transferId, now, ct, merchant) is not { } p || p.ProposalRevision != expectedRevision ||
             p.TermsDigest != termsDigest)
             return CoverageTransferReviewCheck.Of(Outcome.Stale, "ProposalChanged");
         if (p.Blocker is { } blocker)

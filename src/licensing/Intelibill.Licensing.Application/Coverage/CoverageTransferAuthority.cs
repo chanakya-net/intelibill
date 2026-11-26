@@ -13,7 +13,7 @@ public sealed record CoverageTransferReviewObservation(
     Guid TransferId, long ProposalRevision, string TermsDigest, Guid SourceAccountId, Guid DestinationAccountId,
     Guid ShopId, Guid SourceAffiliationId, int ObservedPermitCount, DateTimeOffset? ObservedPermitDeadline,
     CoverageTransferConsentBinding[] Consents, DateTimeOffset ObservedAt,
-    int MerchantPermitCount = 0, DateTimeOffset? MerchantMaxPermitValidUntil = null);
+    int MerchantPermitCount = 0, DateTimeOffset? MerchantMaxPermitValidUntil = null, string? MerchantPermitDigest = null);
 
 public sealed record CoverageTransferReviewCheck(
     CoverageTransferReviewOutcome Outcome, string? Reason, CoverageTransferReviewObservation? Observation)
@@ -27,14 +27,21 @@ public interface ICoverageTransferReviewStore
     /// In its own transaction: lock both billing accounts in canonical order, then the proposal, and evaluate both
     /// live Billing Owner tuples, all three exact consent events, revocations, frozen evidence and expiry.
     /// </summary>
-    Task<CoverageTransferReviewCheck> CaptureAsync(Guid transferId, long expectedRevision, string termsDigest, CancellationToken ct);
+    Task<CoverageTransferReviewCheck> CaptureAsync(Guid transferId, long expectedRevision, string termsDigest, CancellationToken ct) =>
+        CaptureAsync(transferId, expectedRevision, termsDigest, null, ct);
+
+    Task<CoverageTransferReviewCheck> CaptureAsync(Guid transferId, long expectedRevision, string termsDigest,
+        CoverageTransferShopAuthorityV1? merchant, CancellationToken ct);
 
     /// <summary>
     /// The same locked predicate inside the caller's open transaction, for a final decision write to repeat
     /// immediately before it commits.
     /// </summary>
     Task<CoverageTransferReviewCheck> EvaluateInTransactionAsync(Guid transferId, long expectedRevision, string termsDigest,
-        CancellationToken ct);
+        CancellationToken ct) => EvaluateInTransactionAsync(transferId, expectedRevision, termsDigest, null, ct);
+
+    Task<CoverageTransferReviewCheck> EvaluateInTransactionAsync(Guid transferId, long expectedRevision, string termsDigest,
+        CoverageTransferShopAuthorityV1? merchant, CancellationToken ct);
 }
 
 public interface IMerchantCoverageTransferAuthority
@@ -71,12 +78,15 @@ public sealed class CoverageTransferAuthority(
             (answer.MaxPermitValidUntil is { } end && !(end <= captured.ObservedPermitDeadline)))
             return CoverageTransferReviewCheck.Of(CoverageTransferReviewOutcome.Stale, "PermitEvidenceChanged");
 
-        var second = await store.CaptureAsync(transferId, expectedRevision, termsDigest, ct);
+        var second = await store.CaptureAsync(transferId, expectedRevision, termsDigest, answer, ct);
+        if (transportClock.GetUtcNow() >= check.Deadline)
+            return CoverageTransferReviewCheck.Of(CoverageTransferReviewOutcome.Unavailable, "ShopAuthorityUnavailable");
         if (second is not { Outcome: CoverageTransferReviewOutcome.Current, Observation: { } current })
             return second;
         return SameEvidence(captured, current)
             ? second with { Observation = current with
-                { MerchantPermitCount = answer.OutstandingPermitCount, MerchantMaxPermitValidUntil = answer.MaxPermitValidUntil } }
+                { MerchantPermitCount = answer.OutstandingPermitCount, MerchantMaxPermitValidUntil = answer.MaxPermitValidUntil,
+                    MerchantPermitDigest = answer.PermitDigest } }
             : CoverageTransferReviewCheck.Of(CoverageTransferReviewOutcome.Stale, "ChangedDuringCheck");
     }
 

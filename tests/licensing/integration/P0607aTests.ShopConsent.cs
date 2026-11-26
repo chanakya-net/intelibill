@@ -60,6 +60,22 @@ public sealed partial class P0607aTests
         Assert.Equal("Allowed", await P0606Tests.FencedTradingAtAsync(s.F, s.North.ShopId, RequestedAt));
     }
 
+    [Fact]
+    public async Task ActiveStaffOfTheNamedShopCannotReadOrAcceptOwnerConsent()
+    {
+        using var rsa = RSA.Create(2048);
+        await using var s = await StartAsync(database, rsa);
+        var id = (await CreateAsync(s)).GetProperty("transferId").GetGuid();
+        var path = ShopConsentPath(s.Source.Account, s.North.ShopId, id);
+        var shown = await s.North.Client.GetFromJsonAsync<JsonElement>(path);
+        var staff = await P0209Fixture.SignInAsync(s.F.Hosts, Intelibill.Domain.Enums.ShopRole.Staff, s.North.ShopId);
+        using var read = await staff.Client.GetAsync(path);
+        using var decide = await DecideAsync(staff.Client, path, "accept", shown);
+        Assert.Equal(HttpStatusCode.Forbidden, read.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, decide.StatusCode);
+        Assert.Equal(0L, await MerchantCountAsync(s, "coverage_transfer_consent_events", $"transfer_id='{id}'"));
+    }
+
     private static async Task AssertRedeliveryAndReorderingAreSafeAsync(Scenario s, Guid id, string path)
     {
         var north = s.North.Client;

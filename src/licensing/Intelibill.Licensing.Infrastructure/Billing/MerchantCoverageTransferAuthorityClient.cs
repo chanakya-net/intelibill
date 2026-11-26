@@ -58,7 +58,7 @@ internal sealed class MerchantCoverageTransferAuthorityClient(LicensingEntitleme
         var bytes = await response.Content.ReadAsByteArrayAsync(ct);
         return transport.Verify(path, proof, bytes) is not null &&
             JsonSerializer.Deserialize<CoverageTransferShopAuthorityV1>(bytes, EntitlementSnapshotsV1.Json) is { } answer &&
-            answer.SchemaVersion == CoverageTransfersV1.SchemaVersion && answer.Challenge == check.Challenge &&
+            answer.IsValid() && answer.Challenge == check.Challenge &&
             answer.TransferId == check.TransferId && answer.ShopId == check.ShopId &&
             answer.ConsentEventId == check.ExpectedConsentEventId
             ? answer : null;

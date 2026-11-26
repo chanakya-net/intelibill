@@ -40,10 +40,10 @@ internal sealed partial class CoverageTransferStore(
         var reason = CoverageTransfersV1.NormalizeReason(command.Reason)!;
         var hash = CheckoutOrdersV1.Digest("coverage-transfer-request/1", source, term, command with { Reason = reason });
         if (await LookupRequestAsync(source, actor, command.OperationKey, ct) is { } prior)
-            return prior.Hash != hash ? BillingAccountErrors.PayloadMismatch
-                : await OwnerAsync(source, actor, ct) is { } live && live.Revision == prior.RequesterRevision
-                    ? await ViewAsync(prior.Id, source, actor, now, ct)
-                    : CoverageTransferErrors.AuthorityChanged;
+        {
+            if (!prior.Matches(await OwnerAsync(source, actor, ct))) return CoverageTransferErrors.AuthorityChanged;
+            return prior.Hash == hash ? await ViewAsync(prior.Id, source, actor, now, ct) : BillingAccountErrors.PayloadMismatch;
+        }
 
         var facts = await ReadSourceAsync(source, term, actor, command.DestinationAccountId, command.ShopId, now, ct);
         if (facts.IsError) return facts.Errors;
@@ -71,7 +71,7 @@ internal sealed partial class CoverageTransferStore(
     {
         if (await LookupRequestAsync(source, actor, key, ct) is not { } prior || prior.TermId != term)
             return CoverageTransferErrors.NotFound;
-        return await OwnerAsync(source, actor, ct) is { } live && live.Revision == prior.RequesterRevision
+        return prior.Matches(await OwnerAsync(source, actor, ct))
             ? await ViewAsync(prior.Id, source, actor, EntitlementSnapshotsV1.Instant(clock), ct)
             : CoverageTransferErrors.AuthorityChanged;
     }
@@ -148,7 +148,8 @@ internal sealed partial class CoverageTransferStore(
 
     private Task<PriorRequest?> LookupRequestAsync(Guid source, Guid actor, Guid key, CancellationToken ct) =>
         db.Database.SqlQuery<PriorRequest>($"""
-            SELECT transfer_id AS id, request_hash AS hash, source_term_id AS term_id, requester_revision::bigint AS requester_revision
+            SELECT transfer_id AS id, request_hash AS hash, source_term_id AS term_id, requester_member_id,
+                requester_revision::bigint AS requester_revision
             FROM public.coverage_transfer_proposals
             WHERE source_account_id = {source} AND requester_id = {actor} AND operation_key = {key}
             """).SingleOrDefaultAsync(ct);
@@ -160,7 +161,10 @@ internal sealed partial class CoverageTransferStore(
             """).SingleOrDefaultAsync(ct);
 
     private sealed record LiveOwner(Guid Id, long Revision);
-    private sealed record PriorRequest(Guid Id, string Hash, Guid TermId, long RequesterRevision);
+    private sealed record PriorRequest(Guid Id, string Hash, Guid TermId, Guid RequesterMemberId, long RequesterRevision)
+    {
+        internal bool Matches(LiveOwner? owner) => owner?.Id == RequesterMemberId && owner.Revision == RequesterRevision;
+    }
     private sealed record Frozen(DateTimeOffset? PaidThroughAt, string EvidenceDigest, string PermitDigest, string? SourceName);
     private sealed record PermitObservation(DateTimeOffset? ValidUntil, DateTimeOffset? LastContactAt, int OutstandingCount);
     private sealed record SourceFacts(LiveOwner Owner, CapacityChangeSourceShop Shop, DateTimeOffset PaidThroughAt,

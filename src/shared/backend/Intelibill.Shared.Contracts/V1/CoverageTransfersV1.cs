@@ -236,7 +236,7 @@ public sealed record CoverageTransferShopAuthorityCheckV1(
 {
     public bool IsValid() =>
         SchemaVersion == CoverageTransfersV1.SchemaVersion && Challenge != Guid.Empty && TransferId != Guid.Empty &&
-        AccountId != Guid.Empty && DestinationAccountId != Guid.Empty && ShopId != Guid.Empty &&
+        AccountId != Guid.Empty && DestinationAccountId != Guid.Empty && AccountId != DestinationAccountId && ShopId != Guid.Empty &&
         AffiliationRequestId != Guid.Empty && ProposalRevision > 0 && EntitlementSnapshotsV1.IsDigest(TermsDigest) &&
         ExpectedConsentEventId != Guid.Empty && ExpectedActorId != Guid.Empty && ExpectedMembershipId != Guid.Empty &&
         ExpectedAuthorityVersion >= 0 && EntitlementSnapshotsV1.IsInstant(Deadline);
@@ -245,4 +245,13 @@ public sealed record CoverageTransferShopAuthorityCheckV1(
 /// <summary>The merchant's signed answer about the named shop at one instant. <c>Current</c> is false for any stale fact.</summary>
 public sealed record CoverageTransferShopAuthorityV1(
     int SchemaVersion, Guid Challenge, Guid TransferId, Guid ShopId, Guid ConsentEventId, bool Current, string? Reason,
-    int OutstandingPermitCount, DateTimeOffset? MaxPermitValidUntil, DateTimeOffset EvaluatedAt);
+    int OutstandingPermitCount, DateTimeOffset? MaxPermitValidUntil, DateTimeOffset EvaluatedAt, string PermitDigest)
+{
+    public bool IsValid() =>
+        SchemaVersion == CoverageTransfersV1.SchemaVersion && Challenge != Guid.Empty && TransferId != Guid.Empty &&
+        ShopId != Guid.Empty && ConsentEventId != Guid.Empty && Current == (Reason is null) &&
+        (Reason is null || !string.IsNullOrWhiteSpace(Reason)) && OutstandingPermitCount >= 0 &&
+        (OutstandingPermitCount == 0 ? MaxPermitValidUntil is null :
+            MaxPermitValidUntil is { } end && EntitlementSnapshotsV1.IsInstant(end) && end > EvaluatedAt) &&
+        EntitlementSnapshotsV1.IsDigest(PermitDigest) && EntitlementSnapshotsV1.IsInstant(EvaluatedAt);
+}

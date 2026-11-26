@@ -66,6 +66,36 @@ public sealed partial class P0607aTests
         Assert.Equal(before, await s.BaselineAsync());
     }
 
+    [Fact]
+    public async Task RequestKeyBelongsToTheOriginalOwnerMembership()
+    {
+        using var rsa = RSA.Create(2048);
+        await using var s = await StartAsync(database, rsa);
+        var path = RequestPath(s.Source.Account, s.Term);
+        var owner = s.Source.Payer;
+        var preview = await PreviewAsync(s);
+        Assert.Equal(1L, preview.GetProperty("sourceOwnerRevision").GetInt64());
+        var key = Guid.NewGuid();
+        var request = RequestBody(preview, key);
+        using var created = await owner.Client.PostAsJsonAsync(path, request);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        await LicensingPostgreSqlFixture.ExecuteAsync(s.F.Hosts.LicensingOwner, $"""
+            UPDATE billing_account_members SET status = 2, role = 2, revision = revision + 1
+            WHERE account_id = '{s.Source.Account}' AND merchant_user_id = '{owner.UserId}' AND status = 1;
+            INSERT INTO billing_account_members(id, account_id, merchant_user_id, role, status, revision, created_at)
+            VALUES (gen_random_uuid(), '{s.Source.Account}', '{owner.UserId}', 1, 1, 1, now());
+            """);
+        using var replay = await owner.Client.PostAsJsonAsync(path, request);
+        using var lookup = await owner.Client.GetAsync($"{path}/operations/{key}");
+        foreach (var response in new[] { replay, lookup })
+        {
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("Coverage.TransferAuthorityChanged", await CodeAsync(response));
+        }
+        Assert.Equal(1L, await s.F.CountAsync("coverage_transfer_proposals"));
+    }
+
     // The destination finds its incoming request through its own account and sees only the allow-listed fields.
     private static async Task AssertNarrowDestinationViewAsync(Scenario s, Guid id)
     {

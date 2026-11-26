@@ -32,8 +32,9 @@ internal sealed class MerchantCoverageTransferAuthority(
     public async Task<ErrorOr<CoverageTransferShopAuthorityV1>> CheckAsync(CoverageTransferShopAuthorityCheckV1 c,
         VerifiedServiceAssertion proof, CancellationToken ct)
     {
-        if (!c.IsValid() || c.Deadline <= transportClock.GetUtcNow() || c.Deadline > proof.ExpiresAt)
-            return Unavailable;
+        if (!c.IsValid()) return Error.Validation("Coverage.TransferInvalid");
+        if (c.Deadline <= transportClock.GetUtcNow() || c.Deadline > proof.ExpiresAt)
+            return Error.Unauthorized();
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
@@ -42,19 +43,19 @@ internal sealed class MerchantCoverageTransferAuthority(
                 SELECT set_config('app.active_shop_id', {c.ShopId.ToString("D")}, true),
                     set_config('app.entitlement_account_id', {c.AccountId.ToString("D")}, true)
                 """, ct);
-            if ((await fence.EnterProjectionAsync(c.AccountId, c.ShopId, ct)).IsError || !await projection.ConsumeAsync(proof, ct))
-                return Unavailable;
+            if ((await fence.EnterProjectionAsync(c.AccountId, c.ShopId, ct)).IsError) return Unavailable;
+            if (!await projection.ConsumeAsync(proof, ct)) return Error.Unauthorized();
 
-            var user = await sessions.LockUserAuthorityAsync(c.ExpectedActorId, ct);
+            await sessions.LockUserAuthorityAsync(c.ExpectedActorId, ct);
             await memberships.LockShopAsync(c.ShopId, ct);
             await memberships.LockMembershipAsync(c.ShopId, c.ExpectedActorId, ct);
             var now = EntitlementSnapshotsV1.Instant(businessClock);
             var seen = await InspectAsync(c, now, ct);
-            if (seen is null || transportClock.GetUtcNow() >= c.Deadline) return Unavailable;
-            var reason = user is { IsLoginEnabled: true } ? seen.Reason : "ShopOwnerChanged";
+            if (seen is null) return Unavailable;
+            if (transportClock.GetUtcNow() >= c.Deadline) return Error.Unauthorized();
             await tx.CommitAsync(ct);
             return new CoverageTransferShopAuthorityV1(CoverageTransfersV1.SchemaVersion, c.Challenge, c.TransferId, c.ShopId,
-                c.ExpectedConsentEventId, reason is null, reason, seen.PermitCount, seen.MaxPermitValidUntil, now);
+                c.ExpectedConsentEventId, seen.Reason is null, seen.Reason, seen.PermitCount, seen.MaxPermitValidUntil, now, seen.PermitDigest);
         }
         catch (Exception error) when (error is NpgsqlException or TimeoutException)
         {
@@ -65,11 +66,11 @@ internal sealed class MerchantCoverageTransferAuthority(
 
     private Task<Inspection?> InspectAsync(CoverageTransferShopAuthorityCheckV1 c, DateTimeOffset now, CancellationToken ct) =>
         db.Database.SqlQuery<Inspection>($"""
-            SELECT reason, permit_count, max_permit_valid_until FROM public.coverage_transfer_shop_inspect(
+            SELECT reason, permit_count, max_permit_valid_until, permit_digest FROM public.coverage_transfer_shop_inspect(
                 {c.AccountId}, {c.ShopId}, {c.AffiliationRequestId}, {c.TransferId}, {c.ExpectedConsentEventId},
                 {c.ExpectedActorId}, {c.ExpectedMembershipId}, {c.ExpectedAuthorityVersion}, {c.ProposalRevision},
                 {c.TermsDigest}, {now})
             """).SingleOrDefaultAsync(ct);
 
-    private sealed record Inspection(string? Reason, int PermitCount, DateTimeOffset? MaxPermitValidUntil);
+    private sealed record Inspection(string? Reason, int PermitCount, DateTimeOffset? MaxPermitValidUntil, string PermitDigest);
 }

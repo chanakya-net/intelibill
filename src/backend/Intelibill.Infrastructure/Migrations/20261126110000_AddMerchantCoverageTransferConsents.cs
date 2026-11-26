@@ -60,7 +60,7 @@ public sealed class AddMerchantCoverageTransferConsents : Migration
         CREATE FUNCTION public.coverage_transfer_shop_inspect(
             p_account uuid, p_shop uuid, p_affiliation uuid, p_transfer uuid, p_event uuid, p_actor uuid,
             p_membership uuid, p_version bigint, p_revision bigint, p_digest text, p_at timestamptz)
-        RETURNS TABLE (reason text, permit_count int, max_permit_valid_until timestamptz)
+        RETURNS TABLE (reason text, permit_count int, max_permit_valid_until timestamptz, permit_digest text)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
             WITH gate AS (
                 SELECT p_account = nullif(current_setting('app.entitlement_account_id', true), '')::uuid
@@ -75,7 +75,10 @@ public sealed class AddMerchantCoverageTransferConsents : Migration
                     AND e.proposal_revision = p_revision AND e.terms_digest = p_digest AND e.actor_id = p_actor
                     AND e.membership_id = p_membership AND e.authority_version = p_version
             ), permits AS (
-                SELECT count(*)::int AS cnt, max(p.valid_until) AS max_end
+                -- Match the licensing digest without changing the bytes bound to existing proposal terms.
+                SELECT count(*)::int AS cnt, max(p.valid_until) AS max_end,
+                    encode(sha256(convert_to(coalesce(string_agg(p.id::text || '/' || extract(epoch FROM p.not_before)::text
+                        || '/' || extract(epoch FROM p.valid_until)::text, ',' ORDER BY p.id), ''), 'UTF8')), 'hex') AS digest
                 FROM public.offline_license_permits p WHERE p.shop_id = p_shop AND p.valid_until > p_at
             )
             SELECT CASE
@@ -84,13 +87,16 @@ public sealed class AddMerchantCoverageTransferConsents : Migration
                     WHERE v.transfer_id = p_transfer
                         AND (v.generation > c.generation OR (v.generation = c.generation AND v.kind = 'Revoked')))
                     THEN 'ShopConsentSuperseded'
-                WHEN NOT EXISTS (SELECT FROM public.shop_memberships m WHERE m.id = p_membership AND m.shop_id = p_shop
+                WHEN NOT EXISTS (SELECT FROM public.shop_memberships m JOIN public.users u ON u.id = m.user_id
+                    WHERE u.is_login_enabled AND ((u.email IS NOT NULL AND u.is_email_verified)
+                        OR (u.phone_number IS NOT NULL AND u.is_phone_verified))
+                    AND m.id = p_membership AND m.shop_id = p_shop
                     AND m.user_id = p_actor AND m.role = 'Owner' AND m.status = 'Active' AND m.authority_version = p_version)
                     THEN 'ShopOwnerChanged'
                 WHEN NOT EXISTS (SELECT FROM public.shop_license_states s WHERE s.shop_id = p_shop
                     AND s.account_id = p_account AND s.affiliation_request_id = p_affiliation AND s.state <> 'Closed')
                     THEN 'AffiliationChanged'
-            END, pm.cnt, pm.max_end
+            END, pm.cnt, pm.max_end, pm.digest
             FROM gate g CROSS JOIN permits pm WHERE g.ok
         $$;
         """);

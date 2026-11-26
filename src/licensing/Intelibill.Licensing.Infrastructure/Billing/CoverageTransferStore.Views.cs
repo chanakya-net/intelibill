@@ -93,12 +93,14 @@ internal sealed partial class CoverageTransferStore
         { } r => new(purpose, r.Current ? Accepted : Stale, r.Generation, r.RecordedAt),
     };
 
-    private Task<Proposal?> ProposalAsync(Guid transfer, DateTimeOffset now, CancellationToken ct) =>
+    private Task<Proposal?> ProposalAsync(Guid transfer, DateTimeOffset now, CancellationToken ct,
+        CoverageTransferShopAuthorityV1? merchant = null) =>
         db.Database.SqlQuery<Proposal>($"""
             SELECT p.transfer_id, p.proposal_revision, p.terms_digest, p.source_account_id, p.source_account_name::text AS source_account_name,
                 p.destination_account_id, p.source_term_id, p.shop_id, p.shop_name, p.source_affiliation_id, p.treatment,
                 p.cutover_at, p.source_paid_through_at, p.observed_permit_count, p.observed_permit_deadline,
-                p.created_at, p.expires_at, public.coverage_transfer_blocker(p.transfer_id, {now}) AS blocker
+                p.created_at, p.expires_at, public.coverage_transfer_blocker(p.transfer_id, {now},
+                    {merchant?.EvaluatedAt}::timestamptz, {merchant?.PermitDigest}::text) AS blocker
             FROM public.coverage_transfer_proposals p WHERE p.transfer_id = {transfer}
             """).SingleOrDefaultAsync(ct);
 
