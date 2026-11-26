@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "policy": "billing-document/1",
+  "actions": {
+    "list": "billing.document.list",
+    "download": "billing.document.download"
+  },
+  "kind": "AccountingInvoice",
+  "mediaType": "application/pdf",
+  "maxDocumentBytes": 10485760,
+  "pageSize": 25,
+  "maxListBytes": 65536,
+  "maxIssuerNameLength": 200,
+  "maxIssuerReferenceLength": 64,
+  "earliestIssueDate": "2000-01-01",
+  "notFound": "Billing.DocumentNotFound",
+  "digestHeader": "X-Document-Sha256",
+  "fileNamePrefix": "accounting-invoice-",
+  "fileNameSuffix": ".pdf",
+  "listPathTemplate": "/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents",
+  "contentPathTemplate": "/internal/licensing/v1/customer/accounts/{account}/orders/{order}/billing-documents/{version}/content",
+  "sample": {
+    "schemaVersion": 1,
+    "accountId": "00000000-0000-4000-8000-000000000001",
+    "orderId": "00000000-0000-4000-8000-000000000002",
+    "documents": [
+      {
+        "accountId": "00000000-0000-4000-8000-000000000001",
+        "orderId": "00000000-0000-4000-8000-000000000002",
+        "documentId": "00000000-0000-4000-8000-000000000003",
+        "versionId": "00000000-0000-4000-8000-000000000004",
+        "version": 1,
+        "supersedesVersionId": null,
+        "kind": "AccountingInvoice",
+        "mediaType": "application/pdf",
+        "byteLength": 512,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issuerName": "Fixture Accounting",
+        "issuerReference": "FIXTURE-INV-114",
+        "issuedOn": "2027-03-10",
+        "uploadedAt": "2027-03-10T18:29:59Z"
+      }
+    ]
+  }
+}

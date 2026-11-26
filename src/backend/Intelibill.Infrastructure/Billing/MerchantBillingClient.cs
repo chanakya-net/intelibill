@@ -212,6 +212,10 @@ internal sealed partial class MerchantBillingClient(
                 return MapCancellationFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutPaymentsV1.IsAction(action):
                 return MapPaymentFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.NotFound when BillingDocumentsV1.IsAction(action):
+                return await ReadProblemCodeAsync(response, cancellationToken) == BillingDocumentsV1.NotFound
+                    ? Error.NotFound(BillingDocumentsV1.NotFound, "The billing document was not found.")
+                    : Unavailable("UpstreamStatus");
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityChangeQuotesV1.IsAction(action):
                 return MapCapacityQuoteFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityReductionsV1.IsAction(action):

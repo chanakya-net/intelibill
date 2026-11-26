@@ -13,6 +13,7 @@ import type { CheckoutPayment } from './checkout-payment.models';
 import type { Quote } from './checkout.models';
 import { RAZORPAY_OPENER, type RazorpayOutcome } from './razorpay-checkout';
 import { CheckoutDrafts } from './checkout-drafts';
+import { BillingDocumentService } from '../documents/billing-document.service';
 
 const id = (value: number) => '00000000-0000-4000-8000-00000000000' + value;
 const owner = { userId: id(1), shopId: id(2) };
@@ -75,6 +76,7 @@ beforeEach(() => {
       { provide: ShopContextService, useValue: { scope: contextScope } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: RAZORPAY_OPENER, useValue: (launch: unknown, signal?: AbortSignal) => razorpayOpener(launch, signal) },
+      { provide: BillingDocumentService, useValue: { list: vi.fn(async () => []), content: vi.fn() } },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -857,12 +859,15 @@ describe('CheckoutPaymentComponent', () => {
 });
 
 describe('payment confirmation availability', () => {
-  it('offers confirmations only after verified receipt facts exist', async () => {
+  it('offers confirmations and accounting documents separately only after verified receipt facts exist', async () => {
     const before = await render(notStarted);
     expect(before.text('confirmation-list')).toBeNull();
+    expect(before.text('billing-documents-list')).toBeNull();
     before.close();
     const after = await render(verified('Applying', 0));
     expect(after.text('confirmation-list')).toBe('View payment confirmations');
+    expect(after.text('billing-documents-heading')).toBe(en.billing.documents.heading);
+    expect(after.text('billing-documents-list')).toBe(en.billing.documents.view);
     after.close();
   });
 });
