@@ -32,6 +32,25 @@ export function isSupersedeIntent(intent: InvoiceIntent): boolean {
   return intent.mode === 'supersede' || Boolean(intent.supersedesVersionId);
 }
 
+export function buildUploadIntent(metadata: InvoiceMetadata, previewDigest: string, bytes: ArrayBuffer): InvoiceIntent {
+  return { mode: 'upload', operationKey: crypto.randomUUID(), metadata, previewDigest, bytes };
+}
+
+export function buildSupersedeIntent(
+  metadata: InvoiceMetadata,
+  previewDigest: string,
+  bytes: ArrayBuffer,
+  supersedesVersionId: string,
+  supersedesVersion: number,
+  supersedesReference: string,
+  reason: string,
+): InvoiceIntent {
+  return {
+    mode: 'supersede', operationKey: crypto.randomUUID(), metadata, previewDigest, bytes,
+    supersedesVersionId, supersedesVersion, supersedesReference, reason,
+  };
+}
+
 export async function prepareInvoice(file: File | null, form: HTMLFormElement) {
   if (!file || file.size === 0 || !fileName.test(file.name) || (file.type && file.type !== PDF_MEDIA_TYPE))
     throw new InvoiceInputError('Select a PDF with a valid file name.');

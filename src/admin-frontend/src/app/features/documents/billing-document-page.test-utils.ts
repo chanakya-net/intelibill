@@ -7,7 +7,6 @@ import { createHash } from 'node:crypto';
 import { BehaviorSubject } from 'rxjs';
 import { expect, vi } from 'vitest';
 import { AdminSessionService } from '../auth/admin-session.service';
-import { installStorage } from '../refunds/refund-approval.test-utils';
 import { BillingDocumentPageComponent } from './billing-document-page.component';
 
 export const account = '11111111-1111-4111-8111-111111111111';
@@ -50,21 +49,92 @@ export const savedVersion = (operationKey: string, overrides = {}) => ({
   uploadedBy: admin, uploadedAt: '2027-03-10T02:00:00Z', ...overrides,
 });
 
-export async function open(capabilities = ['billing'], initialDocs: unknown[] = [], uuids = [session]) {
-  const records = installStorage();
+function installControllableStorage() {
+  const records = new Map<string, unknown>();
+  const faults: Array<{ mode: IDBTransactionMode; error: Error }> = [];
+  vi.stubGlobal('indexedDB', {
+    open() {
+      const database = {
+        createObjectStore: () => {},
+        close: () => {},
+        transaction(_name: string, mode: IDBTransactionMode = 'readonly') {
+          const faultIndex = faults.findIndex(item => item.mode === mode);
+          const fault = faultIndex >= 0 ? faults.splice(faultIndex, 1)[0] : null;
+          const staged = new Map<string, unknown>();
+          const tx = {
+            oncomplete: () => {},
+            onabort: () => {},
+            error: fault?.error ?? null as Error | null,
+            objectStore: () => ({
+              get(key: string) {
+                const read = { result: structuredClone(records.get(key)), onsuccess: () => {} };
+                queueMicrotask(() => {
+                  if (fault) { tx.onabort(); return; }
+                  read.onsuccess();
+                  for (const [k, v] of staged) records.set(k, v);
+                  tx.oncomplete();
+                });
+                return read;
+              },
+              put(value: unknown, key: string) { staged.set(key, structuredClone(value)); },
+            }),
+          };
+          return tx;
+        },
+      };
+      const opening = { result: database, onupgradeneeded: () => {}, onsuccess: () => {}, onerror: () => {} };
+      queueMicrotask(() => { opening.onupgradeneeded(); opening.onsuccess(); });
+      return opening;
+    },
+  });
+  return {
+    records,
+    failNext: (mode: IDBTransactionMode, error = new DOMException('Transaction aborted', 'AbortError')) => {
+      faults.push({ mode, error });
+    },
+  };
+}
+
+export interface OpenOptions {
+  readonly autoLoad?: boolean;
+  readonly withSettle?: boolean;
+  readonly initialRecord?: unknown;
+}
+
+function installCrypto(uuids: readonly string[]) {
   const subtle = {
     digest: async (_algorithm: string, input: ArrayBuffer) => Uint8Array.from(createHash('sha256')
       .update(new Uint8Array(input)).digest()).buffer,
   };
   let nextUuid = 0;
   vi.stubGlobal('crypto', { subtle, randomUUID: () => uuids[Math.min(nextUuid++, uuids.length - 1)] });
+}
+
+export async function open(
+  capabilities = ['billing'],
+  initialDocs: unknown[] = [],
+  uuids = [session],
+  options: OpenOptions = {},
+) {
+  const { records, failNext } = installControllableStorage();
+  if (options.initialRecord !== undefined) records.set(draftKey, options.initialRecord);
+  installCrypto(uuids);
   const params = new BehaviorSubject(convertToParamMap({ account, order }));
-  const sessionId = signal(session);
+  const adminId = signal<string | null>(admin);
+  const sessionId = signal<string | null>(session);
+  const grants = signal<readonly string[]>(capabilities);
+  const settleSpy = vi.fn((notice: string) => {
+    if (notice === 'ended') { adminId.set(null); sessionId.set(null); grants.set([]); }
+    return notice;
+  });
+  const sessionStub = options.withSettle
+    ? { adminId, sessionId, capabilities: grants, settle: settleSpy }
+    : { adminId, sessionId, capabilities: grants };
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
       { provide: ActivatedRoute, useValue: { queryParamMap: params } },
-      { provide: AdminSessionService, useValue: { adminId: signal(admin), sessionId, capabilities: signal(capabilities) } },
+      { provide: AdminSessionService, useValue: sessionStub },
     ],
   });
   const http = TestBed.inject(HttpTestingController);
@@ -84,9 +154,9 @@ export async function open(capabilities = ['billing'], initialDocs: unknown[] = 
     await vi.waitFor(() => { sync(); expect(page().querySelector('#order-heading')).not.toBeNull(); });
   };
   sync();
-  if (capabilities.includes('billing')) await load();
+  if ((options.autoLoad ?? true) && capabilities.includes('billing')) await load();
   return {
-    records, http, page, take, sync, waitForText, params, sessionId, load,
+    records, failNext, http, page, take, sync, waitForText, params, adminId, sessionId, grants, settleSpy, load,
     reload: () => { fixture.destroy(); fixture = makeFixture(); sync(); },
   };
 }

@@ -5,7 +5,10 @@
     <p class="ib-subtitle">Attach or supersede the externally issued invoice for an accepted order. Earlier versions remain immutable; payment confirmations are issued separately.</p>
   </header>
 
-  @if (!allowed()) {
+  @if (authorityLost() === 'session') {
+    <p class="ib-error-banner" role="alert">{{ error() }}</p>
+    <a routerLink="/auth/sign-in" [queryParams]="{ invoiceAccount: account(), invoiceOrder: order() }">Sign in with MFA</a>
+  } @else if (!allowed()) {
     <p class="ib-error-banner" role="alert">Billing capability is required.</p>
   } @else {
     <form class="ib-panel" (submit)="search($event, accountId.value, orderId.value)">
@@ -53,6 +56,8 @@
         @if (confirmedVersion(); as saved) {
           <ng-container [ngTemplateOutlet]="metadata" [ngTemplateOutletContext]="{ $implicit: saved, version: saved.version }" />
           <p>Operation <code>{{ saved.operationKey }}</code></p>
+        } @else if (cleanupKey(); as key) {
+          <p>Local draft cleanup pending for operation <code>{{ key }}</code>.</p>
         }
         <div class="adm-actions">
           <button pButton type="button" [disabled]="busy()" (click)="refreshHistory()">Refresh invoice history</button>
