@@ -100,8 +100,17 @@ public class RecordSaleCommandHandlerTests
             .Returns(Task.CompletedTask);
     }
 
-    private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Guard(), _licenceFence, Substitute.For<ISuspensionAccessReader>(), _sessionAuthority);
+    private RecordSaleCommandHandler CreateHandler()
+    {
+        var replayReader = new SaleReplayReader(_saleRepository, _sessionAuthority, Substitute.For<ISuspensionAccessReader>(), _creditNoteRepository, _saleDtoBuilder);
+        return new(_customerResolver, _saleRepository, _saleDtoBuilder, _invoiceNumberAllocator, _unitOfWork, _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), _licenceFence, _sessionAuthority,
+            replayReader,
+            new SalePostingContextReader(_shopRepository, new BusinessClock(_time)),
+            new SaleLinePricer(_saleLineValidator, ExpiryTestDoubles.Guard(), _salePricingCalculator),
+            new SaleCreditDecider(_customerRepository, _customerLedgerEntryRepository, _userRepository, replayReader),
+            new SaleCreditNoteRedeemer(_creditNoteRepository),
+            new SaleStockAndDuePoster(_stockTransactionRepository, _customerLedgerEntryRepository));
+    }
 
     private readonly MutableTimeProvider _time = new();
 

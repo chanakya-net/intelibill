@@ -30,6 +30,12 @@ public static class DependencyInjection
         services.AddScoped<Features.Expiry.BatchDispositionService>();
         services.AddScoped<Features.Expiry.ExpiryPolicyService>();
         services.AddScoped<Features.Expiry.SaleExpiryGuard>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleReplayReader>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SalePostingContextReader>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleLinePricer>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleCreditDecider>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleCreditNoteRedeemer>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleStockAndDuePoster>();
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.IOfflineLicenceHistoryAuthority, Features.Sales.Commands.SyncOfflineSales.OfflineLicenceHistoryAuthority>();
         services.AddScoped<Features.Expiry.IOfflineExpiryAuthority, Features.Expiry.OfflineExpiryAuthority>();
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.OfflineTillReconciliationEligibility>();

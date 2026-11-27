@@ -17,76 +17,65 @@ using Intelibill.Domain.ValueObjects;
 using Intelibill.Application.Features.Tills;
 using Microsoft.EntityFrameworkCore;
 
+using CustomerCreditCheck = Intelibill.Application.Features.Sales.Commands.RecordSale.SaleCreditDecider.CustomerCreditCheck;
+using SalePostingContext = Intelibill.Application.Features.Sales.Commands.RecordSale.SalePostingContextReader.SalePostingContext;
+using ValidatedSaleItems = Intelibill.Application.Features.Sales.Commands.RecordSale.SaleLinePricer.ValidatedSaleItems;
+
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed class RecordSaleCommandHandler
 {
-    private readonly ISaleLineValidator saleLineValidator;
-    private readonly ISalePricingCalculator salePricingCalculator;
     private readonly ICustomerResolver customerResolver;
     private readonly ISaleRepository saleRepository;
-    private readonly ICreditNoteRepository creditNoteRepository;
     private readonly SaleDtoBuilder saleDtoBuilder;
-    private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
-    private readonly IStockTransactionRepository stockTransactionRepository;
-    private readonly IShopRepository shopRepository;
     private readonly IInvoiceNumberAllocator invoiceNumberAllocator;
     private readonly IUnitOfWork unitOfWork;
-    private readonly ICustomerRepository customerRepository;
-    private readonly IUserRepository userRepository;
-    private readonly IBusinessClock businessClock;
     private readonly IPostingPeriodPolicy postingPeriodPolicy;
     private readonly ITillPostingService tillPosting;
     private readonly IExpiryPolicyFence expiryFence;
-    private readonly SaleExpiryGuard expiryGuard;
     private readonly IShopLicenceFence licenceFence;
-    private readonly ISuspensionAccessReader suspensionAccess;
     private readonly ILiveSessionAuthority sessionAuthority;
+    private readonly SaleReplayReader replayReader;
+    private readonly SalePostingContextReader postingContextReader;
+    private readonly SaleLinePricer saleLinePricer;
+    private readonly SaleCreditDecider creditDecider;
+    private readonly SaleCreditNoteRedeemer creditNoteRedeemer;
+    private readonly SaleStockAndDuePoster stockAndDuePoster;
 
     public RecordSaleCommandHandler(
-        ISaleLineValidator saleLineValidator,
-        ISalePricingCalculator salePricingCalculator,
         ICustomerResolver customerResolver,
         ISaleRepository saleRepository,
-        ICreditNoteRepository creditNoteRepository,
         SaleDtoBuilder saleDtoBuilder,
-        ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-        IStockTransactionRepository stockTransactionRepository,
-        IShopRepository shopRepository,
         IInvoiceNumberAllocator invoiceNumberAllocator,
         IUnitOfWork unitOfWork,
-        ICustomerRepository customerRepository,
-        IUserRepository userRepository,
-        IBusinessClock businessClock,
         IPostingPeriodPolicy postingPeriodPolicy,
         ITillPostingService tillPosting,
         IExpiryPolicyFence expiryFence,
-        SaleExpiryGuard expiryGuard,
         IShopLicenceFence licenceFence,
-        ISuspensionAccessReader suspensionAccess,
-        ILiveSessionAuthority sessionAuthority)
+        ILiveSessionAuthority sessionAuthority,
+        SaleReplayReader replayReader,
+        SalePostingContextReader postingContextReader,
+        SaleLinePricer saleLinePricer,
+        SaleCreditDecider creditDecider,
+        SaleCreditNoteRedeemer creditNoteRedeemer,
+        SaleStockAndDuePoster stockAndDuePoster)
     {
-        this.saleLineValidator = saleLineValidator;
-        this.salePricingCalculator = salePricingCalculator;
         this.customerResolver = customerResolver;
         this.saleRepository = saleRepository;
-        this.creditNoteRepository = creditNoteRepository;
         this.saleDtoBuilder = saleDtoBuilder;
-        this.customerLedgerEntryRepository = customerLedgerEntryRepository;
-        this.stockTransactionRepository = stockTransactionRepository;
-        this.shopRepository = shopRepository;
         this.invoiceNumberAllocator = invoiceNumberAllocator;
         this.unitOfWork = unitOfWork;
-        this.customerRepository = customerRepository;
-        this.userRepository = userRepository;
-        this.businessClock = businessClock;
         this.postingPeriodPolicy = postingPeriodPolicy;
         this.tillPosting = tillPosting;
         this.expiryFence = expiryFence;
-        this.expiryGuard = expiryGuard;
         this.licenceFence = licenceFence;
-        this.suspensionAccess = suspensionAccess;
         this.sessionAuthority = sessionAuthority;
+        this.replayReader = replayReader;
+        this.postingContextReader = postingContextReader;
+        this.saleLinePricer = saleLinePricer;
+        this.creditDecider = creditDecider;
+        this.creditNoteRedeemer = creditNoteRedeemer;
+        this.stockAndDuePoster = stockAndDuePoster;
     }
 
     [LicenceAction(LicenceAction.NewTrading)]
@@ -99,7 +88,7 @@ public sealed class RecordSaleCommandHandler
         var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
 
-        var existing = await TryGetReplayForIdempotentSaleAsync(
+        var existing = await replayReader.TryGetReplayForIdempotentSaleAsync(
             command, normalizedIdempotencyKey, requestHash, cancellationToken);
         if (existing.HasValue)
             return existing.Value;
@@ -115,11 +104,11 @@ public sealed class RecordSaleCommandHandler
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
             await saleRepository.LockIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
-            var committed = await RecheckSessionThenReplayAsync(command, normalizedIdempotencyKey, requestHash, cancellationToken);
+            var committed = await replayReader.RecheckSessionThenReplayAsync(command, normalizedIdempotencyKey, requestHash, cancellationToken);
             if (committed.HasValue)
                 return committed.Value;
 
-            var contextOrError = await CapturePostingContextAsync(command, cancellationToken);
+            var contextOrError = await postingContextReader.CapturePostingContextAsync(command, cancellationToken);
             if (contextOrError.IsError)
                 return contextOrError.Errors;
             var context = contextOrError.Value;
@@ -143,18 +132,18 @@ public sealed class RecordSaleCommandHandler
             if (tillOrError.IsError) return tillOrError.Errors;
             var tillSession = tillOrError.Value;
 
-            var linesOrError = await ValidateLinesAndExpiryAsync(command, context.BusinessDay.Date, warnings, cancellationToken);
+            var linesOrError = await saleLinePricer.ValidateLinesAndExpiryAsync(command, context.BusinessDay.Date, warnings, cancellationToken);
             if (linesOrError.IsError)
                 return linesOrError.Errors;
             var lines = linesOrError.Value;
 
             var effectiveSaleDiscount = command.SaleDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
-            var pricingRequest = RecordSaleLineMapping.BuildPricingRequest(
+            var pricingOrError = await saleLinePricer.PriceLinesAsync(
                 command,
                 context.SoldAt,
                 lines.ValidatedLines,
-                effectiveSaleDiscount);
-            var pricingOrError = await salePricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
+                effectiveSaleDiscount,
+                cancellationToken);
             if (pricingOrError.IsError)
                 return pricingOrError.Errors;
             var pricing = pricingOrError.Value;
@@ -173,7 +162,7 @@ public sealed class RecordSaleCommandHandler
             CustomerCreditCheck? creditCheck = null;
             if (command.DueAmount > 0m && resolvedCustomer is not null)
             {
-                var creditOrError = await DecideCreditAsync(command, resolvedCustomer.Id, cancellationToken);
+                var creditOrError = await creditDecider.LockCustomerAndDecideCreditAsync(command, resolvedCustomer.Id, cancellationToken);
                 if (creditOrError.IsError)
                     return creditOrError.Errors;
 
@@ -205,7 +194,7 @@ public sealed class RecordSaleCommandHandler
                 return saleOrError.Errors;
             var sale = saleOrError.Value;
 
-            var creditNoteRedemptionsOrError = await RedeemCreditNotesAsync(
+            var creditNoteRedemptionsOrError = await creditNoteRedeemer.LockAndRedeemCreditNotesAsync(
                 command.ShopId,
                 sale.Id,
                 buyer.CreditNoteRedemptions,
@@ -214,7 +203,7 @@ public sealed class RecordSaleCommandHandler
                 cancellationToken);
             if (creditNoteRedemptionsOrError.IsError)
             {
-                return await ReplayOrRefuseAsync(
+                return await replayReader.ReplayOrRefuseAsync(
                     command,
                     normalizedIdempotencyKey,
                     requestHash,
@@ -222,12 +211,12 @@ public sealed class RecordSaleCommandHandler
                     cancellationToken);
             }
 
-            var stockOrError = await DeductStockAsync(command, lines.ValidatedLines, invoiceNumber, context.SoldAt, cancellationToken);
+            var stockOrError = await stockAndDuePoster.DeductStockAsync(command, lines.ValidatedLines, invoiceNumber, context.SoldAt, cancellationToken);
             if (stockOrError.IsError)
                 return stockOrError.Errors;
 
             await saleRepository.AddAsync(sale, cancellationToken);
-            var dueOrError = await PostCustomerDueAsync(command, sale, cancellationToken);
+            var dueOrError = await stockAndDuePoster.PostCustomerDueAsync(command, sale, cancellationToken);
             if (dueOrError.IsError)
                 return dueOrError.Errors;
 
@@ -258,7 +247,7 @@ public sealed class RecordSaleCommandHandler
                 transactionRolledBack = true;
             }
 
-            var replayResult = await TryGetReplayForIdempotentSaleAsync(
+            var replayResult = await replayReader.TryGetReplayForIdempotentSaleAsync(
                 command,
                 normalizedIdempotencyKey,
                 requestHash,
@@ -278,59 +267,11 @@ public sealed class RecordSaleCommandHandler
         }
     }
 
-    private sealed record SalePostingContext(
-        InvoiceSellerProfile SellerProfile,
-        DateTimeOffset SoldAt,
-        BusinessDay BusinessDay,
-        FiscalYear FiscalYear,
-        InvoiceSeriesKey Series);
-
-    private sealed record ValidatedSaleItems(
-        IReadOnlyList<ValidatedSaleLine> ValidatedLines,
-        IReadOnlyList<SaleExpiryDecision> ExpiryDecisions,
-        Dictionary<Guid, Item> ItemById);
-
     private sealed record SaleBuyer(
         Customer? Customer,
         string? NormalizedCustomerPhone,
         IReadOnlyList<CreditNoteRedemptionCommand> CreditNoteRedemptions,
         decimal CreditNoteAppliedAmount);
-
-    /// <summary>Runs right after the idempotency key lock, before any other lock or read.</summary>
-    private async Task<ErrorOr<SaleDto>?> RecheckSessionThenReplayAsync(
-        RecordSaleCommand command,
-        string normalizedIdempotencyKey,
-        string requestHash,
-        CancellationToken cancellationToken)
-    {
-        // The prior attempt may have held this key while this device lost its authority.
-        if (!await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
-            return Errors.Auth.SessionInvalidated;
-
-        return await TryGetReplayForIdempotentSaleAsync(
-            command, normalizedIdempotencyKey, requestHash, cancellationToken);
-    }
-
-    private async Task<ErrorOr<SalePostingContext>> CapturePostingContextAsync(
-        RecordSaleCommand command,
-        CancellationToken cancellationToken)
-    {
-        // Refused before a number is taken: an undeclared or unsupported profile issues nothing.
-        var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var sellerProfileOrError = InvoiceDocumentBuilder.CaptureSellerProfile(shop);
-        if (sellerProfileOrError.IsError)
-            return sellerProfileOrError.Errors;
-
-        var sellerProfile = sellerProfileOrError.Value;
-        var soldAt = businessClock.UtcNow;
-        var businessDay = businessClock.GetBusinessDay(soldAt, shop.BusinessTimeZoneId);
-        var fiscalYear = FiscalYear.ForBusinessDate(businessDay.Date);
-        var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, sellerProfile.SeriesCode, fiscalYear);
-        return new SalePostingContext(sellerProfile, soldAt, businessDay, fiscalYear, series);
-    }
 
     /// <summary>Returns the acquisition result itself, so a disabled till still reads as a null session.</summary>
     private async Task<ErrorOr<TillSession?>> AcquireTillAndValidateTenderAsync(
@@ -351,33 +292,6 @@ public sealed class RecordSaleCommandHandler
         }
 
         return tillOrError;
-    }
-
-    private async Task<ErrorOr<ValidatedSaleItems>> ValidateLinesAndExpiryAsync(
-        RecordSaleCommand command,
-        DateOnly businessDate,
-        List<string> warnings,
-        CancellationToken cancellationToken)
-    {
-        var validationResultOrError = await saleLineValidator.ValidateLinesAsync(command.ShopId, command.Items, warnings, cancellationToken);
-        if (validationResultOrError.IsError)
-            return validationResultOrError.Errors;
-
-        var validatedLines = validationResultOrError.Value.Lines;
-        var expiryAuthorization = await expiryGuard.AuthorizeAsync(
-            command.ShopId,
-            command.ActorUserId,
-            businessDate,
-            validatedLines,
-            command.ExpiryApprovals,
-            cancellationToken);
-        if (expiryAuthorization.IsError) return expiryAuthorization.Errors;
-        var itemById = validatedLines
-            .Where(l => l.Item is not null)
-            .Select(l => l.Item!)
-            .DistinctBy(i => i.Id)
-            .ToDictionary(i => i.Id);
-        return new ValidatedSaleItems(validatedLines, expiryAuthorization.Value, itemById);
     }
 
     private async Task<ErrorOr<SaleBuyer>> ResolveBuyerAsync(
@@ -479,90 +393,6 @@ public sealed class RecordSaleCommandHandler
         return sale;
     }
 
-    /// <summary>A refused redemption may mean the same sale committed meanwhile; that sale is replayed instead.</summary>
-    private async Task<ErrorOr<SaleDto>> ReplayOrRefuseAsync(
-        RecordSaleCommand command,
-        string normalizedIdempotencyKey,
-        string requestHash,
-        List<Error> refusal,
-        CancellationToken cancellationToken)
-    {
-        var replayResult = await TryGetReplayForIdempotentSaleAsync(
-            command,
-            normalizedIdempotencyKey,
-            requestHash,
-            cancellationToken);
-
-        if (replayResult.HasValue)
-            return replayResult.Value;
-
-        return refusal;
-    }
-
-    private async Task<ErrorOr<Success>> DeductStockAsync(
-        RecordSaleCommand command,
-        IReadOnlyList<ValidatedSaleLine> validatedLines,
-        string invoiceNumber,
-        DateTimeOffset soldAt,
-        CancellationToken cancellationToken)
-    {
-        foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
-        {
-            var cmdItem = line.Command;
-            var item = line.Item!;
-            var batch = line.Batch!;
-            var inventory = line.Inventory!;
-            if (cmdItem.Quantity > batch.UnquarantinedQuantity)
-                return Error.Validation("InventoryBatch.InsufficientStock", "Insufficient unquarantined stock in batch.");
-            var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
-            if (batchResult.IsError) return batchResult.Errors;
-
-            var inventoryResult = inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
-            if (inventoryResult.IsError) return inventoryResult.Errors;
-
-            var txResult = StockTransaction.Create(
-                command.ShopId,
-                item.Id,
-                batch.Id,
-                StockTransactionType.Out,
-                -cmdItem.Quantity,
-                invoiceNumber,
-                null,
-                soldAt,
-                command.ActorUserId,
-                command.ActorUserId);
-            if (txResult.IsError) return txResult.Errors;
-            await stockTransactionRepository.AddAsync(txResult.Value, cancellationToken);
-        }
-
-        return Result.Success;
-    }
-
-    private async Task<ErrorOr<Success>> PostCustomerDueAsync(
-        RecordSaleCommand command,
-        Sale sale,
-        CancellationToken cancellationToken)
-    {
-        if (sale.DueAmount > 0 && sale.CustomerId.HasValue)
-        {
-            var ledgerResult = CustomerLedgerEntry.Create(
-                sale.ShopId,
-                sale.CustomerId.Value,
-                sale.Id,
-                CustomerLedgerEntryType.SaleDue,
-                sale.DueAmount,
-                sale.BusinessDate,
-                $"Due recorded from sale {sale.InvoiceNumber}",
-                command.ActorUserId);
-            if (ledgerResult.IsError)
-                return ledgerResult.Errors;
-
-            await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
-        }
-
-        return Result.Success;
-    }
-
     private async Task<ErrorOr<Success>> AppendTillSettlementAsync(
         RecordSaleCommand command,
         TillSession? tillSession,
@@ -590,145 +420,6 @@ public sealed class RecordSaleCommandHandler
         }
 
         return Result.Success;
-    }
-
-    private sealed record CustomerCreditCheck(CreditDecision Decision, int? CreditTermsDays, ErrorOr<SaleDto>? Replay = null);
-
-    /// <summary>
-    /// Locks the customer, then judges the new due on what is committed now. A retry of a sale that
-    /// committed while this request waited for the lock replays it instead of being judged again.
-    /// </summary>
-    private async Task<ErrorOr<CustomerCreditCheck>> DecideCreditAsync(
-        RecordSaleCommand command,
-        Guid customerId,
-        CancellationToken cancellationToken)
-    {
-        var lockOutcome = await customerRepository.LockForCreditAsync(command.ShopId, customerId, cancellationToken);
-        switch (lockOutcome)
-        {
-            case RowLockOutcome.Acquired:
-                break;
-            case RowLockOutcome.TimedOut:
-                return Errors.CustomerCredit.Busy;
-            default:
-                return Errors.Sale.CreditCustomerNotFound;
-        }
-
-        var normalizedKey = command.IdempotencyKey.Trim();
-        var replay = await TryGetReplayForIdempotentSaleAsync(
-            command,
-            normalizedKey,
-            RecordSaleIdempotencyHasher.ComputeHash(command),
-            cancellationToken);
-        if (replay.HasValue)
-            return new CustomerCreditCheck(new CreditDecision(CreditDecisionKind.NoNewDue, 0m, 0m, 0m), null, replay.Value);
-
-        var customer = await customerRepository.GetCurrentAsync(command.ShopId, customerId, cancellationToken);
-        if (customer is null)
-            return Errors.Sale.CreditCustomerNotFound;
-
-        var exposure = await customerLedgerEntryRepository.GetCustomerBalanceAsync(command.ShopId, customerId, cancellationToken);
-
-        ShopRole? actorRole = null;
-        if (command.CreditOverride is not null)
-        {
-            var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
-            actorRole = actor?.ShopMemberships.FirstOrDefault(m => m.ShopId == command.ShopId)?.Role;
-        }
-
-        var decision = CustomerCreditPolicy.Evaluate(
-            CustomerCreditState.Of(customer),
-            exposure,
-            command.DueAmount,
-            command.CreditOverride,
-            actorRole);
-        if (decision.IsError)
-            return decision.Errors;
-
-        return new CustomerCreditCheck(decision.Value, customer.CreditTermsDays);
-    }
-
-    private async Task<ErrorOr<IReadOnlyList<SaleCreditNoteRedemptionSummaryDto>>> LoadCreditNoteRedemptionsAsync(
-        Guid shopId,
-        Guid saleId,
-        CancellationToken cancellationToken)
-    {
-        var redemptions = await creditNoteRepository.GetRedemptionsBySaleIdAsync(shopId, saleId, cancellationToken) ?? [];
-
-        return redemptions.Select(redemption =>
-            new SaleCreditNoteRedemptionSummaryDto(
-                redemption.CreditNoteId,
-                redemption.Code,
-                redemption.Amount)).ToList();
-    }
-
-    private async Task<ErrorOr<IReadOnlyList<SaleCreditNoteRedemptionSummaryDto>>> RedeemCreditNotesAsync(
-        Guid shopId,
-        Guid saleId,
-        IReadOnlyList<CreditNoteRedemptionCommand> creditNoteRedemptions,
-        Guid? saleCustomerId,
-        bool customerMismatchConfirmed,
-        CancellationToken cancellationToken)
-    {
-        if (creditNoteRedemptions.Count == 0)
-        {
-            return Array.Empty<SaleCreditNoteRedemptionSummaryDto>();
-        }
-
-        var summaries = new List<SaleCreditNoteRedemptionSummaryDto>(creditNoteRedemptions.Count);
-        foreach (var redemption in creditNoteRedemptions)
-        {
-            var creditNote = await creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(
-                shopId,
-                redemption.Code,
-                cancellationToken);
-            if (creditNote is null)
-            {
-                return Errors.CreditNote.CreditNoteNotFound(redemption.Code);
-            }
-
-            if (creditNote.LinkedCustomerId.HasValue && creditNote.LinkedCustomerId.Value != saleCustomerId && !customerMismatchConfirmed)
-            {
-                return Errors.CreditNote.CustomerMismatchRequiresConfirmation;
-            }
-
-            var redeemResult = creditNote.Redeem(shopId, saleId, redemption.Amount);
-            if (redeemResult.IsError)
-            {
-                return redeemResult.Errors;
-            }
-
-            await creditNoteRepository.AddRedemptionAsync(redeemResult.Value, cancellationToken);
-            summaries.Add(new SaleCreditNoteRedemptionSummaryDto(creditNote.Id, creditNote.Code, redemption.Amount));
-        }
-
-        return summaries;
-    }
-
-    private async Task<ErrorOr<SaleDto>?> TryGetReplayForIdempotentSaleAsync(
-        RecordSaleCommand command,
-        string idempotencyKey,
-        string requestHash,
-        CancellationToken cancellationToken)
-    {
-        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, idempotencyKey, cancellationToken);
-        if (concurrentSale is null)
-            return null;
-
-        if (!await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
-            return Errors.Auth.SessionInvalidated;
-
-        if (await suspensionAccess.ReadActiveShopDenialAsync(command.ShopId, LicenceAction.Recovery, cancellationToken) is { } denied)
-            return denied;
-
-        if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
-            return Errors.Sale.IdempotencyConflict;
-
-        var concurrentRedemptions = await LoadCreditNoteRedemptionsAsync(concurrentSale.ShopId, concurrentSale.Id, cancellationToken);
-        if (concurrentRedemptions.IsError)
-            return concurrentRedemptions.Errors;
-
-        return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, concurrentRedemptions.Value, cancellationToken);
     }
 
     private static bool IsCreditNoteConcurrencyConflict(
