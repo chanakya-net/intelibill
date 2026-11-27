@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intelibill.Licensing.Infrastructure.Migrations
 {
     [DbContext(typeof(LicensingDbContext))]
-    [Migration("20261127063245_Baseline")]
+    [Migration("20261127074702_Baseline")]
     partial class Baseline
     {
         /// <inheritdoc />

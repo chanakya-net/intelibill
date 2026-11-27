@@ -60,9 +60,9 @@ public sealed partial class P0412LicensingTests
     }
 
     [Theory]
-    [InlineData("Customer", true)]
-    [InlineData("Supplier", false)]
-    public async Task Zero_due_refuses_an_advance_at_the_party_lock(string partyType, bool keyed)
+    [InlineData("Customer")]
+    [InlineData("Supplier")]
+    public async Task Zero_due_refuses_an_advance_at_the_party_lock(string partyType)
     {
         using var host = CreateHost();
         await host.InitializeAsync();
@@ -81,9 +81,7 @@ public sealed partial class P0412LicensingTests
         else
             await holder.Database.ExecuteSqlAsync($"SELECT id FROM suppliers WHERE id = {party} FOR UPDATE", Ct);
         var blocker = ((Npgsql.NpgsqlConnection)holder.Database.GetDbConnection()).ProcessID;
-        var payment = Payment(10m);
-        var pending = client.PostAsJsonAsync(PaymentRoute(partyType, party),
-            keyed ? payment : payment with { OperationKey = null }, Ct);
+        var pending = client.PostAsJsonAsync(PaymentRoute(partyType, party), Payment(10m), Ct);
         await WaitForBusinessLockAsync(pending, blocker);
         _clock.Now = end;
         await transaction.RollbackAsync(Ct);

@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intelibill.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261127063241_Baseline")]
+    [Migration("20261127074700_Baseline")]
     partial class Baseline
     {
         /// <inheritdoc />
@@ -700,9 +700,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("credit_limit");
 
                     b.Property<int>("CreditPolicyMode")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(3)
                         .HasColumnName("credit_policy_mode");
 
                     b.Property<int?>("CreditTermsDays")
@@ -759,7 +757,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.ToTable("customers", null, t =>
                         {
-                            t.HasCheckConstraint("ck_customers_credit_policy_mode", "credit_policy_mode IN (1, 2, 3)");
+                            t.HasCheckConstraint("ck_customers_credit_policy_mode", "credit_policy_mode IN (1, 2)");
 
                             t.HasCheckConstraint("ck_customers_credit_terms_days", "credit_terms_days IS NULL OR credit_terms_days BETWEEN 0 AND 365");
                         });
@@ -2042,12 +2040,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(8)")
                         .HasColumnName("unit_code");
 
-                    b.Property<bool>("UnitReviewRequired")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("unit_review_required");
-
                     b.Property<string>("Uom")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -2973,10 +2965,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("external_reference");
 
-                    b.Property<bool>("IsLegacy")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_legacy");
-
                     b.Property<Guid>("LedgerEntryId")
                         .HasColumnType("uuid")
                         .HasColumnName("ledger_entry_id");
@@ -3514,7 +3502,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("ClientLineId")
+                    b.Property<Guid>("ClientLineId")
                         .HasColumnType("uuid")
                         .HasColumnName("client_line_id");
 
@@ -3606,8 +3594,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("PurchaseOrderReceiptId", "ClientLineId")
                         .IsUnique()
-                        .HasDatabaseName("ix_purchase_order_receipt_lines_purchase_order_receipt_id_clie")
-                        .HasFilter("client_line_id IS NOT NULL");
+                        .HasDatabaseName("ix_purchase_order_receipt_lines_purchase_order_receipt_id_clie");
 
                     b.ToTable("purchase_order_receipt_lines", (string)null);
                 });
@@ -3890,7 +3877,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<decimal?>("EffectiveTotalCost")
+                    b.Property<decimal>("EffectiveTotalCost")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("effective_total_cost");
@@ -3907,7 +3894,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
 
-                    b.Property<decimal?>("OriginalTotalCost")
+                    b.Property<decimal>("OriginalTotalCost")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("original_total_cost");
@@ -3939,12 +3926,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("source_reference");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
 
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uuid")
@@ -3984,7 +3965,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.ToTable("purchase_receipt_values", null, t =>
                         {
-                            t.HasCheckConstraint("ck_purchase_receipt_values_amounts_by_status", "(status = 'RESOLVED' AND original_total_cost IS NOT NULL AND original_total_cost >= 0 AND effective_total_cost IS NOT NULL AND effective_total_cost >= 0) OR (status = 'LEGACY_UNRESOLVED' AND original_total_cost IS NULL AND effective_total_cost IS NULL)");
+                            t.HasCheckConstraint("ck_purchase_receipt_values_amounts_nonnegative", "original_total_cost >= 0 AND effective_total_cost >= 0");
 
                             t.HasCheckConstraint("ck_purchase_receipt_values_quantity_positive", "received_quantity > 0");
                         });
@@ -4323,7 +4304,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("AuthSessionId")
+                    b.Property<Guid>("AuthSessionId")
                         .HasColumnType("uuid")
                         .HasColumnName("auth_session_id");
 
@@ -4361,6 +4342,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("security_version");
 
                     b.Property<string>("TokenHash")
+                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("token_hash");
@@ -5149,11 +5131,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("accounting_policy_version");
 
-                    b.Property<string>("AccountingReviewReason")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("accounting_review_reason");
-
                     b.Property<string>("AccountingStatus")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -5324,8 +5301,6 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("sale_returns", null, t =>
                         {
                             t.HasCheckConstraint("ck_sale_returns_accounting_balanced", "accounting_status IS DISTINCT FROM 'BALANCED' OR (accounting_policy_version IS NOT NULL AND adjustment_taxable_amount IS NOT NULL AND adjustment_tax_amount IS NOT NULL AND adjustment_non_tax_amount IS NOT NULL AND adjustment_taxable_amount >= 0 AND adjustment_tax_amount >= 0 AND adjustment_non_tax_amount >= 0 AND adjustment_taxable_amount + adjustment_tax_amount + adjustment_non_tax_amount = total_refund_amount)");
-
-                            t.HasCheckConstraint("ck_sale_returns_accounting_review_reason", "accounting_status IS DISTINCT FROM 'NEEDS_REVIEW' OR accounting_review_reason IS NOT NULL");
 
                             t.HasCheckConstraint("ck_sale_returns_refund_amounts_non_negative", "total_refund_amount >= 0 AND due_reduction_amount >= 0 AND payout_amount >= 0 AND total_taxable_amount >= 0 AND total_tax_amount >= 0");
 
@@ -8620,6 +8595,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("AuthSessionId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_auth_sessions_auth_session_id");
 
                     b.HasOne("Intelibill.Domain.Entities.User", "User")

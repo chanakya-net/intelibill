@@ -59,11 +59,6 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
             .HasColumnType("smallint")
             .HasDefaultValue(0);
 
-        // No longer read or written; mapped as a shadow property until the column is dropped.
-        builder.Property<bool>("UnitReviewRequired")
-            .IsRequired()
-            .HasDefaultValue(false);
-
         builder.HasIndex(i => new { i.ShopId, i.Barcode })
             .IsUnique();
 

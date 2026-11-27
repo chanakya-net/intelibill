@@ -135,7 +135,7 @@ internal sealed class PaymentReceiptRepository(ApplicationDbContext context)
                     // xmin-checked after checking it has no allocations, so one that read before this
                     // commits fails its save as a concurrent change instead of stranding the allocation.
                     _ = await Context.Database.ExecuteSqlAsync(
-                        $"UPDATE purchase_receipt_values SET status = status WHERE id = {targetId} AND shop_id = {shopId}",
+                        $"UPDATE purchase_receipt_values SET received_quantity = received_quantity WHERE id = {targetId} AND shop_id = {shopId}",
                         cancellationToken);
                 }
             }

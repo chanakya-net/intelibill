@@ -27,7 +27,6 @@ public sealed record InventoryBatchDto(
     DateTimeOffset? UpdatedAt,
     uint Version,
     Guid? ReceiptValueId = null,
-    PurchaseReceiptValueStatus? ReceiptStatus = null,
     decimal? ReceiptOriginalTotalCost = null,
     decimal? ReceiptTotalCost = null,
     uint? ReceiptVersion = null,

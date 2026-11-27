@@ -74,10 +74,9 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
             join i in context.Items.AsNoTracking() on r.ItemId equals i.Id
             where r.ShopId == shopId
                 && r.SupplierId == supplierId
-                && r.Status == PurchaseReceiptValueStatus.Resolved
                 && r.EffectiveTotalCost > 0m
                 && !b.IsVoided
-            select new { r.Id, r.InventoryBatchId, b.BatchNumber, ItemName = i.Name, r.ReceivedAt, Payable = r.EffectiveTotalCost!.Value };
+            select new { r.Id, r.InventoryBatchId, b.BatchNumber, ItemName = i.Name, r.ReceivedAt, Payable = r.EffectiveTotalCost };
         if (receiptValueIds is not null)
             query = query.Where(r => receiptValueIds.Contains(r.Id));
 

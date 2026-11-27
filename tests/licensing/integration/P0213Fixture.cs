@@ -59,7 +59,6 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
             PrepareProvider: prepareProvider ?? !browser, UseDeliveryOnCatalogue: true, BusinessClock: businessClock);
         var trial = await P0210Fixture.StartAsync(db, publish: prepareProvider ?? !browser, browser: browser,
             transport: observeDelegation ? _ => transport.Bridge(licensing: false) : null, setup: setup);
-        await EnableReopeningAsync(trial.Hosts.LicensingOwner);
         var licensing = trial.Hosts.Licensing.CreateClient();
         var merchant = trial.Hosts.Merchant.CreateClient();
         transport.Connect(trial.Hosts, merchant.BaseAddress!, licensing.BaseAddress!, browser);
@@ -71,9 +70,6 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
             """);
         return new(trial, transport, merchant, licensing, merchantTraffic, licensingTraffic);
     }
-
-    internal static Task EnableReopeningAsync(NpgsqlConnectionStringBuilder owner) =>
-        LicensingPostgreSqlFixture.ExecuteAsync(owner, "UPDATE public.reopening_publisher_cutover SET enabled = true");
 
     private static void Configure(IServiceCollection services, P0213Transport transport, P0213Traffic traffic, bool licensing, bool liveDelivery)
     {

@@ -38,9 +38,6 @@ internal sealed class PaymentReceiptConfiguration : IEntityTypeConfiguration<Pay
         builder.Property(r => r.BusinessDate).IsRequired();
         builder.Property(r => r.ReceivedAt).IsRequired();
         builder.Property(r => r.LedgerEntryId).IsRequired();
-        // Unused since receipts are never backfilled: kept as a shadow column (always false) only
-        // until the migration that drops payment_receipts.is_legacy.
-        builder.Property<bool>("IsLegacy").IsRequired();
         builder.Property(r => r.CreatedBy).IsRequired();
 
         builder.HasIndex(r => new { r.ShopId, r.PartyType, r.PartyId, r.BusinessDate });

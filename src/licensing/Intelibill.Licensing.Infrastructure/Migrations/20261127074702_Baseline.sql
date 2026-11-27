@@ -1486,9 +1486,6 @@ CREATE FUNCTION public.guard_closure_reopening() RETURNS trigger
     AS $$
 BEGIN
     PERFORM pg_advisory_xact_lock(hashtextextended('b' || NEW.account_id::text, 0));
-    IF NOT public.reopening_publishers_ready() THEN
-        RAISE EXCEPTION 'Reopening publisher cutover is required' USING ERRCODE = '55000';
-    END IF;
     IF NOT EXISTS (
         SELECT FROM public.active_operational_closure_targets t
         JOIN public.operational_closures c ON c.id = t.closure_id AND c.account_id = t.account_id
@@ -1661,22 +1658,6 @@ BEGIN
             IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['state','retired_reason','retired_at'])
         OR OLD.state <> 'Open' OR NEW.state <> 'Retired' THEN
         RAISE EXCEPTION 'Invalid coverage transfer proposal transition' USING ERRCODE = '23514';
-    END IF;
-    RETURN NEW;
-END $$;
-
-
---
--- Name: guard_entitlement_publisher(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.guard_entitlement_publisher() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path TO 'pg_catalog', 'public'
-    AS $$
-BEGIN
-    IF NEW.publisher_protocol <> 2 AND public.reopening_publishers_ready() THEN
-        RAISE EXCEPTION 'Retire the legacy entitlement publisher' USING ERRCODE = '55000';
     END IF;
     RETURN NEW;
 END $$;
@@ -2246,23 +2227,6 @@ BEGIN
             AND c.facts->>'configurationVersion' = NEW.configuration_version) THEN
         RAISE EXCEPTION 'Refund request must match a verified payment confirmation for the same account and order'
             USING ERRCODE = '23514';
-    END IF;
-    RETURN NEW;
-END $$;
-
-
---
--- Name: guard_reopening_cutover(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.guard_reopening_cutover() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path TO 'pg_catalog', 'public'
-    AS $$
-BEGIN
-    IF TG_OP <> 'UPDATE' OR NOT NEW.enabled OR NOT pg_has_role(current_user,
-        (SELECT relowner FROM pg_class WHERE oid = 'public.reopening_publisher_cutover'::regclass), 'USAGE')
-    THEN RAISE EXCEPTION 'Reopening cutover requires the schema owner' USING ERRCODE = '42501';
     END IF;
     RETURN NEW;
 END $$;
@@ -2879,7 +2843,7 @@ JOIN LATERAL (
     FROM public.manual_payment_receipts m WHERE m.account_id = account AND m.order_id = ordering
         AND m.receipt_id = receipt AND attempt IS NULL
 ) p ON true
-WHERE q.account_id = account AND q.order_id = ordering AND (basis = 'Retained' OR issued >= p.verified_at);
+WHERE q.account_id = account AND q.order_id = ordering AND issued >= p.verified_at;
 $$;
 
 
@@ -3455,18 +3419,6 @@ END $$;
 
 
 --
--- Name: reopening_publishers_ready(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.reopening_publishers_ready() RETURNS boolean
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public'
-    AS $$
-    SELECT enabled FROM public.reopening_publisher_cutover WHERE singleton FOR SHARE
-$$;
-
-
---
 -- Name: replacement_activation(uuid, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3823,7 +3775,7 @@ BEGIN
             JOIN public.verified_payments v ON v.attempt_id = c.attempt_id
                 AND v.provider_payment_reference = c.provider_payment_reference AND v.account_id = c.account_id
             WHERE c.account_id = NEW.account_id AND c.order_id = NEW.order_id AND c.attempt_id = NEW.attempt_id
-                AND c.classification IN ('CoverageChanged', 'LegacyNeedsReview')
+                AND c.classification = 'CoverageChanged'
                 AND NOT EXISTS (SELECT FROM public.payment_restoration_holds h
                     WHERE h.account_id = NEW.account_id AND h.order_id = NEW.order_id AND h.attempt_id = NEW.attempt_id)
                 AND NOT EXISTS (SELECT FROM public.payment_review_decisions d WHERE d.account_id = c.account_id
@@ -3831,7 +3783,7 @@ BEGIN
         OR EXISTS (SELECT FROM public.unmatched_payments c JOIN public.payment_review_decisions d USING (account_id, case_id)
             WHERE c.account_id = NEW.account_id AND c.order_id = NEW.order_id
                 AND (c.attempt_id = NEW.attempt_id OR c.manual_receipt_id = NEW.manual_receipt_id)
-                AND c.classification IN ('RestorationPending', 'LegacyNeedsReview')
+                AND c.classification = 'RestorationPending'
                 AND d.action IN ('RecordNoAccessDecision', 'ReferForRefundReview'))
         OR NOT public.complete_fresh_start(NEW)
         OR (NEW.predecessor_term_id IS NOT NULL AND NOT EXISTS (SELECT FROM public.subscription_term_facts pf
@@ -3896,7 +3848,7 @@ BEGIN
         JOIN public.payment_fulfilments f USING (account_id, order_id)
         WHERE c.account_id = NEW.account_id AND c.case_id = NEW.case_id AND f.term_id = NEW.term_id
             AND q.snapshot->>'sourceHash' = NEW.accepted_source_hash
-            AND c.classification IN ('CoverageChanged', 'LegacyNeedsReview', 'RestorationPending')
+            AND c.classification IN ('CoverageChanged', 'RestorationPending')
             AND c.attempt_id IS NOT DISTINCT FROM f.attempt_id
             AND c.manual_receipt_id IS NOT DISTINCT FROM f.manual_receipt_id) THEN
         RAISE EXCEPTION 'Reviewed recovery must fulfil the selected original receipt' USING ERRCODE = '23514';
@@ -4877,7 +4829,7 @@ CREATE TABLE public.admin_totp (
     attempts integer NOT NULL,
     retired_at timestamp with time zone,
     recovery_key_id character varying(32),
-    CONSTRAINT ck_admin_totp_attempts CHECK ((((attempts = 0) AND (attempt_window_ends_at IS NULL)) OR (((attempts >= 1) AND (attempts <= 5)) AND (attempt_window_ends_at IS NOT NULL)))),
+    CONSTRAINT ck_admin_totp_attempts CHECK ((((attempts = 0) AND (attempt_window_ends_at IS NULL)) OR ((attempts >= 1) AND (attempts <= 5) AND (attempt_window_ends_at IS NOT NULL)))),
     CONSTRAINT ck_admin_totp_secret CHECK (((octet_length(encrypted_secret) = 48) AND (last_accepted_step >= 0)))
 );
 
@@ -5121,8 +5073,8 @@ CREATE TABLE public.billing_document_versions (
     CONSTRAINT billing_document_versions_byte_length_check CHECK (((byte_length >= 1) AND (byte_length <= 10485760))),
     CONSTRAINT billing_document_versions_content_sha256_check CHECK ((content_sha256 ~ '^[a-f0-9]{64}$'::text)),
     CONSTRAINT billing_document_versions_file_name_check CHECK ((file_name ~ '^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,114}\.[Pp][Dd][Ff]$'::text)),
-    CONSTRAINT billing_document_versions_issuer_name_check CHECK ((((length(issuer_name) >= 1) AND (length(issuer_name) <= 200)) AND (issuer_name = btrim(issuer_name)) AND (issuer_name !~ '[[:cntrl:]]'::text))),
-    CONSTRAINT billing_document_versions_issuer_reference_check CHECK ((((length(issuer_reference) >= 1) AND (length(issuer_reference) <= 64)) AND (issuer_reference = btrim(issuer_reference)) AND (issuer_reference !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT billing_document_versions_issuer_name_check CHECK (((length(issuer_name) >= 1) AND (length(issuer_name) <= 200) AND (issuer_name = btrim(issuer_name)) AND (issuer_name !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT billing_document_versions_issuer_reference_check CHECK (((length(issuer_reference) >= 1) AND (length(issuer_reference) <= 64) AND (issuer_reference = btrim(issuer_reference)) AND (issuer_reference !~ '[[:cntrl:]]'::text))),
     CONSTRAINT billing_document_versions_kind_check CHECK ((kind = 'AccountingInvoice'::text)),
     CONSTRAINT billing_document_versions_media_type_check CHECK ((media_type = 'application/pdf'::text)),
     CONSTRAINT billing_document_versions_mfa_verified_at_check CHECK (isfinite(mfa_verified_at)),
@@ -5287,7 +5239,7 @@ CREATE TABLE public.bootstrap_rate_buckets (
     id integer NOT NULL,
     window_ends_at timestamp with time zone NOT NULL,
     attempts integer NOT NULL,
-    CONSTRAINT ck_bootstrap_rate_bucket CHECK ((((id >= 1) AND (id <= 5)) AND (attempts >= 0)))
+    CONSTRAINT ck_bootstrap_rate_bucket CHECK (((id >= 1) AND (id <= 5) AND (attempts >= 0)))
 );
 
 
@@ -5806,7 +5758,7 @@ CREATE TABLE public.coverage_replacement_exception_approvals (
     CONSTRAINT coverage_replacement_exception_approvals_mfa_verified_at_check CHECK (isfinite(mfa_verified_at)),
     CONSTRAINT coverage_replacement_exception_approvals_outcome_reason_check CHECK (((outcome_reason IS NULL) OR ((length(outcome_reason) >= 1) AND (length(outcome_reason) <= 120)))),
     CONSTRAINT coverage_replacement_exception_approvals_payload_digest_check CHECK ((payload_digest ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT coverage_replacement_exception_approvals_reason_check CHECK ((((length(btrim((reason)::text)) >= 1) AND (length(btrim((reason)::text)) <= 500)) AND ((reason)::text = btrim((reason)::text)) AND ((reason)::text !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT coverage_replacement_exception_approvals_reason_check CHECK (((length(btrim((reason)::text)) >= 1) AND (length(btrim((reason)::text)) <= 500) AND ((reason)::text = btrim((reason)::text)) AND ((reason)::text !~ '[[:cntrl:]]'::text))),
     CONSTRAINT coverage_replacement_exception_approvals_state_check CHECK ((state = ANY (ARRAY['Preparing'::text, 'Consuming'::text, 'Applied'::text, 'Refused'::text, 'Aborting'::text, 'Aborted'::text]))),
     CONSTRAINT coverage_replacement_exception_expected_proposal_revision_check CHECK ((expected_proposal_revision > 0))
 );
@@ -5894,7 +5846,7 @@ CREATE TABLE public.coverage_replacement_exceptions (
     CONSTRAINT coverage_replacement_exceptions_proposal_revision_check CHECK ((proposal_revision > 0)),
     CONSTRAINT coverage_replacement_exceptions_reason_check CHECK (((reason IS NULL) OR ((length(reason) >= 1) AND (length(reason) <= 120)))),
     CONSTRAINT coverage_replacement_exceptions_request_hash_check CHECK ((request_hash ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT coverage_replacement_exceptions_request_reason_check CHECK ((((length(btrim((request_reason)::text)) >= 1) AND (length(btrim((request_reason)::text)) <= 500)) AND ((request_reason)::text !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT coverage_replacement_exceptions_request_reason_check CHECK (((length(btrim((request_reason)::text)) >= 1) AND (length(btrim((request_reason)::text)) <= 500) AND ((request_reason)::text !~ '[[:cntrl:]]'::text))),
     CONSTRAINT coverage_replacement_exceptions_requested_early_start_at_check CHECK (isfinite(requested_early_start_at)),
     CONSTRAINT coverage_replacement_exceptions_requester_revision_check CHECK ((requester_revision >= 0)),
     CONSTRAINT coverage_replacement_exceptions_source_hash_check CHECK ((source_hash ~ '^[0-9a-f]{64}$'::text)),
@@ -6204,7 +6156,7 @@ CREATE TABLE public.coverage_transfer_proposals (
     CONSTRAINT coverage_transfer_proposals_permit_digest_check CHECK ((permit_digest ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT coverage_transfer_proposals_proposal_revision_check CHECK ((proposal_revision > 0)),
     CONSTRAINT coverage_transfer_proposals_request_hash_check CHECK ((request_hash ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT coverage_transfer_proposals_request_reason_check CHECK ((((length(btrim((request_reason)::text)) >= 1) AND (length(btrim((request_reason)::text)) <= 500)) AND ((request_reason)::text !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT coverage_transfer_proposals_request_reason_check CHECK (((length(btrim((request_reason)::text)) >= 1) AND (length(btrim((request_reason)::text)) <= 500) AND ((request_reason)::text !~ '[[:cntrl:]]'::text))),
     CONSTRAINT coverage_transfer_proposals_requester_revision_check CHECK ((requester_revision > 0)),
     CONSTRAINT coverage_transfer_proposals_retired_at_check CHECK (((retired_at IS NULL) OR isfinite(retired_at))),
     CONSTRAINT coverage_transfer_proposals_retired_reason_check CHECK (((retired_reason IS NULL) OR ((length(retired_reason) >= 1) AND (length(retired_reason) <= 60)))),
@@ -6672,9 +6624,8 @@ CREATE TABLE public.operational_closure_consent_notices (
     proposal_id uuid NOT NULL,
     account_id uuid NOT NULL,
     shop_id uuid NOT NULL,
-    actor_id uuid,
-    operation_key uuid,
-    CONSTRAINT operational_closure_consent_notices_check CHECK (((actor_id IS NULL) = (operation_key IS NULL)))
+    actor_id uuid NOT NULL,
+    operation_key uuid NOT NULL
 );
 
 ALTER TABLE ONLY public.operational_closure_consent_notices FORCE ROW LEVEL SECURITY;
@@ -6880,7 +6831,7 @@ CREATE TABLE public.payment_attempts (
     CONSTRAINT payment_attempts_configuration_version_check CHECK ((length((configuration_version)::text) > 0)),
     CONSTRAINT payment_attempts_created_at_check CHECK (isfinite(created_at)),
     CONSTRAINT payment_attempts_currency_check CHECK ((currency = 'INR'::text)),
-    CONSTRAINT payment_attempts_environment_check CHECK (((environment)::text = ANY ((ARRAY['Development'::character varying, 'Test'::character varying, 'Live'::character varying])::text[]))),
+    CONSTRAINT payment_attempts_environment_check CHECK (((environment)::text = ANY (ARRAY[('Development'::character varying)::text, ('Test'::character varying)::text, ('Live'::character varying)::text]))),
     CONSTRAINT payment_attempts_provider_account_id_check CHECK ((length((provider_account_id)::text) > 0)),
     CONSTRAINT payment_attempts_provider_id_check CHECK ((length((provider_id)::text) > 0)),
     CONSTRAINT payment_attempts_request_hash_check CHECK ((request_hash ~ '^[a-f0-9]{64}$'::text)),
@@ -7085,7 +7036,7 @@ CREATE TABLE public.payment_review_decisions (
     accepted_source_hash text,
     reviewed_source_hash text,
     recovery_policy text,
-    CONSTRAINT payment_review_decisions_check CHECK (((((action = 'RecordNoAccessDecision'::text) AND (disposition = 'NoAccessDecisionRecorded'::text)) OR ((action = 'ReferForRefundReview'::text) AND (disposition = 'RefundReviewPending'::text))) OR ((action = 'RecoverAcceptedTerms'::text) AND (disposition = 'AcceptedTermsRecovered'::text)))),
+    CONSTRAINT payment_review_decisions_check CHECK ((((action = 'RecordNoAccessDecision'::text) AND (disposition = 'NoAccessDecisionRecorded'::text)) OR ((action = 'ReferForRefundReview'::text) AND (disposition = 'RefundReviewPending'::text)) OR ((action = 'RecoverAcceptedTerms'::text) AND (disposition = 'AcceptedTermsRecovered'::text)))),
     CONSTRAINT payment_review_decisions_check1 CHECK (((action = 'RecoverAcceptedTerms'::text) = (term_id IS NOT NULL))),
     CONSTRAINT payment_review_decisions_check2 CHECK ((((term_id IS NULL) AND (accepted_source_hash IS NULL) AND (reviewed_source_hash IS NULL) AND (recovery_policy IS NULL)) OR ((term_id IS NOT NULL) AND (accepted_source_hash IS NOT NULL) AND (reviewed_source_hash IS NOT NULL) AND (recovery_policy IS NOT NULL) AND (recovery_policy = 'accepted-source-equivalence/1'::text)))),
     CONSTRAINT payment_review_decisions_decided_at_check CHECK (isfinite(decided_at)),
@@ -7197,8 +7148,8 @@ CREATE TABLE public.plan_versions (
     source integer DEFAULT 0 NOT NULL,
     source_expected_version integer,
     source_version_id uuid,
-    CONSTRAINT ck_plan_versions_amounts CHECK ((((monthly_price_paise >= 0) AND (monthly_price_paise <= '1000000000000'::bigint)) AND ((annual_price_paise >= 0) AND (annual_price_paise <= '1000000000000'::bigint)) AND ((extra_shop_monthly_price_paise >= 0) AND (extra_shop_monthly_price_paise <= '1000000000000'::bigint)) AND ((extra_shop_annual_price_paise >= 0) AND (extra_shop_annual_price_paise <= '1000000000000'::bigint)))),
-    CONSTRAINT ck_plan_versions_capacities CHECK ((((included_shops >= 1) AND (included_shops <= 100000)) AND ((members_per_shop >= 1) AND (members_per_shop <= 100000)))),
+    CONSTRAINT ck_plan_versions_amounts CHECK (((monthly_price_paise >= 0) AND (monthly_price_paise <= '1000000000000'::bigint) AND ((annual_price_paise >= 0) AND (annual_price_paise <= '1000000000000'::bigint)) AND ((extra_shop_monthly_price_paise >= 0) AND (extra_shop_monthly_price_paise <= '1000000000000'::bigint)) AND ((extra_shop_annual_price_paise >= 0) AND (extra_shop_annual_price_paise <= '1000000000000'::bigint)))),
+    CONSTRAINT ck_plan_versions_capacities CHECK (((included_shops >= 1) AND (included_shops <= 100000) AND ((members_per_shop >= 1) AND (members_per_shop <= 100000)))),
     CONSTRAINT ck_plan_versions_currency CHECK (((currency)::text = 'INR'::text)),
     CONSTRAINT ck_plan_versions_extra_shop_offer CHECK (((extra_shops_offered IS TRUE) OR ((extra_shop_monthly_price_paise IS NULL) AND (extra_shop_annual_price_paise IS NULL)))),
     CONSTRAINT ck_plan_versions_name CHECK ((((name)::text = btrim((name)::text)) AND ((char_length((name)::text) >= 1) AND (char_length((name)::text) <= 80)))),
@@ -7314,7 +7265,7 @@ CREATE TABLE public.refund_approvals (
     CONSTRAINT refund_approvals_payment_amount_paise_check CHECK (((payment_amount_paise >= 1) AND (payment_amount_paise <= '1000000000000'::bigint))),
     CONSTRAINT refund_approvals_provider_account_id_check CHECK (((length(provider_account_id) >= 1) AND (length(provider_account_id) <= 200))),
     CONSTRAINT refund_approvals_provider_id_check CHECK (((length(provider_id) >= 1) AND (length(provider_id) <= 80))),
-    CONSTRAINT refund_approvals_reason_check CHECK ((((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500)) AND (reason = btrim(reason)) AND (reason !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT refund_approvals_reason_check CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500) AND (reason = btrim(reason)) AND (reason !~ '[[:cntrl:]]'::text))),
     CONSTRAINT refund_approvals_receipt_revision_check CHECK ((receipt_revision > 0)),
     CONSTRAINT refund_approvals_refund_policy_version_check CHECK (((length(refund_policy_version) >= 1) AND (length(refund_policy_version) <= 80)))
 );
@@ -7399,7 +7350,7 @@ CREATE TABLE public.refund_requests (
     CONSTRAINT refund_requests_payment_amount_paise_check CHECK (((payment_amount_paise >= 1) AND (payment_amount_paise <= '1000000000000'::bigint))),
     CONSTRAINT refund_requests_provider_account_id_check CHECK (((length(provider_account_id) >= 1) AND (length(provider_account_id) <= 200))),
     CONSTRAINT refund_requests_provider_id_check CHECK (((length(provider_id) >= 1) AND (length(provider_id) <= 80))),
-    CONSTRAINT refund_requests_reason_check CHECK ((((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500)) AND (reason = btrim(reason)) AND (reason !~ '[[:cntrl:]]'::text))),
+    CONSTRAINT refund_requests_reason_check CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500) AND (reason = btrim(reason)) AND (reason !~ '[[:cntrl:]]'::text))),
     CONSTRAINT refund_requests_request_hash_check CHECK ((request_hash ~ '^[a-f0-9]{64}$'::text)),
     CONSTRAINT refund_requests_requested_at_check CHECK (isfinite(requested_at))
 );
@@ -7440,17 +7391,6 @@ CREATE TABLE public.refund_work (
 );
 
 ALTER TABLE ONLY public.refund_work FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: reopening_publisher_cutover; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.reopening_publisher_cutover (
-    singleton boolean NOT NULL,
-    enabled boolean NOT NULL,
-    CONSTRAINT reopening_publisher_cutover_singleton_check CHECK (singleton)
-);
 
 
 --
@@ -7552,7 +7492,7 @@ CREATE TABLE public.scheduled_capacity_reductions (
     CONSTRAINT scheduled_capacity_reductions_check1 CHECK (((target_member_allowance >= 1) AND (target_member_allowance <= prior_member_allowance))),
     CONSTRAINT scheduled_capacity_reductions_check2 CHECK (((target_capacity < prior_capacity) OR (target_member_allowance < prior_member_allowance))),
     CONSTRAINT scheduled_capacity_reductions_check3 CHECK (((source_shop_count >= 1) AND (source_shop_count <= prior_capacity))),
-    CONSTRAINT scheduled_capacity_reductions_check4 CHECK ((((retained_shop_count >= 1) AND (retained_shop_count <= target_capacity)) AND (retained_shop_count <= source_shop_count))),
+    CONSTRAINT scheduled_capacity_reductions_check4 CHECK (((retained_shop_count >= 1) AND (retained_shop_count <= target_capacity) AND (retained_shop_count <= source_shop_count))),
     CONSTRAINT scheduled_capacity_reductions_check5 CHECK ((isfinite(renewal_ends_at) AND (renewal_ends_at > effective_at))),
     CONSTRAINT scheduled_capacity_reductions_check6 CHECK (((order_id IS NULL) OR (num_nonnulls(attempt_id, receipt_id) = 1))),
     CONSTRAINT scheduled_capacity_reductions_check7 CHECK (((state = 'Scheduled'::text) = (order_id IS NULL))),
@@ -7926,7 +7866,7 @@ CREATE TABLE public.trial_policy_versions (
     source integer DEFAULT 0 NOT NULL,
     source_expected_version integer,
     source_version_id uuid,
-    CONSTRAINT ck_trial_policy_versions_caps CHECK ((((active_member_cap >= 1) AND (active_member_cap <= 100000)) AND ((max_concurrent_trial_shops >= 1) AND (max_concurrent_trial_shops <= 100000)))),
+    CONSTRAINT ck_trial_policy_versions_caps CHECK (((active_member_cap >= 1) AND (active_member_cap <= 100000) AND ((max_concurrent_trial_shops >= 1) AND (max_concurrent_trial_shops <= 100000)))),
     CONSTRAINT ck_trial_policy_versions_duration CHECK ((duration_days = 14)),
     CONSTRAINT ck_trial_policy_versions_numbers CHECK (((version_number >= 1) AND (revision >= 1))),
     CONSTRAINT ck_trial_policy_versions_source CHECK (((source = ANY (ARRAY[0, 1, 2])) AND ((source_version_id IS NULL) = (source_expected_version IS NULL)) AND ((source_expected_version IS NULL) OR (source_expected_version > 0)))),
@@ -7966,7 +7906,7 @@ CREATE TABLE public.unmatched_payments (
     CONSTRAINT unmatched_payments_check1 CHECK ((isfinite(created_at) AND (created_at <= observed_at))),
     CONSTRAINT unmatched_payments_check2 CHECK ((num_nonnulls(attempt_id, manual_receipt_id) = 1)),
     CONSTRAINT unmatched_payments_check3 CHECK (((attempt_id IS NULL) = (provider_payment_reference IS NULL))),
-    CONSTRAINT unmatched_payments_classification_check CHECK ((classification = ANY (ARRAY['ReceivingPinMismatch'::text, 'CurrencyMismatch'::text, 'Underpayment'::text, 'Overpayment'::text, 'DuplicateFunds'::text, 'CoverageChanged'::text, 'TermUnavailable'::text, 'CaptureTimeUnproven'::text, 'RestorationPending'::text, 'LegacyNeedsReview'::text, 'ReservationExpired'::text, 'ReservationChanged'::text, 'SourceChanged'::text, 'ReservationBusy'::text]))),
+    CONSTRAINT unmatched_payments_classification_check CHECK ((classification = ANY (ARRAY['ReceivingPinMismatch'::text, 'CurrencyMismatch'::text, 'Underpayment'::text, 'Overpayment'::text, 'DuplicateFunds'::text, 'CoverageChanged'::text, 'TermUnavailable'::text, 'CaptureTimeUnproven'::text, 'RestorationPending'::text, 'ReservationExpired'::text, 'ReservationChanged'::text, 'SourceChanged'::text, 'ReservationBusy'::text]))),
     CONSTRAINT unmatched_payments_expected_amount_paise_check CHECK ((expected_amount_paise > 0)),
     CONSTRAINT unmatched_payments_expected_currency_check CHECK ((length(expected_currency) = 3)),
     CONSTRAINT unmatched_payments_observed_amount_paise_check CHECK ((observed_amount_paise > 0)),
@@ -8000,7 +7940,7 @@ CREATE TABLE public.verified_payments (
     CONSTRAINT verified_payments_captured_at_check CHECK (isfinite(captured_at)),
     CONSTRAINT verified_payments_configuration_version_check CHECK ((length((configuration_version)::text) > 0)),
     CONSTRAINT verified_payments_currency_check CHECK ((currency = 'INR'::text)),
-    CONSTRAINT verified_payments_environment_check CHECK (((environment)::text = ANY ((ARRAY['Development'::character varying, 'Test'::character varying, 'Live'::character varying])::text[]))),
+    CONSTRAINT verified_payments_environment_check CHECK (((environment)::text = ANY (ARRAY[('Development'::character varying)::text, ('Test'::character varying)::text, ('Live'::character varying)::text]))),
     CONSTRAINT verified_payments_provider_account_id_check CHECK ((length((provider_account_id)::text) > 0)),
     CONSTRAINT verified_payments_provider_id_check CHECK ((length((provider_id)::text) > 0)),
     CONSTRAINT verified_payments_provider_payment_reference_check CHECK ((length((provider_payment_reference)::text) > 0)),
@@ -8645,13 +8585,6 @@ INSERT INTO public.payment_provider_routing (id, revision, profile_id, pin) VALU
 -- Data for Name: refund_work; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-
-
---
--- Data for Name: reopening_publisher_cutover; Type: TABLE DATA; Schema: public; Owner: -
---
-
-INSERT INTO public.reopening_publisher_cutover (singleton, enabled) VALUES (true, false);
 
 
 --
@@ -10551,14 +10484,6 @@ ALTER TABLE ONLY public.refund_work
 
 
 --
--- Name: reopening_publisher_cutover reopening_publisher_cutover_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reopening_publisher_cutover
-    ADD CONSTRAINT reopening_publisher_cutover_pkey PRIMARY KEY (singleton);
-
-
---
 -- Name: scheduled_capacity_reduction_resolutions scheduled_capacity_reduction__account_id_schedule_id_genera_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11967,13 +11892,6 @@ CREATE TRIGGER guard_coverage_transfer_proposal BEFORE UPDATE ON public.coverage
 
 
 --
--- Name: reopening_publisher_cutover guard_cutover_row; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER guard_cutover_row BEFORE INSERT OR DELETE OR UPDATE ON public.reopening_publisher_cutover FOR EACH ROW EXECUTE FUNCTION public.guard_reopening_cutover();
-
-
---
 -- Name: manual_payment_receipts guard_manual_payment_receipt; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12027,13 +11945,6 @@ CREATE TRIGGER guard_payment_restoration_hold BEFORE INSERT ON public.payment_re
 --
 
 CREATE TRIGGER guard_payment_trial_conversion BEFORE INSERT ON public.payment_trial_conversions FOR EACH ROW EXECUTE FUNCTION public.guard_payment_trial_conversion();
-
-
---
--- Name: entitlement_snapshots guard_publisher; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER guard_publisher BEFORE INSERT ON public.entitlement_snapshots FOR EACH ROW EXECUTE FUNCTION public.guard_entitlement_publisher();
 
 
 --
@@ -13147,13 +13058,6 @@ CREATE TRIGGER retain_table BEFORE TRUNCATE ON public.payment_routing_events FOR
 --
 
 CREATE TRIGGER retain_table BEFORE TRUNCATE ON public.payment_trial_conversions FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_billing_account_evidence_loss();
-
-
---
--- Name: reopening_publisher_cutover retain_table; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER retain_table BEFORE TRUNCATE ON public.reopening_publisher_cutover FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
 
 
 --
@@ -16789,7 +16693,7 @@ CREATE POLICY member_read ON public.billing_document_versions FOR SELECT USING (
    FROM public.billing_account_members m
   WHERE ((m.account_id = billing_document_versions.account_id) AND (m.merchant_user_id = (NULLIF(current_setting('app.billing_actor_id'::text, true), ''::text))::uuid) AND (m.status = 1) AND (m.role = ANY (ARRAY[1, 2]))))) AND (EXISTS ( SELECT
    FROM public.merchant_billing_delegation_uses u
-  WHERE ((u.account_id = billing_document_versions.account_id) AND (u.actor_id = (NULLIF(current_setting('app.billing_actor_id'::text, true), ''::text))::uuid) AND ((u.action)::text = ANY ((ARRAY['billing.document.list'::character varying, 'billing.document.download'::character varying])::text[])) AND (u.xmin = (pg_current_xact_id())::xid))))));
+  WHERE ((u.account_id = billing_document_versions.account_id) AND (u.actor_id = (NULLIF(current_setting('app.billing_actor_id'::text, true), ''::text))::uuid) AND ((u.action)::text = ANY (ARRAY[('billing.document.list'::character varying)::text, ('billing.document.download'::character varying)::text])) AND (u.xmin = (pg_current_xact_id())::xid))))));
 
 
 --
@@ -17003,14 +16907,14 @@ CREATE POLICY paid_term_insert ON public.subscription_coverage_terms FOR INSERT 
 -- Name: coverage_transfer_consents party_read; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY party_read ON public.coverage_transfer_consents FOR SELECT USING (((((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = source_account_id) OR ((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = destination_account_id)) OR (transfer_id = (NULLIF(current_setting('app.coverage_transfer_id'::text, true), ''::text))::uuid)));
+CREATE POLICY party_read ON public.coverage_transfer_consents FOR SELECT USING ((((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = source_account_id) OR ((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = destination_account_id) OR (transfer_id = (NULLIF(current_setting('app.coverage_transfer_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: coverage_transfer_proposals party_read; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY party_read ON public.coverage_transfer_proposals FOR SELECT USING (((((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = source_account_id) OR ((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = destination_account_id)) OR (transfer_id = (NULLIF(current_setting('app.coverage_transfer_id'::text, true), ''::text))::uuid)));
+CREATE POLICY party_read ON public.coverage_transfer_proposals FOR SELECT USING ((((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = source_account_id) OR ((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = destination_account_id) OR (transfer_id = (NULLIF(current_setting('app.coverage_transfer_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -17826,7 +17730,7 @@ CREATE POLICY scoped_read ON public.checkout_trial_sources FOR SELECT USING ((ac
 -- Name: coverage_transfer_bindings scoped_read; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY scoped_read ON public.coverage_transfer_bindings FOR SELECT USING (((((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = source_account_id) OR ((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = destination_account_id)) OR (shop_id = (NULLIF(current_setting('app.status_shop_id'::text, true), ''::text))::uuid)));
+CREATE POLICY scoped_read ON public.coverage_transfer_bindings FOR SELECT USING ((((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = source_account_id) OR ((NULLIF(current_setting('app.billing_account_id'::text, true), ''::text))::uuid = destination_account_id) OR (shop_id = (NULLIF(current_setting('app.status_shop_id'::text, true), ''::text))::uuid)));
 
 
 --

@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Migrations\20261127063241_Baseline.sql" LogicalName="Intelibill.Infrastructure.Migrations.Baseline.sql" />
+    <EmbeddedResource Include="Migrations\20261127074700_Baseline.sql" LogicalName="Intelibill.Infrastructure.Migrations.Baseline.sql" />
   </ItemGroup>
 
   <ItemGroup>

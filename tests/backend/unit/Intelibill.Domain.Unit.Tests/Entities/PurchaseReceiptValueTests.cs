@@ -16,7 +16,6 @@ public sealed class PurchaseReceiptValueTests
         Assert.Equal(100m, receipt.OriginalTotalCost);
         Assert.Equal(100m, receipt.EffectiveTotalCost);
         Assert.Equal(PurchaseReceiptSource.DirectInbound, receipt.Source);
-        Assert.Equal(PurchaseReceiptValueStatus.Resolved, receipt.Status);
         Assert.Equal("GRN-1", receipt.SourceReference);
     }
 

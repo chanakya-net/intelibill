@@ -104,8 +104,8 @@ public sealed class VoidBatchCommandHandler(
             return Errors.Inventory.BatchAlreadyVoided;
 
         var receiptValue=await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId,batch.Id,cancellationToken);
-        if(receiptValue is not {EffectiveTotalCost:not null})
-            return Error.Conflict("PurchaseReceipt.EvidenceMissing","Full reversal requires a resolved source receipt amount. Review and correct the source evidence first.");
+        if(receiptValue is null)
+            return Error.Conflict("PurchaseReceipt.EvidenceMissing","Full reversal requires the source receipt. Review the source evidence first.");
         if(receiptValue.SupplierId is null)
             return Error.Conflict("PurchaseReceipt.SupplierMissing","The source receipt needs a supplier before it can be reversed.");
         var originalFence=await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId,businessClock.GetBusinessDate(receiptValue.ReceivedAt,shop.BusinessTimeZoneId),cancellationToken);
@@ -156,7 +156,7 @@ public sealed class VoidBatchCommandHandler(
 
         Guid? reversalLedgerId=null;
         decimal? ledgerReversalAmount = null;
-        var reversalAmount=-receiptValue.EffectiveTotalCost.Value;
+        var reversalAmount=-receiptValue.EffectiveTotalCost;
 
         if (supplierId.HasValue && reversalAmount != 0)
         {
@@ -178,7 +178,7 @@ public sealed class VoidBatchCommandHandler(
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        if(receiptValue.EffectiveTotalCost is { } exactAmount)
+        var exactAmount=receiptValue.EffectiveTotalCost;
         {
             var fact=PurchaseReceiptReversal.Create(command.ActiveShopId,receiptValue.Id,null,command.ActorUserId,"Receipt voided by owner",now,businessClock.Today(shop.BusinessTimeZoneId),shop.BusinessTimeZoneId,receiptValue.ReceivedQuantity,exactAmount,stockTransactionResult.Value.Id,reversalLedgerId,$"RR-{Guid.NewGuid():N}");
             if(fact.IsError) return fact.Errors;

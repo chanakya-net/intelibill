@@ -670,7 +670,7 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
 
             await ExecuteAsync("UPDATE inventory SET quantity = quantity WHERE item_id = (SELECT item_id FROM inventory_batches WHERE id = @id)", _batch);
             await ExecuteAsync("UPDATE inventory_batches SET quantity = quantity WHERE id = @id", _batch);
-            await ExecuteAsync("UPDATE purchase_receipt_values SET status = status WHERE id = @id", _receipt);
+            await ExecuteAsync("UPDATE purchase_receipt_values SET received_quantity = received_quantity WHERE id = @id", _receipt);
             await _transaction.CommitAsync();
         }
 

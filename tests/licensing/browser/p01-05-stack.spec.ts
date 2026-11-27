@@ -48,7 +48,9 @@ async function verificationLink(request: APIRequestContext, email: string): Prom
 }
 
 async function apiSession(request: APIRequestContext, credentials: Credentials) {
-  const login = await request.post(`${merchant}/api/auth/login/email`, { data: credentials });
+  const login = await request.post(`${merchant}/api/auth/login`, {
+    data: { identifier: credentials.email, password: credentials.password },
+  });
   expect(login.status()).toBe(200);
   const auth = (await login.json()) as { accessToken: string; user: { id: string } };
   return { headers: { Authorization: `Bearer ${auth.accessToken}` }, userId: auth.user.id };

@@ -110,7 +110,12 @@ export class SuspensionApi {
   }
 
   suspend(account: string, command: SuspensionCommand, session: string) {
-    return this.save(this.path(account), command, session);
+    // The saved draft also carries UI state (for example its validity), so send only the command.
+    const { scope, shopId, operationKey, mode, effectiveAt, customerExplanation, internalReason,
+      reviewReference, expectedVersion, impactDigest } = command;
+    const body: SuspensionCommand = { scope, shopId, operationKey, mode, effectiveAt, customerExplanation,
+      internalReason, reviewReference, expectedVersion, impactDigest };
+    return this.save(this.path(account), body, session);
   }
 
   previewRelease(account: string, restriction: string, session: string) {

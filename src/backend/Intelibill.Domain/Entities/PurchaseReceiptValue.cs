@@ -28,10 +28,9 @@ public sealed class PurchaseReceiptValue : BaseEntity
     public Guid ItemId { get; private set; }
     public Guid? SupplierId { get; private set; }
     public decimal ReceivedQuantity { get; private set; }
-    public decimal? OriginalTotalCost { get; private set; }
-    public decimal? EffectiveTotalCost { get; private set; }
+    public decimal OriginalTotalCost { get; private set; }
+    public decimal EffectiveTotalCost { get; private set; }
     public PurchaseReceiptSource Source { get; private set; }
-    public PurchaseReceiptValueStatus Status { get; private set; }
     public string? SourceReference { get; private set; }
     public Guid? PurchaseOrderReceiptLineId { get; private set; }
     public DateTimeOffset ReceivedAt { get; private set; }
@@ -73,7 +72,6 @@ public sealed class PurchaseReceiptValue : BaseEntity
             OriginalTotalCost = totalCost,
             EffectiveTotalCost = totalCost,
             Source = PurchaseReceiptSource.DirectInbound,
-            Status = PurchaseReceiptValueStatus.Resolved,
             SourceReference = NormalizeReference(sourceReference),
             ReceivedAt = receivedAt.ToUniversalTime(),
             CreatedBy = createdBy,
@@ -93,8 +91,7 @@ public sealed class PurchaseReceiptValue : BaseEntity
     /// </summary>
     public ErrorOr<decimal> ApplyCostCorrection(decimal revisedTotalCost)
     {
-        if (EffectiveTotalCost is not { } current)
-            return Error.Validation("PurchaseReceipt.EvidenceMissing", "The original receipt total is not on record, so it cannot be corrected.");
+        var current = EffectiveTotalCost;
 
         if (revisedTotalCost < 0 || revisedTotalCost > MaxTotalCost || decimal.Round(revisedTotalCost, 2) != revisedTotalCost)
             return Error.Validation("PurchaseReceipt.TotalCostInvalid", "Receipt total must be between 0 and 99,999,999.99 with at most two decimals.");

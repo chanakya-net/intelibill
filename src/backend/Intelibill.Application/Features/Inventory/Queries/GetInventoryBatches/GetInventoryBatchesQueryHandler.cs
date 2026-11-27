@@ -79,7 +79,6 @@ public sealed class GetInventoryBatchesQueryHandler(
             b.UpdatedAt,
             b.Version,
             receipt?.Id,
-            receipt?.Status,
             receipt?.OriginalTotalCost,
             receipt?.EffectiveTotalCost,
             receipt?.Version,

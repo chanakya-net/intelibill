@@ -925,47 +925,6 @@ END $$;
 
 
 --
--- Name: sale_returns_business_date_default(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.sale_returns_business_date_default() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    IF NEW.business_time_zone IS NULL THEN
-        NEW.business_time_zone := 'Asia/Kolkata';
-    END IF;
-    IF NEW.business_date IS NULL THEN
-        NEW.business_date := (NEW.processed_at AT TIME ZONE NEW.business_time_zone)::date;
-    END IF;
-    IF NEW.voided_at IS NOT NULL AND NEW.voided_business_date IS NULL THEN
-        NEW.voided_business_date := (NEW.voided_at AT TIME ZONE NEW.business_time_zone)::date;
-    END IF;
-    RETURN NEW;
-END
-$$;
-
-
---
--- Name: sales_business_date_default(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.sales_business_date_default() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    IF NEW.business_time_zone IS NULL THEN
-        NEW.business_time_zone := 'Asia/Kolkata';
-    END IF;
-    IF NEW.business_date IS NULL THEN
-        NEW.business_date := (NEW.sold_at AT TIME ZONE NEW.business_time_zone)::date;
-    END IF;
-    RETURN NEW;
-END
-$$;
-
-
---
 -- Name: take_merchant_licence_fence(uuid, uuid, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1194,10 +1153,10 @@ CREATE TABLE public.batch_disposition_changes (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT ck_batch_disposition_action CHECK ((((root_change_id IS NULL) AND ((action)::text = 'Quarantine'::text) AND (stock_movement_id IS NOT NULL) AND (inventory_adjustment_id IS NULL)) OR ((root_change_id IS NOT NULL) AND ((((action)::text = 'Release'::text) AND (stock_movement_id IS NULL) AND (inventory_adjustment_id IS NULL)) OR (((action)::text = 'Dispose'::text) AND (stock_movement_id IS NOT NULL) AND (inventory_adjustment_id IS NOT NULL)) OR (((action)::text = 'Reverse'::text) AND (stock_movement_id IS NOT NULL) AND (inventory_adjustment_id IS NULL)))))),
-    CONSTRAINT ck_batch_disposition_cause CHECK (((reason_code)::text = ANY ((ARRAY['Expiry.Expired'::character varying, 'Expiry.RequiredDateMissing'::character varying])::text[]))),
+    CONSTRAINT ck_batch_disposition_cause CHECK (((reason_code)::text = ANY (ARRAY[('Expiry.Expired'::character varying)::text, ('Expiry.RequiredDateMissing'::character varying)::text]))),
     CONSTRAINT ck_batch_disposition_quantity CHECK ((quantity > (0)::numeric)),
     CONSTRAINT ck_batch_disposition_reason CHECK (((length(btrim((reason)::text)) >= 1) AND (length(btrim((reason)::text)) <= 500))),
-    CONSTRAINT ck_batch_disposition_source CHECK ((((source_kind)::text = ANY ((ARRAY['SaleReturn'::character varying, 'SaleCancellation'::character varying])::text[])) AND (source_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (source_line_id <> '00000000-0000-0000-0000-000000000000'::uuid)))
+    CONSTRAINT ck_batch_disposition_source CHECK ((((source_kind)::text = ANY (ARRAY[('SaleReturn'::character varying)::text, ('SaleCancellation'::character varying)::text])) AND (source_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (source_line_id <> '00000000-0000-0000-0000-000000000000'::uuid)))
 );
 
 ALTER TABLE ONLY public.batch_disposition_changes FORCE ROW LEVEL SECURITY;
@@ -1550,7 +1509,7 @@ CREATE TABLE public.customer_ledger_entries (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT ck_customer_ledger_entries_amount_positive CHECK ((amount > (0)::numeric)),
-    CONSTRAINT ck_customer_ledger_entries_sale_by_type CHECK (((((entry_type)::text = ANY ((ARRAY['SALE_DUE'::character varying, 'SALE_CANCELLATION_CREDIT'::character varying])::text[])) AND (sale_id IS NOT NULL)) OR (((entry_type)::text = ANY ((ARRAY['PAYMENT_RECEIVED'::character varying, 'PAYMENT_REVERSAL'::character varying])::text[])) AND (sale_id IS NULL)) OR ((entry_type)::text = ANY ((ARRAY['RETURN_CREDIT'::character varying, 'RETURN_CREDIT_REVERSAL'::character varying])::text[]))))
+    CONSTRAINT ck_customer_ledger_entries_sale_by_type CHECK (((((entry_type)::text = ANY (ARRAY[('SALE_DUE'::character varying)::text, ('SALE_CANCELLATION_CREDIT'::character varying)::text])) AND (sale_id IS NOT NULL)) OR (((entry_type)::text = ANY (ARRAY[('PAYMENT_RECEIVED'::character varying)::text, ('PAYMENT_REVERSAL'::character varying)::text])) AND (sale_id IS NULL)) OR ((entry_type)::text = ANY (ARRAY[('RETURN_CREDIT'::character varying)::text, ('RETURN_CREDIT_REVERSAL'::character varying)::text]))))
 );
 
 ALTER TABLE ONLY public.customer_ledger_entries FORCE ROW LEVEL SECURITY;
@@ -1572,9 +1531,9 @@ CREATE TABLE public.customers (
     credit_limit numeric(10,2) DEFAULT 0.0 NOT NULL,
     gstin character varying(15),
     state_code character varying(2),
-    credit_policy_mode integer DEFAULT 3 NOT NULL,
+    credit_policy_mode integer NOT NULL,
     credit_terms_days integer,
-    CONSTRAINT ck_customers_credit_policy_mode CHECK ((credit_policy_mode = ANY (ARRAY[1, 2, 3]))),
+    CONSTRAINT ck_customers_credit_policy_mode CHECK ((credit_policy_mode = ANY (ARRAY[1, 2]))),
     CONSTRAINT ck_customers_credit_terms_days CHECK (((credit_terms_days IS NULL) OR ((credit_terms_days >= 0) AND (credit_terms_days <= 365))))
 );
 
@@ -1907,8 +1866,8 @@ CREATE TABLE public.inventory_adjustments (
     updated_at timestamp with time zone,
     disposition_change_id uuid,
     CONSTRAINT ck_inventory_adjustments_cost_impact_non_negative CHECK ((cost_impact >= (0)::numeric)),
-    CONSTRAINT ck_inventory_adjustments_direction_reason CHECK (((((direction)::text = 'Decrease'::text) AND ((reason)::text = ANY ((ARRAY['Damaged'::character varying, 'Expired'::character varying, 'Stolen'::character varying, 'MissingLost'::character varying, 'StockCountCorrection'::character varying, 'OtherLoss'::character varying])::text[]))) OR (((direction)::text = 'Increase'::text) AND ((reason)::text = ANY ((ARRAY['FoundStock'::character varying, 'StockCountCorrection'::character varying, 'ReturnRestockCorrection'::character varying, 'OtherGain'::character varying])::text[]))))),
-    CONSTRAINT ck_inventory_adjustments_other_reason_notes CHECK ((((reason)::text <> ALL ((ARRAY['OtherLoss'::character varying, 'OtherGain'::character varying])::text[])) OR ((notes IS NOT NULL) AND (length(btrim((notes)::text)) > 0)))),
+    CONSTRAINT ck_inventory_adjustments_direction_reason CHECK (((((direction)::text = 'Decrease'::text) AND ((reason)::text = ANY (ARRAY[('Damaged'::character varying)::text, ('Expired'::character varying)::text, ('Stolen'::character varying)::text, ('MissingLost'::character varying)::text, ('StockCountCorrection'::character varying)::text, ('OtherLoss'::character varying)::text]))) OR (((direction)::text = 'Increase'::text) AND ((reason)::text = ANY (ARRAY[('FoundStock'::character varying)::text, ('StockCountCorrection'::character varying)::text, ('ReturnRestockCorrection'::character varying)::text, ('OtherGain'::character varying)::text]))))),
+    CONSTRAINT ck_inventory_adjustments_other_reason_notes CHECK ((((reason)::text <> ALL (ARRAY[('OtherLoss'::character varying)::text, ('OtherGain'::character varying)::text])) OR ((notes IS NOT NULL) AND (length(btrim((notes)::text)) > 0)))),
     CONSTRAINT ck_inventory_adjustments_quantity_positive CHECK ((quantity > (0)::numeric)),
     CONSTRAINT ck_inventory_adjustments_quantity_snapshots CHECK (((((direction)::text = 'Decrease'::text) AND ((batch_quantity_before - quantity) = batch_quantity_after) AND ((inventory_quantity_before - quantity) = inventory_quantity_after)) OR (((direction)::text = 'Increase'::text) AND ((batch_quantity_before + quantity) = batch_quantity_after) AND ((inventory_quantity_before + quantity) = inventory_quantity_after)))),
     CONSTRAINT ck_inventory_adjustments_quantity_snapshots_non_negative CHECK (((batch_quantity_before >= (0)::numeric) AND (batch_quantity_after >= (0)::numeric) AND (inventory_quantity_before >= (0)::numeric) AND (inventory_quantity_after >= (0)::numeric))),
@@ -1993,8 +1952,8 @@ CREATE TABLE public.invoice_sequences (
     prefix character varying(32) NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
-    seller_registration_key character varying(64) DEFAULT ''::character varying NOT NULL,
-    series_code character varying(4) DEFAULT ''::character varying NOT NULL
+    seller_registration_key character varying(64) NOT NULL,
+    series_code character varying(4) NOT NULL
 );
 
 ALTER TABLE ONLY public.invoice_sequences FORCE ROW LEVEL SECURITY;
@@ -2037,7 +1996,6 @@ CREATE TABLE public.items (
     default_tax_rate_percent numeric(5,2) DEFAULT 0.0 NOT NULL,
     quantity_scale smallint DEFAULT 0 NOT NULL,
     unit_code character varying(8),
-    unit_review_required boolean DEFAULT false NOT NULL,
     CONSTRAINT ck_items_quantity_scale CHECK (((quantity_scale >= 0) AND (quantity_scale <= 3)))
 );
 
@@ -2065,7 +2023,7 @@ CREATE TABLE public.license_grant_evidence (
     assertion character varying(4096) NOT NULL,
     digest character varying(64) NOT NULL,
     payload bytea NOT NULL,
-    CONSTRAINT valid_license_grant_evidence CHECK ((((octet_length(payload) >= 1) AND (octet_length(payload) <= 8192)) AND ((digest)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(issued_at) AND isfinite(received_at) AND isfinite(applied_at) AND isfinite(account_upstream_verified_at) AND isfinite(shop_upstream_verified_at) AND (issued_at <= received_at) AND (received_at <= applied_at)))
+    CONSTRAINT valid_license_grant_evidence CHECK (((octet_length(payload) >= 1) AND (octet_length(payload) <= 8192) AND ((digest)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(issued_at) AND isfinite(received_at) AND isfinite(applied_at) AND isfinite(account_upstream_verified_at) AND isfinite(shop_upstream_verified_at) AND (issued_at <= received_at) AND (received_at <= applied_at)))
 );
 
 ALTER TABLE ONLY public.license_grant_evidence FORCE ROW LEVEL SECURITY;
@@ -2526,7 +2484,6 @@ CREATE TABLE public.payment_receipts (
     notes character varying(500),
     ledger_entry_id uuid NOT NULL,
     expense_id uuid,
-    is_legacy boolean NOT NULL,
     created_by uuid NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
@@ -2660,7 +2617,7 @@ CREATE TABLE public.purchase_order_receipt_lines (
     purchase_tax_included boolean NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
-    client_line_id uuid
+    client_line_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL
 );
 
 ALTER TABLE ONLY public.purchase_order_receipt_lines FORCE ROW LEVEL SECURITY;
@@ -2809,10 +2766,9 @@ CREATE TABLE public.purchase_receipt_values (
     item_id uuid NOT NULL,
     supplier_id uuid,
     received_quantity numeric(18,3) NOT NULL,
-    original_total_cost numeric(18,2),
-    effective_total_cost numeric(18,2),
+    original_total_cost numeric(18,2) DEFAULT 0.0 NOT NULL,
+    effective_total_cost numeric(18,2) DEFAULT 0.0 NOT NULL,
     source character varying(20) NOT NULL,
-    status character varying(20) NOT NULL,
     source_reference character varying(80),
     purchase_order_receipt_line_id uuid,
     received_at timestamp with time zone NOT NULL,
@@ -2820,7 +2776,7 @@ CREATE TABLE public.purchase_receipt_values (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     has_supplier_returns boolean DEFAULT false NOT NULL,
-    CONSTRAINT ck_purchase_receipt_values_amounts_by_status CHECK (((((status)::text = 'RESOLVED'::text) AND (original_total_cost IS NOT NULL) AND (original_total_cost >= (0)::numeric) AND (effective_total_cost IS NOT NULL) AND (effective_total_cost >= (0)::numeric)) OR (((status)::text = 'LEGACY_UNRESOLVED'::text) AND (original_total_cost IS NULL) AND (effective_total_cost IS NULL)))),
+    CONSTRAINT ck_purchase_receipt_values_amounts_nonnegative CHECK (((original_total_cost >= (0)::numeric) AND (effective_total_cost >= (0)::numeric))),
     CONSTRAINT ck_purchase_receipt_values_quantity_positive CHECK ((received_quantity > (0)::numeric))
 );
 
@@ -3024,18 +2980,17 @@ ALTER TABLE ONLY public.reduction_reservation_receipts FORCE ROW LEVEL SECURITY;
 CREATE TABLE public.refresh_tokens (
     id uuid NOT NULL,
     user_id uuid NOT NULL,
-    token character varying(128),
     expires_at timestamp with time zone NOT NULL,
     is_revoked boolean NOT NULL,
     revoked_at timestamp with time zone,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     security_version bigint DEFAULT 0 NOT NULL,
-    auth_session_id uuid,
+    auth_session_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
     consumed_at timestamp with time zone,
     parent_token_id uuid,
     revocation_reason character varying(64),
-    token_hash character varying(64)
+    token_hash character varying(64) DEFAULT ''::character varying NOT NULL
 );
 
 
@@ -3100,7 +3055,7 @@ CREATE TABLE public.sale_cancellations (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT ck_sale_cancellations_amounts CHECK (((total_amount >= (0)::numeric) AND (revenue_amount >= (0)::numeric) AND (tax_amount = (0)::numeric) AND (due_reduction_amount >= (0)::numeric) AND (cash_refund_amount >= (0)::numeric) AND (total_amount = (due_reduction_amount + cash_refund_amount)) AND (revenue_amount = total_amount))),
-    CONSTRAINT ck_sale_cancellations_reason CHECK ((((length(btrim((reason)::text)) >= 3) AND (length(btrim((reason)::text)) <= 255)) AND ((length(btrim((operation_key)::text)) >= 1) AND (length(btrim((operation_key)::text)) <= 128)))),
+    CONSTRAINT ck_sale_cancellations_reason CHECK (((length(btrim((reason)::text)) >= 3) AND (length(btrim((reason)::text)) <= 255) AND ((length(btrim((operation_key)::text)) >= 1) AND (length(btrim((operation_key)::text)) <= 128)))),
     CONSTRAINT ck_sale_cancellations_settlement CHECK (((((due_reduction_amount > (0)::numeric) AND (customer_ledger_entry_id IS NOT NULL)) OR ((due_reduction_amount = (0)::numeric) AND (customer_ledger_entry_id IS NULL))) AND (cash_refund_confirmed = (cash_refund_amount > (0)::numeric)) AND goods_recovered_confirmed))
 );
 
@@ -3239,7 +3194,6 @@ CREATE TABLE public.sale_returns (
     updated_at timestamp with time zone,
     payout_destination integer,
     accounting_policy_version character varying(40),
-    accounting_review_reason character varying(200),
     accounting_status character varying(20),
     adjustment_non_tax_amount numeric(18,2),
     adjustment_tax_amount numeric(18,2),
@@ -3251,7 +3205,6 @@ CREATE TABLE public.sale_returns (
     refund_tender jsonb,
     void_settlement_evidence jsonb,
     CONSTRAINT ck_sale_returns_accounting_balanced CHECK ((((accounting_status)::text IS DISTINCT FROM 'BALANCED'::text) OR ((accounting_policy_version IS NOT NULL) AND (adjustment_taxable_amount IS NOT NULL) AND (adjustment_tax_amount IS NOT NULL) AND (adjustment_non_tax_amount IS NOT NULL) AND (adjustment_taxable_amount >= (0)::numeric) AND (adjustment_tax_amount >= (0)::numeric) AND (adjustment_non_tax_amount >= (0)::numeric) AND (((adjustment_taxable_amount + adjustment_tax_amount) + adjustment_non_tax_amount) = total_refund_amount)))),
-    CONSTRAINT ck_sale_returns_accounting_review_reason CHECK ((((accounting_status)::text IS DISTINCT FROM 'NEEDS_REVIEW'::text) OR (accounting_review_reason IS NOT NULL))),
     CONSTRAINT ck_sale_returns_refund_amounts_non_negative CHECK (((total_refund_amount >= (0)::numeric) AND (due_reduction_amount >= (0)::numeric) AND (payout_amount >= (0)::numeric) AND (total_taxable_amount >= (0)::numeric) AND (total_tax_amount >= (0)::numeric))),
     CONSTRAINT ck_sale_returns_refund_split CHECK (((due_reduction_amount + payout_amount) = total_refund_amount)),
     CONSTRAINT ck_sale_returns_void_audit CHECK ((((is_voided = false) AND (voided_at IS NULL) AND (voided_by IS NULL) AND (void_reason IS NULL)) OR ((is_voided = true) AND (voided_at IS NOT NULL) AND (voided_by IS NOT NULL) AND (void_reason IS NOT NULL))))
@@ -3621,7 +3574,7 @@ CREATE TABLE public.stock_transactions (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT ck_stock_transactions_quantity_non_zero CHECK ((quantity <> (0)::numeric)),
-    CONSTRAINT ck_stock_transactions_quantity_sign_by_type CHECK (((((transaction_type)::text = ANY ((ARRAY['IN'::character varying, 'RET'::character varying, 'SALE_CANCELLATION'::character varying])::text[])) AND (quantity > (0)::numeric)) OR (((transaction_type)::text = ANY ((ARRAY['OUT'::character varying, 'REJ'::character varying, 'DMG'::character varying, 'STOL'::character varying, 'SUPPLIER_RETURN'::character varying])::text[])) AND (quantity < (0)::numeric)) OR ((transaction_type)::text = ANY ((ARRAY['ADJ'::character varying, 'REV'::character varying])::text[]))))
+    CONSTRAINT ck_stock_transactions_quantity_sign_by_type CHECK (((((transaction_type)::text = ANY (ARRAY[('IN'::character varying)::text, ('RET'::character varying)::text, ('SALE_CANCELLATION'::character varying)::text])) AND (quantity > (0)::numeric)) OR (((transaction_type)::text = ANY (ARRAY[('OUT'::character varying)::text, ('REJ'::character varying)::text, ('DMG'::character varying)::text, ('STOL'::character varying)::text, ('SUPPLIER_RETURN'::character varying)::text])) AND (quantity < (0)::numeric)) OR ((transaction_type)::text = ANY (ARRAY[('ADJ'::character varying)::text, ('REV'::character varying)::text]))))
 );
 
 ALTER TABLE ONLY public.stock_transactions FORCE ROW LEVEL SECURITY;
@@ -3644,7 +3597,7 @@ CREATE TABLE public.supplier_ledger_entries (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT ck_supplier_ledger_entries_amount_non_zero CHECK ((amount <> (0)::numeric)),
-    CONSTRAINT ck_supplier_ledger_entries_batch_by_type CHECK (((((entry_type)::text = ANY ((ARRAY['GOODS_RECEIVED'::character varying, 'COST_ADJUSTED'::character varying, 'SUPPLIER_RETURN_CREDIT'::character varying])::text[])) AND (batch_id IS NOT NULL)) OR (((entry_type)::text = ANY ((ARRAY['PAYMENT_MADE'::character varying, 'RECORD_ADJUSTED'::character varying])::text[])) AND (batch_id IS NULL)) OR ((entry_type)::text = 'REVERSAL'::text)))
+    CONSTRAINT ck_supplier_ledger_entries_batch_by_type CHECK (((((entry_type)::text = ANY (ARRAY[('GOODS_RECEIVED'::character varying)::text, ('COST_ADJUSTED'::character varying)::text, ('SUPPLIER_RETURN_CREDIT'::character varying)::text])) AND (batch_id IS NOT NULL)) OR (((entry_type)::text = ANY (ARRAY[('PAYMENT_MADE'::character varying)::text, ('RECORD_ADJUSTED'::character varying)::text])) AND (batch_id IS NULL)) OR ((entry_type)::text = 'REVERSAL'::text)))
 );
 
 ALTER TABLE ONLY public.supplier_ledger_entries FORCE ROW LEVEL SECURITY;
@@ -3846,7 +3799,7 @@ CREATE TABLE public.till_late_postings (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     evidence_reason character varying(500),
-    CONSTRAINT ck_till_late_postings_evidence CHECK (((NOT included_in_count) AND ((evidence_status)::text = ANY ((ARRAY['Unknown'::character varying, 'Recorded'::character varying])::text[])) AND ((length(btrim((manager_reason)::text)) >= 1) AND (length(btrim((manager_reason)::text)) <= 500)) AND (recorded_at >= occurred_at) AND ((close_id IS NULL) OR (session_id IS NOT NULL)) AND (jsonb_typeof(tender_lines) = 'array'::text) AND (jsonb_array_length(tender_lines) <= 1) AND (((evidence_status)::text <> 'Unknown'::text) OR (jsonb_array_length(tender_lines) = 0)))),
+    CONSTRAINT ck_till_late_postings_evidence CHECK (((NOT included_in_count) AND ((evidence_status)::text = ANY (ARRAY[('Unknown'::character varying)::text, ('Recorded'::character varying)::text])) AND ((length(btrim((manager_reason)::text)) >= 1) AND (length(btrim((manager_reason)::text)) <= 500)) AND (recorded_at >= occurred_at) AND ((close_id IS NULL) OR (session_id IS NOT NULL)) AND (jsonb_typeof(tender_lines) = 'array'::text) AND (jsonb_array_length(tender_lines) <= 1) AND (((evidence_status)::text <> 'Unknown'::text) OR (jsonb_array_length(tender_lines) = 0)))),
     CONSTRAINT ck_till_late_postings_evidence_reason CHECK (((evidence_reason IS NULL) OR ((length(btrim((evidence_reason)::text)) >= 1) AND (length(btrim((evidence_reason)::text)) <= 500))))
 );
 
@@ -3884,8 +3837,8 @@ CREATE TABLE public.till_movements (
     updated_at timestamp with time zone,
     CONSTRAINT ck_till_movements_amount CHECK (((signed_amount <> (0)::numeric) AND (abs(signed_amount) <= 9999999999999999.99) AND (signed_amount = round(signed_amount, 2)))),
     CONSTRAINT ck_till_movements_cash CHECK ((((cash_tendered IS NULL) AND (change IS NULL)) OR ((method = 2) AND (cash_tendered IS NOT NULL) AND (change IS NOT NULL) AND (change >= (0)::numeric) AND (cash_tendered >= abs(signed_amount)) AND ((cash_tendered - change) = abs(signed_amount)) AND (cash_tendered <= 9999999999999999.99) AND (cash_tendered = round(cash_tendered, 2)) AND (change = round(change, 2))))),
-    CONSTRAINT ck_till_movements_labels CHECK ((((length(btrim((purpose)::text)) >= 1) AND (length(btrim((purpose)::text)) <= 100)) AND ((length(btrim((operation_key)::text)) >= 1) AND (length(btrim((operation_key)::text)) <= 128)) AND (recorded_at >= occurred_at))),
-    CONSTRAINT ck_till_movements_type CHECK ((((method >= 2) AND (method <= 6)) AND ((source_type >= 1) AND (source_type <= 12)) AND (sequence > 0) AND (line_number = 1)))
+    CONSTRAINT ck_till_movements_labels CHECK (((length(btrim((purpose)::text)) >= 1) AND (length(btrim((purpose)::text)) <= 100) AND ((length(btrim((operation_key)::text)) >= 1) AND (length(btrim((operation_key)::text)) <= 128)) AND (recorded_at >= occurred_at))),
+    CONSTRAINT ck_till_movements_type CHECK (((method >= 2) AND (method <= 6) AND ((source_type >= 1) AND (source_type <= 12)) AND (sequence > 0) AND (line_number = 1)))
 );
 
 ALTER TABLE ONLY public.till_movements FORCE ROW LEVEL SECURITY;
@@ -3914,7 +3867,7 @@ CREATE TABLE public.till_sessions (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
     CONSTRAINT ck_till_sessions_amount CHECK (((opening_float >= (0)::numeric) AND (opening_float <= 9999999999999999.99) AND (opening_float = round(opening_float, 2)))),
-    CONSTRAINT ck_till_sessions_labels CHECK ((((length(btrim((till_name)::text)) >= 1) AND (length(btrim((till_name)::text)) <= 100)) AND ((length(btrim((cashier_name)::text)) >= 1) AND (length(btrim((cashier_name)::text)) <= 200)) AND ((length(btrim((business_time_zone_id)::text)) >= 1) AND (length(btrim((business_time_zone_id)::text)) <= 64)))),
+    CONSTRAINT ck_till_sessions_labels CHECK (((length(btrim((till_name)::text)) >= 1) AND (length(btrim((till_name)::text)) <= 100) AND ((length(btrim((cashier_name)::text)) >= 1) AND (length(btrim((cashier_name)::text)) <= 200)) AND ((length(btrim((business_time_zone_id)::text)) >= 1) AND (length(btrim((business_time_zone_id)::text)) <= 64)))),
     CONSTRAINT ck_till_sessions_override CHECK (((opened_by = cashier_id) OR ((override_reason IS NOT NULL) AND ((length(btrim((override_reason)::text)) >= 1) AND (length(btrim((override_reason)::text)) <= 500))))),
     CONSTRAINT ck_till_sessions_sequence CHECK (((last_movement_sequence >= 0) AND (source_count >= 0))),
     CONSTRAINT ck_till_sessions_state CHECK ((state = ANY (ARRAY[1, 2])))
@@ -3945,7 +3898,7 @@ CREATE TABLE public.till_source_records (
     receivable_change numeric NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
-    CONSTRAINT ck_till_sources_labels CHECK ((((length(btrim((purpose)::text)) >= 1) AND (length(btrim((purpose)::text)) <= 100)) AND ((length(btrim((operation_key)::text)) >= 1) AND (length(btrim((operation_key)::text)) <= 128)))),
+    CONSTRAINT ck_till_sources_labels CHECK (((length(btrim((purpose)::text)) >= 1) AND (length(btrim((purpose)::text)) <= 100) AND ((length(btrim((operation_key)::text)) >= 1) AND (length(btrim((operation_key)::text)) <= 128)))),
     CONSTRAINT ck_till_sources_settlement CHECK (((abs(store_credit_issued) <= 9999999999999999.99) AND (store_credit_issued = round(store_credit_issued, 2)) AND (abs(store_credit_redeemed) <= 9999999999999999.99) AND (store_credit_redeemed = round(store_credit_redeemed, 2)) AND (abs(receivable_change) <= 9999999999999999.99) AND (receivable_change = round(receivable_change, 2)))),
     CONSTRAINT ck_till_sources_times CHECK ((recorded_at >= occurred_at)),
     CONSTRAINT ck_till_sources_type CHECK (((source_type >= 1) AND (source_type <= 12)))
@@ -3966,7 +3919,7 @@ CREATE TABLE public.tills (
     created_by uuid NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone,
-    CONSTRAINT ck_tills_name CHECK ((((length(btrim((name)::text)) >= 1) AND (length(btrim((name)::text)) <= 100)) AND ((length(btrim((normalized_name)::text)) >= 1) AND (length(btrim((normalized_name)::text)) <= 100))))
+    CONSTRAINT ck_tills_name CHECK (((length(btrim((name)::text)) >= 1) AND (length(btrim((name)::text)) <= 100) AND ((length(btrim((normalized_name)::text)) >= 1) AND (length(btrim((normalized_name)::text)) <= 100))))
 );
 
 ALTER TABLE ONLY public.tills FORCE ROW LEVEL SECURITY;
@@ -6887,7 +6840,7 @@ CREATE INDEX ix_purchase_order_receipt_lines_purchase_order_receipt_id ON public
 -- Name: ix_purchase_order_receipt_lines_purchase_order_receipt_id_clie; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX ix_purchase_order_receipt_lines_purchase_order_receipt_id_clie ON public.purchase_order_receipt_lines USING btree (purchase_order_receipt_id, client_line_id) WHERE (client_line_id IS NOT NULL);
+CREATE UNIQUE INDEX ix_purchase_order_receipt_lines_purchase_order_receipt_id_clie ON public.purchase_order_receipt_lines USING btree (purchase_order_receipt_id, client_line_id);
 
 
 --
@@ -7189,13 +7142,6 @@ CREATE INDEX ix_refresh_tokens_auth_session_id ON public.refresh_tokens USING bt
 --
 
 CREATE UNIQUE INDEX ix_refresh_tokens_parent_token_id ON public.refresh_tokens USING btree (parent_token_id) WHERE (parent_token_id IS NOT NULL);
-
-
---
--- Name: ix_refresh_tokens_token; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX ix_refresh_tokens_token ON public.refresh_tokens USING btree (token);
 
 
 --
@@ -8655,24 +8601,10 @@ CREATE CONSTRAINT TRIGGER sale_return_items_disposition_source AFTER INSERT ON p
 
 
 --
--- Name: sale_returns sale_returns_business_date_default; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER sale_returns_business_date_default BEFORE INSERT OR UPDATE ON public.sale_returns FOR EACH ROW EXECUTE FUNCTION public.sale_returns_business_date_default();
-
-
---
 -- Name: sale_returns sale_returns_settlement_evidence_immutable; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER sale_returns_settlement_evidence_immutable BEFORE DELETE OR UPDATE ON public.sale_returns FOR EACH ROW EXECUTE FUNCTION public.protect_return_settlement_evidence();
-
-
---
--- Name: sales sales_business_date_default; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER sales_business_date_default BEFORE INSERT OR UPDATE ON public.sales FOR EACH ROW EXECUTE FUNCTION public.sales_business_date_default();
 
 
 --

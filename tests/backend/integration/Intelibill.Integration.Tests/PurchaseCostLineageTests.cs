@@ -133,7 +133,6 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         var saleId = await SellAsync(client, shop.OwnerToken, receipt, 4m);
         var soldCost = await SoldCostAsync(saleId);
         var batch = await BatchAsync(client, shop.OwnerToken, receipt.BatchId);
-        Assert.Equal("Resolved", batch.ReceiptStatus);
         Assert.Equal(1000m, batch.ReceiptTotalCost);
 
         var response = await CorrectCostAsync(client, shop.OwnerToken, batch.ReceiptValueId!.Value, batch.ReceiptVersion!.Value, 1100m, "Supplier invoice was ₹1100");
@@ -361,12 +360,11 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         return new BatchView(
             batch.GetProperty("version").GetUInt32(),
             batch.GetProperty("receiptValueId").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptValueId").GetGuid(),
-            batch.GetProperty("receiptStatus").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptStatus").GetString(),
             batch.GetProperty("receiptTotalCost").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptTotalCost").GetDecimal(),
             batch.GetProperty("receiptVersion").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptVersion").GetUInt32());
     }
 
-    private sealed record BatchView(uint Version, Guid? ReceiptValueId, string? ReceiptStatus, decimal? ReceiptTotalCost, uint? ReceiptVersion);
+    private sealed record BatchView(uint Version, Guid? ReceiptValueId, decimal? ReceiptTotalCost, uint? ReceiptVersion);
 
     private sealed record ShopContext(Guid ShopId, Guid OwnerId, string OwnerToken);
 
