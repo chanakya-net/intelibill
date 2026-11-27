@@ -83,10 +83,78 @@ public sealed class ReversePaymentCommandHandler(
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
+        var businessDate = businessClock.Today(shop.BusinessTimeZoneId);
+        var expensesToVoid = await AuthorizeReversalPeriodsAsync(receipt, businessDate, cancellationToken);
+        if (expensesToVoid.IsError)
+            return expensesToVoid.Errors;
+
+        var acquired = await settlement.AcquireAsync(
+            receipt.ShopId,
+            actorUserId,
+            command.Till,
+            command.OperationKey,
+            command.SettlementEvidence,
+            receipt.PartyType == PaymentPartyType.Customer ? -receipt.Amount : receipt.Amount,
+            businessDate,
+            cancellationToken);
+        if (acquired.IsError) return acquired.Errors;
+
+        var ids = new[] { receipt.Id };
+        var locked = await LockPartyAndSettledTargetsAsync(receipt, ids, cancellationToken);
+        if (locked.IsError)
+            return locked.Errors;
+
+        if ((await receiptRepository.GetReversalsAsync(receipt.ShopId, ids, cancellationToken)).Count > 0)
+            return Errors.Payment.AlreadyReversed;
+
+        var permitted = await completionPolicy.CheckReceiptAsync(licence.Value, receipt, cancellationToken);
+        if (permitted.IsError) return permitted.Errors;
+
+        var ledgerEntryId = await PostReversalLedgerEntryAsync(
+            receipt,
+            reason,
+            businessDate,
+            actorUserId,
+            expensesToVoid.Value,
+            cancellationToken);
+        if (ledgerEntryId.IsError)
+            return ledgerEntryId.Errors;
+
+        var reversal = PaymentReversal.Create(
+            receipt,
+            reason,
+            ledgerEntryId.Value,
+            businessDate,
+            actorUserId,
+            command.SettlementEvidence);
+        if (reversal.IsError)
+            return reversal.Errors;
+
+        var appended = await settlement.AppendAsync(
+            acquired.Value,
+            receipt.PartyType == PaymentPartyType.Customer
+                ? TillMovementSource.CustomerPaymentReversal
+                : TillMovementSource.SupplierPaymentReversal,
+            reversal.Value.Id,
+            actorUserId,
+            command.OperationKey,
+            command.SettlementEvidence,
+            cancellationToken);
+        if (appended.IsError) return appended.Errors;
+        await receiptRepository.AddReversalAsync(reversal.Value, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return await dtoBuilder.BuildAsync(receipt, cancellationToken);
+    }
+
+    /// <summary>Finds the expense a supplier payment's reversal voids, then fences every month the reversal touches.</summary>
+    private async Task<ErrorOr<List<Expense>>> AuthorizeReversalPeriodsAsync(
+        PaymentReceipt receipt,
+        DateOnly businessDate,
+        CancellationToken cancellationToken)
+    {
         // The reversal posts today, never into the month of the payment it undoes. A supplier
         // payment's reversal also voids its expense (which can never be corrected on its own), and
         // that changes the month the expense sits in: that month must be open too.
-        var businessDate = businessClock.Today(shop.BusinessTimeZoneId);
         var expensesToVoid = receipt.PartyType == PaymentPartyType.Supplier && receipt.ExpenseId is { } expenseId
             && await expenseRepository.GetByIdAsync(expenseId, cancellationToken) is { IsVoided: false } linkedExpense
             && linkedExpense.ShopId == receipt.ShopId
@@ -110,14 +178,16 @@ public sealed class ReversePaymentCommandHandler(
         if (fenceErrors is not null)
             return fenceErrors;
 
-        var acquired = await settlement.AcquireAsync(receipt.ShopId, actorUserId, command.Till, command.OperationKey,
-            command.SettlementEvidence, receipt.PartyType == PaymentPartyType.Customer ? -receipt.Amount : receipt.Amount,
-            businessDate, cancellationToken);
-        if (acquired.IsError) return acquired.Errors;
+        return expensesToVoid;
+    }
 
+    private async Task<ErrorOr<Success>> LockPartyAndSettledTargetsAsync(
+        PaymentReceipt receipt,
+        Guid[] ids,
+        CancellationToken cancellationToken)
+    {
         // Party first: every allocation of this receipt also takes it, so the allocations read next
         // are complete; then the documents they settled, in the same order an allocation locks them.
-        var ids = new[] { receipt.Id };
         var partyLocked = PaymentAuthorization.LockOutcome(await receiptRepository.LockPartyAndTargetsAsync(
             receipt.ShopId, receipt.PartyType, receipt.PartyId, [], cancellationToken));
         if (partyLocked.IsError)
@@ -133,57 +203,64 @@ public sealed class ReversePaymentCommandHandler(
         if (locked.IsError)
             return locked.Errors;
 
-        if ((await receiptRepository.GetReversalsAsync(receipt.ShopId, ids, cancellationToken)).Count > 0)
-            return Errors.Payment.AlreadyReversed;
+        return Result.Success;
+    }
 
-        var permitted = await completionPolicy.CheckReceiptAsync(licence.Value, receipt, cancellationToken);
-        if (permitted.IsError) return permitted.Errors;
-
+    /// <summary>Adds the reversing ledger entry for the party (voiding a supplier payment's expense) and returns its id.</summary>
+    private async Task<ErrorOr<Guid>> PostReversalLedgerEntryAsync(
+        PaymentReceipt receipt,
+        string reason,
+        DateOnly businessDate,
+        Guid actorUserId,
+        List<Expense> expensesToVoid,
+        CancellationToken cancellationToken)
+    {
         var notes = $"Reversal of payment {receipt.Id:N}: {reason}";
         if (notes.Length > 255)
             notes = notes[..255];
 
-        Guid ledgerEntryId;
         if (receipt.PartyType == PaymentPartyType.Customer)
         {
             var entry = CustomerLedgerEntry.Create(
-                receipt.ShopId, receipt.PartyId, saleId: null, CustomerLedgerEntryType.PaymentReversal,
-                receipt.Amount, businessDate, notes, actorUserId);
+                receipt.ShopId,
+                receipt.PartyId,
+                saleId: null,
+                CustomerLedgerEntryType.PaymentReversal,
+                receipt.Amount,
+                businessDate,
+                notes,
+                actorUserId);
             if (entry.IsError)
                 return entry.Errors;
 
             await customerLedgerEntryRepository.AddAsync(entry.Value, cancellationToken);
-            ledgerEntryId = entry.Value.Id;
+            return entry.Value.Id;
         }
         else
         {
             var entry = SupplierLedgerEntry.Create(
-                receipt.ShopId, receipt.PartyId, batchId: null, SupplierLedgerEntryType.Reversal,
-                receipt.Amount, businessDate, notes, actorUserId);
+                receipt.ShopId,
+                receipt.PartyId,
+                batchId: null,
+                SupplierLedgerEntryType.Reversal,
+                receipt.Amount,
+                businessDate,
+                notes,
+                actorUserId);
             if (entry.IsError)
                 return entry.Errors;
 
             await supplierLedgerEntryRepository.AddAsync(entry.Value, cancellationToken);
-            ledgerEntryId = entry.Value.Id;
+            var ledgerEntryId = entry.Value.Id;
 
             foreach (var expense in expensesToVoid)
             {
                 expense.MarkVoided();
                 expenseRepository.Update(expense);
             }
+
+            return ledgerEntryId;
         }
-
-        var reversal = PaymentReversal.Create(receipt, reason, ledgerEntryId, businessDate, actorUserId, command.SettlementEvidence);
-        if (reversal.IsError)
-            return reversal.Errors;
-
-        var appended = await settlement.AppendAsync(acquired.Value,
-            receipt.PartyType == PaymentPartyType.Customer ? TillMovementSource.CustomerPaymentReversal : TillMovementSource.SupplierPaymentReversal,
-            reversal.Value.Id, actorUserId, command.OperationKey, command.SettlementEvidence, cancellationToken);
-        if (appended.IsError) return appended.Errors;
-        await receiptRepository.AddReversalAsync(reversal.Value, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return await dtoBuilder.BuildAsync(receipt, cancellationToken);
     }
 
     private sealed record ReversalPayload(Guid ReceiptId, string Reason, TillPostingContext? Till, TillSettlementEvidence? SettlementEvidence);
