@@ -48,7 +48,7 @@ public class CustomerCreditPolicyTests
     public void Due_date_is_the_ist_issue_date_plus_terms()
     {
         // 20:00 UTC on 31 Oct is 01:30 IST on 1 Nov: the business date is 1 Nov.
-        var sale = Sale.Create(Guid.NewGuid(), "A/2627/000001", Guid.NewGuid(), "A", "+911234567890", PaymentMethod.Credit,
+        var sale = TestSales.Create(Guid.NewGuid(), "A/2627/000001", Guid.NewGuid(), "A", "+911234567890", PaymentMethod.Credit,
             new DateTimeOffset(2026, 10, 31, 20, 0, 0, TimeSpan.Zero), 0m, 100m, 100m, 0m, []);
 
         sale.ApplyCreditTerms(30);
@@ -59,7 +59,7 @@ public class CustomerCreditPolicyTests
     [Fact]
     public void Fully_paid_sale_never_gets_a_due_date()
     {
-        var sale = Sale.Create(Guid.NewGuid(), "A/2627/000001", Guid.NewGuid(), "A", "+911234567890", PaymentMethod.Cash,
+        var sale = TestSales.Create(Guid.NewGuid(), "A/2627/000001", Guid.NewGuid(), "A", "+911234567890", PaymentMethod.Cash,
             DateTimeOffset.UtcNow, 100m, 0m, 100m, 0m, []);
 
         sale.ApplyCreditTerms(30);

@@ -248,7 +248,8 @@ public sealed partial class P0506LicensingTests
             s => s.ShopId == actor.Shop && s.FiscalYearStart == year.StartYear && s.SeriesCode == "A", Ct);
         if (sequence is null)
         {
-            sequence = InvoiceSequence.Create(actor.Shop, year);
+            var shop = await db.Shops.SingleAsync(s => s.Id == actor.Shop, Ct);
+            sequence = InvoiceSequence.Open(actor.Shop, shop.SellerRegistrationKey, "A", year);
             db.InvoiceSequences.Add(sequence);
         }
         var lease = InvoiceLease.Create(

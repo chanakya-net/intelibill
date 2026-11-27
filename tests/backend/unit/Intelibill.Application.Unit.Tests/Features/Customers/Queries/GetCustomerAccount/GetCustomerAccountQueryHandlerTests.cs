@@ -65,7 +65,7 @@ public class GetCustomerAccountQueryHandlerTests
         var fixture = BuildFixture();
         var query = new GetCustomerAccountQuery(fixture.manager.Id, fixture.shop.Id, fixture.customer.Id);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             fixture.shop.Id,
             "INV-001",
             fixture.customer.Id,
@@ -189,7 +189,7 @@ public class GetCustomerAccountQueryHandlerTests
             taxAmount: 0m,
             totalAmount: 80m);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             fixture.shop.Id,
             "INV-DISC",
             fixture.customer.Id,
@@ -280,7 +280,7 @@ public class GetCustomerAccountQueryHandlerTests
     }
 
     private static Sale DueSale(Guid shopId, Customer customer, decimal due, DateTimeOffset soldAt, string invoice = "INV-100") =>
-        Sale.Create(
+        TestSales.Create(
             shopId,
             invoice,
             customer.Id,
@@ -349,7 +349,7 @@ public class GetCustomerAccountQueryHandlerTests
         var customer = Customer.Create(fixture.shop.Id, "Customer A", "+919000000001", null, true, 2000m);
         Assert.False(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null).IsError);
         fixture.customer = customer;
-        var bigSale = Sale.Create(fixture.shop.Id, "INV-BIG", customer.Id, customer.Name, customer.PhoneNumber, PaymentMethod.Cash, DateTimeOffset.UtcNow, 19500m, 500m, 20000m, 0m,
+        var bigSale = TestSales.Create(fixture.shop.Id, "INV-BIG", customer.Id, customer.Name, customer.PhoneNumber, PaymentMethod.Cash, DateTimeOffset.UtcNow, 19500m, 500m, 20000m, 0m,
             [SaleItem.CreateGoods(fixture.shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 1m, 20000m, 20000m, 0m, false, false, totalAmount: 20000m)]);
         Arrange(fixture, [bigSale], [Entry(fixture.shop.Id, customer.Id, CustomerLedgerEntryType.SaleDue, 500m, new DateOnly(2026, 10, 1), bigSale.Id)]);
 

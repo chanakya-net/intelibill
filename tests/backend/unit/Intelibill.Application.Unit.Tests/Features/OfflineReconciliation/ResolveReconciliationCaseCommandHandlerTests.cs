@@ -372,7 +372,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
         var issue = Case(ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code, envelope.Id);
         StubLease();
         _saleRepository.GetByInvoiceNumberAsync(_shop.Id, InvoiceNumber, Arg.Any<CancellationToken>())
-            .Returns(Sale.Create(_shop.Id, InvoiceNumber, null, null, null, PaymentMethod.Cash, Now, 0m, 0m, 0m, 0m, []));
+            .Returns(TestSales.Create(_shop.Id, InvoiceNumber, null, null, null, PaymentMethod.Cash, Now, 0m, 0m, 0m, 0m, []));
 
         var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.RetryHistoricalLease));
 

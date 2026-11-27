@@ -84,7 +84,7 @@ internal static class SalesExcelSummaryRenderer
         }
 
         var returnAmount = earlier.Sum(a => a.FinancialAdjustment);
-        var returnTaxable = earlier.Sum(a => a.TaxableAdjustment ?? 0m);
+        var returnTaxable = earlier.Sum(a => a.TaxableAdjustment);
         var storeCredit = earlier.Sum(a => a.SettledBy(ReturnSettlementKind.StoreCreditIssued));
 
         worksheet.Cell(rowNum, columnPlan.InvoiceNumberColumn).Value = EarlierSalesReturnsLabel;

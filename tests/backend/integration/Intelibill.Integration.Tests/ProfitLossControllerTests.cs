@@ -264,7 +264,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return note",

@@ -1852,7 +1852,6 @@
         "Complete": "संपूर्ण कालावधीचा वर्गीकृत परिचालन नफा",
         "FilteredActivity": "फिल्टर केलेली हालचाल: परिचालन नफा उपलब्ध नाही",
         "UnclassifiedExpenses": "परिचालन नफ्यासाठी उर्वरित खर्च वर्गीकृत करा",
-        "AccountingReview": "परताव्याचे लेखांकन तपासणे आवश्यक",
         "ServiceCostsUnmodeled": "सेवा खर्च नोंदलेला नाही: परिचालन नफा उपलब्ध नाही"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "नंतरची खरेदी खर्च दुरुस्ती विकलेल्या मालाची किंमत बदलत नाही.",
         "filtered-activity": "फिल्टरमध्ये दुकानभरचे परिचालन आकडे समाविष्ट नाहीत.",
         "unclassified-expenses": "काही खर्च अवर्गीकृत आहेत.",
-        "return-accounting-review": "परताव्याचे लेखांकन तपासा.",
         "service-costs-unmodeled": "सेवा खर्चाचे मॉडेल नाही."
       }
     },

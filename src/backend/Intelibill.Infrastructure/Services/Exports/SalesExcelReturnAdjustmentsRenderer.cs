@@ -29,9 +29,7 @@ internal static class SalesExcelReturnAdjustmentsRenderer
         "Store Credit Issued",
         "External Refund",
         "Credit Note",
-        "Accounting Status",
         "Policy",
-        "Review Reason",
     ];
 
     // 1-based columns of the amounts, in Headers order.
@@ -97,7 +95,7 @@ internal static class SalesExcelReturnAdjustmentsRenderer
         worksheet.Cell(row, 4).Value = entry.InvoiceNumber;
         worksheet.Cell(row, 5).Value = entry.CustomerName ?? string.Empty;
 
-        decimal?[] amounts =
+        decimal[] amounts =
         [
             entry.OriginalReturnedGross,
             entry.FinancialAdjustment,
@@ -111,24 +109,14 @@ internal static class SalesExcelReturnAdjustmentsRenderer
         for (var i = 0; i < amounts.Length; i++)
         {
             var cell = worksheet.Cell(row, FirstAmountColumn + i);
-            if (amounts[i] is { } amount)
-            {
-                cell.Value = amount;
-                cell.Style.NumberFormat.Format = "#,##0.00";
-            }
+            cell.Value = amounts[i];
+            cell.Style.NumberFormat.Format = "#,##0.00";
         }
 
         worksheet.Cell(row, 14).Value = string.Join(", ", entry.Settlements
             .Select(s => s.CreditNoteCode)
             .Where(code => !string.IsNullOrWhiteSpace(code))
             .Distinct());
-        worksheet.Cell(row, 15).Value = SalesPdfDocument.StatusLabel(entry);
-        worksheet.Cell(row, 16).Value = entry.PolicyVersion ?? string.Empty;
-        worksheet.Cell(row, 17).Value = entry.ReviewReason ?? string.Empty;
-
-        if (entry.Status == ReturnAccountingStatus.NeedsReview)
-        {
-            worksheet.Range(row, 1, row, Headers.Length).Style.Fill.BackgroundColor = XLColor.FromHtml("#FDECEA");
-        }
+        worksheet.Cell(row, 15).Value = entry.PolicyVersion;
     }
 }

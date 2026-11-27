@@ -194,7 +194,7 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
 
     private static (SaleReturn SaleReturn, Sale Sale) CreateSaleContext(Guid shopId)
     {
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shopId,
             "INV-001",
             null,

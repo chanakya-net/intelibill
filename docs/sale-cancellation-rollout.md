@@ -8,7 +8,7 @@ An active Owner or Manager may cancel an online version-2 **Receipt** issued by 
 
 The entire original total must reconcile to original due plus original paid cash. Original due is credited to the customer account exactly once. Positive paid cash requires an explicit cash-paid-back confirmation; zero paid requires no cash confirmation. Cash confirmation records the operator's declaration; the application does not transfer money or reconcile a till.
 
-Refusals include offline/queued sales, services, tax documents, legacy/mismatched snapshots, older or closed months, any return history (including voided returns), applied or redeemed credit notes, active allocations and ambiguous collections. Positive UPI, Card, Credit or unknown tender requires an external refund workflow and cannot be relabelled as cash. There is no external refund completion, credit-note restoration, cancellation deletion, uncancel, automatic refund, replacement invoice or mobile workflow.
+Refusals include offline/queued sales, services, tax documents, missing or mismatched snapshots, older or closed months, any return history (including voided returns), applied or redeemed credit notes, active allocations and ambiguous collections. Positive UPI, Card, Credit or unknown tender requires an external refund workflow and cannot be relabelled as cash. There is no external refund completion, credit-note restoration, cancellation deletion, uncancel, automatic refund, replacement invoice or mobile workflow.
 
 ## Deployment order and defaults
 

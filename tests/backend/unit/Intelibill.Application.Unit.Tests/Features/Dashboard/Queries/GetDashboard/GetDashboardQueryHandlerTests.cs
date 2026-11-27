@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Application.Unit.Tests.Features.Exports.Accounting;
 using BusinessTimeZones = Intelibill.Domain.Common.BusinessTimeZones;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -160,7 +161,7 @@ public sealed class GetDashboardQueryHandlerTests
         var query = new GetDashboardQuery(user.Id, shop.Id, from, to, "Owner");
 
         var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             null,
@@ -189,7 +190,7 @@ public sealed class GetDashboardQueryHandlerTests
             0m,
             null,
             null,
-            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 30m, 30m, 30m, 0m, null)]).Value;
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 30m, 30m, 30m, 0m, null)]).Value.Posted();
         var adjustment = InventoryAdjustment.Create(
             shop.Id,
             Guid.NewGuid(),
@@ -969,7 +970,7 @@ public sealed class GetDashboardQueryHandlerTests
             false,
             totalAmount: netProfit);
 
-        return Sale.Create(
+        return TestSales.Create(
             shopId,
             $"INV-{soldOn:yyyyMMdd}",
             null,

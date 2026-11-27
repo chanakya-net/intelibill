@@ -237,7 +237,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
     }
 
     [Theory]
-    [InlineData("legacy", "LegacySnapshotBlocked")]
+    [InlineData("no-document", "SnapshotMismatch")]
     [InlineData("tax", "TaxInvoiceBlocked")]
     [InlineData("offline", "OfflineOriginBlocked")]
     [InlineData("old-month", "OtherMonthBlocked")]
@@ -251,7 +251,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            if (variant == "legacy") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set invoice_document=null where id={s.Sale.Id}");
+            if (variant == "no-document") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set invoice_document=null where id={s.Sale.Id}");
             if (variant == "tax") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set invoice_document=jsonb_set(invoice_document,'{{documentType}}','\"TaxInvoice\"') where id={s.Sale.Id}");
             if (variant == "offline") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set source=2 where id={s.Sale.Id}");
             if (variant == "old-month") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set business_date=business_date - interval '1 month' where id={s.Sale.Id}");

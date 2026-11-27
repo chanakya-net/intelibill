@@ -499,7 +499,7 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         using var request = Authorized(HttpMethod.Post, $"/api/sales/{saleId}/returns", token);
         request.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Customer returned one",

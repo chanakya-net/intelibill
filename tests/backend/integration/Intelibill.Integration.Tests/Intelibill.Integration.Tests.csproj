@@ -58,4 +58,9 @@
           Link="p05-06-legacy-queue-vectors.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../../shared/TestSales.cs" Link="TestSales.cs" />
+    <Using Include="Intelibill.Tests.Fixtures" />
+  </ItemGroup>
+
 </Project>

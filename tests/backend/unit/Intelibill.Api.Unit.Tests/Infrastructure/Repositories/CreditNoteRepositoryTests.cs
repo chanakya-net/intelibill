@@ -43,7 +43,7 @@ public sealed class CreditNoteRepositoryTests
         string returnNumber = "RET-001",
         string? customerName = null)
     {
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shopId, invoiceNumber, null, customerName, null,
             PaymentMethod.Cash, DateTimeOffset.UtcNow, 100m, 0m, 100m, 0m, []);
         await context.Sales.AddAsync(sale);

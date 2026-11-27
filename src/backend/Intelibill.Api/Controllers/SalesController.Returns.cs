@@ -60,7 +60,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 saleId,
-                ResolvePayoutDestination(request.PayoutDestination, request.PayoutMethod),
+                request.PayoutDestination,
                 request.DueReductionOverrideAmount,
                 request.DueOverrideReason,
                 request.Notes,
@@ -107,13 +107,4 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
         return result.ToActionResult(_ => NoContent());
     }
-
-    private static ReturnPayoutDestination? ResolvePayoutDestination(
-        ReturnPayoutDestination? payoutDestination,
-        PaymentMethod? legacyPayoutMethod) =>
-        payoutDestination ?? legacyPayoutMethod switch
-        {
-            PaymentMethod.Cash or PaymentMethod.UPI or PaymentMethod.Card => ReturnPayoutDestination.Refund,
-            _ => null,
-        };
 }

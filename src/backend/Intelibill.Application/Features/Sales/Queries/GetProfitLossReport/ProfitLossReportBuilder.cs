@@ -130,8 +130,7 @@ public sealed class ProfitLossReportBuilder(
     /// <summary>
     /// A return's effect as posted: revenue reduced by the refund, less its output tax as the snapshot
     /// classified it, and the cost of restocked goods back in stock. A void is the same row negated,
-    /// in the period it was voided. An unreviewed legacy return has no tax split, so its whole refund
-    /// reduces revenue before tax and the row says it needs review.
+    /// in the period it was voided.
     /// </summary>
     private static ProfitLossReportItemDto BuildReturnRow(ReturnAdjustmentEntry entry, IReadOnlyDictionary<(Guid ReturnId, Guid SaleItemId), decimal> costs)
     {
@@ -147,7 +146,7 @@ public sealed class ProfitLossReportBuilder(
             .Sum(l => l.OriginalCostPrice * l.Quantity);
         var returnCostImpact = -restockableCost;
         var returnRevenueInclTax = -entry.FinancialAdjustment;
-        var returnRevenueExclTax = -(entry.FinancialAdjustment - (entry.TaxAdjustment ?? 0m));
+        var returnRevenueExclTax = -(entry.FinancialAdjustment - entry.TaxAdjustment);
 
         return new ProfitLossReportItemDto(
             entry.SaleId,
@@ -164,7 +163,6 @@ public sealed class ProfitLossReportBuilder(
             ProfitLossReportRowTypes.SaleReturn,
             InventoryAdjustmentId: null,
             IsReversal: entry.IsReversal,
-            NeedsAccountingReview: entry.Status == ReturnAccountingStatus.NeedsReview,
             Economics: RowEconomics(returnRevenueExclTax,
                 -goodsLines.Where(l => l.Condition == SaleReturnCondition.Restockable).Sum(AllocatedCost),
                 0m, goodsLines.Where(l => l.Condition == SaleReturnCondition.Wastage).Sum(AllocatedCost),
@@ -180,20 +178,18 @@ public sealed class ProfitLossReportBuilder(
 
     private static ProfitLossEconomicsDto SummaryEconomics(IReadOnlyList<ProfitLossReportItemDto> rows, IReadOnlyList<Domain.Entities.Expense> expenses, bool filtered)
     {
-        var revenue = rows.Sum(r => r.Economics!.NetSalesExcludingTax);
-        var cost = rows.Sum(r => r.Economics!.Cogs);
-        var loss = rows.Sum(r => r.Economics!.StockLoss);
-        var trading = RowEconomics(revenue, cost, loss, rows.Sum(r => r.Economics!.ReturnedGoodsWastageIncludedInCogs), false);
+        var revenue = rows.Sum(r => r.Economics.NetSalesExcludingTax);
+        var cost = rows.Sum(r => r.Economics.Cogs);
+        var loss = rows.Sum(r => r.Economics.StockLoss);
+        var trading = RowEconomics(revenue, cost, loss, rows.Sum(r => r.Economics.ReturnedGoodsWastageIncludedInCogs), false);
         var active = expenses.Where(e => !e.IsVoided).ToList();
         var unclassified = active.Where(e => e.Treatment == ExpenseTreatment.Unclassified).ToList();
-        var review = rows.Any(r => r.NeedsAccountingReview);
-        var service = rows.Any(r => r.Economics!.HasUnmodeledServiceCost);
+        var service = rows.Any(r => r.Economics.HasUnmodeledServiceCost);
         var limitations = new List<string> { "purchase-tax-recoverability-unmodeled", "historical-cost-snapshots-preserved", "receipt-cost-corrections-not-revalued" };
         if (filtered) limitations.Add("filtered-activity");
         if (unclassified.Count > 0) limitations.Add("unclassified-expenses");
-        if (review) limitations.Add("return-accounting-review");
         if (service) limitations.Add("service-costs-unmodeled");
-        var status = filtered ? "FilteredActivity" : unclassified.Count > 0 ? "UnclassifiedExpenses" : review ? "AccountingReview" : service ? "ServiceCostsUnmodeled" : "Complete";
+        var status = filtered ? "FilteredActivity" : unclassified.Count > 0 ? "UnclassifiedExpenses" : service ? "ServiceCostsUnmodeled" : "Complete";
         decimal? operatingExpenses = filtered ? null : active.Where(e => e.Treatment == ExpenseTreatment.Operating).Sum(e => e.Amount);
         return new(2, "recorded-sale-cost/1", revenue, cost, loss, trading.ReturnedGoodsWastageIncludedInCogs,
             trading.GrossTradingProfit, operatingExpenses, status == "Complete" ? trading.GrossTradingProfit - operatingExpenses : null,

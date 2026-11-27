@@ -26,8 +26,7 @@ public sealed class SaleCancellationPolicy(ISaleReturnRepository returns, ICredi
         var d = sale.InvoiceDocument;
         var validShape = HasValidShape(d);
         var matched = validShape ? MatchLines(sale, d) : null;
-        if (d is null || d.Version != 2) Block("LegacySnapshotBlocked", "A valid version-2 issued receipt is required.");
-        else if (!validShape) Block("SnapshotMismatch", "The stored receipt is missing frozen seller, buyer, line or amount facts. Review the original receipt.");
+        if (d is null || !validShape) Block("SnapshotMismatch", "The stored receipt is missing frozen seller, buyer, line or amount facts. Review the original receipt.");
         else
         {
             if (d.DocumentType != InvoiceDocumentType.Receipt || d.Seller.TaxRegime != TaxRegime.Unregistered)

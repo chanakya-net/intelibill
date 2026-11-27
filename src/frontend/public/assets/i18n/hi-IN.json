@@ -1852,7 +1852,6 @@
         "Complete": "पूरी अवधि का वर्गीकृत परिचालन लाभ",
         "FilteredActivity": "फ़िल्टर की गई गतिविधि: परिचालन लाभ उपलब्ध नहीं",
         "UnclassifiedExpenses": "परिचालन लाभ के लिए शेष खर्च वर्गीकृत करें",
-        "AccountingReview": "वापसी लेखांकन की समीक्षा आवश्यक है",
         "ServiceCostsUnmodeled": "सेवा लागत दर्ज नहीं: परिचालन लाभ उपलब्ध नहीं"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "बाद के खरीद लागत सुधार बेचे माल की लागत नहीं बदलते।",
         "filtered-activity": "गतिविधि फ़िल्टर में दुकान के पूरे परिचालन आंकड़े नहीं हैं।",
         "unclassified-expenses": "कुछ खर्च अभी अवर्गीकृत हैं।",
-        "return-accounting-review": "वापसी लेखांकन की समीक्षा आवश्यक है।",
         "service-costs-unmodeled": "सेवा लागत का मॉडल नहीं है।"
       }
     },

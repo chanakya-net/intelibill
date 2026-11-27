@@ -11,14 +11,12 @@ using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace Intelibill.Integration.Tests;
 
 /// <summary>
-/// Returns end to end: what the API posts as each return's accounting snapshot, what the legacy
-/// backfill makes of returns recorded without one, and that Tally, XLSX and the P&amp;L report the
-/// same adjustments in the period each was posted.
+/// Returns end to end: what the API posts as each return's accounting snapshot, and that Tally,
+/// XLSX and the P&amp;L report the same adjustments in the period each was posted.
 /// </summary>
 [Collection("Integration Tests")]
 public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
@@ -159,103 +157,6 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
     }
 
     [Fact]
-    public async Task UnsupportedTaxAdjustment_BlocksPostingOrExportExplicitly()
-    {
-        using var shop = await OpenShopAsync();
-        var sale = await SellGoodsAsync(shop);
-        var returnId = await RecordReturnAsync(shop, sale, ReturnPayoutDestination.Refund, Line(sale.LineId));
-
-        // A legacy line whose recorded tax share exceeds its gross: no proportion to apply.
-        await ResetToLegacyAsync(returnId);
-        await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE sale_return_items SET tax_amount = max_refund_amount + 1 WHERE sale_return_id = {returnId}"));
-        await RunBackfillAsync();
-
-        var stored = await LoadReturnAsync(returnId);
-        Assert.Equal(ReturnAccountingStatus.NeedsReview, stored.AccountingStatus);
-        Assert.Contains("tax", stored.AccountingReviewReason, StringComparison.OrdinalIgnoreCase);
-        Assert.Null(stored.AdjustmentTaxableAmount);
-        Assert.Empty(stored.Settlements);
-
-        using var tally = await ExportAsync(shop, "tallyXml", Today, Today);
-        await AssertRefusedAsync(tally, HttpStatusCode.Conflict, "Export.ReturnNeedsAccountingReview");
-
-        var row = Assert.Single(await XlsxAdjustmentRowsAsync(shop, Today, Today));
-        Assert.Equal("Needs review", row.Status);
-        Assert.Equal(stored.AccountingReviewReason, row.ReviewReason);
-    }
-
-    [Fact]
-    public async Task UnbalancedLegacySnapshot_ProducesReviewDiagnostic()
-    {
-        using var shop = await OpenShopAsync();
-        var sale = await SellGoodsAsync(shop);
-        var returnId = await RecordReturnAsync(shop, sale, ReturnPayoutDestination.Refund, Line(sale.LineId));
-
-        // Recorded before payout destinations were kept: where the ₹118 went is not evidenced.
-        await ResetToLegacyAsync(returnId);
-        await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE sale_returns SET payout_destination = NULL WHERE id = {returnId}"));
-
-        await RunBackfillAsync();
-        Assert.Equal(0, await PendingReturnCountAsync());
-        var first = await LoadReturnAsync(returnId);
-        await RunBackfillAsync();
-
-        var stored = await LoadReturnAsync(returnId);
-        Assert.Equal(
-            (first.AccountingStatus, first.AccountingPolicyVersion, first.AccountingReviewReason),
-            (stored.AccountingStatus, stored.AccountingPolicyVersion, stored.AccountingReviewReason));
-        Assert.Equal(ReturnAccountingStatus.NeedsReview, stored.AccountingStatus);
-        Assert.Equal("backfill:proportional-line-tax/1", stored.AccountingPolicyVersion);
-        Assert.Contains("no recorded destination", stored.AccountingReviewReason, StringComparison.Ordinal);
-        Assert.Empty(stored.Settlements);
-        Assert.All(stored.Items, item => Assert.Null(item.AdjustmentTaxableAmount));
-
-        using var tally = await ExportAsync(shop, "tallyXml", Today, Today);
-        await AssertRefusedAsync(tally, HttpStatusCode.Conflict, "Export.ReturnNeedsAccountingReview");
-
-        var report = await ProfitLossAsync(shop, Today, Today);
-        var returnRow = Assert.Single(report.GetProperty("items").EnumerateArray());
-        Assert.True(returnRow.GetProperty("needsAccountingReview").GetBoolean());
-    }
-
-    [Fact]
-    public async Task LegacyEvidencedReturn_BackfillsBalanced()
-    {
-        using var shop = await OpenShopAsync();
-        var customerId = await AddCustomerAsync(shop);
-        var sale = await SellGoodsAsync(shop, customerId, paid: 50m);
-        var returnId = await RecordReturnAsync(shop, sale, ReturnPayoutDestination.CreditNote, Line(sale.LineId, 100m, "Seal broken"));
-        var posted = await LoadReturnAsync(returnId);
-
-        await ResetToLegacyAsync(returnId);
-        await RunBackfillAsync();
-        await RunBackfillAsync();
-
-        var backfilled = await LoadReturnAsync(returnId);
-        Assert.Equal(ReturnAccountingStatus.Balanced, backfilled.AccountingStatus);
-        Assert.Equal("backfill:proportional-line-tax/1", backfilled.AccountingPolicyVersion);
-        Assert.Null(backfilled.AccountingReviewReason);
-        Assert.Equal(
-            (posted.AdjustmentTaxableAmount, posted.AdjustmentTaxAmount, posted.AdjustmentNonTaxAmount),
-            (backfilled.AdjustmentTaxableAmount, backfilled.AdjustmentTaxAmount, backfilled.AdjustmentNonTaxAmount));
-        Assert.Equal(
-            posted.Items.Select(i => (i.AdjustmentTaxableAmount, i.AdjustmentTaxAmount, i.AdjustmentNonTaxAmount)),
-            backfilled.Items.Select(i => (i.AdjustmentTaxableAmount, i.AdjustmentTaxAmount, i.AdjustmentNonTaxAmount)));
-        Assert.Equal(
-            posted.Settlements.OrderBy(s => s.Sequence).Select(s => (s.Sequence, s.Kind, s.Amount, s.CustomerId, s.CreditNoteId, s.CustomerLedgerEntryId)),
-            backfilled.Settlements.OrderBy(s => s.Sequence).Select(s => (s.Sequence, s.Kind, s.Amount, s.CustomerId, s.CreditNoteId, s.CustomerLedgerEntryId)));
-
-        var voucher = Assert.Single(await TallyVouchersAsync(shop, Today, Today), v => v.Type == "Credit Note");
-        Assert.Contains(("Sales", 84.75m, true), voucher.Lines);
-        Assert.Contains(("Output CGST 9%", 7.63m, true), voucher.Lines);
-        Assert.Contains(("Output SGST 9%", 7.62m, true), voucher.Lines);
-        Assert.Contains(("Due Customer", 68m, false), voucher.Lines);
-        Assert.Contains(("Credit Note Liability", 32m, false), voucher.Lines);
-    }
-
-    [Fact]
     public async Task Void_ProducesLinkedReversalInItsOwnPeriod()
     {
         using var shop = await OpenShopAsync();
@@ -352,9 +253,7 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
         string Entry,
         string ReturnNumber,
         decimal OriginalReturnedValue,
-        decimal FinancialAdjustment,
-        string Status,
-        string ReviewReason);
+        decimal FinancialAdjustment);
 
     private async Task<Shop> OpenShopAsync()
     {
@@ -522,49 +421,6 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
             .SingleAsync());
     }
 
-    /// <summary>The return as an API version before accounting snapshots left it.</summary>
-    private async Task ResetToLegacyAsync(Guid returnId)
-    {
-        await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync(
-            $"DELETE FROM sale_return_settlements WHERE sale_return_id = {returnId}"));
-        await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE sale_return_items
-            SET adjustment_taxable_amount = NULL, adjustment_tax_amount = NULL, adjustment_non_tax_amount = NULL
-            WHERE sale_return_id = {returnId}
-            """));
-        await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE sale_returns
-            SET accounting_status = NULL, accounting_policy_version = NULL, accounting_review_reason = NULL,
-                adjustment_taxable_amount = NULL, adjustment_tax_amount = NULL, adjustment_non_tax_amount = NULL
-            WHERE id = {returnId}
-            """));
-    }
-
-    /// <summary>
-    /// Runs the script as a role the tenant policies bind, as FORCE row level security binds the
-    /// deployed migrator: a backfill that set no shop context would see no rows and change nothing.
-    /// </summary>
-    private async Task RunBackfillAsync()
-    {
-        var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), "scripts", "db", "backfill-sale-return-accounting.sql"));
-        await using var connection = new NpgsqlConnection(_factory.RuntimeConnectionString);
-        await connection.OpenAsync();
-        await using var command = new NpgsqlCommand(script, connection);
-        await command.ExecuteNonQueryAsync();
-    }
-
-    private Task<int> PendingReturnCountAsync() =>
-        QueryAsync(db => db.SaleReturns.CountAsync(r => r.AccountingStatus == null));
-
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
-            directory = directory.Parent;
-
-        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
-    }
-
     // ── Exports ─────────────────────────────────────────────────────────────────
 
     private static Task<HttpResponseMessage> ExportAsync(Shop shop, string format, DateOnly from, DateOnly to, string level = "summary") =>
@@ -609,9 +465,7 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
                 sheet.Cell(row, 2).GetString(),
                 sheet.Cell(row, 3).GetString(),
                 sheet.Cell(row, 6).GetValue<decimal>(),
-                sheet.Cell(row, 7).GetValue<decimal>(),
-                sheet.Cell(row, 15).GetString(),
-                sheet.Cell(row, 17).GetString()));
+                sheet.Cell(row, 7).GetValue<decimal>()));
         }
 
         return rows;
@@ -624,13 +478,6 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
         var content = await response.Content.ReadAsStringAsync();
         Assert.True(response.StatusCode == HttpStatusCode.OK, content);
         return JsonSerializer.Deserialize<JsonElement>(content);
-    }
-
-    private static async Task AssertRefusedAsync(HttpResponseMessage response, HttpStatusCode status, string code)
-    {
-        var content = await response.Content.ReadAsStringAsync();
-        Assert.True(response.StatusCode == status, $"{response.StatusCode}: {content}");
-        Assert.Contains(code, content, StringComparison.Ordinal);
     }
 
     // ── Reads ───────────────────────────────────────────────────────────────────

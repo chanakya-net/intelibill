@@ -197,7 +197,6 @@ export interface ProfitLossEconomicsDto extends Omit<
     | 'Complete'
     | 'FilteredActivity'
     | 'UnclassifiedExpenses'
-    | 'AccountingReview'
     | 'ServiceCostsUnmodeled';
   readonly limitations: readonly string[];
 }
@@ -714,7 +713,6 @@ export type ProfitLossReportTypeFilter =
 export interface ProfitLossReportItemDto {
   readonly economics?: ProfitLossRowEconomicsDto | null;
   readonly isReversal?: boolean;
-  readonly needsAccountingReview?: boolean;
   readonly saleId: string | null;
   readonly referenceNumber: string;
   readonly occurredAt: string;

@@ -79,7 +79,7 @@ public sealed class FractionalQuantityTests(PostgreSqlTestFixture fixture) : IAs
         using var returnRequest = Authorized(HttpMethod.Post, $"/api/sales/{saleId}/returns", token);
         returnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Partial weight return",

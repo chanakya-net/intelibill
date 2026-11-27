@@ -136,21 +136,19 @@ public sealed class SalesPdfExportRendererTests
             new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 3), "Bob", "Cash", 236m, 0m, 236m, 0m, 200m, 36m, 236m, null, 0m, 0m, 0m, 236m, false, 1)
         };
         var earlierSaleReturn = MixedReturn("INV-001");
-        var needsReview = MixedReturn("INV-000") with
+        var refunded = MixedReturn("INV-000") with
         {
-            ReturnNumber = "RET-LEGACY",
-            Status = ReturnAccountingStatus.NeedsReview,
+            ReturnNumber = "RET-002",
             FinancialAdjustment = 10m,
-            Settlements = [],
+            Settlements = [new ReturnAdjustmentSettlement(ReturnSettlementKind.ExternalRefund, 10m, null, null, null)],
         };
 
         var totals = SalesPdfDocument.SummarizeReturns(
-            new SalesExportDatasetDto(Metadata(), summaryRows, [], [], [earlierSaleReturn, needsReview]));
+            new SalesExportDatasetDto(Metadata(), summaryRows, [], [], [earlierSaleReturn, refunded]));
 
         Assert.Equal(110m, totals.Adjustment);
         Assert.Equal(60m, totals.StoreCreditIssued);
         Assert.Equal(126m, totals.NetSales);
-        Assert.Equal(1, totals.NeedingReview);
     }
 
     private static SalesExportMetadataDto Metadata() =>
@@ -178,9 +176,7 @@ public sealed class SalesPdfExportRendererTests
             new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
             new DateOnly(2026, 5, 1),
             "Alice",
-            ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",
-            null,
             OriginalReturnedGross: 118m,
             FinancialAdjustment: 100m,
             TaxableAdjustment: 84.75m,

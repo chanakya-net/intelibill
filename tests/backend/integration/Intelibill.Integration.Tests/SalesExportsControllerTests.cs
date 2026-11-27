@@ -469,7 +469,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         returnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
         returnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return for seeded sale",

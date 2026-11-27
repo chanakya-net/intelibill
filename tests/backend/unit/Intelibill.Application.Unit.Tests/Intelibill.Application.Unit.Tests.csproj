@@ -36,4 +36,9 @@
     <None Include="../../../contracts/*.json" Link="Contracts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../../shared/TestSales.cs" Link="TestSales.cs" />
+    <Using Include="Intelibill.Tests.Fixtures" />
+  </ItemGroup>
+
 </Project>

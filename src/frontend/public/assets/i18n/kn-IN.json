@@ -1852,7 +1852,6 @@
         "Complete": "ಪೂರ್ಣ ಅವಧಿಯ ವರ್ಗೀಕೃತ ನಿರ್ವಹಣಾ ಲಾಭ",
         "FilteredActivity": "ಫಿಲ್ಟರ್ ಮಾಡಿದ ಚಟುವಟಿಕೆ: ನಿರ್ವಹಣಾ ಲಾಭ ಲಭ್ಯವಿಲ್ಲ",
         "UnclassifiedExpenses": "ಲಾಭ ನೋಡಲು ಉಳಿದ ವೆಚ್ಚ ವರ್ಗೀಕರಿಸಿ",
-        "AccountingReview": "ಹಿಂತಿರುಗಿಸುವ ಲೆಕ್ಕ ಪರಿಶೀಲನೆ ಅಗತ್ಯ",
         "ServiceCostsUnmodeled": "ಸೇವಾ ವೆಚ್ಚ ಮಾದರಿಯಾಗಿಲ್ಲ: ನಿರ್ವಹಣಾ ಲಾಭ ಲಭ್ಯವಿಲ್ಲ"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "ನಂತರದ ಖರೀದಿ ವೆಚ್ಚ ತಿದ್ದುಪಡಿ ಮಾರಾಟವಾದ ಸರಕು ವೆಚ್ಚ ಬದಲಿಸುವುದಿಲ್ಲ.",
         "filtered-activity": "ಫಿಲ್ಟರ್‌ನಲ್ಲಿ ಅಂಗಡಿಯ ಒಟ್ಟು ನಿರ್ವಹಣಾ ಅಂಕಿಗಳು ಇರುವುದಿಲ್ಲ.",
         "unclassified-expenses": "ಕೆಲವು ವೆಚ್ಚ ವರ್ಗೀಕರಿಸಿಲ್ಲ.",
-        "return-accounting-review": "ಹಿಂತಿರುಗಿಸುವ ಲೆಕ್ಕ ಪರಿಶೀಲಿಸಿ.",
         "service-costs-unmodeled": "ಸೇವಾ ವೆಚ್ಚ ಮಾದರಿಯಾಗಿಲ್ಲ."
       }
     },

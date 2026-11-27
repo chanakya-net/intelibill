@@ -106,8 +106,15 @@ public sealed partial class P0505LicensingTests
         Guid legacyHoldId;
         await using (var db = Open(Migrator))
         {
-            var seq = InvoiceSequence.Create(obsActor.Shop, FiscalYear.ForDate(start));
-            db.InvoiceSequences.Add(seq);
+            var obsYear = FiscalYear.ForDate(start);
+            var seq = await db.InvoiceSequences.FirstOrDefaultAsync(
+                x => x.ShopId == obsActor.Shop && x.FiscalYearStart == obsYear.StartYear && x.SeriesCode == "A", Ct);
+            if (seq is null)
+            {
+                var obsShop = await db.Shops.SingleAsync(x => x.Id == obsActor.Shop, Ct);
+                seq = InvoiceSequence.Open(obsActor.Shop, obsShop.SellerRegistrationKey, "A", obsYear);
+                db.InvoiceSequences.Add(seq);
+            }
             var legacyLease = InvoiceLease.Create(
                 obsActor.Shop, seq.Id, "legacy-dev", 2026, "A/2627/", 1, 25, 6,
                 start.AddDays(-5), start.AddDays(2), reservedByUserId: null, reservedBySessionId: null);

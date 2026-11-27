@@ -24,11 +24,6 @@ public static partial class Errors
             Error.Validation("Export.ReadLimitExceeded", $"This export needs {count} source records; the limit is {limit}. Please narrow the date range.",
                 new Dictionary<string, object> { ["limit"] = limit, ["count"] = count, ["level"] = level, ["format"] = format });
 
-        public static Error ReturnNeedsAccountingReview(string returnNumber, string invoiceNumber, string reason) =>
-            Error.Conflict(
-                "Export.ReturnNeedsAccountingReview",
-                $"Return {returnNumber} on invoice {invoiceNumber} needs accounting review before it can be exported to Tally: {reason} Export a period that excludes it, or review it with your accountant.");
-
         public static Error VoucherUnbalanced(string voucherNumber, decimal debits, decimal credits) =>
             Error.Conflict(
                 "Export.VoucherUnbalanced",

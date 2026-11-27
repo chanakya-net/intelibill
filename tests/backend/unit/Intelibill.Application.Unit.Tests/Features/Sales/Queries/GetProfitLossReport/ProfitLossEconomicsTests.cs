@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Application.Unit.Tests.Features.Exports.Accounting;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -29,7 +30,7 @@ public sealed class ProfitLossEconomicsTests
     public async Task Cancellation_ReversesOnlyOnItsPostingDate(int from, int to, decimal revenue, decimal cost, int invoices, int cancellations)
     {
         var item = SaleItem.CreateGoods(_shop, Guid.NewGuid(), Guid.NewGuid(), "Original sugar", "S", 2m, 60m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(_shop, "ORIGINAL", null, "Original buyer", null, PaymentMethod.Cash,
+        var sale = TestSales.Create(_shop, "ORIGINAL", null, "Original buyer", null, PaymentMethod.Cash,
             new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero), 80m, 120m, 200m, 0m, [item]);
         var cancellation = Cancellation(sale, [new(_shop, sale.Id, item.Id, item.ItemId!.Value, item.InventoryBatchId!.Value, Guid.NewGuid(), 2m, "Original sugar", "KGS", 60m, 200m, 120m)]);
         _sales.GetByShopAndDateRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(from == 8 ? new[] { sale } : []);
@@ -49,7 +50,7 @@ public sealed class ProfitLossEconomicsTests
     public async Task CancellationFractionalLines_ReverseRoundedRecordedCogsAndRawMetricsIndependently()
     {
         var items = Enumerable.Range(0, 2).Select(_ => SaleItem.CreateGoods(_shop, Guid.NewGuid(), Guid.NewGuid(), "Frozen fractional", "F", .333m, 1.01m, 100m, 100m, 0m, false, false)).ToArray();
-        var sale = Sale.Create(_shop, "FRACTIONAL", null, "Changed buyer", null, PaymentMethod.Cash, new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero), 66.6m, 0m, 66.6m, 0m, items);
+        var sale = TestSales.Create(_shop, "FRACTIONAL", null, "Changed buyer", null, PaymentMethod.Cash, new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero), 66.6m, 0m, 66.6m, 0m, items);
         var fact = Cancellation(sale, items.Select(x => new SaleCancellationLineInput(_shop, sale.Id, x.Id, x.ItemId!.Value, x.InventoryBatchId!.Value, Guid.NewGuid(), .333m, "Frozen fractional", "KGS", 1.01m, 33.3m, .34m)).ToArray());
         _cancellations.GetPostedInRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([fact]);
         var report = await Builder.BuildAsync(_shop, "Asia/Kolkata", new(2026, 11, 9), new(2026, 11, 9), "saleCancellation", "Original buyer", CancellationToken.None);
@@ -79,11 +80,11 @@ public sealed class ProfitLossEconomicsTests
         var actor = Guid.NewGuid();
         var item = SaleItem.CreateGoods(_shop, Guid.NewGuid(), Guid.NewGuid(), "Fractional", "F", 1.5m, 100.05m, 200m, 200m, 0m, false, false);
         var soldAt = new DateTimeOffset(2026, 4, 1, 10, 0, 0, TimeSpan.Zero);
-        var sale = Sale.Create(_shop, "COST", null, null, null, PaymentMethod.Cash, soldAt, 300m, 0m, 300m, 0m, [item]);
+        var sale = TestSales.Create(_shop, "COST", null, null, null, PaymentMethod.Cash, soldAt, 300m, 0m, 300m, 0m, [item]);
         SaleReturn Return(int month, SaleReturnCondition condition) => SaleReturn.Record(_shop, sale.Id, $"RET-{month}",
             new(2026, month, 1, 10, 0, 0, TimeSpan.Zero), new(new(2026, month, 1), "Asia/Kolkata"), actor, "Returned", 100m, 0m, 100m,
             ReturnPayoutDestination.Refund, 100m, 0m, null, null,
-            [new(_shop, item.Id, .5m, condition, 100.05m, 200m, 0m, false, 100m, 100m, 100m, 0m, "Returned")]).Value;
+            [new(_shop, item.Id, .5m, condition, 100.05m, 200m, 0m, false, 100m, 100m, 100m, 0m, "Returned")]).Value.Posted();
         var first = Return(5, SaleReturnCondition.Restockable);
         var middle = Return(6, middleCondition);
         var last = Return(7, SaleReturnCondition.Restockable);
@@ -118,7 +119,7 @@ public sealed class ProfitLossEconomicsTests
     public async Task NumericSearch_MatchesDisplayedNetCostAndProfit(string search)
     {
         var item = SaleItem.CreateGoods(_shop, Guid.NewGuid(), Guid.NewGuid(), "Fractional", "FR", 1.5m, 100.05m, 200m, 250m, 18m, false, false);
-        var sale = Sale.Create(_shop, "SEARCH", null, "Buyer", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 354m, 0m, 354m, 54m, [item]);
+        var sale = TestSales.Create(_shop, "SEARCH", null, "Buyer", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 354m, 0m, 354m, 54m, [item]);
         _sales.GetByShopAndDateRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
         var report = await Builder.BuildAsync(_shop, "Asia/Kolkata", new(2026, 6, 1), new(2026, 6, 30), "all", search, CancellationToken.None);
         Assert.Single(report.Items);

@@ -649,8 +649,7 @@ entry between 00:00 and 05:30 IST falls on the previous statement day (pre-exist
 **Snapshot.** Recording a return posts its accounting in the same save
 (`SaleReturn.PostAccounting(ReturnAccountingSnapshot)`): per line `adjustment_taxable_amount`,
 `adjustment_tax_amount` and `adjustment_non_tax_amount` (summing to the approved refund), their totals
-on the return, `accounting_status` (`BALANCED` / `NEEDS_REVIEW` with `accounting_review_reason`), the
-policy version, and one `sale_return_settlements` row per leg, in order: `RECEIVABLE_REDUCTION` (the
+on the return, `accounting_status` `BALANCED`, the policy version, and one `sale_return_settlements` row per leg, in order: `RECEIVABLE_REDUCTION` (the
 due reduction, with the customer's `RETURN_CREDIT` ledger entry; none for a walk-in sale),
 `STORE_CREDIT_ISSUED` (the credit note issued) or `EXTERNAL_REFUND` (a refund paid outside the books;
 the tender is not recorded, so it is never guessed). The legs always sum to the approved refund. The
@@ -677,29 +676,14 @@ per rate and Sales Return Adjustments debited, each leg credited to the customer
 Customer), Credit Note Liability or Customer Refunds Clearing. A void is a `Journal` voucher
 `{return number}-VOID`, sides swapped, referencing the credit note. A zero refund posts no voucher
 (the stock fact stays in XLSX/PDF). `IAccountingVoucherValidator` checks every voucher (≥ 2 lines,
-named ledgers, positive two-place amounts, debits = credits); a return needing review or an invalid
-voucher refuses the whole Tally export with 409 `Export.ReturnNeedsAccountingReview`,
-`Export.VoucherUnbalanced` or `Export.VoucherInvalid`, every diagnostic listed. XLSX adds a Return
-Adjustments sheet (settlement split, status, reason) and PDF a return adjustments table; both still
-render returns needing review, flagged. P&L return rows use the snapshot's tax split, and
-`isReversal` / `needsAccountingReview` mark voids and unreviewed returns. A Credit Note voucher's
+named ledgers, positive two-place amounts, debits = credits); an invalid voucher refuses the whole
+Tally export with 409 `Export.VoucherUnbalanced` or `Export.VoucherInvalid`, every diagnostic listed.
+XLSX adds a Return Adjustments sheet (settlement split, policy) and PDF a return adjustments table.
+Every saved return carries its snapshot; the projector refuses one without it rather than guess.
+P&L return rows use the snapshot's tax split, and `isReversal` marks voids. A Credit Note voucher's
 reference date is the invoice date; a reversal's is the return date. The P&L reduces revenue by the
 whole refund, while Tally books a non-tax excess to Sales Return Adjustments: net profit agrees,
 revenue lines differ by that excess.
-
-**Legacy evidence.** The migration backfills every return without a snapshot;
-`scripts/db/backfill-sale-return-accounting.sql` is the same idempotent statement (a second run
-changes nothing), to re-run as the migrator role once every API instance runs the new version. It
-loops over shops with `app.active_shop_id` set, because FORCE row-level security binds the migrator
-as table owner; the integration tests run it as the restricted runtime role to prove that. Lines
-are split by the same policy (recorded as `backfill:proportional-line-tax/1`). A return is `BALANCED`
-only when every line is classifiable, its lines add up to its total and its payout is evidenced — a
-refund destination, or exactly one credit note of the payout amount issued for it; the receivable leg
-links its ledger entry when exactly one matches. Anything else is `NEEDS_REVIEW` with its reason and
-no legs: a settlement is never inferred. A return an old instance records after the migration has no
-snapshot and exports as needing review until the script runs. A `NEEDS_REVIEW` return cannot yet be
-resolved in the app, so its periods stay refused for Tally until one is posted. Rollback: keep snapshots readable and
-refuse Tally return export; never restore the unbalanced voucher builder.
 
 ## Offline Invoice Arithmetic
 
@@ -913,8 +897,8 @@ full rate. Codes outside the domestic table (96, 97) are refused. Rounding adjus
 issue time, business date, fiscal year, series, number, seller and buyer blocks, place of supply,
 reverse charge (always false), lines with HSN/SAC, UOM (`NOS`/`NA` until per-item UOM), taxable value
 and components, totals, declarations and signature mode. `GET api/sales/{id}` returns it as
-`document`; `isLegacyDocument` marks sales issued before it (no snapshot, never backfilled from live
-master data). Print, reprint and Tally read the snapshot, not the shop or customer.
+`document`; `isLegacyDocument` marks a sale without one (an offline sale whose document the matrix
+refused, see Offline below). Print, reprint and Tally read the snapshot, not the shop or customer.
 
 **Numbering.** `IInvoiceNumberAllocator` is the one numbering authority. Numbers are
 `{series}/{yyyy}/{counter:D6}` (`A/2627/000001`), at most 16 characters (Rule 46); the counter's
@@ -927,9 +911,7 @@ pick a new series (`Invoice.SeriesRegistrationChanged`). The allocator inserts t
 always runs in one transaction and takes its number after pricing and customer checks, so concurrent
 postings serialize per series and a refused or failed posting rolls the counter back — no gaps.
 Offline ranges come from the same row (`ReserveRangeAsync`), so online and offline numbers never
-overlap; a range's unused tail stays unused. Idempotent replays return the original number. Legacy
-counters keep their `INV-yyyy-yy-` prefix under series `''` and key `legacy:{shop}` until their leases
-expire.
+overlap; a range's unused tail stays unused. Idempotent replays return the original number.
 
 **Business date.** `BusinessCalendar` reads instants in IST (fixed UTC+05:30). `FiscalYear.ForDate`
 uses it, so a sale at 00:30 IST on 1 April belongs to the new year; lease expiry caps at 1 April
@@ -945,16 +927,12 @@ why. Device-side printing still uses its local layout (backlog 21).
 
 **Exports.** Tally sales vouchers post the snapshot's components (`Output CGST 9%`, `Output SGST 9%`,
 `Output UTGST 9%`, `Output IGST 18%`, all under Tax Payable; component rates keep every digit, so
-half of 0.25% is `0.125%`); legacy sales keep `Output GST {rate}%`. A return of a documented sale
+half of 0.25% is `0.125%`); a sale without a document keeps `Output GST {rate}%`. A return of a documented sale
 reverses into the same component ledgers: `ReturnAdjustmentEntry.DocumentTaxComponents` splits the
 returned tax per rate with the document's place of supply and `component-split/1`. Credit-note
 documents themselves are unchanged (backlog 17).
 
-**Rollout and rollback.** Migration `AddIssuedInvoiceSnapshotsAndFiscalSeries` adds columns, backfills
-legacy counter keys shop by shop (FORCE RLS) and replaces the per-shop-year index. Owners must declare a
-profile before their next sale or lease. Rolling back the API leaves snapshots as readable data; the
-migration's `Down` fails once a shop has opened a fiscal series beside its legacy counter, so roll
-forward. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess,
+**Scope.** Owners must declare a profile before their first sale or lease. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess,
 device-side GST printing, credit-note documents. (Per-item units now live in § Quantity Precision.)
 
 ## Business Dates and Posting Periods
@@ -1042,21 +1020,10 @@ the replay re-runs the fence, so it succeeds (original number, original `sold_at
 date) only after an owner reopens the month, and answers 409 while closed. A busy fence rejects the
 invoice for a plain resend.
 
-**Rollout.** Migration `AddBusinessDatesAndShopTimeZone`, in this order: adds `shops.business_time_zone`
-(NOT NULL, default) and the nullable `business_date` / `business_time_zone` / `voided_business_date`
-columns, backfills existing rows (Asia/Kolkata) shop by shop, sets NOT NULL, installs
-`BEFORE INSERT OR UPDATE` triggers that date rows written by pods that predate the columns (rolling
-deploy), then adds the indexes; `AddPostingPeriods` adds the two tables. The whole migration is one
-transaction: the `ADD COLUMN` takes ACCESS EXCLUSIVE on `sales` and `sale_returns` and the backfill
-`UPDATE` runs under it, so sale and return writes block for the duration (fine at launch sizes). Deploy
-migrations, then pods. **Do not close any posting period until every pod runs this build:** pods of the
-previous build have no fence and would keep posting into a closed month. Afterwards run `scripts/db/backfill-business-dates.sql` (shop by shop under RLS,
-idempotent, a no-op when nothing is NULL). Nothing closes automatically; owners close months after review.
-Reports that straddled UTC/IST midnight may differ from previously published ones by early-morning sales:
-say so in release notes.
-
-**Rollback.** Old code ignores the new columns and tables. Never recompute stored dates with the UTC
-convention; dropping the migrations drops the columns and tables, the instants are untouched.
+**Schema.** `sales.business_date` / `business_time_zone` and `sale_returns.business_date` /
+`business_time_zone` are NOT NULL and written by every insert path (`BusinessDay` is a required factory
+argument); `voided_business_date` is written by `SaleReturn.Void`. No trigger fills them. Nothing closes
+automatically; owners close months after review.
 
 **Deferred.** A web UI for period close (API only for now), mobile, and per-shop zone selection. Till/session close now takes the original posting-period fence before its session lock; see Till Sessions and Counted Close.
 

@@ -48,7 +48,7 @@ public sealed partial class Sale : BaseEntity
     public decimal SaleDiscountOverrideValue { get; private set; }
     public decimal CreditNoteAppliedAmount { get; private set; }
 
-    /// <summary>The document the sale was issued as; null for sales issued before documents were recorded.</summary>
+    /// <summary>The document the sale was issued as; null only for an offline sale posted without one it could build.</summary>
     public IssuedInvoiceSnapshot? InvoiceDocument { get; private set; }
 
     public IReadOnlyList<SaleItem> Items => _items.AsReadOnly();
@@ -96,14 +96,6 @@ public sealed partial class Sale : BaseEntity
         };
         sale._items.AddRange(items);
         return sale;
-    }
-
-    /// <summary>The shop-less factory used by fixtures and legacy replays: the business day is the instant's date in the default zone.</summary>
-    internal static Sale Create(Guid shopId, string invoiceNumber, Guid? customerId, string? customerName, string? customerPhone, PaymentMethod paymentMethod, DateTimeOffset soldAt, decimal paidAmount, decimal dueAmount, decimal totalAmount, decimal totalTaxAmount, IReadOnlyList<SaleItem> items, decimal? subtotalBeforeDiscount = null, decimal? totalBeforeDiscount = null, decimal totalDiscountAmount = 0m, Guid? configuredSaleRuleId = null, DiscountRuleType? configuredSaleRuleType = null, decimal? configuredSaleRulePercentage = null, decimal? configuredSaleRuleThresholdAmount = null, InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None, decimal saleDiscountOverrideValue = 0m, SaleSource source = SaleSource.Online, string? clientSaleId = null, string? deviceId = null, DateTimeOffset? syncedAt = null)
-    {
-        var idempotencyKey = $"legacy-{Guid.NewGuid():N}";
-        var requestHash = $"legacy-{Guid.NewGuid():N}";
-        return Create(shopId, Guid.Empty, idempotencyKey, requestHash, invoiceNumber, customerId, customerName, customerPhone, paymentMethod, soldAt, BusinessDay.InDefaultZone(soldAt), paidAmount, dueAmount, totalAmount, totalTaxAmount, items, subtotalBeforeDiscount, totalBeforeDiscount, totalDiscountAmount, configuredSaleRuleId, configuredSaleRuleType, configuredSaleRulePercentage, configuredSaleRuleThresholdAmount, saleDiscountOverrideType, saleDiscountOverrideValue, source, clientSaleId, deviceId, syncedAt);
     }
 
     /// <summary>Records the issued document. It is set once, at issue, and never replaced.</summary>

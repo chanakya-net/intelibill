@@ -1,7 +1,6 @@
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Exports.Accounting;
@@ -15,9 +14,6 @@ namespace Intelibill.Application.Features.Exports.Accounting;
 /// </summary>
 public static class ReturnAdjustmentProjector
 {
-    public const string MissingSnapshotReason =
-        "The return has no posted accounting snapshot. Run the return accounting backfill.";
-
     public static IReadOnlyList<ReturnAdjustmentEntry> Project(
         IEnumerable<SaleReturn> returns,
         IReadOnlyDictionary<Guid, Sale> salesById,
@@ -52,12 +48,11 @@ public static class ReturnAdjustmentProjector
         IReadOnlyDictionary<Guid, string> creditNoteCodesById,
         ReturnAdjustmentEntryKind kind)
     {
+        if (saleReturn.AccountingStatus is null)
+            throw new InvalidOperationException($"Sale return {saleReturn.Id} was saved without its accounting snapshot.");
+
         var sign = kind == ReturnAdjustmentEntryKind.VoidReversal ? -1m : 1m;
         var lineTypes = sale.Items.ToDictionary(i => i.Id, i => i.LineType);
-        var status = saleReturn.AccountingStatus ?? ReturnAccountingStatus.NeedsReview;
-        var reviewReason = status == ReturnAccountingStatus.NeedsReview
-            ? saleReturn.AccountingReviewReason ?? MissingSnapshotReason
-            : null;
 
         var lines = saleReturn.Items
             .Select(item => new ReturnAdjustmentLine(
@@ -68,25 +63,22 @@ public static class ReturnAdjustmentProjector
                 item.OriginalCostPrice,
                 sign * item.MaxRefundAmount,
                 item.OriginalTaxRatePercent,
-                sign * item.AdjustmentTaxableAmount,
-                sign * item.AdjustmentTaxAmount,
-                sign * item.AdjustmentNonTaxAmount))
+                sign * item.AdjustmentTaxableAmount!.Value,
+                sign * item.AdjustmentTaxAmount!.Value,
+                sign * item.AdjustmentNonTaxAmount!.Value))
             .ToList();
 
-        var classified = lines.All(l => l.TaxableAdjustment.HasValue);
-        var taxComponents = classified
-            ? lines
-                .GroupBy(l => l.TaxRatePercent)
-                .OrderBy(g => g.Key)
-                .Select(g => new ReturnAdjustmentTaxComponent(
-                    g.Key,
-                    g.Sum(l => l.TaxableAdjustment!.Value),
-                    g.Sum(l => l.TaxAdjustment!.Value)))
-                .Where(c => c.TaxableAmount != 0m || c.TaxAmount != 0m)
-                .ToList()
-            : [];
+        var taxComponents = lines
+            .GroupBy(l => l.TaxRatePercent)
+            .OrderBy(g => g.Key)
+            .Select(g => new ReturnAdjustmentTaxComponent(
+                g.Key,
+                g.Sum(l => l.TaxableAdjustment),
+                g.Sum(l => l.TaxAdjustment)))
+            .Where(c => c.TaxableAmount != 0m || c.TaxAmount != 0m)
+            .ToList();
 
-        var documentTaxComponents = classified && sale.InvoiceDocument is { } document
+        var documentTaxComponents = sale.InvoiceDocument is { } document
             ? DocumentComponents(document, taxComponents)
             : null;
 
@@ -113,14 +105,12 @@ public static class ReturnAdjustmentProjector
             sale.SoldAt,
             sale.BusinessDate,
             sale.CustomerName,
-            status,
-            saleReturn.AccountingPolicyVersion,
-            reviewReason,
+            saleReturn.AccountingPolicyVersion!,
             sign * saleReturn.OriginalReturnedGross,
             sign * saleReturn.TotalRefundAmount,
-            classified ? sign * saleReturn.AdjustmentTaxableAmount : null,
-            classified ? sign * saleReturn.AdjustmentTaxAmount : null,
-            classified ? sign * saleReturn.AdjustmentNonTaxAmount : null,
+            sign * saleReturn.AdjustmentTaxableAmount!.Value,
+            sign * saleReturn.AdjustmentTaxAmount!.Value,
+            sign * saleReturn.AdjustmentNonTaxAmount!.Value,
             taxComponents,
             settlements,
             lines,

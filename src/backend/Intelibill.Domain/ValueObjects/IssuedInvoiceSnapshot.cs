@@ -7,7 +7,10 @@ namespace Intelibill.Domain.ValueObjects;
 /// amounts and which tax components. Reprints, exports and audits read this, never the live shop or
 /// customer, so later master-data edits cannot change an issued copy.
 /// </summary>
-/// <remarks>Version 1 is the implicit legacy document (no snapshot); this shape is version 2.</remarks>
+/// <remarks>
+/// Null on a sale only when an offline sale posted without a document it could build; such a sale is
+/// held for reconciliation.
+/// </remarks>
 public sealed record IssuedInvoiceSnapshot(
     int Version,
     InvoiceDocumentType DocumentType,

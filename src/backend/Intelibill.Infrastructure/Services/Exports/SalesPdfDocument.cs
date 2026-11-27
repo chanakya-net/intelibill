@@ -106,7 +106,6 @@ internal sealed class SalesPdfDocument : IDocument
         var dueAmount = summaryRows.Sum(r => r.DueAmount);
         var creditNoteAppliedAmount = summaryRows.Sum(r => r.CreditNoteAppliedAmount);
         var creditNoteIssuedAmount = returnTotals.StoreCreditIssued;
-        var reviewCount = returnTotals.NeedingReview;
 
         container.Column(column =>
         {
@@ -164,8 +163,6 @@ internal sealed class SalesPdfDocument : IDocument
 
                 LabelCell("Due amount");
                 ValueCell(dueAmount.ToString("N2", culture));
-                LabelCell("Returns needing review");
-                ValueCell(reviewCount.ToString("N0", culture));
             });
         });
     }
@@ -202,8 +199,7 @@ internal sealed class SalesPdfDocument : IDocument
         return new SalesPdfReturnTotals(
             adjustment,
             adjustments.Sum(a => a.SettledBy(ReturnSettlementKind.StoreCreditIssued)),
-            dataset.SummaryRows.Sum(r => r.TotalAmount) - adjustment - dataset.CancellationAdjustments.Sum(c => c.TotalAmount),
-            adjustments.Count(a => a.Status == ReturnAccountingStatus.NeedsReview));
+            dataset.SummaryRows.Sum(r => r.TotalAmount) - adjustment - dataset.CancellationAdjustments.Sum(c => c.TotalAmount));
     }
 
     private void ComposeCancellations(IContainer container)
@@ -244,12 +240,11 @@ internal sealed class SalesPdfDocument : IDocument
                     cols.ConstantColumn(52); // Receivable
                     cols.ConstantColumn(52); // Store credit
                     cols.ConstantColumn(52); // Refund
-                    cols.ConstantColumn(50); // Status
                 });
 
                 ComposeTableHeader(
                     table,
-                    ["Date", "Return", "Invoice", "Original", "Adjustment", "Tax", "Receivable", "Store credit", "Refund", "Status"]);
+                    ["Date", "Return", "Invoice", "Original", "Adjustment", "Tax", "Receivable", "Store credit", "Refund"]);
 
                 var rowIndex = 0;
                 foreach (var entry in _dataset.ReturnAdjustments)
@@ -263,11 +258,10 @@ internal sealed class SalesPdfDocument : IDocument
                     table.Cell().Element(c => TableCell(c, background)).Text(entry.InvoiceNumber);
                     AmountCell(table, background, entry.OriginalReturnedGross);
                     AmountCell(table, background, entry.FinancialAdjustment);
-                    AmountCell(table, background, entry.TaxAdjustment ?? 0m);
+                    AmountCell(table, background, entry.TaxAdjustment);
                     AmountCell(table, background, entry.SettledBy(ReturnSettlementKind.ReceivableReduction));
                     AmountCell(table, background, entry.SettledBy(ReturnSettlementKind.StoreCreditIssued));
                     AmountCell(table, background, entry.SettledBy(ReturnSettlementKind.ExternalRefund));
-                    table.Cell().Element(c => TableCell(c, background)).Text(StatusLabel(entry));
                 }
             });
         });
@@ -275,9 +269,6 @@ internal sealed class SalesPdfDocument : IDocument
 
     private static void AmountCell(TableDescriptor table, string background, decimal amount) =>
         table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(amount.ToString("N2", CultureInfo.InvariantCulture));
-
-    internal static string StatusLabel(ReturnAdjustmentEntry entry) =>
-        entry.Status == ReturnAccountingStatus.NeedsReview ? "Needs review" : "Balanced";
 
     private void ComposeSummaryTable(TableDescriptor table)
     {
@@ -407,4 +398,4 @@ internal sealed class SalesPdfDocument : IDocument
     }
 }
 
-internal sealed record SalesPdfReturnTotals(decimal Adjustment, decimal StoreCreditIssued, decimal NetSales, int NeedingReview);
+internal sealed record SalesPdfReturnTotals(decimal Adjustment, decimal StoreCreditIssued, decimal NetSales);

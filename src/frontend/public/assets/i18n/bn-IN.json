@@ -1852,7 +1852,6 @@
         "Complete": "সমগ্র সময়ের শ্রেণিবদ্ধ পরিচালন লাভ",
         "FilteredActivity": "ফিল্টার করা কার্যকলাপ: পরিচালন লাভ পাওয়া যায় না",
         "UnclassifiedExpenses": "পরিচালন লাভ দেখতে বাকি খরচ শ্রেণিবদ্ধ করুন",
-        "AccountingReview": "ফেরতের হিসাব পর্যালোচনা প্রয়োজন",
         "ServiceCostsUnmodeled": "পরিষেবার খরচ মডেল করা নেই: পরিচালন লাভ পাওয়া যায় না"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "পরবর্তী ক্রয় খরচ সংশোধন বিক্রীত পণ্যের খরচ বদলায় না।",
         "filtered-activity": "ফিল্টারে দোকানের সামগ্রিক পরিচালন পরিসংখ্যান বাদ থাকে।",
         "unclassified-expenses": "কিছু খরচ অশ্রেণিবদ্ধ।",
-        "return-accounting-review": "ফেরতের হিসাব পর্যালোচনা করুন।",
         "service-costs-unmodeled": "পরিষেবার খরচ মডেল করা নেই।"
       }
     },

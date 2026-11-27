@@ -302,7 +302,7 @@ public class ExportSalesQueryHandlerTests
             []);
         List<ErrorOr.Error> refusal =
         [
-            Errors.Export.ReturnNeedsAccountingReview("RET-001", "INV-001", "No snapshot."),
+            Errors.Export.VoucherUnbalanced("INV-001", 118m, 117.99m),
             Errors.Export.VoucherUnbalanced("INV-002", 100m, 99.99m),
         ];
 
@@ -318,7 +318,7 @@ public class ExportSalesQueryHandlerTests
             CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(["Export.ReturnNeedsAccountingReview", "Export.VoucherUnbalanced"], result.Errors.Select(e => e.Code).ToArray());
+        Assert.Equal(refusal.Select(e => (e.Code, e.Description)), result.Errors.Select(e => (e.Code, e.Description)));
         _fileNameBuilder.DidNotReceive().BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>());
     }
 

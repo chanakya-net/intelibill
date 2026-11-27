@@ -1852,7 +1852,6 @@
         "Complete": "આખા સમયગાળાનો વર્ગીકૃત સંચાલન નફો",
         "FilteredActivity": "ફિલ્ટર કરેલી પ્રવૃત્તિ: સંચાલન નફો ઉપલબ્ધ નથી",
         "UnclassifiedExpenses": "સંચાલન નફા માટે બાકીના ખર્ચ વર્ગીકૃત કરો",
-        "AccountingReview": "પરતનું હિસાબ સમીક્ષા માંગે છે",
         "ServiceCostsUnmodeled": "સેવા ખર્ચનું મોડેલ નથી: સંચાલન નફો ઉપલબ્ધ નથી"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "પછીના ખરીદી ખર્ચ સુધારા વેચાયેલ માલની કિંમત બદલતા નથી.",
         "filtered-activity": "ફિલ્ટરમાં આખી દુકાનના સંચાલન આંકડા બાકાત છે.",
         "unclassified-expenses": "કેટલાક ખર્ચ અવર્ગીકૃત છે.",
-        "return-accounting-review": "પરતના હિસાબની સમીક્ષા કરો.",
         "service-costs-unmodeled": "સેવા ખર્ચનું મોડેલ નથી."
       }
     },

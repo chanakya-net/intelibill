@@ -25,7 +25,7 @@ public sealed class LedgerAggregateTests(PostgreSqlTestFixture fixture)
         owner.AddRange(foreignCustomer, foreignSupplier,
             CustomerLedgerEntry.Create(other.Id, foreignCustomer.Id, null, CustomerLedgerEntryType.ReturnCreditReversal, 1000, new(2026, 6, 1), null, user.Id).Value,
             SupplierLedgerEntry.Create(other.Id, foreignSupplier.Id, null, SupplierLedgerEntryType.RecordAdjusted, 1000, new(2026, 6, 1), null, user.Id).Value);
-        var sale = Sale.Create(shop.Id, "L-001", customer.Id, customer.Name, null, PaymentMethod.Credit, DateTimeOffset.UtcNow, 100, 0, 0, 100, []);
+        var sale = TestSales.Create(shop.Id, "L-001", customer.Id, customer.Name, null, PaymentMethod.Credit, DateTimeOffset.UtcNow, 100, 0, 0, 100, []);
         owner.AddRange(user, shop, other, customer, negative, supplier, supplierCredit, sale, ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
         var amounts = new[] { 100m, 40m, 10m, 5m, 20m, 15m };
         var types = Enum.GetValues<CustomerLedgerEntryType>();

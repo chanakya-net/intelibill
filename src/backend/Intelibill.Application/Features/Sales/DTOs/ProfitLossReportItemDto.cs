@@ -14,9 +14,8 @@ public sealed record ProfitLossReportItemDto(
     decimal? MarginPercent,
     string RowType,
     Guid? InventoryAdjustmentId,
-    bool IsReversal = false,
-    bool NeedsAccountingReview = false,
-    ProfitLossRowEconomicsDto? Economics = null);
+    ProfitLossRowEconomicsDto Economics,
+    bool IsReversal = false);
 
 public static class ProfitLossReportRowTypes
 {

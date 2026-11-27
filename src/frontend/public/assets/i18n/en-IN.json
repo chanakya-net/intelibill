@@ -1852,7 +1852,6 @@
         "Complete": "Full-period classified operating profit",
         "FilteredActivity": "Filtered activity: operating profit is unavailable",
         "UnclassifiedExpenses": "Classify remaining expenses to see operating profit",
-        "AccountingReview": "Return accounting needs review",
         "ServiceCostsUnmodeled": "Service costs are unmodeled: operating profit is unavailable"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "Later receipt cost corrections do not revalue COGS.",
         "filtered-activity": "Activity filters exclude shop-wide operating figures.",
         "unclassified-expenses": "Some period expenses remain unclassified.",
-        "return-accounting-review": "Return accounting needs review.",
         "service-costs-unmodeled": "Service costs are not modeled."
       }
     },

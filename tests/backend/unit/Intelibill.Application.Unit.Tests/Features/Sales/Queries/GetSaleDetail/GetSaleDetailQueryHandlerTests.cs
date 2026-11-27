@@ -60,7 +60,7 @@ public class GetSaleDetailQueryHandlerTests
             hasPriceMismatch: false);
 
     private static Sale MakeSale(Guid shopId, SaleItem saleItem) =>
-        Sale.Create(
+        TestSales.Create(
             shopId,
             "INV-001",
             null,
@@ -342,7 +342,7 @@ public class GetSaleDetailQueryHandlerTests
         var goods = MakeSaleItem(shop.Id, item.Id, quantity: 2m);
         var serviceId = Guid.NewGuid();
         var service = MakeServiceSaleItem(shop.Id, serviceId, quantity: 1m);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-002",
             null,
@@ -382,7 +382,7 @@ public class GetSaleDetailQueryHandlerTests
         var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
         var goods = MakeSaleItem(shop.Id, item.Id, quantity: 2m);
         var service = MakeServiceSaleItem(shop.Id, Guid.NewGuid(), quantity: 2m);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-003",
             null,
@@ -463,7 +463,7 @@ public class GetSaleDetailQueryHandlerTests
             hasPriceMismatch: false,
             itemDiscountAmount: 20m,
             saleDiscountAmount: 30m);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             null,

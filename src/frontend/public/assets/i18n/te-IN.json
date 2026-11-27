@@ -1852,7 +1852,6 @@
         "Complete": "పూర్తి కాలపు వర్గీకృత నిర్వహణ లాభం",
         "FilteredActivity": "ఫిల్టర్ చేసిన కార్యకలాపం: నిర్వహణ లాభం అందుబాటులో లేదు",
         "UnclassifiedExpenses": "లాభం చూడటానికి మిగిలిన ఖర్చులు వర్గీకరించండి",
-        "AccountingReview": "రిటర్న్ లెక్కల సమీక్ష అవసరం",
         "ServiceCostsUnmodeled": "సేవా ఖర్చులకు నమూనా లేదు: నిర్వహణ లాభం అందుబాటులో లేదు"
       },
       "limitations": {
@@ -1861,7 +1860,6 @@
         "receipt-cost-corrections-not-revalued": "తరువాతి కొనుగోలు ఖర్చు సవరణ అమ్మిన వస్తు ఖర్చును మార్చదు.",
         "filtered-activity": "ఫిల్టర్‌లో మొత్తం దుకాణ నిర్వహణ గణాంకాలు ఉండవు.",
         "unclassified-expenses": "కొన్ని ఖర్చులు వర్గీకరించలేదు.",
-        "return-accounting-review": "రిటర్న్ లెక్కలు సమీక్షించండి.",
         "service-costs-unmodeled": "సేవా ఖర్చులకు నమూనా లేదు."
       }
     },

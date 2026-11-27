@@ -160,7 +160,6 @@ public sealed record RecordSaleReturnRequest(
     string? DueOverrideReason,
     string? Notes,
     IReadOnlyList<RecordSaleReturnItemRequest> Items,
-    PaymentMethod? PayoutMethod = null,
     DateTimeOffset? CreditNoteExpiresAt = null,
     string? CreditNoteReason = null, string? OperationKey = null, TillPostingContext? Till = null, TenderLine? RefundTender = null, bool? RefundConfirmed = null);
 

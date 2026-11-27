@@ -23,7 +23,7 @@ internal static class ReturnAccountingFixtures
             isPriceIncludingTax: false,
             hasPriceMismatch: false);
 
-        return Domain.Entities.Sale.Create(
+        return TestSales.Create(
             shopId,
             invoiceNumber,
             customerId,
@@ -104,6 +104,34 @@ internal static class ReturnAccountingFixtures
             [new ReturnLineAccounting(saleItem.Id, taxable, tax, nonTax)],
             settlements).Value;
         var posted = saleReturn.PostAccounting(snapshot);
+        if (posted.IsError)
+            throw new InvalidOperationException(posted.FirstError.Description);
+
+        return saleReturn;
+    }
+
+    /// <summary>Posts a recorded return the way the return handler does: each line split pro rata to its recorded tax share, settled where it says.</summary>
+    public static SaleReturn Posted(this SaleReturn saleReturn, Guid? customerId = null)
+    {
+        var lines = saleReturn.Items.Select(item =>
+        {
+            var ratio = item.MaxRefundAmount == 0m ? 0m : item.ApprovedRefundAmount / item.MaxRefundAmount;
+            var taxable = Math.Min(item.ApprovedRefundAmount, decimal.Round(item.TaxableAmount * ratio, 2));
+            var tax = Math.Min(item.ApprovedRefundAmount - taxable, decimal.Round(item.TaxAmount * ratio, 2));
+            return new ReturnLineAccounting(item.SaleItemId, taxable, tax, item.ApprovedRefundAmount - taxable - tax);
+        }).ToList();
+
+        var settlements = new List<ReturnSettlementInput>();
+        if (saleReturn.DueReductionAmount > 0m)
+            settlements.Add(new ReturnSettlementInput(ReturnSettlementKind.ReceivableReduction, saleReturn.DueReductionAmount, customerId));
+        if (saleReturn.PayoutAmount > 0m)
+        {
+            settlements.Add(saleReturn.PayoutDestination == ReturnPayoutDestination.CreditNote
+                ? new ReturnSettlementInput(ReturnSettlementKind.StoreCreditIssued, saleReturn.PayoutAmount, customerId, Guid.NewGuid())
+                : new ReturnSettlementInput(ReturnSettlementKind.ExternalRefund, saleReturn.PayoutAmount, customerId));
+        }
+
+        var posted = saleReturn.PostAccounting(ReturnAccountingSnapshot.Create("proportional-line-tax/1", lines, settlements).Value);
         if (posted.IsError)
             throw new InvalidOperationException(posted.FirstError.Description);
 

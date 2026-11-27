@@ -18,9 +18,6 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
             tableBuilder.HasCheckConstraint(
                 "ck_sale_returns_accounting_balanced",
                 "accounting_status IS DISTINCT FROM 'BALANCED' OR (accounting_policy_version IS NOT NULL AND adjustment_taxable_amount IS NOT NULL AND adjustment_tax_amount IS NOT NULL AND adjustment_non_tax_amount IS NOT NULL AND adjustment_taxable_amount >= 0 AND adjustment_tax_amount >= 0 AND adjustment_non_tax_amount >= 0 AND adjustment_taxable_amount + adjustment_tax_amount + adjustment_non_tax_amount = total_refund_amount)");
-            tableBuilder.HasCheckConstraint(
-                "ck_sale_returns_accounting_review_reason",
-                "accounting_status IS DISTINCT FROM 'NEEDS_REVIEW' OR accounting_review_reason IS NOT NULL");
             tableBuilder.HasCheckConstraint("ck_sale_returns_void_audit", "(is_voided = false AND voided_at IS NULL AND voided_by IS NULL AND void_reason IS NULL) OR (is_voided = true AND voided_at IS NOT NULL AND voided_by IS NOT NULL AND void_reason IS NOT NULL)");
         });
 
@@ -104,9 +101,6 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
         builder.Property(r => r.AccountingPolicyVersion)
             .HasMaxLength(ReturnAccountingSnapshot.MaxPolicyVersionLength);
 
-        builder.Property(r => r.AccountingReviewReason)
-            .HasMaxLength(200);
-
         builder.Property(r => r.AdjustmentTaxableAmount)
             .HasPrecision(18, 2);
 
@@ -154,7 +148,6 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
         {
             null => null,
             ReturnAccountingStatus.Balanced => "BALANCED",
-            ReturnAccountingStatus.NeedsReview => "NEEDS_REVIEW",
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown return accounting status."),
         };
 
@@ -163,7 +156,6 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
         {
             null => null,
             "BALANCED" => ReturnAccountingStatus.Balanced,
-            "NEEDS_REVIEW" => ReturnAccountingStatus.NeedsReview,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown return accounting status."),
         };
 }

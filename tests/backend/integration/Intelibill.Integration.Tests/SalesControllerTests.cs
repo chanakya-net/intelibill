@@ -347,7 +347,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return one unit restockable",
@@ -1063,7 +1063,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Issue credit note",
@@ -1198,7 +1198,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Issue credit note",
@@ -3549,7 +3549,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordOverrideNoReasonRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordOverrideNoReasonRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Override refund",
@@ -3575,7 +3575,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordOverrideWithReasonRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordOverrideWithReasonRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Override refund",
@@ -3661,7 +3661,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return one unit restockable",
@@ -4264,7 +4264,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return wastage",
@@ -4345,7 +4345,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return to void",
@@ -4435,7 +4435,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Lookup return",
@@ -4514,7 +4514,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
         request.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = (string?)null,
@@ -4614,7 +4614,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return for credit note void test",
@@ -4706,7 +4706,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return for redeemed note conflict test",

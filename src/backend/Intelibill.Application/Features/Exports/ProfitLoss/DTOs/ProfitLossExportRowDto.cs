@@ -14,6 +14,5 @@ public sealed record ProfitLossExportRowDto(
     decimal ProfitBeforeTax,
     decimal ProfitAfterTax,
     decimal? MarginPercent,
-    ProfitLossRowEconomicsDto? Economics = null,
-    bool IsReversal = false,
-    bool NeedsAccountingReview = false);
+    ProfitLossRowEconomicsDto Economics,
+    bool IsReversal = false);

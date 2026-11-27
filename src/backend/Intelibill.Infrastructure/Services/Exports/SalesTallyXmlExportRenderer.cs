@@ -4,7 +4,6 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
-using Intelibill.Domain.Enums;
 
 namespace Intelibill.Infrastructure.Services.Exports;
 
@@ -56,15 +55,6 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
         foreach (var adjustment in dataset.ReturnAdjustments)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (adjustment.Status == ReturnAccountingStatus.NeedsReview)
-            {
-                errors.Add(Errors.Export.ReturnNeedsAccountingReview(
-                    adjustment.Label,
-                    adjustment.InvoiceNumber,
-                    adjustment.ReviewReason ?? ReturnAdjustmentProjector.MissingSnapshotReason));
-                continue;
-            }
-
             // A zero refund keeps its stock fact in the other formats; it has nothing to post.
             if (adjustment.HasVoucher)
                 vouchers.Add(TallyVoucherBuilder.BuildReturnVoucher(adjustment));
