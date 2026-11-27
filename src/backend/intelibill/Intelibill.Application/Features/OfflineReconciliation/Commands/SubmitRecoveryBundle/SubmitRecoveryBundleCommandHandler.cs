@@ -4,10 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
-using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
@@ -24,22 +22,19 @@ namespace Intelibill.Application.Features.OfflineReconciliation.Commands.SubmitR
 /// each case later (<c>RetryHistoricalLease</c>), which replays the stored envelope as frozen.
 /// </summary>
 public sealed class SubmitRecoveryBundleCommandHandler(
-    IUserRepository userRepository,
-    IShopRepository shopRepository,
-    IInvoiceLeaseRepository invoiceLeaseRepository,
+    RecoveryOperatorAuthorizer operatorAuthorizer,
+    RecoveryInvoiceReceiver invoiceReceiver,
     IOfflineSubmissionRepository submissionRepository,
     ISaleRepository saleRepository,
     IReconciliationIssueRepository issueRepository,
     IReconciliationCaseEventRepository caseEventRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
-    IOfflineSalePoster salePoster,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
     TimeProvider timeProvider,
     IOfflineExpiryAuthority expiryAuthority,
     IShopLicenceFence? licenceFence = null,
-    IOfflineLicenceHistoryAuthority? licenceHistory = null,
-    ILiveSessionAuthority? liveSessionAuthority = null)
+    IOfflineLicenceHistoryAuthority? licenceHistory = null)
 {
     public const string BundleFormat = "intelibill.offline-recovery";
     public const int BundleVersion = 1;
@@ -65,7 +60,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
                 .ToList();
         }
 
-        if (await AuthorizeOperatorAsync(command.ShopId, command.ActorUserId, command.Session, cancellationToken) is { } denied)
+        if (await operatorAuthorizer.AuthorizeOperatorAsync(command.ShopId, command.ActorUserId, command.Session, cancellationToken) is { } denied)
             return denied;
 
         var bundle = command.Bundle;
@@ -93,8 +88,8 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         var scope = new FinancialOperationScope(command.ShopId, FinancialOperationType.OfflineRecoverySubmission, context.OperationKey)
         {
             SuspensionAction = LicenceAction.Recovery,
-            RecheckReplayAuthority = ct => AuthorizeOperatorAsync(command.ShopId, command.ActorUserId, command.Session, ct),
-            RecheckBeforeCommit = ct => AuthorizeOperatorAsync(command.ShopId, command.ActorUserId, command.Session, ct),
+            RecheckReplayAuthority = ct => operatorAuthorizer.AuthorizeOperatorAsync(command.ShopId, command.ActorUserId, command.Session, ct),
+            RecheckBeforeCommit = ct => operatorAuthorizer.AuthorizeOperatorAsync(command.ShopId, command.ActorUserId, command.Session, ct),
         };
 
         return await operationExecutor.ExecuteAsync(
@@ -104,17 +99,6 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             requestHash,
             ct => RecoverAsync(context, invoices, ct),
             cancellationToken);
-    }
-
-    private async Task<Error?> AuthorizeOperatorAsync(Guid shopId, Guid actorUserId, SessionClaims? session, CancellationToken ct)
-    {
-        if (liveSessionAuthority is not null && await liveSessionAuthority.SessionDenialAsync(session, actorUserId, shopId, ct) is { } sessionDenied)
-            return sessionDenied;
-
-        var role = await ReconciliationActor.ResolveRoleAsync(userRepository, actorUserId, shopId, ct);
-        return role.IsError || role.Value is not (ShopRole.Owner or ShopRole.Manager)
-            ? Errors.Recovery.NotAuthorized
-            : null;
     }
 
     private async Task<ErrorOr<RecoverySubmissionResultDto>> RecoverAsync(
@@ -153,7 +137,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         ShopLicenceLease? fencedLicence,
         CancellationToken cancellationToken)
     {
-        var (received, rejection) = await ReceiveSubmissionAsync(context, sale, now, cancellationToken);
+        var (received, rejection) = await invoiceReceiver.ReceiveSubmissionAsync(context, sale, now, cancellationToken);
         if (rejection is not null)
             return rejection;
 
@@ -169,7 +153,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             return corrupted;
         }
 
-        var lease = await ResolveEffectiveLeaseAsync(context.ShopId, submission, incomingLease, cancellationToken);
+        var lease = await invoiceReceiver.ResolveEffectiveLeaseAsync(context.ShopId, submission, incomingLease, cancellationToken);
         var review = new ReviewInput(fencedLicence, submission, storedSale, lease, now);
 
         // Existing canonical history hold takes precedence immediately after receipt capture, including linked envelopes.
@@ -192,49 +176,6 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             return await ResolveAlreadyPostedAsync(held, submission, existing, cancellationToken);
 
         return await FileForReviewAsync(held, review, cancellationToken);
-    }
-
-    /// <summary>
-    /// Checks the invoice's identity, structure, lease and issuer, then records the submission.
-    /// A rejection is returned as its result; otherwise the recorded submission and incoming lease.
-    /// </summary>
-    private async Task<(ReceivedInvoice? Received, RecoveryInvoiceResultDto? Rejection)> ReceiveSubmissionAsync(
-        RecoveryContext context,
-        OfflineSaleSyncCommand sale,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        if (OfflineSaleSyncHelpers.CheckIdentity(sale, out var clientSaleId, out var invoiceNumber) is { } identityError)
-            return (null, Rejected(clientSaleId, invoiceNumber, identityError));
-
-        var structure = salePoster.CheckStructure(sale);
-        if (structure.IsError)
-            return (null, Rejected(clientSaleId, invoiceNumber, structure.FirstError));
-
-        var incomingLease = await invoiceLeaseRepository.FindReservedRangeAsync(context.ShopId, context.DeviceId, invoiceNumber, cancellationToken);
-        if (incomingLease is null)
-            return (null, Rejected(clientSaleId, invoiceNumber, Errors.Recovery.LeaseNotOwned));
-
-        Guid? verifiedIssuer = null;
-        if (sale.IssuedByUserId is { } asserted)
-        {
-            var standing = await OfflineIssuerVerification.AssessAsync(
-                shopRepository, submissionRepository, context.ShopId, context.DeviceId, asserted, cancellationToken);
-            if (standing == OfflineIssuerStanding.NeverMember)
-                return (null, Rejected(clientSaleId, invoiceNumber, Errors.Recovery.IssuerMismatch));
-            if (standing == OfflineIssuerStanding.Verified)
-                verifiedIssuer = asserted;
-        }
-
-        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(context.ShopId, context.DeviceId, sale);
-        var submission = await submissionRepository.RecordAsync(
-            OfflineSubmission.Record(
-                context.ShopId, context.DeviceId, clientSaleId, invoiceNumber, hash,
-                OfflineSubmissionPayload.Serialize(sale), sale.SoldAt, now, OfflineSubmissionSource.Recovery,
-                context.OperatorUserId, sale.IssuedByUserId, verifiedIssuer, incomingLease.Id, context.OperationKey),
-            cancellationToken);
-
-        return (new ReceivedInvoice(submission, incomingLease), null);
     }
 
     private async Task<ErrorOr<RecoveryInvoiceResultDto>> AttachToExistingHistoryAsync(
@@ -370,21 +311,6 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         return await licenceHistory.AssessAsync(licence, request, existingHistoryHold, cancellationToken);
     }
 
-    private async Task<InvoiceLease> ResolveEffectiveLeaseAsync(
-        Guid shopId,
-        OfflineSubmission submission,
-        InvoiceLease incomingLease,
-        CancellationToken cancellationToken)
-    {
-        if (submission.OriginalLeaseId is { } leaseId && leaseId != incomingLease.Id)
-        {
-            var original = await invoiceLeaseRepository.GetByIdAsync(leaseId, cancellationToken);
-            if (original is not null && original.ShopId == shopId)
-                return original;
-        }
-        return incomingLease;
-    }
-
     private async Task<RecoveryInvoiceResultDto> OpenLicenceHistoryAsync(
         HeldInvoice held,
         Error reason,
@@ -471,9 +397,6 @@ public sealed class SubmitRecoveryBundleCommandHandler(
     private static RecoveryInvoiceResultDto HeldResult(HeldInvoice held, string status, Guid caseId, Error reason) =>
         new(held.ClientSaleId, held.InvoiceNumber, status, caseId, null, [new OfflineSaleSyncErrorDto(reason.Code, reason.Description)]);
 
-    private static RecoveryInvoiceResultDto Rejected(string clientSaleId, string invoiceNumber, Error error) =>
-        new(clientSaleId, invoiceNumber, RecoveryInvoiceStatus.Rejected, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
-
     private static string ComputeChecksum(string invoicesJson) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(invoicesJson)));
 
@@ -504,7 +427,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         };
     }
 
-    private sealed record RecoveryContext(Guid ShopId, Guid OperatorUserId, string DeviceId, string OperationKey);
+    internal sealed record RecoveryContext(Guid ShopId, Guid OperatorUserId, string DeviceId, string OperationKey);
 
     private sealed record HeldInvoice(
         RecoveryContext Context,
@@ -514,7 +437,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         Guid CaseCreatedByUserId,
         DateTimeOffset Now);
 
-    private sealed record ReceivedInvoice(OfflineSubmission Submission, InvoiceLease IncomingLease);
+    internal sealed record ReceivedInvoice(OfflineSubmission Submission, InvoiceLease IncomingLease);
 
     private sealed record ReviewInput(
         ShopLicenceLease? FencedLicence,

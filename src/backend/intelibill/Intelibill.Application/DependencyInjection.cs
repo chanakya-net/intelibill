@@ -132,6 +132,12 @@ public static class DependencyInjection
         services.AddScoped<IOfflineSalePoster, OfflineSalePoster>();
         services.AddScoped<LicenseHistoryReviewAssessment>();
         services.AddScoped<ReconciliationCaseMapper>();
+        services.AddScoped<OfflineSaleTillSettler>();
+        services.AddScoped<OfflineSaleCustomerReviewer>();
+        services.AddScoped<OfflineSaleStockAndDuePoster>();
+        services.AddScoped<OfflineSaleReceiptReader>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.SubmitRecoveryBundle.RecoveryOperatorAuthorizer>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.SubmitRecoveryBundle.RecoveryInvoiceReceiver>();
 
         return services;
     }
