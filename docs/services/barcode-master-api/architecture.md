@@ -5,13 +5,13 @@ Barcode Master API is an ASP.NET Core service for creating and querying product 
 ## Solution Layout
 
 ```text
-src/services/barcode-master-api/
+src/backend/barcode-master-api/
   BarcodeAPI.sln
   BarcodeAPI.Api/
   BarcodeAPI.Application/
   BarcodeAPI.Domain/
   BarcodeAPI.Infrastructure/
-tests/services/barcode-master-api/
+tests/backend/barcode-master-api/
   BarcodeAPI.Api.Tests/
 ```
 
@@ -154,7 +154,7 @@ The custom API key handler reads the key from the `X-API-Key` header and compare
 
 ## Testing Strategy
 
-The test project is `tests/services/barcode-master-api/BarcodeAPI.Api.Tests`.
+The test project is `tests/backend/barcode-master-api/BarcodeAPI.Api.Tests`.
 
 Current coverage focuses on controller behavior. The existing controller test verifies that lookup input is normalized, found products are mapped to DTOs, and missing barcodes are reported.
 

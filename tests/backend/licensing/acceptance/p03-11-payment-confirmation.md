@@ -1,0 +1,11 @@
+# P03-11 acceptance
+
+Run `P0311Tests` against real PostgreSQL. The initial behavioral regression expected an attachment-capable confirmation route after verified simulator capture and failed with 404 before production edits. Merchant and admin UI regressions failed on the missing controls. Keep red/green logs outside source.
+
+The review regression creates 100 distinct full manual receipts for one order, exceeding the merchant relay's 16 KiB limit as a single compact JSON array. Before pagination it failed with 503. The fixed route traverses five bounded pages (25/25/25/25/0), including tied issuance timestamps, asserts all 100 IDs exactly once, and downloads the oldest/newest attachments. Unknown/foreign cursors cannot cross account/order scope. Both web components traverse 51 rows in three pages while keeping earlier links; an oversized response is refused. The maximum contract-shaped page is separately checked against the unchanged relay byte bound.
+
+Build merchant and admin shipping apps. Run `P0311_RUN_BROWSER=1 P0311_EVIDENCE_DIR=<absolute external evidence directory> dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0311BrowserTests' --logger 'console;verbosity=normal'`.
+
+The fixture creates real merchant identities, billing accounts and an accepted quote, captures through the development simulator and verifies through real APIs. Chromium signs in, downloads an authenticated attachment, then signals the fixture to transfer billing ownership, edit merchant profile/shop details, retire/publish catalogue facts and acknowledge delivery. It reloads and downloads identical bytes. An authenticated request under another owned account returns 404. A live Billing operator downloads the same bytes. Desktop/mobile screenshots check visible layout; post-login videos record both flows. `observable-demo.json` records HTTP observations; `browser-postgres.json` checks counts, applied status, downloaded-byte equality and current build hashes.
+
+This proves local simulator behavior only. No real provider credentials, charge, deployment or production activation is authorized. Temporary credentials remain in private scratch files outside source and evidence, deleted when the harness ends. Evidence contains fixture references, not credentials or provider secrets.

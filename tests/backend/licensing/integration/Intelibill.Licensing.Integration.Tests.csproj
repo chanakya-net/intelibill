@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- Leave threads available for async work while concurrent tests start or dispose API hosts. -->
+    <ThreadPoolMinThreads>64</ThreadPoolMinThreads>
+    <!-- Up to eight classes each run two or three API hosts in this one process; server GC collects their
+         allocations in parallel instead of pausing every host on a single heap (about 13% faster measured). -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../shared/IntegrationTestRuntime.cs" Link="IntegrationTestRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/backend/intelibill/Intelibill.Api/Intelibill.Api.csproj" />
+    <ProjectReference Include="../../../../src/backend/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Npgsql" />
+    <!-- Use the repository pin for the Testcontainers transitive dependency. -->
+    <PackageReference Include="SSH.NET" />
+
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

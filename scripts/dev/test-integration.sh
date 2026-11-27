@@ -20,12 +20,12 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-api_project="${repository_root}/src/backend/Intelibill.Api"
+api_project="${repository_root}/src/backend/intelibill/Intelibill.Api"
 generated="${api_project}/Internal/Generated"
 cache_root="${repository_root}/.cache/wolverine-codegen"
-tests="${repository_root}/tests/backend/integration/Intelibill.Integration.Tests"
+tests="${repository_root}/tests/backend/intelibill/integration/Intelibill.Integration.Tests"
 if [[ "${1:-}" == "--licensing" ]]; then
-  tests="${repository_root}/tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj"
+  tests="${repository_root}/tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj"
   shift
 fi
 
@@ -42,8 +42,8 @@ codegen_fingerprint() {
   (
     cd "${repository_root}"
     {
-      find src/backend src/shared/backend \
-        \( -name bin -o -name obj -o -path "src/backend/Intelibill.Api/Internal" \) -prune -o \
+      find src/backend/intelibill src/backend/shared \
+        \( -name bin -o -name obj -o -path "src/backend/intelibill/Intelibill.Api/Internal" \) -prune -o \
         -type f \( -name '*.cs' -o -name '*.csproj' -o -name '*.props' -o -name '*.targets' -o -name '*.json' \) -print0
       printf '%s\0' Directory.Build.props Directory.Packages.props global.json
     } | LC_ALL=C sort -z | xargs -0 shasum -a 256 | shasum -a 256 | cut -c1-32

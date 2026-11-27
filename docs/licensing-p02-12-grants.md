@@ -78,8 +78,8 @@ exists (`55000`); a rollback keeps schema and facts.
 ## Verification (local fixtures only)
 
 ```sh
-dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0212Tests'
-P0212_RUN_BROWSER=1 P0212_EVIDENCE_DIR=<dir> dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0212BrowserTests'
+dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0212Tests'
+P0212_RUN_BROWSER=1 P0212_EVIDENCE_DIR=<dir> dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0212BrowserTests'
 ```
 
 The browser demo builds nothing itself: build `src/admin-frontend` and `src/frontend` first. It uses real Kestrel

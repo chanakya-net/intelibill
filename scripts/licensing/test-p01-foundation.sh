@@ -124,7 +124,7 @@ browser_phase() (
   export P0115_PROOF_FILE="$scratch/proof" P0115_SCRATCH="$scratch" P0115_PHASE="$1"
   export P0115_MERCHANT_CREDENTIALS="$evidence/.fixture-credentials.json"
   export P0115_MERCHANT_STATE="$evidence/browser-state.json"
-  bun x playwright test --config ../../tests/licensing/browser/playwright.p0115.config.ts
+  bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0115.config.ts
 )
 
 run_browser() {
@@ -192,7 +192,7 @@ write_summary() {
       'PASS original developer Compose resource identities unchanged' \
       'LIVE UNVERIFIED'
     printf 'Chromium command (admin workspace, private fixture variables): %s\n' \
-      'NODE_PATH="$PWD/node_modules" bun x playwright test --config ../../tests/licensing/browser/playwright.p0115.config.ts'
+      'NODE_PATH="$PWD/node_modules" bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0115.config.ts'
     printf 'PostgreSQL counts (consumed bootstrap|enrolled identities|accepted invitations|revoked sessions|audit events): %s\n' "$(cat "$scratch/database-counts")"
     printf '%s\n' 'PASS provider Chromium enroll and restart (1 + 1 tests)'
     cat "$scratch/observed-enroll" "$scratch/observed-restart"

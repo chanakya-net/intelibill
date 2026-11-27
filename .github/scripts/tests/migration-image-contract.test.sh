@@ -88,14 +88,14 @@ check_image() {
   fi
 }
 
-merchant="${repository_root}/src/backend/Dockerfile.migrate"
-licensing="${repository_root}/src/licensing/Dockerfile.migrate"
+merchant="${repository_root}/src/backend/intelibill/Dockerfile.migrate"
+licensing="${repository_root}/src/backend/licensing/Dockerfile.migrate"
 
 check_static merchant "${merchant}" Database none
 grep -Fq "Database__UseEntraAuth=" "${merchant}" \
   || fail "merchant migration bundle build is missing design-time setting: Database__UseEntraAuth"
 check_static licensing "${licensing}" LicensingMigrationDatabase build-run-only
-grep -Fq 'src/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj' "${licensing}" \
+grep -Fq 'src/backend/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj' "${licensing}" \
   || fail "licensing migration bundle must build the licensing migrations assembly."
 grep -Fq -- '--context LicensingDbContext' "${licensing}" \
   || fail "licensing migration bundle must name LicensingDbContext."

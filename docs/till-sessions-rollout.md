@@ -17,8 +17,8 @@ API startup does not apply migrations. The local command, when explicitly operat
 
 ```bash
 dotnet ef database update \
-  --project src/backend/Intelibill.Infrastructure \
-  --startup-project src/backend/Intelibill.Api
+  --project src/backend/intelibill/Intelibill.Infrastructure \
+  --startup-project src/backend/intelibill/Intelibill.Api
 ```
 
 Deploy every API pod, reader and writer that can post a sale, offline invoice, payment, reversal, expense, return or cancellation before approving a pilot. An older writer can bypass required till evidence. Web rollout alone is insufficient. No historical session or tender backfill assigns legacy cash to a drawer.
@@ -118,11 +118,11 @@ Before disabling operationally, finalize/reconcile open drawers and outstanding 
 ## Verification commands
 
 ```bash
-dotnet build src/backend/Intelibill.slnx -c Release -m:1
-dotnet test src/backend/Intelibill.slnx -c Release --no-build
+dotnet build src/backend/intelibill/Intelibill.slnx -c Release -m:1
+dotnet test src/backend/intelibill/Intelibill.slnx -c Release --no-build
 dotnet ef migrations has-pending-model-changes \
-  --project src/backend/Intelibill.Infrastructure \
-  --startup-project src/backend/Intelibill.Api \
+  --project src/backend/intelibill/Intelibill.Infrastructure \
+  --startup-project src/backend/intelibill/Intelibill.Api \
   --configuration Release --no-build
 ```
 

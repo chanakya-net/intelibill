@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../shared/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj" />
+    <ProjectReference Include="../Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="ErrorOr" />
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+</Project>

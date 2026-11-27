@@ -6,8 +6,8 @@ All guidelines, conventions, build commands, architecture boundaries, and backen
 
 ## Quick Reference
 
-- Build: `dotnet build src/backend/Intelibill.slnx`
-- Test: `dotnet test src/backend/Intelibill.slnx`
+- Build: `dotnet build src/backend/intelibill/Intelibill.slnx`
+- Test: `dotnet test src/backend/intelibill/Intelibill.slnx`
 - Frontend: Bun only (not npm/yarn)
 - Error handling: ErrorOr result pattern
 - Multi-shop: RLS-enforced row isolation per active_shop_id

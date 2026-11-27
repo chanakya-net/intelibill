@@ -78,8 +78,8 @@ A code is stored as a keyed HMAC-SHA256 under `Identity:PhoneCodeKey`, never as 
 
 ```bash
 dotnet ef database update \
-  --project src/backend/Intelibill.Infrastructure \
-  --startup-project src/backend/Intelibill.Api
+  --project src/backend/intelibill/Intelibill.Infrastructure \
+  --startup-project src/backend/intelibill/Intelibill.Api
 ```
 
 The schema holds `phone_challenges`, `identity_sms`, and `users.is_phone_verified` / `users.phone_verified_at`. A number stays contact information until its holder proves it. Deployed environments apply migrations through the migration job; API startup does not.

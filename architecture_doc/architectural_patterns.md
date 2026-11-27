@@ -24,9 +24,9 @@ See [`backend-architecture.md`](backend-architecture.md) for layer responsibilit
 Each layer owns a single `DependencyInjection.cs` with an `IServiceCollection` extension method. `Program.cs` calls them in order.
 
 **Where it appears:**
-- `src/backend/Intelibill.Application/DependencyInjection.cs:8` — `AddApplication()`
-- `src/backend/Intelibill.Infrastructure/DependencyInjection.cs:13` — `AddInfrastructure()`
-- `src/backend/Intelibill.Api/Program.cs:11-12` — call site
+- `src/backend/intelibill/Intelibill.Application/DependencyInjection.cs:8` — `AddApplication()`
+- `src/backend/intelibill/Intelibill.Infrastructure/DependencyInjection.cs:13` — `AddInfrastructure()`
+- `src/backend/intelibill/Intelibill.Api/Program.cs:11-12` — call site
 
 **Convention:** Register all of a layer's services here. Do not register Infrastructure services inside Application, and vice versa.
 
@@ -37,8 +37,8 @@ Each layer owns a single `DependencyInjection.cs` with an `IServiceCollection` e
 A generic interface defined in Domain; a generic EF Core base class in Infrastructure.
 
 **Where it appears:**
-- Contract: `src/backend/Intelibill.Domain/Interfaces/Repositories/IRepository.cs:6-14`
-- Implementation base: `src/backend/Intelibill.Infrastructure/Repositories/RepositoryBase.cs:9-28`
+- Contract: `src/backend/intelibill/Intelibill.Domain/Interfaces/Repositories/IRepository.cs:6-14`
+- Implementation base: `src/backend/intelibill/Intelibill.Infrastructure/Repositories/RepositoryBase.cs:9-28`
 
 **Convention:** Concrete repositories go in `Infrastructure/Repositories/`, extend `RepositoryBase<TEntity>`, and implement a domain-specific interface (e.g., `IProductRepository : IRepository<Product>`). Register scoped in `Infrastructure/DependencyInjection.cs`.
 
@@ -49,9 +49,9 @@ A generic interface defined in Domain; a generic EF Core base class in Infrastru
 Wraps `SaveChangesAsync` so Application handlers stay decoupled from EF Core.
 
 **Where it appears:**
-- Interface: `src/backend/Intelibill.Domain/Interfaces/IUnitOfWork.cs:3-6`
-- Implementation: `src/backend/Intelibill.Infrastructure/Data/UnitOfWork.cs:5-8`
-- DI registration: `src/backend/Intelibill.Infrastructure/DependencyInjection.cs:27`
+- Interface: `src/backend/intelibill/Intelibill.Domain/Interfaces/IUnitOfWork.cs:3-6`
+- Implementation: `src/backend/intelibill/Intelibill.Infrastructure/Data/UnitOfWork.cs:5-8`
+- DI registration: `src/backend/intelibill/Intelibill.Infrastructure/DependencyInjection.cs:27`
 
 **Convention:** Handlers inject `IUnitOfWork` and call `SaveChangesAsync` once at the end of a command. Never call `DbContext.SaveChangesAsync` directly from Application code.
 
@@ -62,9 +62,9 @@ Wraps `SaveChangesAsync` so Application handlers stay decoupled from EF Core.
 All operations that can fail return `ErrorOr<T>` instead of throwing exceptions. Errors are declared centrally and mapped to HTTP Problem Details at the API boundary.
 
 **Where it appears:**
-- Error definitions: `src/backend/Intelibill.Application/Common/Errors/Errors.cs:8-20` — `partial class Errors` with nested static classes per aggregate
-- HTTP mapping: `src/backend/Intelibill.Api/Extensions/ErrorOrExtensions.cs:8-40` — `ToActionResult<T>()` and `ToProblemResult()`
-- Validation integration: `src/backend/Intelibill.Application/Common/Behaviours/ValidationBehaviour.cs:28-29` — FluentValidation failures become `Error.Validation`
+- Error definitions: `src/backend/intelibill/Intelibill.Application/Common/Errors/Errors.cs:8-20` — `partial class Errors` with nested static classes per aggregate
+- HTTP mapping: `src/backend/intelibill/Intelibill.Api/Extensions/ErrorOrExtensions.cs:8-40` — `ToActionResult<T>()` and `ToProblemResult()`
+- Validation integration: `src/backend/intelibill/Intelibill.Application/Common/Behaviours/ValidationBehaviour.cs:28-29` — FluentValidation failures become `Error.Validation`
 
 **Convention:**
 - Extend `Errors.cs` with a new `partial class Errors { public static class <AggregateName> { ... } }` file per aggregate.
@@ -78,9 +78,9 @@ All operations that can fail return `ErrorOr<T>` instead of throwing exceptions.
 All settings are bound to validated `*Options` classes via `IOptions<T>`, never read directly from `IConfiguration`.
 
 **Where it appears:**
-- Options class: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:5-25` — `[Required]` and `[Range]` annotations enable `ValidateDataAnnotations()`
-- Registration: `src/backend/Intelibill.Infrastructure/DependencyInjection.cs:15-18` — `.ValidateDataAnnotations().ValidateOnStart()` causes startup failure on misconfiguration
-- Config section key: `DatabaseOptions.SectionName` constant at `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
+- Options class: `src/backend/intelibill/Intelibill.Infrastructure/Options/DatabaseOptions.cs:5-25` — `[Required]` and `[Range]` annotations enable `ValidateDataAnnotations()`
+- Registration: `src/backend/intelibill/Intelibill.Infrastructure/DependencyInjection.cs:15-18` — `.ValidateDataAnnotations().ValidateOnStart()` causes startup failure on misconfiguration
+- Config section key: `DatabaseOptions.SectionName` constant at `src/backend/intelibill/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 
 **Convention:** Add new `*Options` classes under the relevant layer's `Options/` folder. Always add `ValidateDataAnnotations()` and `ValidateOnStart()`. Section name is a `const string SectionName` on the class itself.
 
@@ -91,8 +91,8 @@ All settings are bound to validated `*Options` classes via `IOptions<T>`, never 
 Entities raise events internally; Wolverine publishes them after `SaveChangesAsync`.
 
 **Where it appears:**
-- Event interface: `src/backend/Intelibill.Domain/Common/IDomainEvent.cs:3-7`
-- Collection on entity: `src/backend/Intelibill.Domain/Common/BaseEntity.cs:9-13` — `AddDomainEvent` / `ClearDomainEvents`
+- Event interface: `src/backend/intelibill/Intelibill.Domain/Common/IDomainEvent.cs:3-7`
+- Collection on entity: `src/backend/intelibill/Intelibill.Domain/Common/BaseEntity.cs:9-13` — `AddDomainEvent` / `ClearDomainEvents`
 
 **Convention:** Domain event classes live in `Domain/Events/`. Entities call `AddDomainEvent(...)` inside mutating methods. Infrastructure (or Wolverine outbox) dispatches and clears events after the transaction.
 
@@ -103,7 +103,7 @@ Entities raise events internally; Wolverine publishes them after `SaveChangesAsy
 Structural equality by components, not by reference.
 
 **Where it appears:**
-- Base class: `src/backend/Intelibill.Domain/Common/ValueObject.cs:3-18` — `GetEqualityComponents()` abstract method; `==` / `!=` operators wired up
+- Base class: `src/backend/intelibill/Intelibill.Domain/Common/ValueObject.cs:3-18` — `GetEqualityComponents()` abstract method; `==` / `!=` operators wired up
 
 **Convention:** Value objects go in `Domain/ValueObjects/`. Override `GetEqualityComponents()` to yield all identity fields. Properties are immutable (`init`-only).
 
@@ -114,8 +114,8 @@ Structural equality by components, not by reference.
 All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `OnModelCreating`.
 
 **Where it appears:**
-- Discovery call: `src/backend/Intelibill.Infrastructure/Data/ApplicationDbContext.cs:11` — `ApplyConfigurationsFromAssembly(...)` scans Infrastructure automatically
-- Config classes: `src/backend/Intelibill.Infrastructure/Data/Configurations/`
+- Discovery call: `src/backend/intelibill/Intelibill.Infrastructure/Data/ApplicationDbContext.cs:11` — `ApplyConfigurationsFromAssembly(...)` scans Infrastructure automatically
+- Config classes: `src/backend/intelibill/Intelibill.Infrastructure/Data/Configurations/`
 
 **Convention:** One configuration class per entity, named `<Entity>Configuration.cs`. Do not use data annotations on domain entities.
 
@@ -126,8 +126,8 @@ All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `O
 `UpdatedAt` is set by the `DbContext` on every `SaveChangesAsync`.
 
 **Where it appears:**
-- `src/backend/Intelibill.Infrastructure/Data/ApplicationDbContext.cs:21-29` — iterates `ChangeTracker.Entries<BaseEntity>()` before delegating to base
-- Audit properties: `src/backend/Intelibill.Domain/Common/BaseEntity.cs:5-7`
+- `src/backend/intelibill/Intelibill.Infrastructure/Data/ApplicationDbContext.cs:21-29` — iterates `ChangeTracker.Entries<BaseEntity>()` before delegating to base
+- Audit properties: `src/backend/intelibill/Intelibill.Domain/Common/BaseEntity.cs:5-7`
 
 ---
 
@@ -136,10 +136,10 @@ All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `O
 Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See `architecture_doc/backend-architecture.md` § Safe Errors and Diagnostics.
 
 **Where it appears:**
-- Implementation (shared by the merchant and licensing APIs): `src/shared/backend/Intelibill.Shared.Web/Middleware/ExceptionHandlingMiddleware.cs`
-- Public mapping: `src/shared/backend/Intelibill.Shared.Web/PublicErrors/SafeErrorFactory.cs`
-- Diagnostics: `src/shared/backend/Intelibill.Shared.Web/Logging/SafeDiagnosticWriter.cs`
-- Registration: `AddSafeErrorHandling()` + `UseMiddleware<ExceptionHandlingMiddleware>` in `src/backend/Intelibill.Api/Program.cs` and `src/licensing/Intelibill.Licensing.Api/Program.cs`
+- Implementation (shared by the merchant and licensing APIs): `src/backend/shared/Intelibill.Shared.Web/Middleware/ExceptionHandlingMiddleware.cs`
+- Public mapping: `src/backend/shared/Intelibill.Shared.Web/PublicErrors/SafeErrorFactory.cs`
+- Diagnostics: `src/backend/shared/Intelibill.Shared.Web/Logging/SafeDiagnosticWriter.cs`
+- Registration: `AddSafeErrorHandling()` + `UseMiddleware<ExceptionHandlingMiddleware>` in `src/backend/intelibill/Intelibill.Api/Program.cs` and `src/backend/licensing/Intelibill.Licensing.Api/Program.cs`
 
 ---
 
@@ -148,8 +148,8 @@ Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 P
 Wolverine auto-discovers handlers by convention from the Application assembly.
 
 **Where it appears:**
-- `src/backend/Intelibill.Api/Program.cs:14-17` — `UseWolverine` with `IncludeAssembly`
-- `src/backend/Intelibill.Application/Common/Behaviours/ValidationBehaviour.cs` — Wolverine middleware (`BeforeAsync`) integrating FluentValidation
+- `src/backend/intelibill/Intelibill.Api/Program.cs:14-17` — `UseWolverine` with `IncludeAssembly`
+- `src/backend/intelibill/Intelibill.Application/Common/Behaviours/ValidationBehaviour.cs` — Wolverine middleware (`BeforeAsync`) integrating FluentValidation
 
 **Convention:** Handler classes go in `Application/Features/<FeatureName>/`. Handler method named `Handle` or `HandleAsync`, first parameter is the command/query. `ValidationBehaviour<TMessage>` runs automatically for any message with a registered `IValidator<TMessage>`.
 
@@ -160,9 +160,9 @@ Wolverine auto-discovers handlers by convention from the Application assembly.
 Large catalog reads are streamed via `IAsyncEnumerable<T>` to avoid loading all rows into memory before the first byte is sent.
 
 **Where it appears:**
-- Interface: `src/backend/Intelibill.Application/Common/Interfaces/IItemCatalogStreamingService.cs` — `StreamByShopAsync` returns `IAsyncEnumerable<ItemCatalogEntryDto>`
-- Controller: `src/backend/Intelibill.Api/Controllers/ItemsController.cs` — `GET /api/items/stream` iterates with `await foreach` and writes JSON lines
-- Query handler: `src/backend/Intelibill.Application/Features/Items/Services/`
+- Interface: `src/backend/intelibill/Intelibill.Application/Common/Interfaces/IItemCatalogStreamingService.cs` — `StreamByShopAsync` returns `IAsyncEnumerable<ItemCatalogEntryDto>`
+- Controller: `src/backend/intelibill/Intelibill.Api/Controllers/ItemsController.cs` — `GET /api/items/stream` iterates with `await foreach` and writes JSON lines
+- Query handler: `src/backend/intelibill/Intelibill.Application/Features/Items/Services/`
 
 **Convention:** Use `IAsyncEnumerable<T>` for unbounded or large result sets. Controller writes directly to the response stream — do not buffer into a list. Pass `CancellationToken` through the entire chain.
 
@@ -173,10 +173,10 @@ Large catalog reads are streamed via `IAsyncEnumerable<T>` to avoid loading all 
 MVC controller actions are rate-limited by default via a custom action filter, not ASP.NET Core's built-in rate limiting middleware.
 
 **Where it appears:**
-- Default config: `src/backend/Intelibill.Api/appsettings.json` — `RateLimiting:Limit`, `PeriodInMinutes`, `BackoffMinutes`
-- Override attribute: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitAttribute.cs`
-- Opt-out attribute: `src/backend/Intelibill.Api/Middleware/RateLimiting/DisableRateLimitAttribute.cs`
-- Filter: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitFilter.cs`
+- Default config: `src/backend/intelibill/Intelibill.Api/appsettings.json` — `RateLimiting:Limit`, `PeriodInMinutes`, `BackoffMinutes`
+- Override attribute: `src/backend/intelibill/Intelibill.Api/Middleware/RateLimiting/RateLimitAttribute.cs`
+- Opt-out attribute: `src/backend/intelibill/Intelibill.Api/Middleware/RateLimiting/DisableRateLimitAttribute.cs`
+- Filter: `src/backend/intelibill/Intelibill.Api/Middleware/RateLimiting/RateLimitFilter.cs`
 
 **Convention:** Configure global defaults in the `RateLimiting` section (`Limit = 100`, `PeriodInMinutes = 1`, `BackoffMinutes = 3` in committed config). Use `[RateLimit]` only when an action or controller needs stricter/custom limits. Use `[DisableRateLimit]` as the explicit manual exemption for a controller or action.
 
@@ -189,10 +189,10 @@ This filter applies to MVC controllers only. Scalar/OpenAPI endpoints, Wolverine
 Serilog is configured with a `SensitiveDataDestructuringPolicy` to prevent PII/secrets from appearing in logs.
 
 **Where it appears:**
-- Setup: `src/backend/Intelibill.Api/Extensions/SerilogExtensions.cs`
-- Policy: `src/backend/Intelibill.Api/Logging/SensitiveDataDestructuringPolicy.cs`
+- Setup: `src/backend/intelibill/Intelibill.Api/Extensions/SerilogExtensions.cs`
+- Policy: `src/backend/intelibill/Intelibill.Api/Logging/SensitiveDataDestructuringPolicy.cs`
 
-**Convention:** Mark sensitive domain properties with `[SensitiveData]` (`src/backend/Intelibill.Domain/Attributes/SensitiveDataAttribute.cs`) — the policy strips them from log output automatically.
+**Convention:** Mark sensitive domain properties with `[SensitiveData]` (`src/backend/intelibill/Intelibill.Domain/Attributes/SensitiveDataAttribute.cs`) — the policy strips them from log output automatically.
 
 ---
 

@@ -7,24 +7,16 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - main
     paths:
       - .github/workflows/barcode-master-api-ci.yml
-      - src/services/barcode-master-api/**
-      - tests/services/barcode-master-api/**
-      - src/services/Directory.Build.props
-      - src/services/Directory.Packages.props
-      - tests/services/Directory.Build.props
-      - tests/services/Directory.Packages.props
+      - src/backend/barcode-master-api/**
+      - tests/backend/barcode-master-api/**
       - global.json
   push:
     branches:
       - main
     paths:
       - .github/workflows/barcode-master-api-ci.yml
-      - src/services/barcode-master-api/**
-      - tests/services/barcode-master-api/**
-      - src/services/Directory.Build.props
-      - src/services/Directory.Packages.props
-      - tests/services/Directory.Build.props
-      - tests/services/Directory.Packages.props
+      - src/backend/barcode-master-api/**
+      - tests/backend/barcode-master-api/**
       - global.json
   workflow_dispatch:
 
@@ -36,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOLUTION: src/services/barcode-master-api/BarcodeAPI.sln
+  SOLUTION: src/backend/barcode-master-api/BarcodeAPI.sln
 
 jobs:
   build-and-test:

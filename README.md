@@ -28,22 +28,28 @@ intelibill/
 ├── architecture_doc/           # Architecture & pattern docs
 ├── docs/                       # Setup, rollout, operations & functional docs
 ├── src/
-│   ├── backend/                # ASP.NET Core — Clean Architecture
-│   │   ├── Intelibill.Domain/
-│   │   ├── Intelibill.Application/
-│   │   ├── Intelibill.Infrastructure/
-│   │   └── Intelibill.Api/
+│   ├── backend/
+│   │   ├── intelibill/             # Merchant API — Clean Architecture
+│   │   │   ├── Intelibill.Domain/
+│   │   │   ├── Intelibill.Application/
+│   │   │   ├── Intelibill.Infrastructure/
+│   │   │   └── Intelibill.Api/
+│   │   ├── licensing/              # Licensing service (Intelibill.Licensing.slnx)
+│   │   ├── shared/                 # Shared backend libraries
+│   │   ├── barcode-master-api/     # Product lookup by barcode (BarcodeAPI.sln)
+│   │   └── hsn-finder-ai/          # AI HSN code lookup (Sankra.HsnFinder.sln)
 │   ├── frontend/               # Angular (Bun, PWA, NgRx, offline IndexedDB)
-│   ├── mobile/
-│   │   └── android/
-│   │       └── intelibill_mobile/  # Flutter Android
-│   └── services/               # Supporting services (own solutions, own package versions)
-│       ├── barcode-master-api/ # Product lookup by barcode (BarcodeAPI.sln)
-│       └── hsn-finder-ai/      # AI HSN code lookup (Sankra.HsnFinder.sln)
+│   ├── admin-frontend/         # Admin Angular web app
+│   ├── shared/frontend/        # Shared web workspace packages
+│   └── mobile/
+│       └── android/
+│           └── intelibill_mobile/  # Flutter Android
 ├── tests/
-│   ├── backend/unit/
-│   ├── backend/integration/    # Requires Docker (Testcontainers)
-│   ├── services/               # Supporting service tests
+│   ├── backend/
+│   │   ├── intelibill/             # Unit & integration tests (Testcontainers)
+│   │   ├── licensing/              # Licensing integration, browser & acceptance tests
+│   │   ├── shared/                 # Cross-consumer regression tests
+│   │   └── barcode-master-api/     # Barcode service tests
 │   └── frontend/
 ├── Directory.Build.props
 ├── Directory.Packages.props
@@ -63,15 +69,15 @@ See [CLAUDE.md](CLAUDE.md) for backend architecture and [architecture_doc/archit
 ### Backend
 
 ```bash
-dotnet build src/backend/Intelibill.slnx
+dotnet build src/backend/intelibill/Intelibill.slnx
 
-# Edit src/backend/Intelibill.Api/appsettings.Development.json with DB credentials
+# Edit src/backend/intelibill/Intelibill.Api/appsettings.Development.json with DB credentials
 
 dotnet ef database update \
-  --project src/backend/Intelibill.Infrastructure \
-  --startup-project src/backend/Intelibill.Api
+  --project src/backend/intelibill/Intelibill.Infrastructure \
+  --startup-project src/backend/intelibill/Intelibill.Api
 
-dotnet run --project src/backend/Intelibill.Api
+dotnet run --project src/backend/intelibill/Intelibill.Api
 ```
 
 API: `http://localhost:5202` — OpenAPI: `http://localhost:5202/openapi/v1.json` (dev only)

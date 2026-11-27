@@ -24,7 +24,7 @@ Start the local ASP.NET Core API backend:
 
 ```bash
 cd <path-to-repo>/intelibill
-dotnet run --project src/backend/Intelibill.Api
+dotnet run --project src/backend/intelibill/Intelibill.Api
 ```
 
 The backend will be available at `http://localhost:5277/api`.

@@ -1,7 +1,7 @@
 # P05-07 — Device contact and outstanding offline permission
 
 Provider operators see, per shop and opaque device reference, what the merchant service observed about offline
-permission. Pinned by `offline-device-observation-v1.json` and `tests/licensing/integration/P0507Tests*.cs`.
+permission. Pinned by `offline-device-observation-v1.json` and `tests/backend/licensing/integration/P0507Tests*.cs`.
 
 ## Rollout order
 

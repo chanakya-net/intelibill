@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../shared/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\Intelibill.Domain\Intelibill.Domain.csproj" />
+    <ProjectReference Include="..\..\shared\Intelibill.Shared.Security\Intelibill.Shared.Security.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Intelibill.Application.Unit.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <!-- Integration tests recompute the offline idempotency hash from the stored envelope payload. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Intelibill.Integration.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ErrorOr" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="WolverineFx" />
+  </ItemGroup>
+
+</Project>

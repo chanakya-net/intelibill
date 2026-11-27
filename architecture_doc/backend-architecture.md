@@ -19,10 +19,10 @@
 
 | Layer | Path | Responsibility |
 |---|---|---|
-| Domain | `src/backend/Intelibill.Domain/` | Entities, value objects, domain events, repository interfaces — zero dependencies |
-| Application | `src/backend/Intelibill.Application/` | Wolverine handlers, validators, use cases, error definitions — depends on Domain only |
-| Infrastructure | `src/backend/Intelibill.Infrastructure/` | EF Core DbContext, repositories, migrations, auth/token services, `PostgresSessionContextInterceptor` for RLS |
-| Api | `src/backend/Intelibill.Api/` | ASP.NET Core host, controllers, global exception middleware, DI wiring |
+| Domain | `src/backend/intelibill/Intelibill.Domain/` | Entities, value objects, domain events, repository interfaces — zero dependencies |
+| Application | `src/backend/intelibill/Intelibill.Application/` | Wolverine handlers, validators, use cases, error definitions — depends on Domain only |
+| Infrastructure | `src/backend/intelibill/Intelibill.Infrastructure/` | EF Core DbContext, repositories, migrations, auth/token services, `PostgresSessionContextInterceptor` for RLS |
+| Api | `src/backend/intelibill/Intelibill.Api/` | ASP.NET Core host, controllers, global exception middleware, DI wiring |
 
 ## Request Flow
 
@@ -253,12 +253,12 @@ on their own, so no target is ever locked out for longer than its window.
 
 ## Safe Errors and Diagnostics
 
-The mechanisms below live in `src/shared/backend/Intelibill.Shared.Web` (no application-project
+The mechanisms below live in `src/backend/shared/Intelibill.Shared.Web` (no application-project
 references) and serve both the merchant and the licensing API; each host injects its own policy
 (log level, PII masking, exporters). The licensing API reads `Observability:Logging`
 (`MinimumLevel`, `EnablePiiMasking` — on by default — and `AsyncBufferSize`), writes compact JSON
 to the console and traces requests through `SafeSpanProcessor` with no exporter yet.
-`tests/shared/P0102ConsumerRegressionTests` holds both hosts to the same envelope, sink and span
+`tests/backend/shared/P0102ConsumerRegressionTests` holds both hosts to the same envelope, sink and span
 outcome.
 
 **Public contract.** An exception that reaches `ExceptionHandlingMiddleware` is answered as
@@ -1041,10 +1041,10 @@ automatically; owners close months after review.
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 354 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1563 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 576 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 627 |
+| Domain unit | `tests/backend/intelibill/unit/Intelibill.Domain.Unit.Tests/` | 354 |
+| Application unit | `tests/backend/intelibill/unit/Intelibill.Application.Unit.Tests/` | 1563 |
+| API unit | `tests/backend/intelibill/unit/Intelibill.Api.Unit.Tests/` | 576 |
+| Integration | `tests/backend/intelibill/integration/Intelibill.Integration.Tests/` | 627 |
 | **Total** | | **3120** |
 
 Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2493 passing.
@@ -1057,7 +1057,7 @@ test database is a `CREATE DATABASE … TEMPLATE` copy of it, so a test never re
 migrations. The copy carries the runtime role's privileges.
 
 API hosts under test raise the database wait budgets (`TestDatabaseBudgets` in
-`tests/shared/IntegrationTestRuntime.cs`): `DatabaseLocks:Brief`/`Standard` become 20 s / 25 s
+`tests/backend/shared/IntegrationTestRuntime.cs`): `DatabaseLocks:Brief`/`Standard` become 20 s / 25 s
 instead of production's 3 s / 5 s, and the licensing command timeout 30 s. Concurrency tests
 queue several requests behind a held lock; on a loaded runner the next request could take longer
 than 3 s to arrive, the first waiter gave up, and the test saw an outage instead of contention.

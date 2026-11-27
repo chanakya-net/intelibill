@@ -117,8 +117,8 @@ For an explicitly selected local development database:
 
 ```sh
 dotnet ef database update \
-  --project src/backend/Intelibill.Infrastructure \
-  --startup-project src/backend/Intelibill.Api
+  --project src/backend/intelibill/Intelibill.Infrastructure \
+  --startup-project src/backend/intelibill/Intelibill.Api
 ```
 
 Supply the mail settings, link origin, and shared outbox key before enabling enrollment. Deploy the matching API and frontend contracts together.
