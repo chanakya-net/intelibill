@@ -515,10 +515,6 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
         }
 
-        using (var unkeyed = await SendAsync(shop, HttpMethod.Post, $"/api/customers/{customerId}/payments",
-            new { amount = 50m, paymentDate = "2026-06-25", notes = (string?)null }))
-            Assert.Equal(HttpStatusCode.Conflict, unkeyed.StatusCode);
-
         Assert.Equal(expensesBefore, await ScalarAsync<long>("SELECT count(*) FROM expenses WHERE shop_id = @shop", ("shop", shop.ShopId)));
         Assert.Equal(receiptsBefore, await ScalarAsync<long>("SELECT count(*) FROM payment_receipts WHERE shop_id = @shop", ("shop", shop.ShopId)));
 

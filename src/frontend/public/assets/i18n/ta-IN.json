@@ -571,7 +571,6 @@
       "status": "நிலை",
       "actions": "செயல்கள்",
       "statusReversed": "ரத்து செய்யப்பட்டது",
-      "statusLegacy": "பழையது (முறை பதிவில்லை)",
       "statusPosted": "பதிவு செய்யப்பட்டது",
       "reverse": "ரத்து செய்",
       "reversalReason": "ரத்து செய்வதற்கான காரணம்",

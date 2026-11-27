@@ -571,7 +571,6 @@
       "status": "स्थिती",
       "actions": "क्रिया",
       "statusReversed": "उलटवले",
-      "statusLegacy": "जुने (पद्धत नोंदवलेली नाही)",
       "statusPosted": "नोंदवले",
       "reverse": "उलटवा",
       "reversalReason": "उलटवण्याचे कारण",

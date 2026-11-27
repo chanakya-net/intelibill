@@ -170,7 +170,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             })
             .ToList();
 
-        request.Content = JsonContent.Create(new { items });
+        request.Content = JsonContent.Create(new { operationKey = $"intake-{Guid.NewGuid():N}", items });
 
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();

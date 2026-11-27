@@ -97,7 +97,7 @@ export interface AddInventoryBatchRowRequest {
 export interface AddInventoryBatchRequest {
   readonly items: readonly AddInventoryBatchRowRequest[];
   /** Durable identity of this chunk; resending the same rows under it never posts them twice. */
-  readonly operationKey?: string;
+  readonly operationKey: string;
 }
 
 export interface AddInventoryBatchRowError {

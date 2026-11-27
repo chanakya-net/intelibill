@@ -22,10 +22,6 @@ namespace Intelibill.Infrastructure.Services.StockIntake;
 /// </summary>
 /// <remarks>
 /// <para>
-/// An unkeyed row commits in its own posting transaction after the last authority check.
-/// Unplanned failures propagate because a failed commit cannot prove that nothing was saved.
-/// </para>
-/// <para>
 /// The scope resolves the request's session context through <c>IHttpContextAccessor</c> like any
 /// other scope in the request, so every row's connection carries the same RLS identity.
 /// </para>
@@ -38,7 +34,7 @@ internal sealed partial class InboundRowExecutor(
     public async Task<ErrorOr<AddInventoryResultDto>> ExecuteAsync(
         Guid shopId,
         Guid actorUserId,
-        InboundRowOperation? operation,
+        InboundRowOperation operation,
         InboundInventoryLineInput row,
         SessionClaims? session,
         CancellationToken cancellationToken)
@@ -52,8 +48,6 @@ internal sealed partial class InboundRowExecutor(
             return denied;
 
         ShopLicenceLease lease = default;
-        if (operation is null)
-            return await PostingTransaction.RunAsync(unitOfWork, ReceiveAsync, cancellationToken);
 
         // Only a failure inside the action is reported as retryable: the executor has not yet
         // committed and rolls the row back. A failure while reserving, completing or committing the
@@ -97,8 +91,8 @@ internal sealed partial class InboundRowExecutor(
                 return admission.Errors;
             lease = admission.Value;
 
-            // The row's own transaction (the executor's, or the plain one for an unkeyed row) carries
-            // the fence, so each row is authorized against its own business date, not once per manifest.
+            // The row's own transaction (the executor's) carries the fence, so each row is authorized
+            // against its own business date, not once per manifest.
             var shop = await services.GetRequiredService<IShopRepository>().GetByIdAsync(shopId, ct);
             if (shop is null)
                 return Errors.Shop.ShopNotFound;

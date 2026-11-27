@@ -14,7 +14,19 @@ public class RecordCustomerPaymentCommandValidatorTests
             Guid.NewGuid(),
             100m,
             DateOnly.FromDateTime(DateTime.UtcNow),
-            "Paid in cash");
+            "Paid in cash",
+            "pay-1");
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validate_WhenOperationKeyMissing_ReturnsError(string key)
+    {
+        var result = _validator.TestValidate(ValidCommand() with { OperationKey = key });
+
+        result.ShouldHaveValidationErrorFor(x => x.OperationKey)
+            .WithErrorCode("Payment.OperationKeyRequired");
+    }
 
     [Fact]
     public void Validate_WhenAmountIsNotPositive_ReturnsError()

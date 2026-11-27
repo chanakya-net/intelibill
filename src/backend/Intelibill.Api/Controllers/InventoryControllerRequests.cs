@@ -25,10 +25,10 @@ public sealed record AddInventoryRequest(
     DateTimeOffset? PerformedAt);
 
 /// <param name="OperationKey">
-/// Optional durable identity of this submission (1–60 characters). Send the same rows again under
+/// Required durable identity of this submission (1–60 characters). Send the same rows again under
 /// the same key after a lost response: committed rows replay, the rest are retried.
 /// </param>
-public sealed record AddInventoryBatchRequest(IReadOnlyList<AddInventoryBatchRowRequest> Items, string? OperationKey = null);
+public sealed record AddInventoryBatchRequest(IReadOnlyList<AddInventoryBatchRowRequest> Items, string? OperationKey);
 
 public sealed record AddInventoryBatchRowRequest(
     string ClientRowId,

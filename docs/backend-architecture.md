@@ -346,9 +346,10 @@ executor; `GET /api/financial-operations/{type}/{key}` (`OwnerOrManager`) checks
 membership and role before reading. A 404 `Operation.NotFound` means nothing committed is visible
 yet, never that a timed-out request failed — resending the identical request is what converges.
 
-**Compatibility.** `operationKey` is optional until every client sends one; an unkeyed payment
-still posts and logs `Legacy unkeyed financial command`. Receipts are retained financial records
-and are never deleted.
+**Required key.** Customer and supplier payments and bulk stock intake require `operationKey`; a
+request without one is refused with a 400 validation error on `OperationKey` (bulk intake:
+`Inventory.BatchOperationKeyInvalid`) and posts nothing. Receipts are retained financial records and
+are never deleted.
 
 **Web.** `FinancialOperationIntentService` (`core/services`) writes the frozen payload and a fresh
 key to `localStorage` before sending (a failed write sends nothing), replays only that payload, keeps
@@ -364,18 +365,18 @@ DI scope per row — its own `DbContext`, tracker and item/inventory caches — 
 item, batch, IN movement, inventory and payable together. A rejected row leaves no write; rows commit
 in order, so a later duplicate of an item + batch answers `Inventory.BatchNumberAlreadyExists`.
 
-**Keys.** With `operationKey` (1–60 chars) the handler first commits a `BulkIntakeManifest` receipt
+**Keys.** With the required `operationKey` (1–60 chars) the handler first commits a `BulkIntakeManifest` receipt
 whose hash covers every `clientRowId` (required, ≤ 64, unique) and row hash in order, then runs each
 row under a `BulkIntakeRow` receipt keyed `{len}:{operationKey}:{clientRowId}`. Resending the same
 request replays committed rows verbatim and runs the rest; any changed, added or removed row answers
 409 `Operation.PayloadMismatch` before a row runs. Rejected rows are not recorded and are evaluated
 again on a resend. Bulk receipts have no lookup slug: resending is the recovery path.
 
-**Failures.** For a keyed row, an unplanned failure while the row is staged and saved (connection
-loss, lost unique-index race) happens inside the executor's open transaction, so it is rolled back
-and reported as `retryable: true` / `Inventory.RowRetryable`; the remaining rows still run. A failure
-that may follow a commit (completing or committing the receipt, replaying it) and any failure of an
-unkeyed row propagate as a 500 instead, because "nothing was saved" cannot be promised. Cancellation
+**Failures.** An unplanned failure while a row is staged and saved (connection loss, lost
+unique-index race) happens inside the executor's open transaction, so it is rolled back and reported
+as `retryable: true` / `Inventory.RowRetryable`; the remaining rows still run. A failure that may
+follow a commit (completing or committing the receipt, replaying it) propagates as a 500 instead,
+because "nothing was saved" cannot be promised. Cancellation
 is never swallowed, so a cut request returns no summary that looks complete.
 
 **Free receipts.** A receipt whose rounded value is zero (sample, bonus stock) creates stock without a
@@ -576,10 +577,11 @@ payable of a resolved, unvoided receipt − active allocations. An allocation is
 has no reversal. The account ledger balance equals Σ invoice outstanding − unallocated credit
 (`PaymentAllocationTests.AssertBalancesReconcileAsync`).
 
-**Commands.** `POST customers/{id}/payments` and `suppliers/{id}/payments` take optional `method`,
-`bankAccountId`, `externalReference` and `allocations`; an omitted method is `UnknownRecordedMethod`,
-never cash. A request without those fields hashes exactly as before, so a pre-release retry still
-replays. `POST payments/{id}/allocations` (owner/manager, optional `operationKey`) applies more of a
+**Commands.** `POST customers/{id}/payments` and `suppliers/{id}/payments` take a required
+`operationKey` and optional `method`, `bankAccountId`, `externalReference`, `allocations` and `till`;
+an omitted method is `UnknownRecordedMethod`, never cash. The request hash covers those business
+fields and the till context but not the actor, so another owner or manager resending the key
+reconciles the same payment. `POST payments/{id}/allocations` (owner/manager, optional `operationKey`) applies more of a
 receipt; `POST payments/{id}/reversal` (owner only, reason 3–255, required `operationKey`) reverses the
 whole receipt once: a linked `PAYMENT_REVERSAL` (customer) or `REVERSAL` (supplier) ledger entry puts
 the amount back, the supplier expense is voided, the allocations stop counting, the receipt row is never
@@ -587,7 +589,8 @@ edited, and `payment_reversals.receipt_id` is unique. `GET payments/{id}` and `G
 serve the printable detail and the open documents.
 
 **Locks.** `IPaymentTransactionRunner` runs keyed requests inside `IFinancialOperationExecutor` (replay
-serialization first) and unkeyed ones in a plain transaction; the action then takes the party row and
+serialization first) and anything without an operation scope (locked reads, an unkeyed allocation)
+in a plain transaction; the action then takes the party row and
 its target rows sorted by id, `FOR NO KEY UPDATE` with a 5 s budget
 (`IPaymentReceiptRepository.LockPartyAndTargetsAsync`), the same customer → sale order a return uses.
 A lock timeout or deadlock answers 409 `Payment.Busy`. Allocation rules read outstanding under the lock
@@ -600,12 +603,6 @@ return on an invoice payments already settled pays out instead of cutting anothe
 purchase receipt with active allocations refuses void and supplier reassignment (409
 `Payment.DocumentHasAllocations`) and a cost correction below the allocated amount (409
 `Payment.CorrectionBelowAllocated`); those checks read before the write without the payment lock.
-
-**Legacy.** The `AddPaymentReceiptsAndAllocations` migration gives every existing ledger payment a
-receipt (`is_legacy`, `UNKNOWN_RECORDED_METHOD`, linked expense for suppliers, no allocation), shop by
-shop because the migrator is not BYPASSRLS. Re-run `scripts/db/backfill-payment-receipts.sql` once after
-rollout for payments an older instance recorded during the deploy. Rollback = stop calling allocation and
-reversal; receipt facts stay.
 
 ## Customer Credit Policy
 
@@ -1222,7 +1219,8 @@ period economics summary and its own `GrossTradingProfitChangePercent`; old `Net
 Expenses carry immutable `ExpenseTreatment`: Unclassified(0), Operating(1), SupplierSettlement(2),
 CapitalOrOtherExcluded(3). Omitted ordinary request treatment defaults to Unclassified; corrections
 inherit omission. Generic requests cannot assert supplier settlement. Supplier-payment provenance
-stamps settlement, and correction descendants retain both treatment and supplier ledger link.
+stamps settlement; such an expense is never corrected on its own, only reversed with its payment
+receipt.
 A differing supplier treatment is refused; normal classification changes use the existing audited
 replacement correction and both-month posting fences. Voided original expenses are excluded;
 the replacement contributes on its own `ExpenseDate`. Category names establish no treatment.
@@ -1237,15 +1235,6 @@ individual invoice. Unclassified counts/amounts are period-wide diagnostics. A c
 with no activity returns real zero amounts and null ratios. These recorded-cost trading metrics
 are not a general ledger or audited/after-income-tax profit; purchase-tax recoverability, modeled
 service costs and receipt-cost revaluation remain explicit limitations.
-
-Rollout: apply `20261107050412_AddExpenseTreatment` with the schema migrator before the API/web.
-Its safe default is `0`. It backfills supplier-linked roots and same-shop correction ancestry using
-cycle-safe recursive UNION, setting each shop context under FORCE RLS. The idempotent
-`scripts/db/backfill-expense-treatment.sql` can be rerun; it restores the caller's shop context.
-Remaining ordinary expenses require explicit operator classification. Deploy additive API fields
-before the web and compare a representative closed period: labels/completeness and restored dated
-loss/void history can differ, while frozen invoices/costs remain unchanged. Rollback can retain
-additive columns and legacy readers; never restore the unsafe tax-inclusive discount capacity.
 
 Fractional return costs in version2 replay the full affected sale-line history, including postings
 outside the report window. A line's original rounded sale cost is allocated cumulatively across

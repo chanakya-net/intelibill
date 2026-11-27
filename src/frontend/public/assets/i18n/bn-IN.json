@@ -571,7 +571,6 @@
       "status": "অবস্থা",
       "actions": "কার্যক্রম",
       "statusReversed": "বাতিল",
-      "statusLegacy": "পুরনো (পদ্ধতি নথিভুক্ত নয়)",
       "statusPosted": "নথিভুক্ত",
       "reverse": "বাতিল করুন",
       "reversalReason": "বাতিলের কারণ",

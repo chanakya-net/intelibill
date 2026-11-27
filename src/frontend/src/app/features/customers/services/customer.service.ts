@@ -88,7 +88,7 @@ export interface CustomerAccountSale {
   isOverdue?: boolean;
 }
 
-/** How the money moved, as the API names it. `UnknownRecordedMethod` = not recorded (legacy). */
+/** How the money moved, as the API names it. `UnknownRecordedMethod` = no method was recorded. */
 export type ReceiptTenderMethod =
   | 'Cash'
   | 'Upi'
@@ -158,7 +158,6 @@ export interface PaymentReceiptSummary {
   method: ReceiptTenderMethod;
   externalReference: string | null;
   businessDate: string;
-  isLegacy: boolean;
   isReversed: boolean;
   allocatedAmount: number;
   unallocatedAmount: number;
@@ -232,7 +231,6 @@ export interface PaymentReceiptDetail {
   businessDate: string;
   receivedAt: string;
   notes: string | null;
-  isLegacy: boolean;
   createdByName: string | null;
   allocatedAmount: number;
   unallocatedAmount: number;

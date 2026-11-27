@@ -571,7 +571,6 @@
       "status": "Status",
       "actions": "Actions",
       "statusReversed": "Reversed",
-      "statusLegacy": "Legacy (method not recorded)",
       "statusPosted": "Posted",
       "reverse": "Reverse",
       "reversalReason": "Reason for reversal",

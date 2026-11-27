@@ -313,7 +313,7 @@ public sealed class FinancialOperationTests(PostgreSqlTestFixture fixture) : IAs
     }
 
     [Fact]
-    public async Task UnkeyedPayment_StillPostsForCompatibility()
+    public async Task UnkeyedPayment_IsRefusedAndPostsNothing()
     {
         using var client = CreateClient();
         var (_, ownerToken) = await CreateShopAsync(client, await RegisterAsync(client));
@@ -321,10 +321,11 @@ public sealed class FinancialOperationTests(PostgreSqlTestFixture fixture) : IAs
 
         var response = await PostSupplierPaymentAsync(client, ownerToken, supplierId, 250m, operationKey: null);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.BadRequest && body.Contains("\"code\":\"OperationKey\"", StringComparison.Ordinal), body);
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.Equal(1, await db.SupplierLedgerEntries.CountAsync(e => e.SupplierId == supplierId));
+        Assert.Equal(0, await db.SupplierLedgerEntries.CountAsync(e => e.SupplierId == supplierId));
     }
 
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions

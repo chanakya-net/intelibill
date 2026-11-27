@@ -172,7 +172,7 @@ public class SuppliersControllerTests
 
         var result = await _controller.MakePayment(
             supplierId,
-            new MakePaymentRequest(500m, today, null),
+            new MakePaymentRequest(500m, today, null, "pay-1"),
             CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
@@ -183,7 +183,8 @@ public class SuppliersControllerTests
                 c.ActorUserId == userId &&
                 c.ActiveShopId == shopId &&
                 c.SupplierId == supplierId &&
-                c.Amount == 500m),
+                c.Amount == 500m &&
+                c.OperationKey == "pay-1"),
             Arg.Any<CancellationToken>());
     }
 
@@ -194,7 +195,7 @@ public class SuppliersControllerTests
 
         var result = await _controller.MakePayment(
             Guid.NewGuid(),
-            new MakePaymentRequest(100m, DateOnly.FromDateTime(DateTime.UtcNow), null),
+            new MakePaymentRequest(100m, DateOnly.FromDateTime(DateTime.UtcNow), null, "pay-1"),
             CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
@@ -214,7 +215,7 @@ public class SuppliersControllerTests
 
         var result = await _controller.MakePayment(
             Guid.NewGuid(),
-            new MakePaymentRequest(100m, DateOnly.FromDateTime(DateTime.UtcNow), null),
+            new MakePaymentRequest(100m, DateOnly.FromDateTime(DateTime.UtcNow), null, "pay-1"),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);

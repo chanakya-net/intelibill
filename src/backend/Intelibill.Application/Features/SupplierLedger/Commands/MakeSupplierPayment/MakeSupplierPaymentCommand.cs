@@ -4,6 +4,7 @@ using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 
+/// <param name="OperationKey">Durable identity of this payment; a retry with the same key replays it.</param>
 /// <param name="Method">How the money moved; absent means it was not recorded (never assumed cash).</param>
 /// <param name="Allocations">Purchase receipts this payment settles; the rest stays unallocated credit.</param>
 public sealed record MakeSupplierPaymentCommand(
@@ -13,7 +14,7 @@ public sealed record MakeSupplierPaymentCommand(
     decimal Amount,
     DateOnly PaymentDate,
     string? Notes,
-    string? OperationKey = null,
+    string OperationKey,
     ReceiptTenderMethod? Method = null,
     Guid? BankAccountId = null,
     string? ExternalReference = null,

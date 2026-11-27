@@ -571,7 +571,6 @@
       "status": "स्थिति",
       "actions": "कार्रवाई",
       "statusReversed": "उलटा गया",
-      "statusLegacy": "पुराना (तरीका दर्ज नहीं)",
       "statusPosted": "दर्ज",
       "reverse": "उलटें",
       "reversalReason": "उलटने का कारण",

@@ -13,7 +13,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 
@@ -22,7 +21,7 @@ namespace Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPa
 /// <see cref="PaymentReceipt"/> that explains both and any purchase-receipt allocations, in one
 /// transaction under the supplier → purchase receipt locks.
 /// </summary>
-public sealed partial class MakeSupplierPaymentCommandHandler(
+public sealed class MakeSupplierPaymentCommandHandler(
     IUserRepository userRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository ledgerRepository,
@@ -37,8 +36,7 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
     ITillPostingService tillPosting,
     IBusinessClock businessClock,
     IShopLicenceFence licenceFence,
-    PaymentCompletionPolicy completionPolicy,
-    ILogger<MakeSupplierPaymentCommandHandler> logger)
+    PaymentCompletionPolicy completionPolicy)
 {
     [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
@@ -68,14 +66,8 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         }
 
         var allocations = command.Allocations ?? [];
-        var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
-        if (operationKey is null)
-        {
-            LogUnkeyedPayment(command.ActiveShopId);
-            return await transactionRunner.RunAsync<SupplierLedgerEntryDto>(
-                scope: null, command.ActorUserId, command.SupplierId, requestHash: null,
-                ct => PostAsync(command, allocations, ct), cancellationToken);
-        }
+        var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey)
+            ?? throw new InvalidOperationException("The validator requires an operation key.");
 
         return await transactionRunner.RunAsync(
             new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.SupplierPayment, operationKey)
@@ -87,30 +79,24 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
             cancellationToken);
     }
 
-    /// <summary>A request without receipt details hashes exactly as before receipts existed.</summary>
-    internal static string ComputeRequestHash(MakeSupplierPaymentCommand command, IReadOnlyList<PaymentAllocationRequest> allocations)
-    {
-        if (command.Till is not null)
-            return FinancialOperationHasher.Compute(new { LegacyHash = ComputeRequestHash(command with { Till = null }, allocations), command.ActorUserId, command.Till });
-        var notes = string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim();
-        var amount = FinancialOperationHasher.NormalizeAmount(command.Amount);
-        var reference = string.IsNullOrWhiteSpace(command.ExternalReference) ? null : command.ExternalReference.Trim();
-        if (command.Method is null && command.BankAccountId is null && reference is null && allocations.Count == 0)
-            return FinancialOperationHasher.Compute(new SupplierPaymentPayload(command.SupplierId, amount, command.PaymentDate, notes));
-
-        return FinancialOperationHasher.Compute(new SupplierReceiptPayload(
+    /// <summary>
+    /// The payment's business fields and till context, never the actor: another owner or manager
+    /// resending the same key reconciles the same payment.
+    /// </summary>
+    internal static string ComputeRequestHash(MakeSupplierPaymentCommand command, IReadOnlyList<PaymentAllocationRequest> allocations) =>
+        FinancialOperationHasher.Compute(new SupplierPaymentPayload(
             command.SupplierId,
-            amount,
+            FinancialOperationHasher.NormalizeAmount(command.Amount),
             command.PaymentDate,
-            notes,
+            string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim(),
             command.Method,
             command.BankAccountId,
-            reference,
+            string.IsNullOrWhiteSpace(command.ExternalReference) ? null : command.ExternalReference.Trim(),
             allocations
                 .OrderBy(a => a.TargetId)
                 .Select(a => new AllocationPayload(a.TargetId, FinancialOperationHasher.NormalizeAmount(a.Amount)))
-                .ToList()));
-    }
+                .ToList(),
+            command.Till));
 
     private async Task<ErrorOr<SupplierLedgerEntryDto>> PostAsync(
         MakeSupplierPaymentCommand command,
@@ -128,11 +114,8 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
 
         var gate = await tillPosting.GateAsync(command.ActiveShopId, cancellationToken);
         if (gate.IsError) return gate.Errors;
-        if (gate.Value)
-        {
-            if (FinancialOperationHasher.NormalizeKey(command.OperationKey) is null) return Errors.Operation.InvalidKey;
-            if (command.Method is null or ReceiptTenderMethod.UnknownRecordedMethod) return Errors.Till.TenderRequired;
-        }
+        if (gate.Value && command.Method is (null or ReceiptTenderMethod.UnknownRecordedMethod))
+            return Errors.Till.TenderRequired;
         var acquired = await tillPosting.AcquireAsync(command.ActiveShopId, command.ActorUserId, command.Till, command.PaymentDate, cancellationToken);
         if (acquired.IsError) return acquired.Errors;
 
@@ -220,7 +203,7 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         {
             var appended = await tillPosting.AppendAsync(session, new(TillMovementSource.SupplierPayment, receipt.Id, "payment",
                 [new TenderLine(receipt.Method, receipt.Amount, null, null, receipt.ExternalReference, receipt.BankAccountId)], -1m,
-                businessClock.UtcNow, command.OperationKey!.Trim(), command.Notes), command.ActorUserId, cancellationToken);
+                businessClock.UtcNow, command.OperationKey.Trim(), command.Notes), command.ActorUserId, cancellationToken);
             if (appended.IsError) return appended.Errors;
         }
 
@@ -230,14 +213,7 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         return new SupplierLedgerEntryDto(e.Id, e.SupplierId, e.EntryType, e.Amount, e.EntryDate, e.Notes, receipt.Id);
     }
 
-    [LoggerMessage(
-        Level = LogLevel.Warning,
-        Message = "Legacy unkeyed financial command: supplier payment made without an operation key in shop {ShopId}.")]
-    private partial void LogUnkeyedPayment(Guid shopId);
-
-    private sealed record SupplierPaymentPayload(Guid SupplierId, decimal Amount, DateOnly PaymentDate, string? Notes);
-
-    private sealed record SupplierReceiptPayload(
+    private sealed record SupplierPaymentPayload(
         Guid SupplierId,
         decimal Amount,
         DateOnly PaymentDate,
@@ -245,7 +221,8 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         ReceiptTenderMethod? Method,
         Guid? BankAccountId,
         string? ExternalReference,
-        IReadOnlyList<AllocationPayload> Allocations);
+        IReadOnlyList<AllocationPayload> Allocations,
+        TillPostingContext? Till);
 
     private sealed record AllocationPayload(Guid TargetId, decimal Amount);
 }

@@ -39,7 +39,6 @@ public sealed class PaymentReceiptDtoBuilder(
             receipt.BusinessDate,
             receipt.ReceivedAt,
             receipt.Notes,
-            receipt.IsLegacy,
             receipt.CreatedBy,
             await UserNameAsync(receipt.CreatedBy, cancellationToken),
             receipt.LedgerEntryId,

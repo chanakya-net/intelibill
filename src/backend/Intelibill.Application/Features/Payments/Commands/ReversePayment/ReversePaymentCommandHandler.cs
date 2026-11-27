@@ -1,5 +1,7 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Tills.Services;
+using Intelibill.Domain.ValueObjects;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -61,9 +63,7 @@ public sealed class ReversePaymentCommandHandler(
             { SuspensionAction = LicenceAction.ExistingPayment },
             command.ActorUserId,
             receipt.Id,
-            command.Till is null && command.SettlementEvidence is null
-                ? FinancialOperationHasher.Compute(new ReversalPayload(receipt.Id, reason))
-                : FinancialOperationHasher.Compute(new { ReceiptId = receipt.Id, Reason = reason, command.ActorUserId, command.Till, command.SettlementEvidence }),
+            FinancialOperationHasher.Compute(new ReversalPayload(receipt.Id, reason, command.Till, command.SettlementEvidence)),
             ct => ReverseAsync(receipt, reason, command, ct),
             cancellationToken);
     }
@@ -84,11 +84,13 @@ public sealed class ReversePaymentCommandHandler(
             return Errors.Shop.ShopNotFound;
 
         // The reversal posts today, never into the month of the payment it undoes. A supplier
-        // payment's reversal also voids its expense chain, which changes the month those expenses
-        // sit in: those months must be open too.
+        // payment's reversal also voids its expense (which can never be corrected on its own), and
+        // that changes the month the expense sits in: that month must be open too.
         var businessDate = businessClock.Today(shop.BusinessTimeZoneId);
-        var expensesToVoid = receipt.PartyType == PaymentPartyType.Supplier && receipt.ExpenseId is { } chainStart
-            ? await ActiveExpenseChainAsync(receipt.ShopId, chainStart, cancellationToken)
+        var expensesToVoid = receipt.PartyType == PaymentPartyType.Supplier && receipt.ExpenseId is { } expenseId
+            && await expenseRepository.GetByIdAsync(expenseId, cancellationToken) is { IsVoided: false } linkedExpense
+            && linkedExpense.ShopId == receipt.ShopId
+            ? [linkedExpense]
             : new List<Expense>();
         List<Error>? fenceErrors;
         if (expensesToVoid.Count == 0)
@@ -184,33 +186,5 @@ public sealed class ReversePaymentCommandHandler(
         return await dtoBuilder.BuildAsync(receipt, cancellationToken);
     }
 
-    /// <summary>
-    /// The payment was also booked as an expense; it no longer happened. An expense correction voids
-    /// the original and records a replacement, so the active expense may be further down the chain.
-    /// </summary>
-    private async Task<List<Expense>> ActiveExpenseChainAsync(Guid shopId, Guid expenseId, CancellationToken cancellationToken)
-    {
-        var active = new List<Expense>();
-        var pending = new Queue<Guid>([expenseId]);
-        var seen = new HashSet<Guid>();
-        while (pending.TryDequeue(out var id))
-        {
-            if (!seen.Add(id))
-                continue;
-
-            if (await expenseRepository.GetByIdAsync(id, cancellationToken) is { } expense
-                && expense.ShopId == shopId
-                && !expense.IsVoided)
-            {
-                active.Add(expense);
-            }
-
-            foreach (var correction in await expenseRepository.GetCorrectionsOfAsync(shopId, id, cancellationToken))
-                pending.Enqueue(correction.Id);
-        }
-
-        return active;
-    }
-
-    private sealed record ReversalPayload(Guid ReceiptId, string Reason);
+    private sealed record ReversalPayload(Guid ReceiptId, string Reason, TillPostingContext? Till, TillSettlementEvidence? SettlementEvidence);
 }

@@ -267,6 +267,7 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         request.Content = JsonContent.Create(new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new object[]
             {
                 new
@@ -395,7 +396,7 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new { items });
+        request.Content = JsonContent.Create(new { operationKey = $"intake-{Guid.NewGuid():N}", items });
 
         var response = await client.SendAsync(request);
 

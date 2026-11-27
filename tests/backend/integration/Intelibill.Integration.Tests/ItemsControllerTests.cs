@@ -709,6 +709,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         inboundRequest.Content = JsonContent.Create(new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new object[]
             {
                 new

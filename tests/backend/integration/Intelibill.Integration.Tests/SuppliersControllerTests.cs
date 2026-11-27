@@ -239,7 +239,8 @@ public sealed class SuppliersControllerTests(PostgreSqlTestFixture fixture) : IA
         {
             amount = 1500.50m,
             paymentDate = "2024-01-01",
-            notes = "Advance payment"
+            notes = "Advance payment",
+            operationKey = $"supplier-pay-{Guid.NewGuid():N}",
         });
 
         var paymentResponse = await client.SendAsync(paymentRequest);
@@ -270,7 +271,8 @@ public sealed class SuppliersControllerTests(PostgreSqlTestFixture fixture) : IA
         {
             amount = 1500.50m,
             paymentDate = "2024-01-01",
-            notes = "Advance payment"
+            notes = "Advance payment",
+            operationKey = $"supplier-pay-{Guid.NewGuid():N}",
         });
 
         var response = await client.SendAsync(request);
@@ -312,7 +314,8 @@ public sealed class SuppliersControllerTests(PostgreSqlTestFixture fixture) : IA
         {
             amount = 1500.50m,
             paymentDate = "2024-01-01",
-            notes = "Advance payment"
+            notes = "Advance payment",
+            operationKey = $"supplier-pay-{Guid.NewGuid():N}",
         });
 
         var paymentResponse = await client.SendAsync(paymentRequest);
@@ -387,7 +390,8 @@ public sealed class SuppliersControllerTests(PostgreSqlTestFixture fixture) : IA
         {
             amount = 750m,
             paymentDate = "2026-04-01",
-            notes = "Test payment"
+            notes = "Test payment",
+            operationKey = $"supplier-pay-{Guid.NewGuid():N}",
         });
         var paymentResponse = await client.SendAsync(paymentRequest);
         paymentResponse.EnsureSuccessStatusCode();

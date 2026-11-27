@@ -98,7 +98,6 @@ const account: CustomerAccount = {
       method: 'Upi',
       externalReference: 'UPI-1',
       businessDate: '2026-11-04',
-      isLegacy: false,
       isReversed: false,
       allocatedAmount: 10,
       unallocatedAmount: 20,

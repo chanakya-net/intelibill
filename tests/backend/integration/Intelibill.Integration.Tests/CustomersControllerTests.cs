@@ -331,6 +331,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             amount = 500m,
             paymentDate = "2026-04-15",
             notes = "Partial payment",
+            operationKey = $"customer-pay-{Guid.NewGuid():N}",
         });
 
         var paymentResponse = await client.SendAsync(paymentRequest);
@@ -374,6 +375,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             amount = 300m,
             paymentDate = "2026-04-15",
             notes = "Payment",
+            operationKey = $"customer-pay-{Guid.NewGuid():N}",
         });
         var paymentResponse = await client.SendAsync(paymentRequest);
         Assert.Equal(HttpStatusCode.OK, paymentResponse.StatusCode);
@@ -423,6 +425,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             amount = 100m,
             paymentDate = "2026-04-15",
             notes = (string?)null,
+            operationKey = $"customer-pay-{Guid.NewGuid():N}",
         });
         var response = await client.SendAsync(request);
 
