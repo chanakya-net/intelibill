@@ -25,7 +25,7 @@ Design, key types, invariants and consumer wiring: [architecture_doc/architectur
 The three projects are listed in every backend solution, so any of these builds them:
 
 ```bash
-dotnet build Intelibill.slnx                                    # repository root: both backends, shared, all tests
+dotnet build Intelibill.slnx                                    # repository root: all backends, shared, all tests
 dotnet build src/backend/intelibill/Intelibill.slnx            # merchant backend + shared
 dotnet build src/backend/licensing/Intelibill.Licensing.slnx   # licensing service + shared
 ```

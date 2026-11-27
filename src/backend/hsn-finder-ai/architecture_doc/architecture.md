@@ -92,4 +92,4 @@ No test makes a network call.
 - The `OpenAI` SDK has its own built-in retries. They stack with the service's Polly retry (2 retries, exponential), so a failing provider can be called more than 3 times per lookup.
 - An uncached lookup takes several seconds (a live run with a reasoning model and web search took about 6 to 9 seconds); cache hits are immediate.
 - Answers come from an AI model and are returned as received once they parse; the service does not validate HSN codes or tax percentages against any reference data.
-- Package versions live in the csproj; the local `Directory.Build.props` / `Directory.Packages.props` keep the root build settings and Central Package Management out. Do not add this service's packages to the root `Directory.Packages.props`.
+- Package versions live in the csproj; the local `Directory.Build.props` / `Directory.Packages.props` keep the root build settings and Central Package Management out. Do not add this service's packages to the root `Directory.Packages.props`. Its projects are also listed in the root `Intelibill.slnx` (`ProjectBoundaryAssertions` checks this), but they build with these local settings, not the root ones.

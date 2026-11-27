@@ -17,7 +17,7 @@ tests/backend/barcode-master-api/
   BarcodeAPI.Api.Tests/
 ```
 
-`BarcodeAPI.sln` includes the test project. Both directories carry their own `Directory.Build.props` / `Directory.Packages.props`, which keep the root build settings and Central Package Management out; package versions are pinned in each `.csproj`.
+`BarcodeAPI.sln` includes the test project; the root `Intelibill.slnx` lists all five projects too. Both directories carry their own `Directory.Build.props` / `Directory.Packages.props`, which keep the root build settings and Central Package Management out; package versions are pinned in each `.csproj`.
 
 ## Project Responsibilities
 

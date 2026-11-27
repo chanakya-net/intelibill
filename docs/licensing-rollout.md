@@ -213,7 +213,10 @@ its `changes` job maps the changed paths to projects with
 
 The consumer regression suites in `tests/backend/shared` run with whichever
 backend suite is selected. Every backend suite builds the root `Intelibill.slnx`
-(both backends and the shared projects) and then tests only its own test roots.
+(both backends, the shared projects and the standalone HSN Finder and Barcode
+services) and then tests only its own test roots; the standalone services
+keep their own workflows and tests, and changes under their folders do not
+select anything here.
 The delivery contract tests run on every run. Images are built and scanned on
 pull requests only; licensing and admin images are built for validation only.
 The `Build and test application` job is the single gate: it passes when every

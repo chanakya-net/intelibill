@@ -17,4 +17,11 @@
   <Project Path="src/backend/shared/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj" />
   <Project Path="src/backend/shared/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj" />
   <Project Path="tests/backend/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj" />
+  <Project Path="tests/backend/hsn-finder-ai/HsnFinder.Api.Tests/HsnFinder.Api.Tests.csproj" />
+  <Project Path="tests/backend/barcode-master-api/BarcodeAPI.Api.Tests/BarcodeAPI.Api.Tests.csproj" />
+  <Project Path="src/backend/hsn-finder-ai/Sankra.HsnFinder.Api/HsnFinder.Api.csproj" />
+  <Project Path="src/backend/barcode-master-api/BarcodeAPI.Api/BarcodeAPI.Api.csproj" />
+  <Project Path="src/backend/barcode-master-api/BarcodeAPI.Application/BarcodeAPI.Application.csproj" />
+  <Project Path="src/backend/barcode-master-api/BarcodeAPI.Domain/BarcodeAPI.Domain.csproj" />
+  <Project Path="src/backend/barcode-master-api/BarcodeAPI.Infrastructure/BarcodeAPI.Infrastructure.csproj" />
 </Solution>

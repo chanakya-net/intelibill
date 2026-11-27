@@ -51,7 +51,7 @@ intelibill/
 ├── docs/                       # Cross-project setup, rollout, operations & security notes
 ├── scripts/                    # Database and developer scripts
 ├── docker-compose.yml          # Local database and full local stack
-├── Intelibill.slnx             # Root solution: merchant, licensing, shared and their tests
+├── Intelibill.slnx             # Root solution: every backend service, shared projects and their tests
 ├── Directory.Build.props       # Root MSBuild settings (warnings are errors)
 ├── Directory.Packages.props    # Central Package Management
 ├── package.json, bun.lock      # Bun workspaces and the single lockfile

@@ -2,7 +2,7 @@
 
 Small layered ASP.NET Core API that stores product records keyed by barcode and looks them up. A single-barcode lookup that misses the local PostgreSQL database falls back to Open Food Facts and saves the hit.
 
-It is a separately deployable service inside the [intelibill monorepo](../../../README.md) with its own solution; it is not part of `Intelibill.slnx` and shares no code with the other backend projects.
+It is a separately deployable service inside the [intelibill monorepo](../../../README.md) with its own solution; the root `Intelibill.slnx` also lists its projects, but it shares no code with the other backend projects.
 
 ## Stack
 

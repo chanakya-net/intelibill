@@ -2,7 +2,7 @@
 
 Small ASP.NET Core API that returns the GST HSN code(s) and tax-rate scenarios for a product name in India. It sends the product name to an AI model through any OpenAI-compatible endpoint (OpenAI by default; the provider, endpoint, key and model are configuration) and returns the model's JSON answer in a fixed response envelope.
 
-It is a separately deployable service inside the [intelibill monorepo](../../../README.md) with its own solution; it is not part of `Intelibill.slnx` and shares no code with the other backend projects.
+It is a separately deployable service inside the [intelibill monorepo](../../../README.md) with its own solution; the root `Intelibill.slnx` also lists its projects, but it shares no code with the other backend projects.
 
 ## Stack
 
