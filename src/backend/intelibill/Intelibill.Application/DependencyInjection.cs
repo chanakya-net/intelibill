@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderTrading>();
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderHistory>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
+        services.AddScoped<SaleReturnStockPoster>();
+        services.AddScoped<Intelibill.Application.Features.Sales.Commands.RecordSaleReturn.SaleReturnCreditIssuer>();
         services.AddScoped<Features.Tills.ITillPostingService, Features.Tills.Services.TillPostingService>();
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();
         services.AddScoped<Features.Shops.TillSettings.ShopTillSettingsService>();
