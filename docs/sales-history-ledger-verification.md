@@ -9,10 +9,10 @@ This checklist captures the end-to-end verification steps for the Sales History 
 
 ## Frontend
 
-- Install: `cd src/frontend && bun install`
-- Sales tests: `cd src/frontend && bun run test -- sales`
-- i18n coverage: `cd src/frontend && bun run test -- i18n-coverage`
-- Build: `cd src/frontend && bun run build`
+- Install: `cd src/frontend/intelibill/intelibill && bun install`
+- Sales tests: `cd src/frontend/intelibill/intelibill && bun run test -- sales`
+- i18n coverage: `cd src/frontend/intelibill/intelibill && bun run test -- i18n-coverage`
+- Build: `cd src/frontend/intelibill/intelibill && bun run build`
 
 ## Manual UX verification (requires running app + login)
 

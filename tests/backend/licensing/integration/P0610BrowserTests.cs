@@ -36,8 +36,8 @@ public sealed class P0610BrowserTests(LicensingPostgreSqlFixture database, ITest
         await ReadAsync(await ApproveAsync(finance, package.Account, failed, Command(preview, 2000, "Preserve")), HttpStatusCode.Created);
         await ControlAsync(finance, package.Account, failed, "Failed", P0110CookieBrowser.Origin);
         await P0610Tests.PumpRefundsAsync(fixture);
-        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend");
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var staged = new MerchantWebBuild(merchantRoot);
         await using var merchantApi = await P0310ApiRelay.StartAsync(package.Payer.Client.BaseAddress!, ct);
         await using var adminApi = await P0310ApiRelay.StartAsync(fixture.Checkout.Delivery.LicensingApi.BaseAddress!, ct);
@@ -59,7 +59,7 @@ public sealed class P0610BrowserTests(LicensingPostgreSqlFixture database, ITest
             ["FAILED"] = failed.ToString(),
         };
         var run = P0609BrowserTests.RunBrowserAsync(adminRoot, targets, "recovery", evidence,
-            "../../tests/backend/licensing/browser/playwright.p0610.config.ts", "P0610_", output, ct);
+            "../../../tests/backend/licensing/browser/playwright.p0610.config.ts", "P0610_", output, ct);
         await WaitForAsync(run, scratch, "approved", ct);
         await P0306BrowserTests.SetFixtureBrowserOriginAsync(fixture.Checkout, P0110CookieBrowser.Origin, ct);
         SetCredentialTime(fixture, fixture.Checkout.Trial.Catalogue.Clock.GetUtcNow());

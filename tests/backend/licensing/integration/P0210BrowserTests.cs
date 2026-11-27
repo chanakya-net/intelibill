@@ -13,7 +13,7 @@ public sealed class P0210BrowserTests(LicensingPostgreSqlFixture database, ITest
     : IClassFixture<LicensingPostgreSqlFixture>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-    private const string BrowserCommand = "bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0210.config.ts";
+    private const string BrowserCommand = "bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0210.config.ts";
 
     [P0210BrowserFact]
     [Trait("Category", "Browser")]
@@ -31,7 +31,7 @@ public sealed class P0210BrowserTests(LicensingPostgreSqlFixture database, ITest
         var evidence = Environment.GetEnvironmentVariable("P0210_EVIDENCE_DIR");
         Assert.False(string.IsNullOrWhiteSpace(evidence), "Set P0210_EVIDENCE_DIR for the required browser observations.");
         Directory.CreateDirectory(evidence);
-        var root = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var root = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         using var staged = new MerchantWebBuild(root);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         await using var web = await StartMerchantWebAsync(staged.Root, owner.Client.BaseAddress!, timeout.Token);
@@ -127,7 +127,7 @@ public sealed class P0210BrowserTests(LicensingPostgreSqlFixture database, ITest
     private async Task RunAsync(BrowserRun run, string phase, CancellationToken ct)
     {
         var start = new ProcessStartInfo("bun") { WorkingDirectory = run.Root, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0210.config.ts", "--grep", "@" + phase })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0210.config.ts", "--grep", "@" + phase })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(run.Root, "node_modules");
         start.Environment["P0210_MERCHANT_WEB"] = run.Origin;

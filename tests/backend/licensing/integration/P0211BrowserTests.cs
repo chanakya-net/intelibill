@@ -18,7 +18,7 @@ public sealed class P0211BrowserTests(LicensingPostgreSqlFixture database, ITest
     private static readonly DateTimeOffset OriginalEnd = P0210Fixture.Start.AddDays(14);
     private static readonly DateTimeOffset ExtendedEnd = Utc("2027-03-10T13:15:30.123456Z");
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-    private const string Config = "../../tests/backend/licensing/browser/playwright.p0211.config.ts";
+    private const string Config = "../../../tests/backend/licensing/browser/playwright.p0211.config.ts";
 
     [P0211BrowserFact]
     [Trait("Category", "Browser")]
@@ -36,10 +36,10 @@ public sealed class P0211BrowserTests(LicensingPostgreSqlFixture database, ITest
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         var ct = timeout.Token;
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var licensingClient = hosts.Licensing.CreateClient();
         await using var adminWeb = await StartAdminWebAsync(adminRoot, licensingClient.BaseAddress!, ct);
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, owner.Client.BaseAddress!, ct);
         var temporary = Directory.CreateTempSubdirectory("intelibill-p0211-");
         var run = new BrowserRun(adminRoot, adminWeb.Origin, merchantWeb.Origin, evidence, temporary.FullName, account, owner, staff);
@@ -161,7 +161,7 @@ public sealed class P0211BrowserTests(LicensingPostgreSqlFixture database, ITest
         await git.Process.WaitForExitAsync(ct);
         Assert.Equal(0, git.Process.ExitCode);
         using var worker = JsonDocument.Parse(await File.ReadAllTextAsync(
-            Path.Combine(ProjectPaths.Root, "src/frontend/dist/INVENTORY/browser/ngsw.json"), ct));
+            Path.Combine(ProjectPaths.Root, "src/frontend/intelibill/dist/INVENTORY/browser/ngsw.json"), ct));
         var adminIndex = Path.Combine(run.Root, "dist/ADMIN/browser/index.html");
         await WriteEvidenceAsync(run, "build-evidence.json", new
         {

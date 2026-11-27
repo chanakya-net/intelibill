@@ -82,6 +82,6 @@ dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration
 P0212_RUN_BROWSER=1 P0212_EVIDENCE_DIR=<dir> dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0212BrowserTests'
 ```
 
-The browser demo builds nothing itself: build `src/admin-frontend` and `src/frontend` first. It uses real Kestrel
+The browser demo builds nothing itself: build `src/frontend/intelibill/licensing` and `src/frontend/intelibill/intelibill` first. It uses real Kestrel
 hosts, PostgreSQL, provider password + TOTP and merchant sign-in, and fixes only the licensing lifecycle clock. No
 live payment provider, production enforcement or entitlement delivery is exercised.

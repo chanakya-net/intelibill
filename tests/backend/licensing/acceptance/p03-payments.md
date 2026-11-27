@@ -60,10 +60,10 @@ For each literal command below, capture cwd, `git rev-parse HEAD`, UTC start/end
 | R04 | `repository root` | `dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0304Tests' --logger 'console;verbosity=normal'` |
 | R05 | `repository root` | `P0305_EVIDENCE_DIR="$P0312_EVIDENCE_ROOT/p0305" dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0301Tests|FullyQualifiedName~P0302Tests|FullyQualifiedName~P0303Tests|FullyQualifiedName~P0305Tests|FullyQualifiedName~P0306Tests|FullyQualifiedName~P0307Tests|FullyQualifiedName~P0308Tests|FullyQualifiedName~P0309Tests|FullyQualifiedName~P0310Tests|FullyQualifiedName~P0311Tests' --logger 'console;verbosity=normal'` |
 | R06 | `repository root` | `dotnet test tests/backend/intelibill/unit/Intelibill.Api.Unit.Tests/Intelibill.Api.Unit.Tests.csproj --filter 'FullyQualifiedName~MerchantCheckoutPaymentRelayTests' --logger 'console;verbosity=normal'` |
-| R07 | `src/frontend` | `bun run test --run src/app/features/billing` |
-| R08 | `src/admin-frontend` | `bun run test --watch=false` |
-| R09 | `repository root` | `cd src/frontend && bun run build` |
-| R10 | `repository root` | `cd src/admin-frontend && bun run build` |
+| R07 | `src/frontend/intelibill` | `bun run test --run src/app/features/billing` |
+| R08 | `src/frontend/licensing` | `bun run test --watch=false` |
+| R09 | `repository root` | `cd src/frontend/intelibill && bun run build` |
+| R10 | `repository root` | `cd src/frontend/licensing && bun run build` |
 | R11 | `repository root` | `P0301_RUN_BROWSER=1 P0301_EVIDENCE_DIR="$P0312_EVIDENCE_ROOT/p0301" dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0301BrowserTests' --logger 'console;verbosity=normal'` |
 | R12 | `repository root` | `P0302_RUN_BROWSER=1 P0302_EVIDENCE_DIR="$P0312_EVIDENCE_ROOT/p0302" dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0302BrowserTests' --logger 'console;verbosity=normal'` |
 | R13 | `repository root` | `P0303_RUN_BROWSER=1 P0303_EVIDENCE_DIR="$P0312_EVIDENCE_ROOT/p0303" dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0303BrowserTests' --logger 'console;verbosity=normal'` |

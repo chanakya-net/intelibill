@@ -62,5 +62,5 @@ merchant service issues no further permit under the restriction.
 
 - PostgreSQL: both services on Testcontainers with fixed clocks and locally generated signing keys; no live licensing
   provider, key vault or device is contacted.
-- Browser: `src/admin-frontend/tests/release/device-permits.spec.ts` runs the production build in Chromium at 1440 px and
+- Browser: `src/frontend/licensing/tests/release/device-permits.spec.ts` runs the production build in Chromium at 1440 px and
   390 px against routed fixture HTTP. It shows what the built panel renders for those facts, not live provider behaviour.

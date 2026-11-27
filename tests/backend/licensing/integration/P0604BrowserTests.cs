@@ -20,7 +20,7 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
         await using var f = await P0308Fixture.StartAsync(database, P0601Tests.January31, browser: true);
         var (package, term) = await P0604Tests.PrepareAsync(f);
         var original = await P0308Tests.TermRowAsync(f, term);
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         using var build = new MerchantWebBuild(frontend);
         using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(4));
         await using var web = await StartMerchantWebAsync(build.Root, package.Payer.Client.BaseAddress!, limit.Token);
@@ -107,7 +107,7 @@ public sealed class P0604BrowserTests(LicensingPostgreSqlFixture database, ITest
     private static ProcessStartInfo Playwright(string frontend, string evidence, string origin, P0308Fixture.Package p, Guid term)
     {
         var run = new ProcessStartInfo("bun") { WorkingDirectory = frontend, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0604.config.ts" })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0604.config.ts" })
             run.ArgumentList.Add(arg);
         run.Environment["P0604_EVIDENCE_DIR"] = evidence;
         run.Environment["P0604_WEB"] = origin;

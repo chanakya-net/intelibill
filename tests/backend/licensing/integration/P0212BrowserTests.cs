@@ -50,9 +50,9 @@ public sealed class P0212BrowserTests(LicensingPostgreSqlFixture database, ITest
         var before = await FactsAsync(licensingOwner);
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(12));
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         await using var adminWeb = await StartAdminWebAsync(adminRoot, licensingClient.BaseAddress!, timeout.Token);
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, timeout.Token);
         var secrets = Directory.CreateTempSubdirectory("intelibill-p0212-proof-");
         var run = new BrowserRun(adminRoot, adminWeb.Origin, merchantWeb.Origin, "", evidence, seeded);
@@ -208,15 +208,15 @@ public sealed class P0212BrowserTests(LicensingPostgreSqlFixture database, ITest
         await using var process = new OwnedProcess(git);
         var sha = (await process.Process.StandardOutput.ReadToEndAsync(ct)).Trim();
         await process.Process.WaitForExitAsync(ct);
-        var ngsw = Path.Combine(ProjectPaths.Root, "src/frontend/dist/INVENTORY/browser/ngsw.json");
+        var ngsw = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill/dist/INVENTORY/browser/ngsw.json");
         using var merchantBuild = JsonDocument.Parse(await File.ReadAllTextAsync(ngsw, ct));
-        var adminIndex = Path.Combine(ProjectPaths.Root, "src/admin-frontend/dist/ADMIN/browser/index.html");
+        var adminIndex = Path.Combine(ProjectPaths.Root, "src/frontend/licensing/dist/ADMIN/browser/index.html");
         await File.WriteAllTextAsync(Path.Combine(run.Evidence, "build-evidence.json"), JsonSerializer.Serialize(new
         {
             sha, merchantBuildId = merchantBuild.RootElement.GetProperty("appData").GetProperty("buildId").GetString(),
             adminIndexSha256 = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(adminIndex, ct))),
             lifecycleClock = new { start = P0212Fixture.Now, end = P0212Fixture.Ends },
-            command = "bun x playwright test --config ../../tests/backend/licensing/browser/" + Config,
+            command = "bun x playwright test --config ../../../tests/backend/licensing/browser/" + Config,
             provenance = "Local fixture only: no live payment provider, production enforcement or external delivery",
         }, Indented), ct);
     }
@@ -224,7 +224,7 @@ public sealed class P0212BrowserTests(LicensingPostgreSqlFixture database, ITest
     private async Task RunPhaseAsync(BrowserRun run, string phase, CancellationToken token)
     {
         var start = new ProcessStartInfo("bun") { WorkingDirectory = run.Root, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/" + Config, "--grep", "@" + phase })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/" + Config, "--grep", "@" + phase })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(run.Root, "node_modules");
         start.Environment["P0112_ADMIN_WEB"] = run.Admin;

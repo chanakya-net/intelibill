@@ -85,7 +85,7 @@ The current cost scenarios and source links are maintained in [infrastructure-ar
 
 ## 2. Azure Container Apps as the compute platform
 
-**Context.** The repository already builds `src/backend/intelibill/Dockerfile` and `src/frontend/Dockerfile`. The platform should consume those without re-architecture.
+**Context.** The repository already builds `src/backend/intelibill/Dockerfile` and `src/frontend/intelibill/Dockerfile`. The platform should consume those without re-architecture.
 
 **Options.**
 
@@ -403,7 +403,7 @@ New Relic answers a question Log Analytics genuinely cannot: which database quer
 
 **Decision.** It does not. Container.
 
-**Why.** `src/frontend/angular.json` sets `outputMode: "server"` with `prerender: false`, and `src/frontend/Dockerfile` runs `bun run serve:ssr:INVENTORY` on port 4000. This is server-side rendering — a live process handling each request. Static Web Apps serves files from storage and has nowhere to run it.
+**Why.** `src/frontend/intelibill/angular.json` sets `outputMode: "server"` with `prerender: false`, and `src/frontend/intelibill/Dockerfile` runs `bun run serve:ssr:INVENTORY` on port 4000. This is server-side rendering — a live process handling each request. Static Web Apps serves files from storage and has nowhere to run it.
 
 Determined from configuration rather than assumed. Had `prerender` been true with `outputMode: "static"`, Static Web Apps would have been the better and cheaper choice.
 

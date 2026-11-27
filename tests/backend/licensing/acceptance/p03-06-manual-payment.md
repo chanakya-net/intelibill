@@ -13,4 +13,4 @@ dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration
 P0306_RUN_BROWSER=1 P0306_EVIDENCE_DIR=/absolute/local/evidence dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0306BrowserTests.FinanceConfirmsFullManualReceiptAndRecoversLostReply' --logger 'console;verbosity=normal'
 ```
 
-Build shipping admin assets with `cd src/admin-frontend && bun run build` first. The harness invokes `bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0306.config.ts` from that directory and checks PostgreSQL counts after Chromium exits.
+Build shipping admin assets with `cd src/frontend/licensing && bun run build` first. The harness invokes `bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0306.config.ts` from that directory and checks PostgreSQL counts after Chromium exits.

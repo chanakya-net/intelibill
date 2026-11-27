@@ -78,10 +78,10 @@ recovery routes belong to #840 and #842.
 | `dotnet test tests/backend/shared/P0102ConsumerRegressionTests/Intelibill.Shared.P0102ConsumerRegressionTests.csproj` | 14 passed |
 | `dotnet test tests/backend/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed |
 | `dotnet build Intelibill.slnx -warnaserror` | 0 warnings, 0 errors |
-| `cd src/admin-frontend && bun run test --watch=false` | 7 passed |
-| `cd src/admin-frontend && bun test tests/server.test.mjs` | 13 passed |
-| `cd src/admin-frontend && bun run audit:release` | Build and Chromium smoke test passed |
-| `cd src/frontend && bun run build` | Build and worker packaging passed with existing size-budget warnings |
+| `cd src/frontend/licensing && bun run test --watch=false` | 7 passed |
+| `cd src/frontend/licensing && bun test tests/server.test.mjs` | 13 passed |
+| `cd src/frontend/licensing && bun run audit:release` | Build and Chromium smoke test passed |
+| `cd src/frontend/intelibill && bun run build` | Build and worker packaging passed with existing size-budget warnings |
 | `git diff --check` | Passed |
 
 TOTP uses the [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238.html)

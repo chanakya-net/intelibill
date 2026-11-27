@@ -27,7 +27,7 @@ public sealed class P0206BrowserTests(LicensingPostgreSqlFixture database, ITest
         await using var licensing = new LicensingApiFactory(runtime, clock: TimeProvider.System, settings: settings);
         licensing.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
         using var client = licensing.CreateClient();
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         await using var adminWeb = await StartAdminWebAsync(adminRoot, client.BaseAddress!, deadline.Token);
 
@@ -80,7 +80,7 @@ public sealed class P0206BrowserTests(LicensingPostgreSqlFixture database, ITest
         {
             WorkingDirectory = adminRoot, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0206.config.ts" })
+        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0206.config.ts" })
             playwright.ArgumentList.Add(argument);
         playwright.Environment["NODE_PATH"] = Path.Combine(adminRoot, "node_modules");
         playwright.Environment["P0112_ADMIN_WEB"] = adminWeb;

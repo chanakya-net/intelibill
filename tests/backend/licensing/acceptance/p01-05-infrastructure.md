@@ -19,7 +19,7 @@ identities are fixed local development values.
 | Workflow contract | `bash .github/scripts/tests/workflow-contracts.test.sh` |
 | Web image contract | `bash .github/scripts/tests/frontend-image-contract.test.sh` |
 | Migration image contract (builds both bundles) | `bash .github/scripts/tests/migration-image-contract.test.sh` |
-| Admin runtime server | `node --test src/admin-frontend/tests/server.test.mjs` |
+| Admin runtime server | `node --test src/frontend/licensing/tests/server.test.mjs` |
 | Production excludes local settings | `tofu -chdir=.tofu/modules/environment-infrastructure test -filter=tests/contract.tftest.hcl` (after `init -backend=false`) |
 | Real stack, PostgreSQL and Chromium | `P0105_PROJECT=intelibill-p01-05-<name> P0105_ARTIFACTS=<dir> bash scripts/dev/test-licensing-stack.sh --case all` |
 
@@ -126,7 +126,7 @@ Red before implementation (assertions added first, product files absent):
 | `validate-phase-11-workflows.test.sh` | 1 | `pull-request validation does not watch src/backend/licensing/**` |
 | `frontend-image-contract.test.sh` | 1 | `Admin web Dockerfile is missing` |
 | `migration-image-contract.test.sh` | 1 | `licensing migration Dockerfile is missing` (merchant static checks passed first) |
-| `node --test src/admin-frontend/tests/server.test.mjs` | 1 | `ERR_MODULE_NOT_FOUND .../src/admin-frontend/server.mjs` |
+| `node --test src/frontend/licensing/tests/server.test.mjs` | 1 | `ERR_MODULE_NOT_FOUND .../src/frontend/licensing/server.mjs` |
 
 The harness was not run against the baseline `docker-compose.yml`: its fixed
 container names (`intelibill_postgres`, ...) collide with the developer's
@@ -161,7 +161,7 @@ Green after implementation (`P0105_PROJECT=intelibill-p01-05-835`):
 
 | Command | Before review fixes | Expected result |
 | --- | --- | --- |
-| `node --test src/admin-frontend/tests/server.test.mjs` | Exit 1. A raw mixed-separator path produced an upstream request. | Both mixed-separator requests return 400 or 404 with `Cache-Control: no-store` and zero upstream requests. The admin prefix and its descendants keep forwarding. |
+| `node --test src/frontend/licensing/tests/server.test.mjs` | Exit 1. A raw mixed-separator path produced an upstream request. | Both mixed-separator requests return 400 or 404 with `Cache-Control: no-store` and zero upstream requests. The admin prefix and its descendants keep forwarding. |
 | `bash .github/scripts/tests/licensing-stack-harness.test.sh ambient` | Exit 1. A stubbed Docker up resolved a foreign volume. | Fresh startup and cleanup ignore ambient Compose files and `.env`. |
 | `bash .github/scripts/tests/licensing-stack-harness.test.sh foreign` | | The resolved model and ownership checks refuse a foreign volume before up or cleanup. |
 | `bash .github/scripts/tests/licensing-stack-harness.test.sh build` | Exit 1. The simulated Compose exit 17 became stack-up exit 0. | Stack-up returns 17, records the Compose log path and skips the health wait. |

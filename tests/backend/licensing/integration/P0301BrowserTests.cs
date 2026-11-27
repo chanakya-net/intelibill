@@ -13,7 +13,7 @@ public sealed class P0301BrowserTests(LicensingPostgreSqlFixture database, ITest
     : IClassFixture<LicensingPostgreSqlFixture>
 {
     private static readonly string[] Phases = ["review", "expiry"];
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0301.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0301.config.ts";
 
     [P0301BrowserFact]
     [Trait("Category", "Browser")]
@@ -53,7 +53,7 @@ public sealed class P0301BrowserTests(LicensingPostgreSqlFixture database, ITest
         }
         var version = await PublishPlanAsync(fixture);
         var expires = await CreateQuoteAsync(owner.Client, account, new(Guid.NewGuid(), version, "Month", [.. ids], 1, 1));
-        return new(Path.Combine(ProjectPaths.Root, "src/frontend"), evidence, owner.Client.BaseAddress!, owner.Email, account, other, expires);
+        return new(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"), evidence, owner.Client.BaseAddress!, owner.Email, account, other, expires);
     }
 
     private async Task RunAsync(BrowserFixture run, string origin, string phase, CancellationToken ct)

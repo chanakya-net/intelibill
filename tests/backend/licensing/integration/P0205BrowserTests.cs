@@ -39,7 +39,7 @@ public sealed class P0205BrowserTests(LicensingPostgreSqlFixture database, ITest
         var before = await MerchantAuthorityAsync();
 
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var web = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, deadline.Token);
         var evidence = Directory.CreateTempSubdirectory("intelibill-p0205-browser-").FullName;
         output.WriteLine($"Sanitized local Chromium evidence: {evidence}");
@@ -85,12 +85,12 @@ public sealed class P0205BrowserTests(LicensingPostgreSqlFixture database, ITest
 
     private static async Task RunPlaywrightAsync(BrowserFixture fixture, CancellationToken ct)
     {
-        var root = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var root = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         var start = new ProcessStartInfo("bun")
         {
             WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0205.config.ts" })
+        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0205.config.ts" })
             start.ArgumentList.Add(argument);
         start.Environment["NODE_PATH"] = Path.Combine(root, "node_modules");
         start.Environment["P0205_WEB"] = fixture.Web;

@@ -128,4 +128,4 @@ dotnet ef migrations has-pending-model-changes \
 
 Integration tests migrate ephemeral PostgreSQL Testcontainers under a schema owner; authenticated requests use a restricted runtime role with forced RLS. They cover actual source acceptance (1000+500+200−100−50−300=1250, counted1240/variance−10, separate UPI700), trigger/row-lock barriers, immutable evidence and tenant constraints. These commands do not imply approval to migrate an application or production database.
 
-From `src/frontend` run `bun run test --watch=false`, `bun run build`, then `bun run audit:ui:release`. Preserve existing build budgets and warnings; record actual results with the release rather than suppressing warnings.
+From `src/frontend/intelibill/intelibill` run `bun run test --watch=false`, `bun run build`, then `bun run audit:ui:release`. Preserve existing build budgets and warnings; record actual results with the release rather than suppressing warnings.

@@ -14,7 +14,7 @@ public sealed class P0303BrowserTests(LicensingPostgreSqlFixture database, ITest
     : IClassFixture<LicensingPostgreSqlFixture>
 {
     private static readonly string[] Phases = ["uncertain", "applying", "applied"];
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0303.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0303.config.ts";
 
     [P0303BrowserFact]
     [Trait("Category", "Browser")]
@@ -27,7 +27,7 @@ public sealed class P0303BrowserTests(LicensingPostgreSqlFixture database, ITest
         await using var fixture = await P0302Fixture.StartAsync(database, clock, browser: true);
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
         var other = await PrepareOtherAccountAsync(fixture, payer, quote);
-        var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend"), evidence, payer.Email, quote, other);
+        var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"), evidence, payer.Email, quote, other);
         using var built = new MerchantWebBuild(run.Frontend);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         var ct = timeout.Token;

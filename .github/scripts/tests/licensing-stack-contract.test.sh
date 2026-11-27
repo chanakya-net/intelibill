@@ -143,11 +143,11 @@ end
 
 builds = {
   "backend" => "src/backend/intelibill/Dockerfile",
-  "frontend" => "src/frontend/Dockerfile",
+  "frontend" => "src/frontend/intelibill/Dockerfile",
   "merchant-migrate" => "src/backend/intelibill/Dockerfile.migrate",
   "licensing-api" => "src/backend/licensing/Dockerfile",
   "licensing-migrate" => "src/backend/licensing/Dockerfile.migrate",
-  "admin-frontend" => "src/admin-frontend/Dockerfile",
+  "admin-frontend" => "src/frontend/licensing/Dockerfile",
 }
 builds.each do |name, dockerfile|
   build = services.fetch(name).fetch("build", {})

@@ -16,7 +16,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0308BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0308.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0308.config.ts";
     private static readonly string[] ShopNames = ["Renewal Central", "Renewal East"];
     private static readonly string[] Phases = ["renew", "applied"];
 
@@ -35,7 +35,7 @@ public sealed class P0308BrowserTests(LicensingPostgreSqlFixture database, ITest
         // 2 May 2027, 13:00 IST: two days and three hours into grace after the 30 April 10:00 IST paid-through.
         fixture.At(P0308Tests.April30.AddDays(2).AddHours(3));
 
-        var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend"), evidence, package.Payer.Email, package.Account, term,
+        var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"), evidence, package.Payer.Email, package.Account, term,
             first.AmountPaise);
         using var staged = new MerchantWebBuild(run.Frontend);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));

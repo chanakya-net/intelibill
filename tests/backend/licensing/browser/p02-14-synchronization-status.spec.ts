@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import type { EntitlementSynchronization } from '../../../../src/shared/frontend/api/src/entitlement-synchronization';
+import type { EntitlementSynchronization } from '../../../../src/frontend/shared/api/src/entitlement-synchronization';
 import { origin as admin } from './p01-12-fixture';
 import { account, commerce, evidence, merchant, merchantSession, prepareProvider, storedMerchantToken } from './entitlement-browser-fixture';
 

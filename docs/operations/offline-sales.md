@@ -82,7 +82,7 @@ Offline billing is a controlled fallback for shops that need to keep one billing
 
 Run this checklist against a production build because Angular's service worker is not fully exercised in development mode.
 
-- Build with `cd src/frontend && bun run build`.
+- Build with `cd src/frontend/intelibill && bun run build`.
 - Serve the production output over `http://localhost:<port>` or another local HTTPS/localhost origin, for example `PORT=4207 node dist/INVENTORY/server/server.mjs`.
 - Run `bun run audit:ui:release` against that build. It drives the built worker against a legacy deployment: cross-shop, offline, old-tab upgrade, re-registration, rollout flip and queued-sale cases.
 - Check `dist/INVENTORY/browser/ngsw-worker.js`: it must start with `/* intelibill:protected-api-worker */`, with Angular's worker beside it as `ngsw-angular-worker.js`. `ngsw.json` must list the app shell and have no data group over `/api`.

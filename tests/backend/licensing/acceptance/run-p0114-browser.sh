@@ -50,7 +50,7 @@ legacy_digest() {
 
 printf 'P01-14 fixture output in %s\n' "$artifacts"
 dotnet build src/backend/licensing/Intelibill.Licensing.Api -warnaserror >"$artifacts/api-build.log"
-(cd src/admin-frontend && bun run build) >"$artifacts/web-build.log" 2>&1
+(cd src/frontend/licensing && bun run build) >"$artifacts/web-build.log" 2>&1
 docker run -d --name "$project-db" -p 127.0.0.1::5432 \
   -e POSTGRES_PASSWORD=fixture-bootstrap postgres:17-alpine >/dev/null
 docker run -d --name "$project-mail" -p 127.0.0.1::1025 -p 127.0.0.1::8025 axllent/mailpit:v1.33 >/dev/null
@@ -120,16 +120,16 @@ sql -c "SET ROLE licensing_runtime; INSERT INTO provider_audit_events(id,action,
 ) >"$artifacts/api.log" 2>&1 &
 api_pid=$!
 wait_http "$api/health/ready"
-PORT="$admin_port" API_ORIGIN="$api" ADMIN_WEB_ROOT="$root/src/admin-frontend/dist/ADMIN/browser" \
-  node src/admin-frontend/server.mjs >"$artifacts/web.log" 2>&1 &
+PORT="$admin_port" API_ORIGIN="$api" ADMIN_WEB_ROOT="$root/src/frontend/licensing/dist/ADMIN/browser" \
+  node src/frontend/licensing/server.mjs >"$artifacts/web.log" 2>&1 &
 web_pid=$!
 wait_http "$admin/"
 wait_http "$mail/"
 (
-  cd src/admin-frontend
+  cd src/frontend/licensing
   export NODE_PATH="$PWD/node_modules"
   export P0114_ADMIN_WEB="$admin" P0114_MAILPIT="$mail" P0114_PROOF_FILE="$artifacts/proof" P0114_ARTIFACTS="$artifacts"
-  bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0114.config.ts
+  bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0114.config.ts
 )
 
 for statement in 'UPDATE provider_audit_events SET action=action' 'DELETE FROM provider_audit_events' 'TRUNCATE provider_audit_events'; do

@@ -141,7 +141,7 @@ public sealed partial class P0612Tests
         var sample = root.GetProperty("sample").Deserialize<BillingDocumentListV1>(JsonSerializerOptions.Web)!;
         Assert.True(BillingDocumentsV1.IsValidList(sample, sample.AccountId, sample.OrderId));
 
-        var uiDir = Path.Combine(ProjectPaths.Root, "src/frontend/src/app/features/billing/documents");
+        var uiDir = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill/src/app/features/billing/documents");
         var sources = Directory.EnumerateFiles(uiDir, "*.*", SearchOption.AllDirectories)
             .Where(path => (path.EndsWith(".ts", StringComparison.Ordinal) || path.EndsWith(".html", StringComparison.Ordinal))
                 && !path.EndsWith(".spec.ts", StringComparison.Ordinal))

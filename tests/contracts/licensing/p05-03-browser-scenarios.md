@@ -8,7 +8,7 @@ Scope of this slice: the browser only. The sync wire contract and the receiver t
 
 | Item | Rule |
 |---|---|
-| Trust anchor | `IB_OFFLINE_PERMIT_PUBLIC_KEYS`, an Angular build `define` (`src/frontend/angular.json`). Default: the literal `{}`. A release supplies `{"<kid>":"<base64 DER SPKI>"}` through build configuration or one `--define` argument. Public halves only. Overlapping entries cover key rotation. |
+| Trust anchor | `IB_OFFLINE_PERMIT_PUBLIC_KEYS`, an Angular build `define` (`src/frontend/intelibill/angular.json`). Default: the literal `{}`. A release supplies `{"<kid>":"<base64 DER SPKI>"}` through build configuration or one `--define` argument. Public halves only. Overlapping entries cover key rotation. |
 | No pins | A build with an empty map issues nothing offline (`OFFLINE_PERMIT_INVALID`). There is no API to fetch keys, no key kept in browser storage and no default fixture key. |
 | Signature | WebCrypto `RSASSA-PKCS1-v1_5` / SHA-256 over the original `base64url(header).base64url(payload)` bytes, key chosen by the permit header's `kid` among own entries of the map, modulus at least 2048 bits. |
 | Canonical form | Exact permit header (`intelibill-offline-permit+v1`), payload byte-identical to the fixed member order with no whitespace, lowercase hyphenated GUIDs, six-digit UTC instants. A validly signed non-canonical token is refused. |
@@ -61,7 +61,7 @@ The 5 s reading tolerance is measurement precision and is separate from the sign
 Run on the #901 base `75910dc83`, product code untouched, with only the spec and its signing fixture added. The cart is genuinely issuable: the control test in the same run, identical except for the signature bytes, issued.
 
 ```sh
-cd src/frontend && bun run test --run src/app/features/sales/services/offline-sale-finalization.service.spec.ts
+cd src/frontend/intelibill && bun run test --run src/app/features/sales/services/offline-sale-finalization.service.spec.ts
 ```
 
 Observed: exit 1, `Tests 1 failed | 36 passed (37)`. Failing test `refuses a forged permit signature before consuming a number, queueing or reducing stock`:
@@ -89,7 +89,7 @@ The control `issues a genuinely sellable cart under a validly signed stored perm
 
 ## Browser scenarios (`offline-permit-finalization.spec.ts`, Chromium)
 
-The spec builds the merchant app once into `src/frontend/.ui-audit/offline-permit-build` (git-ignored) with production options and `--define IB_OFFLINE_PERMIT_PUBLIC_KEYS={"p0503-browser-key-1":"<SPKI>"}`, applies the exported `finalizeServiceWorker` and `writeOfflinePackManifests` to that output and serves it with the protected worker. The RSA-2048 key is made in the test process; its private half signs the fixture permits and never leaves that process. Lease, queue and stock stores are read raw with `page.evaluate`, not through Angular services.
+The spec builds the merchant app once into `src/frontend/intelibill/.ui-audit/offline-permit-build` (git-ignored) with production options and `--define IB_OFFLINE_PERMIT_PUBLIC_KEYS={"p0503-browser-key-1":"<SPKI>"}`, applies the exported `finalizeServiceWorker` and `writeOfflinePackManifests` to that output and serves it with the protected worker. The RSA-2048 key is made in the test process; its private half signs the fixture permits and never leaves that process. Lease, queue and stock stores are read raw with `page.evaluate`, not through Angular services.
 
 | Scenario | Observed |
 |---|---|
@@ -102,7 +102,7 @@ The spec builds the merchant app once into `src/frontend/.ui-audit/offline-permi
 
 ## Commands and results
 
-From `src/frontend` unless stated. Results observed on the commit that adds this file.
+From `src/frontend/intelibill` unless stated. Results observed on the commit that adds this file.
 
 | Command | Result |
 |---|---|

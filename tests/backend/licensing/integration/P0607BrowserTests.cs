@@ -36,8 +36,8 @@ public sealed class P0607BrowserTests(LicensingPostgreSqlFixture database, ITest
         using var owner = await catalogue.SignInOwnerAsync();
         var seed = await P0611Tests.EnrollAsync(s.F.Checkout, owner, Manager, "licensing-manager");
         catalogue.Clock.Advance(TimeSpan.FromSeconds(30));
-        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend");
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var staged = new MerchantWebBuild(merchantRoot);
         await using var merchantApi = await P0310ApiRelay.StartAsync(s.Source.Payer.Client.BaseAddress!, ct);
         await using var adminApi = await P0310ApiRelay.StartAsync(s.F.Checkout.Delivery.LicensingApi.BaseAddress!, ct);
@@ -46,7 +46,7 @@ public sealed class P0607BrowserTests(LicensingPostgreSqlFixture database, ITest
         await P0306BrowserTests.SetFixtureBrowserOriginAsync(s.F.Checkout, admin.Origin, ct);
         await WriteFixtureAsync(s, doc, scratch, seed, ct);
         var start = new ProcessStartInfo("bun") { WorkingDirectory = adminRoot, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0607.config.ts" })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0607.config.ts" })
             start.ArgumentList.Add(arg);
         start.Environment["P0607_TEMPORARY"] = scratch;
         start.Environment["P0607_MERCHANT_WEB"] = merchant.Origin;

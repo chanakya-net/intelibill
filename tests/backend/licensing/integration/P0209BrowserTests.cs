@@ -48,9 +48,9 @@ public sealed class P0209BrowserTests(LicensingPostgreSqlFixture database, ITest
             output.WriteLine($"Sanitized local browser evidence: {evidence}");
 
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(12));
-            var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+            var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
             await using var adminWeb = await StartAdminWebAsync(adminRoot, licensingClient.BaseAddress!, timeout.Token);
-            using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+            using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
             await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, timeout.Token);
             // The bootstrap proof is a local credential: it lives outside the evidence directory and is deleted after use.
             var secrets = Directory.CreateTempSubdirectory("intelibill-p0209-proof-");
@@ -187,8 +187,8 @@ public sealed class P0209BrowserTests(LicensingPostgreSqlFixture database, ITest
             stockMovements = movements,
             merchantMembershipsUnchanged = true,
             licensingTermFactsAndMembershipsUnchanged = true,
-            merchantBuild = BuildIdentity(Path.Combine(ProjectPaths.Root, "src/frontend/dist/INVENTORY/browser/ngsw.json")),
-            adminBuild = File.GetLastWriteTimeUtc(Path.Combine(ProjectPaths.Root, "src/admin-frontend/dist/ADMIN/browser/index.html")),
+            merchantBuild = BuildIdentity(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill/dist/INVENTORY/browser/ngsw.json")),
+            adminBuild = File.GetLastWriteTimeUtc(Path.Combine(ProjectPaths.Root, "src/frontend/licensing/dist/ADMIN/browser/index.html")),
         }, Indented));
     }
 
@@ -209,7 +209,7 @@ public sealed class P0209BrowserTests(LicensingPostgreSqlFixture database, ITest
     private async Task RunPhaseAsync(BrowserRun run, string phase, CancellationToken token)
     {
         var start = new ProcessStartInfo("bun") { WorkingDirectory = run.Root, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0209.config.ts", "--grep", "@" + phase })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0209.config.ts", "--grep", "@" + phase })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(run.Root, "node_modules");
         start.Environment["P0112_ADMIN_WEB"] = run.Admin;

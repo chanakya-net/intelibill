@@ -60,7 +60,7 @@ closed again. Recording is disabled. Passwords live only in browser memory.
   validates every registered handler. The new test runs the real CLI process
   against isolated PostgreSQL. It failed the same way, exit 1, then passed
   after the invitation store and mailer joined bootstrap persistence.
-- Admin web specs (`src/admin-frontend/src/app/features/admin-users/admin-users.spec.ts`)
+- Admin web specs (`src/frontend/licensing/src/app/features/admin-users/admin-users.spec.ts`)
   were written after the components. As a mutation check, removing the
   fragment-stripping `Location.replaceState` failed 5 of 7 tests
   (`expected '/auth/invitation#token=i1_AAAA…' to be '/auth/invitation'`).

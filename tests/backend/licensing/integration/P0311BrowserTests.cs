@@ -33,8 +33,8 @@ public sealed class P0311BrowserTests(LicensingPostgreSqlFixture database, ITest
         var seed = await P0306Tests.EnrollBillingAsync(fixture, P0306Tests.BillingEmail);
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(15));
         var ct = deadline.Token;
-        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend");
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var staged = new MerchantWebBuild(merchantRoot);
         await using var merchantApi = await P0310ApiRelay.StartAsync(purchase.Payer.Client.BaseAddress!, ct);
         await using var adminApi = await P0310ApiRelay.StartAsync(fixture.Delivery.LicensingApi.BaseAddress!, ct);
@@ -79,7 +79,7 @@ public sealed class P0311BrowserTests(LicensingPostgreSqlFixture database, ITest
     private static ProcessStartInfo BrowserStart(string root, string admin, string merchant, string scratch, string evidence, Purchase purchase, Guid other)
     {
         var start = new ProcessStartInfo("bun") { WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0311.config.ts" }) start.ArgumentList.Add(argument);
+        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0311.config.ts" }) start.ArgumentList.Add(argument);
         foreach (var (key, value) in new Dictionary<string, string>
         {
             ["ADMIN_WEB"] = admin, ["MERCHANT_WEB"] = merchant, ["TEMPORARY"] = scratch, ["EVIDENCE_DIR"] = evidence,

@@ -48,7 +48,7 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
         var memberships = await CountMerchantAsync("SELECT count(*) FROM shop_memberships");
 
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, deadline.Token);
         var evidence = Directory.CreateTempSubdirectory("intelibill-p0202-").FullName;
         var observations = await RunPlaywrightAsync(merchantWeb.Origin, licensingOrigin, emailA, emailB, emailC, shopB,
@@ -76,9 +76,9 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
     private async Task<JsonElement> RunPlaywrightAsync(string merchantWeb, Uri licensingOrigin, string emailA,
         string emailB, string emailC, Guid shopB, string evidence, CancellationToken cancellationToken)
     {
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         var playwright = new ProcessStartInfo("bun") { WorkingDirectory = adminRoot, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0202.config.ts" })
+        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0202.config.ts" })
             playwright.ArgumentList.Add(argument);
         playwright.Environment["NODE_PATH"] = Path.Combine(adminRoot, "node_modules");
         playwright.Environment["P0202_MERCHANT_WEB"] = merchantWeb;

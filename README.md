@@ -38,9 +38,10 @@ intelibill/
 │   │   ├── shared/                 # Shared backend libraries
 │   │   ├── barcode-master-api/     # Product lookup by barcode (BarcodeAPI.sln)
 │   │   └── hsn-finder-ai/          # AI HSN code lookup (Sankra.HsnFinder.sln)
-│   ├── frontend/               # Angular (Bun, PWA, NgRx, offline IndexedDB)
-│   ├── admin-frontend/         # Admin Angular web app
-│   ├── shared/frontend/        # Shared web workspace packages
+│   ├── frontend/
+│   │   ├── intelibill/             # Merchant Angular web app (Bun, PWA, NgRx, IndexedDB)
+│   │   ├── licensing/              # Admin Angular web app
+│   │   └── shared/                 # Shared web workspace packages (@intelibill/api, @intelibill/ui)
 │   └── mobile/
 │       └── android/
 │           └── intelibill_mobile/  # Flutter Android
@@ -85,7 +86,7 @@ API: `http://localhost:5202` — OpenAPI: `http://localhost:5202/openapi/v1.json
 ### Frontend
 
 ```bash
-cd src/frontend
+cd src/frontend/intelibill
 bun install
 bun run start
 ```

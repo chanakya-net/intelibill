@@ -24,12 +24,12 @@ For licensing migrations, target `--project src/backend/licensing/Intelibill.Lic
 Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `architecture_doc/backend-architecture.md`).
 
 **Web Workspaces** (Bun `1.3.11` only — never `npm` or `yarn`; single root `bun.lock`):
-- Merchant web (`src/frontend`): `bun install`, `bun run start`, `bun run build`, `bun run test --watch=false` (or `--run <spec>`)
-- Admin web (`src/admin-frontend`): `bun run build`, `bun run test --watch=false`, `bun run audit:release`
+- Merchant web (`src/frontend/intelibill`): `bun install`, `bun run start`, `bun run build`, `bun run test --watch=false` (or `--run <spec>`)
+- Admin web (`src/frontend/licensing`): `bun run build`, `bun run test --watch=false`, `bun run audit:release`
 - **Mandatory fast checks when touching frontend:**
-  - Whenever templates, copy, or `src/frontend/public/assets/i18n/*.json` change, run `(cd src/frontend && bun run test --run src/app/core/i18n)` (validates all 9 locales).
-  - Preserve style duplicate ceiling (`27`, only goes down): `(cd src/frontend && bun run audit:styles:duplicates)`.
-  - Service worker / release audit: `(cd src/frontend && bun run build && bun run audit:ui:release)`. Never ship Angular's bare `ngsw-worker.js` — `bun run build` wraps it with `service-worker/protected-api-worker.js` so `/api` and `/hubs` bypass cache.
+  - Whenever templates, copy, or `src/frontend/intelibill/public/assets/i18n/*.json` change, run `(cd src/frontend/intelibill && bun run test --run src/app/core/i18n)` (validates all 9 locales).
+  - Preserve style duplicate ceiling (`27`, only goes down): `(cd src/frontend/intelibill && bun run audit:styles:duplicates)`.
+  - Service worker / release audit: `(cd src/frontend/intelibill && bun run build && bun run audit:ui:release)`. Never ship Angular's bare `ngsw-worker.js` — `bun run build` wraps it with `service-worker/protected-api-worker.js` so `/api` and `/hubs` bypass cache.
 
 **Mobile** (`src/mobile/android/intelibill_mobile`, Flutter Android only, `.flutter-version` `3.44.2`):
 - Setup & codegen: `flutter pub get`, `./tool/codegen.sh` (commit `lib/**/*.g.dart`, `lib/**/*.freezed.dart`, `lib/src/core/localization/`)
@@ -51,7 +51,7 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 - Repository abstractions + `IUnitOfWork` for writes; no data annotations on entities; `IEntityTypeConfiguration<T>` for EF mappings.
 - C# warnings are errors (`Directory.Build.props`) — all builds must be analyzer-clean.
 - Central Package Management (`Directory.Packages.props` only; `.csproj` `<PackageReference>` entries must be versionless).
-- Angular 21 standalone components, NgRx root/feature stores, PrimeNG + shared `@intelibill/ui` and `@intelibill/api` workspace packages, Transloco i18n (`src/frontend/public/assets/i18n`).
+- Angular 21 standalone components, NgRx root/feature stores, PrimeNG + shared `@intelibill/ui` and `@intelibill/api` workspace packages, Transloco i18n (`src/frontend/intelibill/public/assets/i18n`).
 - Mobile: feature-first clean architecture (domain-independent), Riverpod codegen, GoRouter, Dio, Freezed/Json Serializable, Very Good Analysis.
 
 ## Security, Tenancy & Runtime Invariants
@@ -76,9 +76,9 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 | `src/backend/licensing/` | Licensing service (`Intelibill.Licensing.slnx`) |
 | `src/backend/shared/` | Shared backend libraries (`Contracts`, `Security`, `Web`) |
 | `src/backend/barcode-master-api/` & `src/backend/hsn-finder-ai/` | Separate deployable services (own solutions & package versions) |
-| `src/frontend/` | Merchant Angular web app |
-| `src/admin-frontend/` | Admin Angular web app (`ADMIN`) |
-| `src/shared/frontend/` | Shared web workspace packages (`@intelibill/ui`, `@intelibill/api`) |
+| `src/frontend/intelibill/` | Merchant Angular web app |
+| `src/frontend/licensing/` | Admin Angular web app (`ADMIN`) |
+| `src/frontend/shared/` | Shared web workspace packages (`@intelibill/ui`, `@intelibill/api`) |
 | `src/mobile/android/intelibill_mobile/` | Flutter Android app |
 | `tests/backend/` | Unit & Testcontainers integration tests (`intelibill/`, `licensing/`, `shared/`, `barcode-master-api/`) |
 | `Directory.Build.props`, `Directory.Packages.props`, `global.json` | Root MSBuild, CPM, and .NET SDK pin |

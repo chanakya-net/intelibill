@@ -15,7 +15,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Config = "../../tests/backend/licensing/browser/playwright.p0613.config.ts";
+    private const string Config = "../../../tests/backend/licensing/browser/playwright.p0613.config.ts";
     private const string FinanceEmail = "p0613.browser.finance@example.test";
     private const string TransferManagerEmail = "p0613.browser.transfer@example.test";
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
@@ -50,8 +50,8 @@ public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITest
         }
         s.F.Checkout.Trial.Catalogue.Clock.Advance(TimeSpan.FromSeconds(30));
 
-        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend");
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var staged = new MerchantWebBuild(merchantRoot);
         await using var merchantApi = await P0310ApiRelay.StartAsync(s.Source.Payer.Client.BaseAddress!, ct);
         await using var adminApi = await P0310ApiRelay.StartAsync(s.F.Checkout.Delivery.LicensingApi.BaseAddress!, ct);

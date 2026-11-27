@@ -13,9 +13,9 @@ The release scenario `unseen renewal extends nothing; a verified reconnect updat
 
 ## Reproduction before the implementation
 
-At baseline `828464f36c97776e432b914ae35386547010b5dd`, `cd src/frontend && bun run audit:ui:release offline-permit-refresh.spec.ts` reached the reconnect assertion. After 25 seconds Chromium still held lease `11111111-1111-4111-8111-111111111111`. The assertion expected `11111111-1111-4111-8111-111111111112`. One test failed, exit 1.
+At baseline `828464f36c97776e432b914ae35386547010b5dd`, `cd src/frontend/intelibill && bun run audit:ui:release offline-permit-refresh.spec.ts` reached the reconnect assertion. After 25 seconds Chromium still held lease `11111111-1111-4111-8111-111111111111`. The assertion expected `11111111-1111-4111-8111-111111111112`. One test failed, exit 1.
 
-On the same product source, `cd src/frontend && bun run test --run invoice-lease-indexeddb` produced 22 passes and one failure. A later issue timestamp allowed an authority observation one microsecond older to overwrite the existing permit. The test expected a refusal and received the incoming record.
+On the same product source, `cd src/frontend/intelibill && bun run test --run invoice-lease-indexeddb` produced 22 passes and one failure. A later issue timestamp allowed an authority observation one microsecond older to overwrite the existing permit. The test expected a refusal and received the incoming record.
 
 During implementation, removing the test's repeated synthetic online events exposed a second failure. Reachability could return after the pack check had already run. The successful reconnect scenario now uses the browser's network transition. A till-state regression also reproduced the open checkout retaining an exhausted lease after another tab replaced it. Checkout now reads the durable settings and usable snapshot before the finalization guards run.
 
@@ -73,31 +73,31 @@ Browser routes simulate the merchant API and use a throwaway RSA key. The server
 All six commands were applicable and exited 0. Build output includes Angular bundle and stylesheet budget warnings.
 
 ```sh
-cd src/frontend && bun run test --run offline-permit-refresh invoice-lease-indexeddb offline-sales-snapshot-sync offline-licence-permit offline-pack-update manage-shop-offline manage-shop-overlay offline-sales-device-settings src/app/core/i18n/i18n-coverage.spec.ts
+cd src/frontend/intelibill && bun run test --run offline-permit-refresh invoice-lease-indexeddb offline-sales-snapshot-sync offline-licence-permit offline-pack-update manage-shop-offline manage-shop-overlay offline-sales-device-settings src/app/core/i18n/i18n-coverage.spec.ts
 ```
 
 11 files, 191 tests passed.
 
 ```sh
-cd src/frontend && bun run test --run offline-sale-finalization offline-sale-state offline-permit-clock offline-sales-device-enablement offline-sales-queue offline-sale-sync.mapper offline-recovery-bundle
+cd src/frontend/intelibill && bun run test --run offline-sale-finalization offline-sale-state offline-permit-clock offline-sales-device-enablement offline-sales-queue offline-sale-sync.mapper offline-recovery-bundle
 ```
 
 9 files, 194 tests passed.
 
 ```sh
-cd src/frontend && bun run test --watch=false
+cd src/frontend/intelibill && bun run test --watch=false
 ```
 
 344 Angular test files, 3,540 tests passed. The script suite also passed all 107 tests.
 
 ```sh
-cd src/frontend && bun run build
+cd src/frontend/intelibill && bun run build
 ```
 
 Merchant production, worker and server builds completed. Both offline pack manifests were written.
 
 ```sh
-cd src/frontend && bun run audit:ui:release offline-permit-refresh.spec.ts offline-permit-finalization.spec.ts offline-permit.spec.ts offline-pack.spec.ts legacy-queue-recovery.spec.ts
+cd src/frontend/intelibill && bun run audit:ui:release offline-permit-refresh.spec.ts offline-permit-finalization.spec.ts offline-permit.spec.ts offline-pack.spec.ts legacy-queue-recovery.spec.ts
 ```
 
 27 Chromium release scenarios passed, including all 14 reconnect scenarios.

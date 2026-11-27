@@ -52,12 +52,12 @@ Use the repository root unless a different working directory is listed. Add `/us
 | C04 | root | `scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0403Tests\|FullyQualifiedName~P0404Tests\|FullyQualifiedName~P0416Tests\|FullyQualifiedName~P0417Tests' --logger 'console;verbosity=normal'` |
 | C05 | root | `scripts/dev/test-integration.sh --filter 'FullyQualifiedName~P04\|FullyQualifiedName~LicenceActionClassificationTests' --logger 'console;verbosity=normal'` |
 | C06 | root | `dotnet test tests/backend/intelibill/unit/Intelibill.Application.Unit.Tests --filter FullyQualifiedName~MemberSeatPolicyTests` |
-| C07 | src/frontend | `bun run build` |
+| C07 | src/frontend/intelibill | `bun run build` |
 | C08 | root | `dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --no-build --filter FullyQualifiedName~P0418BrowserTests --logger 'console;verbosity=normal'` |
-| G01 | src/frontend | `bun run test --watch=false` |
-| G02 | src/frontend | `bun run build` and `bun run audit:ui:release` |
-| G03 | src/admin-frontend | `bun run test --watch=false` |
-| G04 | src/admin-frontend | `bun run audit:release` |
+| G01 | src/frontend/intelibill | `bun run test --watch=false` |
+| G02 | src/frontend/intelibill | `bun run build` and `bun run audit:ui:release` |
+| G03 | src/frontend/licensing | `bun run test --watch=false` |
+| G04 | src/frontend/licensing | `bun run audit:release` |
 | G05 | root | `dotnet test tests/backend/shared/P0102ConsumerRegressionTests` and `dotnet test tests/backend/shared/P0103ConsumerRegressionTests` |
 | G06 | root | `bash .github/scripts/tests/licensing-stack-contract.test.sh` |
 | G07a | root | `P0418_RUN_BROWSER=1 scripts/dev/test-integration.sh --licensing --logger 'console;verbosity=minimal'` |

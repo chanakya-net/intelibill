@@ -19,8 +19,8 @@ check_workspace_install() {
   [[ -n "${install_line}" ]] || fail "${name} image does not run a frozen root workspace install."
   grep -Fq 'curl -fsSL https://bun.sh/install | bash -s -- bun-v1.3.11' <<<"${build_stage}" \
     || fail "${name} image does not pin Bun 1.3.11."
-  for manifest in 'package.json bun.lock' src/frontend/package.json src/admin-frontend/package.json \
-    src/shared/frontend/api/package.json src/shared/frontend/ui/package.json; do
+  for manifest in 'package.json bun.lock' src/frontend/intelibill/package.json src/frontend/licensing/package.json \
+    src/frontend/shared/api/package.json src/frontend/shared/ui/package.json; do
     manifest_line="$(grep -nF "COPY ${manifest}" <<<"${build_stage}" | head -1 | cut -d: -f1)"
     [[ -n "${manifest_line}" && "${manifest_line}" -lt "${install_line}" ]] \
       || fail "${name} image must copy ${manifest} before the frozen install."
@@ -46,8 +46,8 @@ check_runtime() {
   fi
 }
 
-merchant="${repository_root}/src/frontend/Dockerfile"
-admin="${repository_root}/src/admin-frontend/Dockerfile"
+merchant="${repository_root}/src/frontend/intelibill/Dockerfile"
+admin="${repository_root}/src/frontend/licensing/Dockerfile"
 [[ -f "${merchant}" ]] || fail "Frontend Dockerfile is missing: ${merchant}"
 [[ -f "${admin}" ]] || fail "Admin web Dockerfile is missing: ${admin}"
 
@@ -56,9 +56,9 @@ check_runtime merchant "${merchant}" 'CMD ["node", "dist/INVENTORY/server/server
 
 check_workspace_install admin "${admin}"
 check_runtime admin "${admin}" 'CMD ["node", "server.mjs"]'
-grep -Fq 'COPY --from=build /app/src/admin-frontend/dist/ADMIN/browser /app/browser' "${admin}" \
+grep -Fq 'COPY --from=build /app/src/frontend/licensing/dist/ADMIN/browser /app/browser' "${admin}" \
   || fail "admin image must ship only the ADMIN browser output."
-grep -Fq 'COPY src/admin-frontend/server.mjs /app/server.mjs' "${admin}" \
+grep -Fq 'COPY src/frontend/licensing/server.mjs /app/server.mjs' "${admin}" \
   || fail "admin image must ship its dependency-free runtime server."
 if grep -Eq 'ngsw|service-worker' "${admin}"; then
   fail "admin image must not ship a service worker."

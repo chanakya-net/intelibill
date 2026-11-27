@@ -13,10 +13,10 @@ check with the original dashboard test and the targeted command below.
 | `dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 55 passed. Full licensing integration suite, including P01-06 bootstrap, P01-07 invitations and P01-08 enrollment. |
 | `dotnet test tests/backend/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed. |
 | `dotnet build Intelibill.slnx -warnaserror` | Passed with zero warnings and errors. |
-| `cd src/admin-frontend && bun run test --watch=false` | 8 passed. |
-| `cd src/admin-frontend && bun test tests/server.test.mjs` | 13 passed. |
-| `cd src/admin-frontend && bun run audit:release` | Production build and Chromium release test passed. |
-| `cd src/frontend && bun run build` | Passed, including protected worker and offline pack packaging. Merchant size-budget warnings were emitted. |
+| `cd src/frontend/licensing && bun run test --watch=false` | 8 passed. |
+| `cd src/frontend/licensing && bun test tests/server.test.mjs` | 13 passed. |
+| `cd src/frontend/licensing && bun run audit:release` | Production build and Chromium release test passed. |
+| `cd src/frontend/intelibill && bun run build` | Passed, including protected worker and offline pack packaging. Merchant size-budget warnings were emitted. |
 | `bash tests/backend/licensing/acceptance/run-p0109-browser.sh` | One real Chromium scenario passed. The explicit migration job upgraded the P01-08 database and ran again without changing data. |
 | `git diff --check` | Clean. |
 

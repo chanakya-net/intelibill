@@ -7,7 +7,7 @@ const merchant = process.env['P0209_MERCHANT_WEB']!;
 const evidence = process.env['P0209_EVIDENCE']!;
 const account = process.env['P0209_ACCOUNT']!;
 const password = process.env['P0209_PASSWORD']!;
-const time = JSON.parse(readFileSync(join(process.cwd(), '../../tests/contracts/licensing/time-v1.json'), 'utf8'));
+const time = JSON.parse(readFileSync(join(process.cwd(), '../../../tests/contracts/licensing/time-v1.json'), 'utf8'));
 const ist = (utc: string) => time.display.find((row: { utc: string }) => row.utc === utc).ist as string;
 const paidThrough = ist('2027-02-28T04:30:00Z');
 const graceEnds = ist('2027-03-07T04:30:00Z');
