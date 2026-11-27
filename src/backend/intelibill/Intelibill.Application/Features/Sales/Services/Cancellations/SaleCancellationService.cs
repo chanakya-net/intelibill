@@ -9,7 +9,6 @@ using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.Sales.DTOs;
-using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Events;

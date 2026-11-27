@@ -221,6 +221,11 @@ Handlers that post money or stock read as an ordered list of named steps. Work t
 - Sale returns: `src/backend/intelibill/Intelibill.Application/Features/Sales/Services/Returns/SaleReturnStockPoster.cs` (shared by record and void), `Commands/RecordSaleReturn/SaleReturnCreditIssuer.cs`
 - Supplier returns: `src/backend/intelibill/Intelibill.Application/Features/SupplierReturns/Services/` — `SupplierReturnShipper`, `PurchaseReceiptDetailReader`, `PurchaseReceiptLotReverser`
 - Reconciliation: `src/backend/intelibill/Intelibill.Application/Features/OfflineReconciliation/Commands/ResolveReconciliationCase/` — `ReconciliationCaseAuthorizer`, `ReconciliationExpiryReviewVerifier`, `ReconciliationStockCorrectionLinker`, `ReconciliationSaleLinker`
+- Offline sync: `Features/Sales/Commands/SyncOfflineSales/` — `OfflineSaleTillSettler`, `OfflineSaleCustomerReviewer`, `OfflineSaleStockAndDuePoster`, `OfflineSaleReceiptReader`; `Features/OfflineReconciliation/Commands/SubmitRecoveryBundle/` — `RecoveryOperatorAuthorizer`, `RecoveryInvoiceReceiver`
+- Stock intake and corrections: `Features/Inventory/Commands/AddInventory/` — `ReceiptIntakeResolver`, `ReceiptStockAndPayablePoster`; `CorrectStockCount/StockCountPoster`; `CreateAdjustment/StockAdjustmentPoster`; `Features/Inventory/Services/StockCorrectionAccess.cs` (shared by count and adjustment)
+- Received batches: `Features/Inventory/Commands/VoidBatch/` — `BatchVoidSourceReader`, `BatchVoidPoster`; `Features/PurchaseReceipts/Commands/CorrectReceiptCost/` — `ReceiptCostSourceReader`, `ReceiptCostCorrectionWriter`; `Features/Inventory/Commands/ReassignBatchSupplier/BatchSupplierLedgerReassigner.cs`
+- Cancellation and expiry: `Features/Sales/Services/Cancellations/` — `SaleCancellationStockRestorer`, `SaleCancellationRecorder`; `Features/Expiry/BatchDisposalPoster.cs`
+- Payments: `Features/Payments/Services/` — `PaymentReceiptPoster` (customer and supplier payments), `SupplierPaymentExpensePoster`, `ReversalLedgerEntryPoster`
 
 **Convention:**
 - The handler's top-level method keeps the transaction (begin, save, commit, rollback), its `try`/`catch`/`finally`, and every lock or fence acquisition, in lock order. Do not put the licence fence, posting period policy, expiry fence, till posting or row-lock calls behind one facade.
