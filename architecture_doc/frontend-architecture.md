@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-> High-level architecture reference. For implementation patterns see [`docs/architectural_patterns.md`](architectural_patterns.md). For build commands and dependencies see [`AGENTS.md`](../AGENTS.md) at repo root.
+> High-level architecture reference. For implementation patterns see [`architecture_doc/architectural_patterns.md`](architectural_patterns.md). For build commands and dependencies see [`AGENTS.md`](../AGENTS.md) at repo root.
 
 ## Stack
 
@@ -87,7 +87,7 @@ src/frontend/src/app/
 
 `/sales/offline-reconciliation` (`features/sales/pages/offline-reconciliation-page`, data via
 `OfflineReconciliationService`; linked from the menu and sales history). Every role sees it; actions
-follow the server's `availableActions`. Backend rules: `docs/backend-architecture.md` § Offline Reconciliation.
+follow the server's `availableActions`. Backend rules: `architecture_doc/backend-architecture.md` § Offline Reconciliation.
 
 - **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales` for the active shop and this
   browser's device id: Pending/Failed invoices are transport retries, NeedsReview opens its case, and
@@ -200,7 +200,7 @@ The active-shop menu opens `/shops/setup` for a live member. At the application 
 
 Setup HTTP reads capture the owner and tab epoch, cancel on scope change, and clear page state on detach. Preference writes use the captured request scope, hold a scoped mutation until their outcome, and compare the last read version. A conflict refreshes the saved facts and offers an explicit retry or exit. The authenticated sample route uses the same A4 and thermal presentation as the issued document, with a sample banner and without the invoice number or payment and signatory sections. Preview and print require no acknowledgement.
 
-Run `bun run build && bun run audit:ui:onboarding` for the isolated browser journey. See [Guided merchant onboarding rollout](guided-merchant-onboarding-rollout.md).
+Run `bun run build && bun run audit:ui:onboarding` for the isolated browser journey. See [Guided merchant onboarding rollout](../docs/guided-merchant-onboarding-rollout.md).
 
 ## Protected API Cache Isolation
 
@@ -582,7 +582,7 @@ Reusable till/evidence controls cover checkout, customer/supplier payment, payme
 
 For new till-aware requests, `TillActionRunner` and `FinancialActionDraftStore` retain durable user/shop/action/target drafts, revision CAS, frozen sending/unknown requests and confirmation proofs before HTTP. Cancellation retains its separate namespace/store over the shared core. Existing customer/supplier outer payment keys are adopted unchanged, and exact completion proof settles the matching outer intent. Unknown timeout, stale scope, reload/tab race and lookup404 preserve the same key and payload; persistence failure sends zero requests. Released pre-Till frozen localStorage payment intents retain their original K1 request and same-key recovery even with IndexedDB unavailable; the current till selection never decorates that historical request. A selected different till never rewrites a pending action. Captured scope epoch is checked after persistence, capability and cached-proof awaits, including A→B→A. Detached completion cannot dispatch success or clean up the new scope's intent; explicit current-epoch recovery may consume its retained proof without another POST.
 
-Offline start requires previously verified enabled capability and an own open same-day session. Queue/snapshot freezes till session, cashier, business date and actual tender; offline opening/closing is unavailable. Pending invoice warnings help the count but are not a server safety dependency. TillReview displays bounded ordinary RetryHistoricalLease only for structurally complete new context, plus explicit manager reconciliation when needed. Recorded/Unknown evidence and purpose labels are localized in all eight supported locales. Gate-off preserves pending recovery and saved read/print/replay access while refusing new supplied-evidence writes. Mixed tender remains unavailable. See [Till rollout](till-sessions-rollout.md) for API contracts, migration order and limitations.
+Offline start requires previously verified enabled capability and an own open same-day session. Queue/snapshot freezes till session, cashier, business date and actual tender; offline opening/closing is unavailable. Pending invoice warnings help the count but are not a server safety dependency. TillReview displays bounded ordinary RetryHistoricalLease only for structurally complete new context, plus explicit manager reconciliation when needed. Recorded/Unknown evidence and purpose labels are localized in all eight supported locales. Gate-off preserves pending recovery and saved read/print/replay access while refusing new supplied-evidence writes. Mixed tender remains unavailable. See [Till rollout](../docs/till-sessions-rollout.md) for API contracts, migration order and limitations.
 
 ## Expiry Policy, Checkout and Quarantine
 
@@ -590,7 +590,7 @@ Owner settings and item editor expose reasoned default/override/inherit policy c
 
 Checkout intents and Owner Release/Dispose drafts persist exact owner/shop/action/key/payload through IndexedDB revision claims before HTTP. Reload, scope changes and unknown404 never authorize a new key or mutate a submitted payload. History preserves root source dates/causes separately from current corrected dates. Fully held missing-date roots may release only after audited correction/current policy evaluation; originally expired roots remain refused. The backend rechecks all authority and facts. Existing till selectors and settlements are preserved.
 
-Completed schema4 catalogs alone activate trusted expiry inputs; explicit nullable dates, effective policy, shop zone, catalog and server evidence IDs remain frozen in issued queues. Offline warning approval is unavailable. Future-use caches refresh when connected; disconnected devices cannot learn remote policy edits instantly, and unsupported historical authority becomes `ExpiryReview=14`. Legacy issued readers, invoice-v2/arithmetic-v1/hash contracts and pending envelopes remain unchanged. Reconciliation offers only supported evidence-backed actions; reason alone cannot override expiry. All nine shipped locales have text/accessibility states. See [expiry rollout](expiry-aware-selling-rollout.md) for migration/deployment/recovery and recorded-cost limits.
+Completed schema4 catalogs alone activate trusted expiry inputs; explicit nullable dates, effective policy, shop zone, catalog and server evidence IDs remain frozen in issued queues. Offline warning approval is unavailable. Future-use caches refresh when connected; disconnected devices cannot learn remote policy edits instantly, and unsupported historical authority becomes `ExpiryReview=14`. Legacy issued readers, invoice-v2/arithmetic-v1/hash contracts and pending envelopes remain unchanged. Reconciliation offers only supported evidence-backed actions; reason alone cannot override expiry. All nine shipped locales have text/accessibility states. See [expiry rollout](../docs/expiry-aware-selling-rollout.md) for migration/deployment/recovery and recorded-cost limits.
 
 
 ## Bounded Party Directories and Selector Identity
@@ -622,5 +622,5 @@ also clears loading. This prevents an empty overlay reopening after the picker c
 audit checks actual popup closure and scans full pages at a normalized viewport, keeping all axe
 rules. Customer/supplier workflows retain keyboard names, loading/error/empty states and all nine
 locales. Deploy the new API before/with this client; legacy array routes remain available only for
-compatibility. See [bounded reads verification](bounded-reads-verification.md) for limits, local
+compatibility. See [bounded reads verification](../docs/bounded-reads-verification.md) for limits, local
 measurements, regression evidence and remaining limitations.

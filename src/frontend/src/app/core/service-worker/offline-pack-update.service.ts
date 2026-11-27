@@ -90,7 +90,7 @@ export const UPDATE_SCHEDULE_ENVIRONMENT = new InjectionToken<UpdateScheduleEnvi
  * snapshot once it is older than `SNAPSHOT_REFRESH_AGE_MS`, backing off after a refresh that fails
  * (`SNAPSHOT_RETRY_BASE_MS`, doubling up to `SNAPSHOT_RETRY_MAX_MS`).
  * Does nothing without a service worker (development builds).
- * See docs/frontend-architecture.md § Offline Pack.
+ * See architecture_doc/frontend-architecture.md § Offline Pack.
  */
 @Injectable({ providedIn: 'root' })
 export class OfflinePackUpdateService {

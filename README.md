@@ -25,7 +25,8 @@ AI-powered inventory management system.
 
 ```
 intelibill/
-├── docs/                       # Architecture & pattern docs
+├── architecture_doc/           # Architecture & pattern docs
+├── docs/                       # Setup, rollout, operations & functional docs
 ├── src/
 │   ├── backend/                # ASP.NET Core — Clean Architecture
 │   │   ├── Intelibill.Domain/
@@ -49,7 +50,7 @@ intelibill/
 └── global.json
 ```
 
-See [CLAUDE.md](CLAUDE.md) for backend architecture and [docs/architectural_patterns.md](docs/architectural_patterns.md) for design patterns.
+See [CLAUDE.md](CLAUDE.md) for backend architecture and [architecture_doc/architectural_patterns.md](architecture_doc/architectural_patterns.md) for design patterns.
 
 ## Getting Started
 
@@ -103,7 +104,7 @@ flutter test --coverage
 flutter build apk --debug
 ```
 
-See [docs/mobile-architecture.md](docs/mobile-architecture.md) for architecture and testing details.
+See [architecture_doc/mobile-architecture.md](architecture_doc/mobile-architecture.md) for architecture and testing details.
 
 ### Docker
 

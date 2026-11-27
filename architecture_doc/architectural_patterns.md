@@ -133,7 +133,7 @@ All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `O
 
 ### 11. Global Exception Handling Middleware
 
-Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See `docs/backend-architecture.md` § Safe Errors and Diagnostics.
+Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See `architecture_doc/backend-architecture.md` § Safe Errors and Diagnostics.
 
 **Where it appears:**
 - Implementation (shared by the merchant and licensing APIs): `src/shared/backend/Intelibill.Shared.Web/Middleware/ExceptionHandlingMiddleware.cs`

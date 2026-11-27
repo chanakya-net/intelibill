@@ -13,7 +13,7 @@ import { buildLegacyManifest } from './legacy-manifest';
 import { SHOP_A, session, startPurchaseReceivingServer } from './purchase-receiving-server';
 
 /**
- * The on-demand offline pack (docs/frontend-architecture.md § Offline Pack), proved against the
+ * The on-demand offline pack (architecture_doc/frontend-architecture.md § Offline Pack), proved against the
  * production build and its real worker: a device without offline billing downloads nothing in the
  * background, enabling downloads and verifies the full pack, the pack serves `/sales/new` with the
  * network cut, a later deployment is offered and applied through the shell's control, and a device
