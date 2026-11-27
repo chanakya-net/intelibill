@@ -48,10 +48,7 @@ export async function buildSupportBundle(
   const invoices = exportable.map((record) => ({
     clientSaleId: record.clientSaleId,
     // Each element exactly as JSON.stringify writes it inside an array, so joined texts equal the array's text.
-    text: JSON.stringify({
-      ...buildSyncRequestFromQueuedSale(record),
-      ...(record.payload.issuedByUserId ? { issuedByUserId: record.payload.issuedByUserId } : {}),
-    }),
+    text: JSON.stringify(buildSyncRequestFromQueuedSale(record)),
   }));
 
   // The envelope around the invoices array is the same size for every part: the checksum is always 64 hex digits.

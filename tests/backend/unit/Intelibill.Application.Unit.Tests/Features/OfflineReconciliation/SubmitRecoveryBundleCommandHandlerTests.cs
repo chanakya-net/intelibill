@@ -544,7 +544,7 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
         Assert.Equal(row.CaseId, issue.Id);
         Assert.Equal(ReconciliationIssueType.ArithmeticConflict, issue.IssueType);
         Assert.Equal(Errors.Sale.OfflineArithmeticMismatch.Code, issue.Code);
-        Assert.StartsWith("Offline invoice arithmetic (legacy) does not reconcile:", issue.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Offline invoice arithmetic (v1) does not reconcile:", issue.Message, StringComparison.Ordinal);
         Assert.Contains("totalTaxAmount supplied 20.00 expected 18.00", issue.Message, StringComparison.Ordinal);
         Assert.Equal(ReconciliationCaseStatus.Open, issue.Status);
         Assert.Equal(Assert.Single(_envelopes).Id, issue.OfflineSubmissionId);
@@ -656,6 +656,7 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
             null,
             null,
             [new OfflineSaleSyncLineCommand("BC-1", "B-1", "Rice", 1m, 80m, 100m, 120m, 18m, false, _batchId, 100m, 0m, 0m, 100m, 18m, 118m, null, null, InstantDiscountType.None, 0m, null)],
+            CalculationVersion: 1,
             IssuedByUserId: issuedBy);
     }
 

@@ -562,7 +562,8 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
         var original = s.Sale;
         var payload = new OfflineSaleSyncCommand("defensive-client", original.InvoiceNumber, original.SoldAt, original.CustomerId, original.CustomerName, original.CustomerPhone,
             PaymentMethod.Cash, 200m, 0m, 200m, 200m, 0m, 0m, 200m, InstantDiscountType.None, 0m, null, null, null, null,
-            [new("SUGAR", "LOT", "Frozen sugar", 2m, 60m, 100m, 100m, 0m, false, s.BatchId, 200m, 0m, 0m, 200m, 0m, 200m, null, null, InstantDiscountType.None, 0m, null)]);
+            [new("SUGAR", "LOT", "Frozen sugar", 2m, 60m, 100m, 100m, 0m, false, s.BatchId, 200m, 0m, 0m, 200m, 0m, 200m, null, null, InstantDiscountType.None, 0m, null)],
+            CalculationVersion: 1, IssuedByUserId: s.ActorId);
         var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(s.ShopId, device, payload);
         await using (var scope = factory.Services.CreateAsyncScope())
         {

@@ -27,7 +27,7 @@ public sealed partial class P0418LicensingTests
         var barcode = await BatchBarcodeAsync(batch);
         _clock.Now = end.AddMinutes(5);
 
-        var payload = OfflinePayload(device, invoice, barcode, batch, soldAt: end.AddMicroseconds(-1));
+        var payload = OfflinePayload(device, invoice, barcode, batch, soldAt: end.AddMicroseconds(-1), OfflineIssuer.Of(client.DefaultRequestHeaders.Authorization!.Parameter!));
         using var sync = await client.PostAsJsonAsync("/api/sales/offline-sync", payload, Ct);
         var status = (await ReadSuccessAsync(sync)).GetProperty("results").EnumerateArray().Single()
             .GetProperty("status").GetString();
@@ -61,7 +61,7 @@ public sealed partial class P0418LicensingTests
         return await db.InventoryBatches.Where(x => x.Id == batch).Select(x => x.Item.Barcode).SingleAsync(Ct);
     }
 
-    private static object OfflinePayload(string device, string invoice, string barcode, Guid batch, DateTimeOffset soldAt) => new
+    private static object OfflinePayload(string device, string invoice, string barcode, Guid batch, DateTimeOffset soldAt, Guid issuer) => new
     {
         deviceId = device,
         sales = new[] { new
@@ -70,6 +70,7 @@ public sealed partial class P0418LicensingTests
             paymentMethod = (int)PaymentMethod.Cash, paidAmount = 2m, dueAmount = 0m,
             subtotalBeforeDiscount = 2m, totalBeforeDiscount = 2m, totalDiscountAmount = 0m,
             totalTaxAmount = 0m, totalAmount = 2m, saleDiscountOverrideType = 0, saleDiscountOverrideValue = 0m,
+            calculationVersion = 1, issuedByUserId = issuer,
             items = new[] { new
             {
                 barcode, batchNumber = "LOT", itemName = "Fixture stock", quantity = 1m, costPrice = 1m, salesPrice = 2m,

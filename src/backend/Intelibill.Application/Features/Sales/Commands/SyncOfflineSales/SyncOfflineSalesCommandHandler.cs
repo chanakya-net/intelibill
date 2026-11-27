@@ -180,11 +180,15 @@ public sealed class SyncOfflineSalesCommandHandler(
                 return outcome.Result;
             }
 
-            // The web client never sends another user's invoices; one that arrives is reviewed, never posted as the submitter's.
-            if (storedSale.IssuedByUserId is { } issuedBy && issuedBy != command.ActorUserId)
+            // The web client stamps every invoice with its issuer and never sends another user's invoices; one
+            // without an issuer, or issued by someone else, is reviewed, never posted as the submitter's.
+            if (storedSale.IssuedByUserId != command.ActorUserId)
             {
                 var result = await HoldInTransactionAsync(hold, null, ReconciliationIssueType.ProvenanceReview,
-                    Errors.OfflineReconciliation.IssuerNotSubmitter, cancellationToken);
+                    storedSale.IssuedByUserId is null
+                        ? Errors.OfflineReconciliation.ProvenanceUnknown
+                        : Errors.OfflineReconciliation.IssuerNotSubmitter,
+                    cancellationToken);
                 await unitOfWork.CommitTransactionAsync(cancellationToken);
                 open = false;
                 return result;
@@ -575,8 +579,7 @@ public sealed class SyncOfflineSalesCommandHandler(
             or ReconciliationIssueType.TillReview
             or ReconciliationIssueType.ExpiryReview
             or ReconciliationIssueType.LicenseHistoryReview
-        || (licenceEnforced && pending.IssueType == ReconciliationIssueType.RecoveryReview)
-        || Errors.OfflineLicenceHistory.IsHistoryCode(pending.Code);
+        || (licenceEnforced && pending.IssueType == ReconciliationIssueType.RecoveryReview);
 
     private readonly record struct SubmittedReceipt(string PayloadHash, OfflineSaleSyncCommand Command);
 

@@ -18,8 +18,8 @@ namespace Intelibill.Application.Features.OfflineReconciliation;
 /// <para>
 /// Every unresolved case that names an invoice can be closed once that invoice has posted:
 /// <c>LinkExistingSale</c> is offered on any case with an envelope (open or escalated, whatever its
-/// reason) and on legacy held cases filed before envelopes existed. The action itself checks the
-/// sale's identity (and, with an envelope, its payload hash), so offering it only records a fact.
+/// reason). The action itself checks the sale's identity and payload hash, so offering it only
+/// records a fact.
 /// </para>
 /// <para>
 /// There is deliberately no generic edit, renumber or delete: every resolution either links
@@ -48,27 +48,12 @@ public static class ReconciliationActionPolicy
         Errors.PostingPeriod.ClosedCode,
     };
 
-    /// <summary>The types an invoice is held under before posting; legacy ones of these carry no envelope.</summary>
-    private static readonly HashSet<ReconciliationIssueType> HeldTypes =
-    [
-        ReconciliationIssueType.InvoiceConflict,
-        ReconciliationIssueType.ValidationConflict,
-        ReconciliationIssueType.ArithmeticConflict,
-        ReconciliationIssueType.IssueTimingReview,
-        ReconciliationIssueType.ProvenanceReview,
-        ReconciliationIssueType.RecoveryReview,
-        ReconciliationIssueType.ClosedPeriodReview,
-        ReconciliationIssueType.TillReview,
-        ReconciliationIssueType.ExpiryReview,
-    ];
-
     public static bool IsLicenceHistoryCase(ReconciliationIssue issue, bool hasSavedLicenceObservations = false) =>
         issue.IssueType == ReconciliationIssueType.LicenseHistoryReview
-        || (issue.IssueType == ReconciliationIssueType.ProvenanceReview && Errors.OfflineLicenceHistory.IsHistoryCode(issue.Code))
         || hasSavedLicenceObservations;
 
     /// <param name="issue">The case.</param>
-    /// <param name="submission">The case's envelope, or null when it has none (legacy cases).</param>
+    /// <param name="submission">The case's envelope, or null when it could not be loaded.</param>
     /// <param name="role">The caller's live role in the case's shop.</param>
     /// <param name="actorUserId">The caller.</param>
     public static IReadOnlyList<ReconciliationAction> AvailableActions(
@@ -134,20 +119,10 @@ public static class ReconciliationActionPolicy
 
     /// <summary>
     /// True when the case may be closed by linking a posted sale: it has its envelope, unless that
-    /// envelope's sale is already the case's own (a variance filed with the sale it describes); or it is
-    /// a legacy held case with neither an envelope nor a sale.
+    /// envelope's sale is already the case's own (a variance filed with the sale it describes).
     /// </summary>
-    public static bool OffersSaleLink(ReconciliationIssue issue, OfflineSubmission? submission)
-    {
-        if (HasEnvelope(issue, submission))
-            return submission!.SaleId is null || submission.SaleId != issue.SaleId;
-
-        return IsLegacyHeld(issue);
-    }
-
-    /// <summary>A case held before envelopes existed: no envelope, no sale, a held type.</summary>
-    public static bool IsLegacyHeld(ReconciliationIssue issue) =>
-        issue.OfflineSubmissionId is null && issue.SaleId is null && HeldTypes.Contains(issue.IssueType);
+    public static bool OffersSaleLink(ReconciliationIssue issue, OfflineSubmission? submission) =>
+        HasEnvelope(issue, submission) && (submission!.SaleId is null || submission.SaleId != issue.SaleId);
 
     private static bool HasEnvelope(ReconciliationIssue issue, OfflineSubmission? submission) =>
         submission is not null && submission.Id == issue.OfflineSubmissionId;

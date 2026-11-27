@@ -209,11 +209,6 @@ export class OfflineReconciliationPageComponent {
   readonly localRecords = this.queueSync.unsentSales;
   readonly localState = signal<LoadState>('loading');
   readonly retryingIds = signal<ReadonlySet<string>>(new Set());
-  readonly resubmittingIds = signal<ReadonlySet<string>>(new Set());
-  readonly resubmitFailedInvoice = signal<string | null>(null);
-  /** Whether each held row's server case kept the original invoice (true), learnt from its detail; absent until known. */
-  readonly caseEnvelopes = signal<ReadonlyMap<string, boolean>>(new Map());
-  private readonly envelopeLookups = new Set<string>();
   readonly unsentRows = computed(() => {
     const userId = this.userId();
     return this.localRecords()
@@ -334,16 +329,6 @@ export class OfflineReconciliationPageComponent {
       });
     });
 
-    // Learns, once per case, whether each held row's case kept its original invoice (see canResubmit).
-    effect(() => {
-      const rows = this.reviewRows();
-      const reachable = this.canReachApi();
-      untracked(() => {
-        if (reachable)
-          for (const row of rows) if (row.reviewCaseId) this.lookUpEnvelope(row.reviewCaseId);
-      });
-    });
-
     this.lastExport.set(this.readLastExport());
     void this.reloadLocalRecords();
   }
@@ -374,80 +359,6 @@ export class OfflineReconciliationPageComponent {
       this.retryingIds.update((ids) => new Set([...ids].filter((id) => id !== clientSaleId)));
       await this.reloadLocalRecords();
     }
-  }
-
-  /**
-   * A held invoice may be sent once more, by its issuer (or anyone, when unstamped), when the server has no
-   * original copy of it: no case was recorded, or its case was filed before the server kept original invoices.
-   */
-  canResubmit(row: {
-    readonly clientSaleId: string;
-    readonly reviewCaseId: string | null;
-  }): boolean {
-    const record = this.localRecords().find(
-      (candidate) => candidate.clientSaleId === row.clientSaleId,
-    );
-    if (!record || record.status !== 'NeedsReview' || !isSubmittableBy(record, this.userId()))
-      return false;
-    return row.reviewCaseId === null || this.caseEnvelopes().get(row.reviewCaseId) === false;
-  }
-
-  isResubmitting(clientSaleId: string): boolean {
-    return this.resubmittingIds().has(clientSaleId);
-  }
-
-  async resubmit(row: {
-    readonly clientSaleId: string;
-    readonly invoiceNumber: string;
-  }): Promise<void> {
-    const shopId = this.shopId();
-    const deviceId = this.deviceId();
-    const clientSaleId = row.clientSaleId;
-    if (!shopId || !deviceId || !this.canReachApi() || this.isResubmitting(clientSaleId)) return;
-
-    const caseIdBefore =
-      this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)
-        ?.reviewCaseId ?? null;
-    this.resubmitFailedInvoice.set(null);
-    this.resubmittingIds.update((ids) => new Set([...ids, clientSaleId]));
-    try {
-      const result = await this.queueSync.resubmitForReview(shopId, deviceId, clientSaleId);
-      if (result.failedCount > 0) this.resubmitFailedInvoice.set(row.invoiceNumber);
-    } catch {
-      this.resubmitFailedInvoice.set(row.invoiceNumber);
-    } finally {
-      this.resubmittingIds.update((ids) => new Set([...ids].filter((id) => id !== clientSaleId)));
-      await this.reloadLocalRecords();
-      // The server may hold an envelope now: forget what was learned so the next refresh asks again.
-      const caseIdAfter =
-        this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)
-          ?.reviewCaseId ?? null;
-      for (const caseId of new Set([caseIdBefore, caseIdAfter])) {
-        if (!caseId) continue;
-        this.envelopeLookups.delete(caseId);
-        this.lookUpEnvelope(caseId);
-      }
-      this.loadCases();
-    }
-  }
-
-  private lookUpEnvelope(caseId: string): void {
-    if (this.envelopeLookups.has(caseId)) return;
-    this.envelopeLookups.add(caseId);
-    this.reconciliation
-      .getCase(caseId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (detail) => this.rememberEnvelope(detail),
-        // Unknown stays unknown (the row offers no resend); a later page load asks again.
-        error: () => this.envelopeLookups.delete(caseId),
-      });
-  }
-
-  private rememberEnvelope(detail: ReconciliationCase): void {
-    this.caseEnvelopes.update((known) =>
-      new Map(known).set(detail.caseId, detail.hasOriginalEnvelope),
-    );
   }
 
   async reloadLocalRecords(): Promise<void> {
@@ -560,7 +471,6 @@ export class OfflineReconciliationPageComponent {
         next: (detail) => {
           if (request !== this.detailRequest) return;
           this.selectedCase.set(detail);
-          this.rememberEnvelope(detail);
           this.detailState.set('ready');
           const action = this.resolveAction();
           if (action && !detail.availableActions.includes(action)) this.resolveAction.set(null);

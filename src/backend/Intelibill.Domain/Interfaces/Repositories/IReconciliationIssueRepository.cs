@@ -32,20 +32,6 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         Guid? offlineSubmissionId = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// The oldest open legacy case for the same hold: same shop, client sale id, device, type, code and
-    /// message, filed before envelopes existed (no envelope). Tracked, so the caller can attach the
-    /// envelope that now evidences it instead of filing a duplicate.
-    /// </summary>
-    Task<ReconciliationIssue?> FindOpenLegacyIssueAsync(
-        Guid shopId,
-        string clientSaleId,
-        string deviceId,
-        ReconciliationIssueType issueType,
-        string code,
-        string message,
-        CancellationToken cancellationToken = default);
-
     /// <summary>The oldest unresolved (open or escalated) case filed for the envelope, whatever its reason; untracked.</summary>
     Task<ReconciliationIssue?> FindUnresolvedByEnvelopeAsync(
         Guid shopId,
@@ -53,9 +39,8 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The canonical unresolved licence history case for the envelope (tracked): type 15, a legacy
-    /// provenance case with the <c>OfflineLicenceHistory.</c> prefix, or a pre-posting hold that
-    /// carries a saved licence history observation. Case creation also includes resolved type 15
+    /// The canonical unresolved licence history case for the envelope (tracked): type 15, or a
+    /// pre-posting hold that carries a saved licence history observation. Case creation also includes resolved type 15
     /// cases because their unique envelope identity survives resolution. Excludes post-sale variances.
     /// </summary>
     Task<ReconciliationIssue?> FindCanonicalHistoryCaseAsync(

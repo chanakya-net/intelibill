@@ -118,7 +118,7 @@ public sealed partial class P0505LicensingTests
         var invoice = new OfflineSaleSyncCommand(Guid.NewGuid().ToString("N"), "A/2627/000001", soldAt, null, null, null,
             PaymentMethod.Cash, 2m, 0m, 2m, 2m, 0m, 0m, 2m, InstantDiscountType.None, 0m, null, null, null, null,
             [new(item.Barcode, "LOT", item.Name, 1m, 1m, 2m, 2m, 0m, false, batch.Id,
-                2m, 0m, 0m, 2m, 0m, 2m, null, null, InstantDiscountType.None, 0m, null)], IssuedByUserId: assertedIssuer);
+                2m, 0m, 0m, 2m, 0m, 2m, null, null, InstantDiscountType.None, 0m, null)], CalculationVersion: 1, IssuedByUserId: assertedIssuer);
         var envelope = OfflineSubmission.Record(actor.Shop, Device, invoice.ClientSaleId, invoice.InvoiceNumber,
             OfflineSaleSyncIdempotencyHasher.ComputeHash(actor.Shop, Device, invoice), OfflineSubmissionPayload.Serialize(invoice),
             soldAt, soldAt, OfflineSubmissionSource.Recovery, actor.User, assertedIssuer, verifiedIssuer, lease.Id, "fixture-recovery");

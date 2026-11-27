@@ -92,13 +92,9 @@ follow the server's `availableActions`. Backend rules: `docs/backend-architectur
 - **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales` for the active shop and this
   browser's device id: Pending/Failed invoices are transport retries, NeedsReview opens its case, and
   another user's invoices are listed as awaiting their issuer.
-- **Send to server for review.** A NeedsReview row the signed-in user may submit (`isSubmittableBy`)
-  whose case kept no original invoice (`hasOriginalEnvelope` false, learnt from the case detail) or that
-  has no case at all offers a one-time resend: `resubmitForReview` sends that one record through the
-  normal sync request; if the request fails the record goes back to NeedsReview exactly as it was, so
-  automatic and bulk retries (`isOfflineSaleSyncRetryable`) still never resend held invoices.
-- **Issuer stamping.** New queued invoices carry `issuedByUserId`; queue sync submits only the
-  signed-in user's invoices (and legacy unstamped ones).
+  Automatic and bulk retries (`isOfflineSaleSyncRetryable`) never resend held invoices.
+- **Issuer stamping.** Every queued invoice carries `issuedByUserId` and the `calculationVersion` it was
+  priced under; queue sync submits only the signed-in user's invoices (`isSubmittableBy`).
 - **Cases** show a status filter, paging, the frozen invoice, reason, differences, people ("unknown
   user" for non-members), the invoice number reservation window, and the audit trail, plus a resolve
   form. State is shown only from the last server response; offline display never claims a resolution.

@@ -875,7 +875,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
     private async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token) =>
         InvoiceAt(await ReserveInvoiceLeaseAsync(client, token), 0);
 
-    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid? issuedByUserId = null)
+    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid issuedByUserId)
     {
         var preTax = 100m * quantity;
         var tax = 18m * quantity;
@@ -896,6 +896,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
             totalAmount = total,
             saleDiscountOverrideType = (int)InstantDiscountType.None,
             saleDiscountOverrideValue = 0m,
+            calculationVersion = 1,
             items = new[]
             {
                 new

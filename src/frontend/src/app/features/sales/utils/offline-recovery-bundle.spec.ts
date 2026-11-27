@@ -1,14 +1,13 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import vectors from '../../../../../../../tests/contracts/licensing/p05-06-legacy-queue-vectors.json';
 import type { OfflineQueuedSalePayload, OfflineQueuedSaleRecord, OfflineSaleQueueStatus } from '../services/offline-sale-core.types';
 import { buildSyncRequestFromQueuedSale } from './offline-sale-sync.mapper';
 import { buildSupportBundle, type SupportBundle } from './offline-recovery-bundle';
 
 const context = { shopId: 'shop-1', deviceId: 'dev/1', exportedAt: '2026-11-03T09:05:30.000Z' };
 
-function rec(clientSaleId: string, status: OfflineSaleQueueStatus, issuedByUserId?: string): OfflineQueuedSaleRecord {
+function rec(clientSaleId: string, status: OfflineSaleQueueStatus, issuedByUserId = 'user-0'): OfflineQueuedSaleRecord {
   const payload: OfflineQueuedSalePayload = {
     clientSaleId,
     idempotencyKey: `idem-${clientSaleId}`,
@@ -17,14 +16,15 @@ function rec(clientSaleId: string, status: OfflineSaleQueueStatus, issuedByUserI
     invoiceNumber: `INV-${clientSaleId}`,
     soldAt: '2026-11-01T10:00:00.000Z',
     pricing: {
+      calculationVersion: 1,
       lines: [],
-      totals: { totalBeforeDiscount: 100, totalDiscount: 0, totalTax: 0, grandTotal: 100, paidAmount: 100, dueAmount: 0 },
+      totals: { subtotalBeforeDiscount: 100, totalBeforeDiscount: 100, totalDiscount: 0, totalTax: 0, grandTotal: 100, paidAmount: 100, dueAmount: 0 },
     },
     paymentMethod: 1,
     customerId: null,
     customerName: null,
     customerPhone: null,
-    ...(issuedByUserId ? { issuedByUserId } : {}),
+    issuedByUserId,
   };
   return {
     key: `k-${clientSaleId}`, shopId: 'shop-1', deviceId: 'dev/1', clientSaleId,
@@ -65,14 +65,15 @@ describe('buildSupportBundle', () => {
     expect((JSON.parse(bundle.text).invoices as { clientSaleId: string }[]).map((i) => i.clientSaleId)).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('round-trips through JSON.parse with the sync request shape plus issuer', async () => {
+  it('round-trips through JSON.parse with the sync request shape', async () => {
     const bundle = await single();
     const parsed = JSON.parse(bundle.text);
 
     expect(parsed).toMatchObject({ format: 'intelibill.offline-recovery', version: 1, shopId: 'shop-1', deviceId: 'dev/1', exportedAt: context.exportedAt });
     expect(Object.keys(parsed).slice(0, 6)).toEqual(['format', 'version', 'shopId', 'deviceId', 'exportedAt', 'checksum']);
-    expect(parsed.invoices[0]).toEqual({ ...JSON.parse(JSON.stringify(buildSyncRequestFromQueuedSale(records[0]))), issuedByUserId: 'user-1' });
-    expect('issuedByUserId' in parsed.invoices[1]).toBe(false);
+    expect(parsed.invoices[0]).toEqual(JSON.parse(JSON.stringify(buildSyncRequestFromQueuedSale(records[0]))));
+    expect(parsed.invoices[0].issuedByUserId).toBe('user-1');
+    expect(parsed.invoices[1].issuedByUserId).toBe('user-0');
   });
 
   it('contains no token or session fields', async () => {
@@ -105,8 +106,8 @@ describe('buildSupportBundle', () => {
     const bundle = (await buildSupportBundle([withProof], context))[0];
     expect(JSON.parse(bundle.text).invoices[0].items[0].expiryEvidence).toEqual(proof);
     expect(checksumOf(bundle)).toBe(bundle.checksum);
-    const legacy = (await buildSupportBundle([original], context))[0];
-    expect(JSON.parse(legacy.text).invoices[0]).not.toHaveProperty('expiryEvidence');
+    const withoutProof = (await buildSupportBundle([original], context))[0];
+    expect(JSON.parse(withoutProof.text).invoices[0]).not.toHaveProperty('expiryEvidence');
     expect(withProof.payload.pricing.lines[0].expiryEvidence).toEqual(proof);
   });
 
@@ -163,52 +164,5 @@ describe('buildSupportBundle', () => {
       expect(part.clientSaleIds.length).toBeLessThanOrEqual(100);
       expect(new TextEncoder().encode(part.text).length).toBeLessThanOrEqual(1_900_000);
     }
-  });
-
-  it('exports byte-exact invoices and checksums for both historical producer vectors and preserves whitespace sensitivity (P05-06)', async () => {
-    const legacy7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
-    const legacy671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as OfflineQueuedSaleRecord;
-    const vectorCtx = {
-      shopId: vectors.scope.shopId,
-      deviceId: vectors.scope.deviceId,
-      exportedAt: vectors.scope.exportedAt,
-    };
-
-    const [part7ff1] = await buildSupportBundle([legacy7ff1], vectorCtx);
-    expect(part7ff1.checksum).toBe(vectors.unversionedPreDocument.expectedBundleChecksum);
-    expect(part7ff1.text).toContain('"invoices":' + vectors.unversionedPreDocument.expectedBundleInvoicesJson + '}');
-
-    const [part671d] = await buildSupportBundle([{ ...legacy671d, status: 'Syncing' }], vectorCtx);
-    expect(part671d.checksum).toBe(vectors.v1FrozenDocument.expectedBundleChecksum);
-    expect(part671d.text).toBe(vectors.v1FrozenDocument.exportedBundleText);
-
-    const [combined] = await buildSupportBundle([legacy7ff1, legacy671d], vectorCtx);
-    expect(combined.checksum).toBe(vectors.combinedExport.expectedBundleChecksum);
-    expect(combined.text).toContain('"invoices":' + vectors.combinedExport.expectedBundleInvoicesJson + '}');
-
-    // Sparse unversioned row must match archived 7ff1de03f / 671d51df3 bundle checksum without synthesizing nulls (R001).
-    const sparsePayload = { ...legacy7ff1.payload } as Record<string, unknown>;
-    delete sparsePayload['customerId'];
-    delete sparsePayload['customerName'];
-    delete sparsePayload['customerPhone'];
-    const sparseLine = { ...legacy7ff1.payload.pricing.lines[0] } as Record<string, unknown>;
-    delete sparseLine['configuredRuleId'];
-    delete sparseLine['hsnCode'];
-    delete sparseLine['lineType'];
-    delete sparseLine['serviceId'];
-    const [sparsePart] = await buildSupportBundle(
-      [{ ...legacy7ff1, payload: { ...(sparsePayload as unknown as OfflineQueuedSalePayload), pricing: { ...legacy7ff1.payload.pricing, lines: [sparseLine as unknown as OfflineQueuedSalePayload['pricing']['lines'][0]] } } }],
-      vectorCtx,
-    );
-    expect(sparsePart.checksum).toBe(vectors.sparseUnversionedControl.expectedSparseBundleChecksum);
-
-    // Synthetic whitespace-sensitive v1 bundle control: raw array text determines the checksum.
-    const wsControl = vectors.syntheticPrettyWhitespaceControl;
-    const rawDigest = createHash('sha256').update(wsControl.invoicesRawJson, 'utf8').digest('hex');
-    expect(rawDigest).toBe(wsControl.checksum);
-    const alteredDigest = createHash('sha256')
-      .update(wsControl.invoicesRawJson.replace('\n', '\n '), 'utf8')
-      .digest('hex');
-    expect(alteredDigest).not.toBe(wsControl.checksum);
   });
 });

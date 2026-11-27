@@ -126,7 +126,7 @@ public sealed partial class P0505LicensingTests
                 PaymentMethod.Cash, 2m, 0m, 2m, 2m, 0m, 0m, 2m, InstantDiscountType.None, 0m, null, null, null, null,
                 [new OfflineSaleSyncLineCommand(item.Barcode, "LOT", item.Name, 1m, 1m, 2m, 2m, 0m, false, batch.Id,
                     2m, 0m, 0m, 2m, 0m, 2m, null, null, InstantDiscountType.None, 0m, null)],
-                IssuedByUserId: obsActor.User);
+                CalculationVersion: 1, IssuedByUserId: obsActor.User);
             var legacyHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(obsActor.Shop, "legacy-dev", legacyCmd);
             var env = OfflineSubmission.Record(
                 obsActor.Shop, "legacy-dev", legacyCmd.ClientSaleId, legacyCmd.InvoiceNumber, legacyHash,
@@ -537,7 +537,7 @@ public sealed partial class P0505LicensingTests
                 InstantDiscountType.None, 0m, null, null, null, null,
                 [new OfflineSaleSyncLineCommand(item.Barcode, "LOT", item.Name, 1m, 1m, 2m, 2m, 0m, false, batch.Id,
                     2m, 0m, 0m, 2m, 0m, 2m, null, null, InstantDiscountType.None, 0m, null)],
-                IssuedByUserId: actor.User);
+                CalculationVersion: 1, IssuedByUserId: actor.User);
             var realHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(actor.Shop, "pre-env-dev", cmd);
             var saleItem = SaleItem.CreateGoods(
                 actor.Shop, item.Id, batch.Id, item.Name, item.Barcode, 1m, 1m, 2m, 2m, 0m, false, false,

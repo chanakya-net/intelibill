@@ -139,11 +139,6 @@
                     'sales.offlineReconciliation.queue.noCase' | transloco
                   }}</span>
                 }
-                @if (canResubmit(row)) {
-                  <span class="queue-meta resubmit-hint">{{
-                    'sales.offlineReconciliation.queue.resubmitHint' | transloco
-                  }}</span>
-                }
               </div>
               <div class="queue-row-actions">
                 <a
@@ -159,24 +154,6 @@
                   <i class="pi pi-print" aria-hidden="true"></i>
                   {{ 'sales.offlineReconciliation.print' | transloco }}
                 </a>
-                @if (canResubmit(row)) {
-                  <button
-                    pButton
-                    type="button"
-                    class="row-action-btn resubmit-btn"
-                    icon="pi pi-send"
-                    severity="secondary"
-                    [outlined]="true"
-                    [label]="'sales.offlineReconciliation.queue.resubmit' | transloco"
-                    [attr.aria-label]="
-                      'sales.offlineReconciliation.queue.resubmitInvoice'
-                        | transloco: { invoice: row.invoiceNumber }
-                    "
-                    [loading]="isResubmitting(row.clientSaleId)"
-                    [disabled]="isOffline() || isResubmitting(row.clientSaleId)"
-                    (click)="resubmit(row)"
-                  ></button>
-                }
                 @if (row.reviewCaseId; as caseId) {
                   <button
                     pButton
@@ -194,13 +171,6 @@
             </li>
           }
         </ul>
-        @if (resubmitFailedInvoice(); as invoice) {
-          <p class="panel-error resubmit-error" role="alert">
-            {{
-              'sales.offlineReconciliation.queue.resubmitFailed' | transloco: { invoice: invoice }
-            }}
-          </p>
-        }
       </div>
     }
 
@@ -495,13 +465,6 @@
                 {{ 'sales.offlineReconciliation.detail.printSale' | transloco }}
               </a>
             </p>
-          }
-
-          @if (!detail.hasOriginalEnvelope) {
-            <div class="envelope-missing" role="note">
-              <strong>{{ 'sales.offlineReconciliation.detail.noEnvelope' | transloco }}</strong>
-              <span>{{ 'sales.offlineReconciliation.detail.noEnvelopeHint' | transloco }}</span>
-            </div>
           }
 
           @if (detail.licenceHistory; as lh) {

@@ -684,9 +684,8 @@ revenue lines differ by that excess.
 ## Offline Invoice Arithmetic
 
 **Contract per invoice.** Every offline sale is frozen in the browser under a calculation contract and
-synced with it. `calculationVersion` absent → `legacy`; `1` → `v1`; anything else answers NeedsReview
-with `Sale.OfflineCalculationVersionUnsupported`. The version is part of the request hash only when
-present, so an unversioned retry keeps the hash it was first synced with.
+synced with it; the web client always sends `calculationVersion: 1`. Any other value, or none, answers
+NeedsReview with `Sale.OfflineCalculationVersionUnsupported` (mismatch code `unsupported_version`).
 
 **Validation.** `OfflineInvoiceArithmeticValidator` recomputes each line (gross → pre-tax → item
 discount → allocated sale discount → taxable → tax → total) and the header (`subtotalBeforeDiscount`
@@ -698,8 +697,7 @@ after the structural and lease checks and before `ISaleLineValidator`, entity co
 consumption and ledger posting. Inputs are checked first: defined enum values, tax rate and
 percentages in [0, 100], non-negative prices and overrides, a rule id with its percentage, a met
 threshold, and money inputs and each line's gross (price × quantity) at most ₹100,000,000,000, which
-keeps every amount inside `numeric(18,2)` and the legacy replay at single-paise resolution; v1 also
-rejects inputs beyond its scales.
+keeps every amount inside `numeric(18,2)`; inputs beyond the contract's scales are rejected.
 
 - **v1** (`OfflineInvoiceArithmeticV1`, `offline-money.math.ts`): paise, thousandths and basis points
   as integers; every division rounds half away from zero. A tax-inclusive line uses the online identity
@@ -711,12 +709,6 @@ rejects inputs beyond its scales.
   definition, Σ(line total + discounts). `tests/contracts/offline-invoice-arithmetic-v1.json`
   (hand-written cases) and `…-v1-corpus.json` (random carts) carry expected amounts from an
   independent exact-rational reference and pin C# and TypeScript to the same results.
-- **legacy** (`OfflineInvoiceArithmeticLegacy`): an exact replay of the unversioned browser calculator,
-  which ran on IEEE doubles and rounded with `Number(x.toFixed(2))` (half away from zero on the exact
-  binary value, reproduced with `BigInteger`), with the final goods line taking the residual sale
-  discount. `totalBeforeDiscount` may be Σ pre-tax (what that browser sent) or the domain definition.
-  `tests/contracts/offline-invoice-arithmetic-legacy-corpus.json` holds payloads priced by that
-  calculator (commit `41015861565d`) and must keep replaying.
 
 **Quarantine.** A mismatch records one `ReconciliationIssue` (`ArithmeticConflict`, code
 `Sale.OfflineArithmeticMismatch`, an amounts-only summary within 1000 characters) and answers
@@ -728,10 +720,6 @@ resent or recalculated) and lists it on the sales page with the reason, differen
 Every NeedsReview result now carries its case id, and a resend that is held for the same reason
 returns the open case (`IReconciliationIssueRepository.FindOpenIssueIdAsync`) instead of filing
 another.
-
-**Posted sales.** `scripts/db/audit-offline-sale-arithmetic.sql` is a read-only report of posted
-offline sales whose header disagrees with their lines or whose lines break taxable + tax = total;
-it runs shop by shop under the tenant policies and changes nothing.
 
 ## Offline Reconciliation
 
@@ -757,14 +745,12 @@ fiscal year differs from the lease -> `IssueFiscalYearMismatch`; at/after expiry
 `IssuedAfterLeaseExpiry`; first receipt at/after expiry -> `HistoricalLeaseReviewRequired`; otherwise
 accepted. A plausible clock value never passes alone: only a first receipt before expiry is a trust
 signal. Posting is `IOfflineSalePoster` (stages, never saves); a held result files one case per
-envelope (`FindOpenIssueIdAsync(..., offlineSubmissionId)`). When the envelope has no open case but an
-open legacy case (no envelope) exists for the same shop, client sale id, device, type, code and message,
-`OfflineSaleVarianceAnalyzer` adopts it with `AttachEvidence(invoiceNumber, envelopeId)` instead of
-filing a duplicate (`FindOpenLegacyIssueAsync`).
+envelope (`FindOpenIssueIdAsync(..., offlineSubmissionId)`). Every case carries its envelope: a hold
+is filed with it, and post-sale variance cases attach it before they are saved.
 
-**Issuer and device history.** New queued payloads carry `issuedByUserId` (hashed only when present).
-Absent = legacy (attributed to the submitter, issuer "not recorded"); equal to the submitter =
-verified; different = held (`IssuerNotSubmitter`). `invoice_leases.reserved_by_user_id/session_id`
+**Issuer and device history.** Every queued payload carries `issuedByUserId`. Equal to the submitter =
+verified; different = held (`IssuerNotSubmitter`); absent = held (`ProvenanceUnknown`), never attributed
+to the submitter. `invoice_leases.reserved_by_user_id/session_id`
 record who reserved a range. For a recovery row an asserted issuer is verified for a device when they
 hold or held a membership (any status) and reserved a lease on it or synced from it. Never a member:
 row rejected (`Recovery.IssuerMismatch`). Member without device history, or no issuer: envelope kept,
@@ -782,15 +768,15 @@ Resolutions, in the order offered:
 | `AcknowledgeVariance` | Pricing / discount / customer variance, or a `ValidationConflict` with code `offline_sync.validation_variance` (keyed on the code: idempotency conflicts share the type) |
 | `LinkStockCorrection` | Stock variance with item, batch and an unresolved quantity above zero |
 | `RetryHistoricalLease` | The case has its envelope, the envelope has an attributable user, and the code is `HistoricalLeaseReviewRequired`, `RecoveryReviewRequired`, `IssuerNotSubmitter` or any timing code (`IssueTimeBeforeLease`, `IssueTimeInFuture`, `IssueFiscalYearMismatch`, `IssuedAfterLeaseExpiry`) |
-| `LinkExistingSale` | Any case with its envelope, whatever its type or status, unless the envelope is already linked to the case's own sale (a variance filed with the sale it describes); and legacy held cases with neither envelope nor sale (types InvoiceConflict, ValidationConflict, ArithmeticConflict, IssueTimingReview, ProvenanceReview, RecoveryReview) |
+| `LinkExistingSale` | Any case with its envelope, whatever its type or status, unless the envelope is already linked to the case's own sale (a variance filed with the sale it describes) |
 
 `LinkStockCorrection` needs an unvoided same-shop/item/batch `FoundStock` or `OtherGain` increase worth
 at least the unresolved quantity, not linked elsewhere (partial unique index); it writes one `Out`
 movement and leaves the sale untouched. `LinkExistingSale` checks the sale through
 `ReconciliationLinkRules.CheckSaleAsync`: with an envelope the sale must carry the envelope's device,
 client id and payload hash (for `Sale.IdempotencyConflict`, the case's own sale and an earlier envelope
-with that sale's hash); a legacy case without an envelope is checked on identity only (same device and
-client sale id as the case). `RetryHistoricalLease` replays the frozen envelope with its claimed
+with that sale's hash); a case whose envelope cannot be loaded is refused (`Reconciliation.EnvelopeMissing`).
+`RetryHistoricalLease` replays the frozen envelope with its claimed
 `soldAt` unchanged (the reason is mandatory and the console shows the claimed time, first receipt and
 lease window): it links an identical existing sale, refuses a reused invoice number, or posts through
 `IOfflineSalePoster` and commits sale, envelope link and resolution together; a held outcome answers 409
@@ -839,12 +825,8 @@ reads it, on the India business calendar), so a lease never spans a fiscal-year 
 billed on 1 April or later under an old range is held for review rather than posted silently. Ranges
 come from the shop's fiscal series (see § Issued Invoice Documents and Fiscal Numbering).
 
-**Rollout and rollback.** Migration `AddOfflineSubmissionReconciliationAudit` only adds tables and
-columns; existing cases take `status` from `is_resolved` and have no envelope ("original envelope not
-recorded"). Legacy held cases can be closed with `LinkExistingSale` once the invoice posts, and a later
-sync of the same hold adopts them; the console offers a one-time "send to server for review" for local
-held invoices whose case kept no envelope. Rollback removes the routes and menu entry;
-envelopes, cases, events and leases stay and invoice ranges are never recycled.
+**Rollback.** Rollback removes the routes and menu entry; envelopes, cases, events and leases stay and
+invoice ranges are never recycled.
 
 **Out of scope.** A device-revocation registry, closed accounting periods (backlog 27), offline
 attestation of the issue time, and reprint polish (backlog 21).

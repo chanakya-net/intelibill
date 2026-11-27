@@ -819,10 +819,10 @@ export interface OfflineSaleSyncRequest extends TillSourceFields {
   readonly configuredSaleRuleType: string | null;
   readonly configuredSaleRulePercentage: number | null;
   readonly configuredSaleRuleThresholdAmount: number | null;
-  /** Omitted for payloads frozen before calculation versions existed, which the server replays as legacy. */
-  readonly calculationVersion?: number;
-  /** Omitted for legacy payloads; the server then attributes the sale to the submitter. */
-  readonly issuedByUserId?: string;
+  /** Arithmetic contract the amounts were frozen under; the server holds any other version for review. */
+  readonly calculationVersion: number;
+  /** The signed-in user who issued the invoice; the server holds an invoice from anyone else for review. */
+  readonly issuedByUserId: string;
   readonly items: readonly OfflineSalesSyncLineRequest[];
 }
 

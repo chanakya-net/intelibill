@@ -553,6 +553,8 @@ describe('SaleService', () => {
           configuredSaleRuleType: null,
           configuredSaleRulePercentage: null,
           configuredSaleRuleThresholdAmount: null,
+          calculationVersion: 1,
+          issuedByUserId: 'user-1',
           items: [],
         },
       ],

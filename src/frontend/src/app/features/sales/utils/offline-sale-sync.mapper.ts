@@ -48,8 +48,7 @@ export function buildSyncRequestFromQueuedSale(
     paymentMethod: payload.paymentMethod,
     paidAmount: totals.paidAmount,
     dueAmount: totals.dueAmount,
-    // Unversioned payloads have no separate subtotal and must map exactly as they did when first synced.
-    subtotalBeforeDiscount: totals.subtotalBeforeDiscount ?? totals.totalBeforeDiscount,
+    subtotalBeforeDiscount: totals.subtotalBeforeDiscount,
     totalBeforeDiscount: totals.totalBeforeDiscount,
     totalDiscountAmount: totals.totalDiscount,
     totalTaxAmount: totals.totalTax,
@@ -60,10 +59,8 @@ export function buildSyncRequestFromQueuedSale(
     configuredSaleRuleType: payload.pricing.configuredSaleRuleType ?? null,
     configuredSaleRulePercentage: payload.pricing.configuredSaleRulePercentage ?? null,
     configuredSaleRuleThresholdAmount: payload.pricing.configuredSaleRuleThresholdAmount ?? null,
-    ...(payload.pricing.calculationVersion === undefined
-      ? {}
-      : { calculationVersion: payload.pricing.calculationVersion }),
-    ...(payload.issuedByUserId ? { issuedByUserId: payload.issuedByUserId } : {}),
+    calculationVersion: payload.pricing.calculationVersion,
+    issuedByUserId: payload.issuedByUserId,
     items: payload.pricing.lines.map((line) => ({
       ...(line.expiryEvidence === undefined ? {} : { expiryEvidence: line.expiryEvidence }),
       barcode: line.barcode,
@@ -207,10 +204,9 @@ export function mapToVisibleQueueCounts(
   };
 }
 
-/** An invoice is sent only by the user who issued it; unstamped (legacy) invoices go with whoever is signed in. */
+/** An invoice is sent only by the user who issued it. */
 export function isSubmittableBy(record: OfflineQueuedSaleRecord, userId: string | null): boolean {
-  const issuer = record.payload.issuedByUserId;
-  return !issuer || issuer === userId;
+  return userId !== null && record.payload.issuedByUserId === userId;
 }
 
 export function isOfflineSaleSyncRetryable(status: OfflineSaleQueueStatus): boolean {

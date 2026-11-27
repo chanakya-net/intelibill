@@ -14,9 +14,6 @@ public static partial class Errors
 
         private const string ReviewMessage = "The original offline licence evidence requires review.";
 
-        public static bool IsHistoryCode(string? code) =>
-            !string.IsNullOrEmpty(code) && code.StartsWith(CodePrefix, StringComparison.Ordinal);
-
         public static Error EvidenceUnsupported =>
             Error.Conflict($"{CodePrefix}EvidenceUnsupported", ReviewMessage);
 

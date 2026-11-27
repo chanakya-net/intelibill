@@ -4,37 +4,34 @@ using Codes = Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.Of
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-// Recomputes an offline invoice from its own frozen inputs under the contract it declares and compares every
-// line and header amount exactly. Current catalog prices and rule activity are not consulted here.
+// Recomputes an offline invoice from its own frozen inputs under the version 1 contract and compares every line
+// and header amount exactly. An invoice that declares no version or another one is held as unsupported. Current
+// catalog prices and rule activity are not consulted here.
 internal static class OfflineInvoiceArithmeticValidator
 {
     internal const int CurrentVersion = 1;
 
     // Far beyond any retail invoice. With each line's gross (price x quantity) held to MaxMoneyInput too, every
-    // amount fits numeric(18,2) and stays where the legacy double replay still resolves single paise; v1 integer
-    // arithmetic is exact at any size.
+    // amount fits numeric(18,2); the integer arithmetic itself is exact at any size.
     private const decimal MaxMoneyInput = 100_000_000_000m;
     private const decimal MaxQuantity = 10_000_000m;
 
     internal static OfflineArithmeticVerdict Validate(OfflineSaleSyncCommand sale)
     {
-        if (sale.CalculationVersion is { } version && version != CurrentVersion)
+        if (sale.CalculationVersion != CurrentVersion)
         {
             return new OfflineArithmeticVerdict(
                 OfflineArithmeticVerdict.UnsupportedContract,
-                [new OfflineArithmeticMismatch("calculationVersion", version, CurrentVersion, Codes.UnsupportedVersion)]);
+                [new OfflineArithmeticMismatch("calculationVersion", sale.CalculationVersion, CurrentVersion, Codes.UnsupportedVersion)]);
         }
 
-        var isVersion1 = sale.CalculationVersion == CurrentVersion;
-        var contract = isVersion1 ? OfflineArithmeticVerdict.Version1Contract : OfflineArithmeticVerdict.LegacyContract;
+        const string contract = OfflineArithmeticVerdict.Version1Contract;
         var mismatches = new List<OfflineArithmeticMismatch>();
-        CheckInputs(sale, isVersion1, mismatches);
+        CheckInputs(sale, mismatches);
         if (mismatches.Count > 0)
             return new OfflineArithmeticVerdict(contract, mismatches);
 
-        var expected = isVersion1
-            ? OfflineInvoiceArithmeticV1.Calculate(sale)
-            : OfflineInvoiceArithmeticLegacy.Calculate(sale);
+        var expected = OfflineInvoiceArithmeticV1.Calculate(sale);
 
         if (sale.ConfiguredSaleRuleId.HasValue
             && sale.ConfiguredSaleRuleType == DiscountRuleType.SaleThresholdPercentage
@@ -47,8 +44,7 @@ internal static class OfflineInvoiceArithmeticValidator
             CompareLine(i, sale.Items[i], expected.Lines[i], mismatches);
 
         Compare("subtotalBeforeDiscount", sale.SubtotalBeforeDiscount, expected.SubtotalBeforeDiscount, mismatches);
-        if (!expected.AcceptedTotalsBeforeDiscount.Contains(sale.TotalBeforeDiscount))
-            mismatches.Add(new OfflineArithmeticMismatch("totalBeforeDiscount", sale.TotalBeforeDiscount, expected.AcceptedTotalsBeforeDiscount[0], Codes.AmountMismatch));
+        Compare("totalBeforeDiscount", sale.TotalBeforeDiscount, expected.TotalBeforeDiscount, mismatches);
         Compare("totalDiscountAmount", sale.TotalDiscountAmount, expected.TotalDiscountAmount, mismatches);
         Compare("totalTaxAmount", sale.TotalTaxAmount, expected.TotalTaxAmount, mismatches);
         Compare("totalAmount", sale.TotalAmount, expected.TotalAmount, mismatches);
@@ -83,12 +79,12 @@ internal static class OfflineInvoiceArithmeticValidator
             mismatches.Add(new OfflineArithmeticMismatch(path, supplied, expected, Codes.AmountMismatch));
     }
 
-    private static void CheckInputs(OfflineSaleSyncCommand sale, bool isVersion1, List<OfflineArithmeticMismatch> mismatches)
+    private static void CheckInputs(OfflineSaleSyncCommand sale, List<OfflineArithmeticMismatch> mismatches)
     {
         if (!Enum.IsDefined(sale.PaymentMethod))
             mismatches.Add(new OfflineArithmeticMismatch("paymentMethod", (int)sale.PaymentMethod, null, Codes.UnsupportedValue));
 
-        CheckDiscountInput("saleDiscountOverride", sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, isVersion1, mismatches);
+        CheckDiscountInput("saleDiscountOverride", sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, mismatches);
 
         if (sale.ConfiguredSaleRuleId.HasValue)
         {
@@ -98,14 +94,14 @@ internal static class OfflineInvoiceArithmeticValidator
                 mismatches.Add(new OfflineArithmeticMismatch("configuredSaleRuleType", supplied, null, sale.ConfiguredSaleRuleType is null ? Codes.RuleEvidenceMissing : Codes.UnsupportedValue));
             }
 
-            CheckRulePercentage("configuredSaleRulePercentage", sale.ConfiguredSaleRulePercentage, isVersion1, mismatches);
+            CheckRulePercentage("configuredSaleRulePercentage", sale.ConfiguredSaleRulePercentage, mismatches);
 
             if (sale.ConfiguredSaleRuleType == DiscountRuleType.SaleThresholdPercentage)
             {
                 if (sale.ConfiguredSaleRuleThresholdAmount is not { } threshold)
                     mismatches.Add(new OfflineArithmeticMismatch("configuredSaleRuleThresholdAmount", null, null, Codes.RuleEvidenceMissing));
                 else
-                    CheckRange("configuredSaleRuleThresholdAmount", threshold, 0m, MaxMoneyInput, isVersion1 ? 2 : null, mismatches);
+                    CheckRange("configuredSaleRuleThresholdAmount", threshold, 0m, MaxMoneyInput, 2, mismatches);
             }
         }
 
@@ -116,22 +112,22 @@ internal static class OfflineInvoiceArithmeticValidator
             if (line.Quantity <= 0m)
                 mismatches.Add(new OfflineArithmeticMismatch(prefix + "quantity", line.Quantity, null, Codes.UnsupportedValue));
             else
-                CheckRange(prefix + "quantity", line.Quantity, 0m, MaxQuantity, isVersion1 ? 3 : null, mismatches);
-            CheckRange(prefix + "salesPrice", line.SalesPrice, 0m, MaxMoneyInput, isVersion1 ? 2 : null, mismatches);
+                CheckRange(prefix + "quantity", line.Quantity, 0m, MaxQuantity, 3, mismatches);
+            CheckRange(prefix + "salesPrice", line.SalesPrice, 0m, MaxMoneyInput, 2, mismatches);
             if (line.Quantity is > 0m and <= MaxQuantity
                 && line.SalesPrice is >= 0m and <= MaxMoneyInput
                 && line.SalesPrice * line.Quantity > MaxMoneyInput)
                 mismatches.Add(new OfflineArithmeticMismatch($"items[{i}]", line.SalesPrice * line.Quantity, null, Codes.UnsupportedValue));
-            CheckRange(prefix + "taxRatePercent", line.TaxRatePercent, 0m, 100m, isVersion1 ? 2 : null, mismatches);
+            CheckRange(prefix + "taxRatePercent", line.TaxRatePercent, 0m, 100m, 2, mismatches);
             if (line.IsServiceLine) continue;
 
-            CheckDiscountInput(prefix + "itemDiscountOverride", line.ItemDiscountOverrideType, line.ItemDiscountOverrideValue, isVersion1, mismatches);
+            CheckDiscountInput(prefix + "itemDiscountOverride", line.ItemDiscountOverrideType, line.ItemDiscountOverrideValue, mismatches);
             if (line.ConfiguredBatchRuleId.HasValue)
-                CheckRulePercentage(prefix + "configuredBatchRulePercentage", line.ConfiguredBatchRulePercentage, isVersion1, mismatches);
+                CheckRulePercentage(prefix + "configuredBatchRulePercentage", line.ConfiguredBatchRulePercentage, mismatches);
         }
     }
 
-    private static void CheckDiscountInput(string pathStem, InstantDiscountType type, decimal value, bool isVersion1, List<OfflineArithmeticMismatch> mismatches)
+    private static void CheckDiscountInput(string pathStem, InstantDiscountType type, decimal value, List<OfflineArithmeticMismatch> mismatches)
     {
         if (!Enum.IsDefined(type))
         {
@@ -143,15 +139,15 @@ internal static class OfflineInvoiceArithmeticValidator
         switch (type)
         {
             case InstantDiscountType.Percentage:
-                CheckRange(valuePath, value, 0m, 100m, isVersion1 ? 2 : null, mismatches);
+                CheckRange(valuePath, value, 0m, 100m, 2, mismatches);
                 break;
             case InstantDiscountType.Flat:
-                CheckRange(valuePath, value, 0m, MaxMoneyInput, isVersion1 ? 2 : null, mismatches);
+                CheckRange(valuePath, value, 0m, MaxMoneyInput, 2, mismatches);
                 break;
         }
     }
 
-    private static void CheckRulePercentage(string path, decimal? percentage, bool isVersion1, List<OfflineArithmeticMismatch> mismatches)
+    private static void CheckRulePercentage(string path, decimal? percentage, List<OfflineArithmeticMismatch> mismatches)
     {
         if (percentage is not { } value)
         {
@@ -159,14 +155,14 @@ internal static class OfflineInvoiceArithmeticValidator
             return;
         }
 
-        CheckRange(path, value, 0m, 100m, isVersion1 ? 2 : null, mismatches);
+        CheckRange(path, value, 0m, 100m, 2, mismatches);
     }
 
-    private static void CheckRange(string path, decimal value, decimal min, decimal max, int? scale, List<OfflineArithmeticMismatch> mismatches)
+    private static void CheckRange(string path, decimal value, decimal min, decimal max, int scale, List<OfflineArithmeticMismatch> mismatches)
     {
         if (value < min || value > max)
             mismatches.Add(new OfflineArithmeticMismatch(path, value, null, Codes.UnsupportedValue));
-        else if (scale is { } places && !OfflineInvoiceArithmeticV1.FitsScale(value, places))
-            mismatches.Add(new OfflineArithmeticMismatch(path, value, decimal.Round(value, places, MidpointRounding.AwayFromZero), Codes.ScaleExceeded));
+        else if (!OfflineInvoiceArithmeticV1.FitsScale(value, scale))
+            mismatches.Add(new OfflineArithmeticMismatch(path, value, decimal.Round(value, scale, MidpointRounding.AwayFromZero), Codes.ScaleExceeded));
     }
 }

@@ -86,7 +86,7 @@ public sealed partial class P0405LicensingTests
         var lease = await ReadSuccessAsync(reserved);
         var counter = lease.GetProperty("rangeStart").GetInt32().ToString("D6", CultureInfo.InvariantCulture);
         var invoice = lease.GetProperty("prefix").GetString() + counter;
-        var payload = OfflinePayload(device, invoice, goods, end.AddMicroseconds(-1));
+        var payload = OfflinePayload(device, invoice, goods, end.AddMicroseconds(-1), OfflineIssuer.Of(client.DefaultRequestHeaders.Authorization!.Parameter!));
         _clock.Now = end;
 
         using var sync = await client.PostAsJsonAsync("/api/sales/offline-sync", payload, Ct);
@@ -99,7 +99,7 @@ public sealed partial class P0405LicensingTests
         Assert.Equal(sale.Id, (await db.OfflineSubmissions.SingleAsync(x => x.ShopId == binding.Shop, Ct)).SaleId);
     }
 
-    private static object OfflinePayload(string device, string invoice, Line goods, DateTimeOffset soldAt) => new
+    private static object OfflinePayload(string device, string invoice, Line goods, DateTimeOffset soldAt, Guid issuer) => new
     {
         deviceId = device,
         sales = new[] { new
@@ -108,6 +108,7 @@ public sealed partial class P0405LicensingTests
             paymentMethod = (int)PaymentMethod.Cash, paidAmount = 2m, dueAmount = 0m,
             subtotalBeforeDiscount = 2m, totalBeforeDiscount = 2m, totalDiscountAmount = 0m,
             totalTaxAmount = 0m, totalAmount = 2m, saleDiscountOverrideType = 0, saleDiscountOverrideValue = 0m,
+            calculationVersion = 1, issuedByUserId = issuer,
             items = new[] { new
             {
                 goods.Barcode, goods.BatchNumber, goods.ItemName, goods.Quantity, goods.CostPrice, goods.SalesPrice,

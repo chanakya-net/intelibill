@@ -219,12 +219,6 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         var (shop, owner, _, _) = await SeedAsync(fixture.MigratorConnectionString);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
         var service = Settings(app);
-        var prior = ReconciliationIssue.Create(shop, null, "pre-envelope", "older-device", ReconciliationIssueType.ArithmeticConflict,
-            "ArithmeticConflict", "Unposted printed invoice", owner);
-        app.Db.Add(prior); await app.Db.SaveChangesAsync();
-        Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
-        prior.Resolve(owner, app.Clock.UtcNow); await app.Db.SaveChangesAsync();
         Assert.Equal(0, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
         var envelope = OfflineSubmission.Record(shop, "device", "pending", "A/2627/000001", new string('a', 64), "{}", app.Clock.UtcNow, app.Clock.UtcNow, OfflineSubmissionSource.Sync, owner, null, null, null, null);
         app.Db.Add(envelope); await app.Db.SaveChangesAsync();

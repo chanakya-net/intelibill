@@ -44,27 +44,6 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
             .Select(issue => (Guid?)issue.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<ReconciliationIssue?> FindOpenLegacyIssueAsync(
-        Guid shopId,
-        string clientSaleId,
-        string deviceId,
-        ReconciliationIssueType issueType,
-        string code,
-        string message,
-        CancellationToken cancellationToken = default) =>
-        await DbSet
-            .Where(issue => issue.ShopId == shopId
-                && issue.ClientSaleId == clientSaleId
-                && issue.DeviceId == deviceId
-                && issue.IssueType == issueType
-                && issue.Code == code
-                && issue.Message == message
-                && issue.OfflineSubmissionId == null
-                && issue.Status != ReconciliationCaseStatus.Resolved)
-            .OrderBy(issue => issue.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-    private const string LicenceHistoryCodePrefix = "OfflineLicenceHistory.";
     private const string ValidationVarianceCode = "offline_sync.validation_variance";
 
     private static readonly ReconciliationIssueType[] PrePostingHoldTypes =
@@ -104,8 +83,6 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
                 && (issue.Status != ReconciliationCaseStatus.Resolved
                     || (includeResolvedTypedCase && issue.IssueType == ReconciliationIssueType.LicenseHistoryReview))
                 && (issue.IssueType == ReconciliationIssueType.LicenseHistoryReview
-                    || (issue.IssueType == ReconciliationIssueType.ProvenanceReview
-                        && issue.Code.StartsWith(LicenceHistoryCodePrefix))
                     || ((PrePostingHoldTypes.Contains(issue.IssueType)
                             || (issue.IssueType == ReconciliationIssueType.ValidationConflict && issue.Code != ValidationVarianceCode))
                         && Context.LicenseHistoryReviewObservations.Any(o => o.ShopId == shopId && o.CaseId == issue.Id))))

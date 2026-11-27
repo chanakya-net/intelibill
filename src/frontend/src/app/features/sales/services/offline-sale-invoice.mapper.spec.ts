@@ -16,7 +16,9 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       customerId: 'customer-1',
       customerName: 'Jane Doe',
       customerPhone: '+919999111222',
+      issuedByUserId: 'user-1',
       pricing: {
+        calculationVersion: 1,
         lines: [
           {
             clientLineId: 'line-1',
@@ -44,6 +46,7 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
           },
         ],
         totals: {
+          subtotalBeforeDiscount: 280,
           totalBeforeDiscount: 280,
           totalDiscount: 15,
           totalTax: 43.06,
@@ -121,7 +124,9 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       customerId: null,
       customerName: null,
       customerPhone: null,
+      issuedByUserId: 'user-1',
       pricing: {
+        calculationVersion: 1,
         lines: [
           {
             clientLineId: 'line-kg',
@@ -149,7 +154,7 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
             serviceId: null,
           },
         ],
-        totals: { totalBeforeDiscount: 100, totalDiscount: 0, totalTax: 0, grandTotal: 100, paidAmount: 100, dueAmount: 0 },
+        totals: { subtotalBeforeDiscount: 100, totalBeforeDiscount: 100, totalDiscount: 0, totalTax: 0, grandTotal: 100, paidAmount: 100, dueAmount: 0 },
       },
     });
 
@@ -169,9 +174,11 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       customerId: null,
       customerName: null,
       customerPhone: null,
+      issuedByUserId: 'user-1',
       pricing: {
+        calculationVersion: 1,
         lines: [],
-        totals: { totalBeforeDiscount: 0, totalDiscount: 0, totalTax: 0, grandTotal: 0, paidAmount: 0, dueAmount: 0 },
+        totals: { subtotalBeforeDiscount: 0, totalBeforeDiscount: 0, totalDiscount: 0, totalTax: 0, grandTotal: 0, paidAmount: 0, dueAmount: 0 },
       },
       document,
     });

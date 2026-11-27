@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import vectors from '../../../../../../../tests/contracts/licensing/p05-06-legacy-queue-vectors.json';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import type { AuthSession } from '../../../core/auth/auth.models';
@@ -299,66 +298,6 @@ describe('OfflineSalesQueueSyncService', () => {
     expect(retryOne.skippedReason).toBe('NOT_RETRYABLE');
   });
 
-  it('sends one held invoice to the server for review once, through the normal sync request', async () => {
-    const service = setup();
-    const held = makeRecord('held', { status: 'NeedsReview', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'legacy-case' });
-    queueDb.getQueuedSale.mockResolvedValue(held);
-    saleService.syncOfflineSales.mockReturnValue(of({
-      results: [{ clientSaleId: 'held', status: 'NeedsReview', saleId: null, invoiceNumber: 'INV-held', errors: [{ code: 'OfflineReconciliation.HistoricalLeaseReviewRequired', message: 'held' }], warnings: [], reviewCaseId: 'new-case' }],
-    }));
-
-    const result = await service.resubmitForReview('shop-1', 'device-1', 'held');
-
-    expect(result.attemptedCount).toBe(1);
-    expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(1);
-    expect(saleService.syncOfflineSales.mock.calls[0][0]).toEqual({ deviceId: 'device-1', sales: [expect.objectContaining({ clientSaleId: 'held', invoiceNumber: 'INV-held' })] });
-    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'held', expect.objectContaining({
-      status: 'NeedsReview',
-      errorCode: 'OfflineReconciliation.HistoricalLeaseReviewRequired',
-      reviewCaseId: 'new-case',
-    }));
-  });
-
-  it('keeps a held invoice held, not Failed, when the review resend cannot reach the server', async () => {
-    const service = setup();
-    const mismatches = [{ path: 'totalAmount', supplied: 1, expected: 2, code: 'mismatch' }];
-    const held = makeRecord('held', { status: 'NeedsReview', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'legacy-case', mismatches });
-    queueDb.getQueuedSale.mockResolvedValue(held);
-    queueDb.markSyncInProgress.mockImplementation(async () => ({ ...held, status: 'Syncing' }));
-    saleService.syncOfflineSales.mockReturnValue(throwError(() => new Error('offline')));
-
-    const result = await service.resubmitForReview('shop-1', 'device-1', 'held');
-
-    expect(result.failedCount).toBe(1);
-    expect(queueDb.applySyncResult).toHaveBeenCalledTimes(1);
-    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'held', {
-      status: 'NeedsReview',
-      errorCode: 'Sale.InvoiceLeaseNotFound',
-      errorMessage: null,
-      reviewCaseId: 'legacy-case',
-      mismatches,
-    });
-  });
-
-  it('never resends an invoice for review that is not held, or that another user issued', async () => {
-    const service = setup();
-    const base = makeRecord('other');
-    queueDb.getQueuedSale.mockResolvedValueOnce(makeRecord('pending', { status: 'Pending' }));
-    queueDb.getQueuedSale.mockResolvedValueOnce(makeRecord('other', {
-      status: 'NeedsReview',
-      payload: { ...base.payload, issuedByUserId: 'user-2' },
-    }));
-
-    const notHeld = await service.resubmitForReview('shop-1', 'device-1', 'pending');
-    const otherIssuer = await service.resubmitForReview('shop-1', 'device-1', 'other');
-
-    expect(notHeld.skippedReason).toBe('NOT_RETRYABLE');
-    expect(otherIssuer.skippedReason).toBe('NOT_RETRYABLE');
-    expect(saleService.syncOfflineSales).not.toHaveBeenCalled();
-    // Automatic and bulk retries still leave held invoices alone.
-    expect(isOfflineSaleSyncRetryable('NeedsReview')).toBe(false);
-  });
-
   it('refreshes visible counts for pending, syncing, failed, warning, and needs-review statuses', async () => {
     const service = setup();
     queueDb.getStatusCounts.mockResolvedValue({
@@ -449,10 +388,9 @@ describe('OfflineSalesQueueSyncService', () => {
   it('skips another user\'s pending invoices and lists them as awaiting their issuer', async () => {
     const service = setup();
     const own = makeRecord('own');
-    const legacy = makeRecord('legacy');
     const other = withIssuer(makeRecord('other'), 'user-2');
     const mine = withIssuer(makeRecord('mine'), 'user-1');
-    queueDb.getPendingSales.mockResolvedValue([own, legacy, other, mine]);
+    queueDb.getPendingSales.mockResolvedValue([own, other, mine]);
     queueDb.getRetryableSales.mockResolvedValue([other, mine]);
     queueDb.getQueuedSale.mockResolvedValue(other);
     queueDb.getAllByShopDevice.mockResolvedValue([other, own]);
@@ -462,7 +400,7 @@ describe('OfflineSalesQueueSyncService', () => {
     );
 
     await service.syncActiveShop();
-    expect(saleService.syncOfflineSales.mock.calls[0][0].sales.map((sale) => sale.clientSaleId)).toEqual(['own', 'legacy', 'mine']);
+    expect(saleService.syncOfflineSales.mock.calls[0][0].sales.map((sale) => sale.clientSaleId)).toEqual(['own', 'mine']);
     expect(queueDb.markSyncInProgress).not.toHaveBeenCalledWith('shop-1', 'device-1', 'other');
 
     saleService.syncOfflineSales.mockClear();
@@ -569,49 +507,6 @@ describe('OfflineSalesQueueSyncService', () => {
     return { ...record, payload: { ...record.payload, issuedByUserId } };
   }
 
-  it('syncs both historical legacy queue vectors byte-identically without injecting live proof or altering issuer filters (P05-06)', async () => {
-    const { shopId, userId, deviceId } = vectors.scope;
-    const legacy7ff1 = JSON.parse(vectors.unversionedPreDocument.queueRecordJson) as OfflineQueuedSaleRecord;
-    const legacy671d = JSON.parse(vectors.v1FrozenDocument.queueRecordJson) as OfflineQueuedSaleRecord;
-    const otherUserRow = withIssuer(
-      { ...legacy671d, key: `${shopId}::${deviceId}::other-issuer`, clientSaleId: 'other-issuer', payload: { ...legacy671d.payload, clientSaleId: 'other-issuer' } },
-      '99999999-9999-4999-8999-999999999999',
-    );
-
-    activeSession.set({ ...makeSession(shopId), user: { ...makeSession(shopId).user, id: userId } });
-    settingsStorage.loadSettings.mockReturnValue({
-      shopId, deviceId, label: 'Legacy Counter', enabled: true, enabledAt: '2027-01-20T00:00:00.000Z',
-      enabledByUserId: userId, enabledByUserName: 'Owner', lastCompleteSnapshotAt: '2027-01-20T00:00:00.000Z',
-      lastApiVerifiedAt: '2027-01-20T00:00:00.000Z', lastSnapshotWarningMarker: null, lastReservedLease: null,
-    });
-
-    const service = setup();
-    TestBed.inject(ShopContextService).initialize({ userId, shopId });
-    queueDb.getPendingSales.mockResolvedValue([legacy7ff1, legacy671d, otherUserRow]);
-    queueDb.markSyncInProgress.mockImplementation(async (_s, _d, id) => {
-      const m = [legacy7ff1, legacy671d].find((r) => r.clientSaleId === id);
-      return m ? { ...m, status: 'Syncing' } : null;
-    });
-    saleService.syncOfflineSales.mockReturnValue(of({
-      results: [legacy7ff1, legacy671d].map((r, i) => ({
-        clientSaleId: r.clientSaleId, status: 'NeedsReview', saleId: null, invoiceNumber: r.invoiceNumber,
-        warnings: [], errors: [{ code: 'OfflineLicenceHistory.EvidenceMissing', message: 'Historical evidence required' }],
-        reviewCaseId: `case-legacy-${i + 1}`,
-      })),
-    }));
-
-    const result = await service.syncActiveShop();
-    expect(result.attemptedCount).toBe(2);
-    expect(result.needsReviewCount).toBe(2);
-    const [sentPayload, sentOwner] = saleService.syncOfflineSales.mock.calls[0];
-    expect(sentOwner).toEqual({ userId, shopId });
-    expect(sentPayload.deviceId).toBe(deviceId);
-    expect(sentPayload.sales.map((s) => JSON.stringify(s))).toEqual([
-      vectors.unversionedPreDocument.expectedSyncRequestJson,
-      vectors.v1FrozenDocument.expectedSyncRequestJson,
-    ]);
-  });
-
   function makeRecord(
     clientSaleId: string,
     overrides: Partial<OfflineQueuedSaleRecord> = {},
@@ -648,6 +543,7 @@ describe('OfflineSalesQueueSyncService', () => {
         invoiceNumber: `INV-${clientSaleId}`,
         soldAt,
         pricing: {
+          calculationVersion: 1,
           lines: [{
             clientLineId: `line-${clientSaleId}`,
             inventoryBatchId: '11111111-1111-4111-8111-111111111111',
@@ -673,6 +569,7 @@ describe('OfflineSalesQueueSyncService', () => {
             serviceId: null,
           }],
           totals: {
+            subtotalBeforeDiscount: 100,
             totalBeforeDiscount: 100,
             totalDiscount: 0,
             totalTax: 0,
@@ -685,6 +582,7 @@ describe('OfflineSalesQueueSyncService', () => {
         customerId: null,
         customerName: null,
         customerPhone: null,
+        issuedByUserId: 'user-1',
       },
       ...overrides,
     };

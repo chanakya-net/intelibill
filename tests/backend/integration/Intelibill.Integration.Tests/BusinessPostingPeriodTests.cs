@@ -661,7 +661,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         var lease = await reserved.Content.ReadFromJsonAsync<JsonElement>();
         var invoice = $"{lease.GetProperty("prefix").GetString()}{lease.GetProperty("rangeStart").GetInt32().ToString($"D{lease.GetProperty("numberPadding").GetInt32()}", CultureInfo.InvariantCulture)}";
         var soldAt = Utc(2026, 6, 30, 17, 30);
-        var payload = OfflinePayload("late-1", invoice, stock, soldAt);
+        var payload = OfflinePayload("late-1", invoice, stock, soldAt, shop.UserId);
 
         // June closes on 2 July, before the device syncs (still inside the lease and the skew rules).
         Clock.Set(Utc(2026, 7, 2, 6, 0));
@@ -881,7 +881,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         },
     };
 
-    private static object OfflinePayload(string clientSaleId, string invoiceNumber, Stock stock, DateTimeOffset soldAt) => new
+    private static object OfflinePayload(string clientSaleId, string invoiceNumber, Stock stock, DateTimeOffset soldAt, Guid issuer) => new
     {
         clientSaleId,
         invoiceNumber,
@@ -896,6 +896,8 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         totalAmount = 118m,
         saleDiscountOverrideType = (int)InstantDiscountType.None,
         saleDiscountOverrideValue = 0m,
+        calculationVersion = 1,
+        issuedByUserId = issuer,
         items = new[]
         {
             new

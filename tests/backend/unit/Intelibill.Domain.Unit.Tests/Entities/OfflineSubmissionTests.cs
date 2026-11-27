@@ -90,8 +90,8 @@ public sealed class OfflineSubmissionTests
     }
 
     [Fact]
-    public void AttributableUser_LegacySync_IsSubmitter() =>
-        Assert.Equal(Submitter, Create().AttributableUserId);
+    public void AttributableUser_SyncWithoutIssuer_IsNull() =>
+        Assert.Null(Create().AttributableUserId);
 
     [Fact]
     public void AttributableUser_SyncWithMismatchedAssertion_IsNull() =>

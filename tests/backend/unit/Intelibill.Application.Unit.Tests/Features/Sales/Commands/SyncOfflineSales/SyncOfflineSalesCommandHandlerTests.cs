@@ -40,6 +40,9 @@ public class SyncOfflineSalesCommandHandlerTests
     // Fiscal year 2025-26 (1 April 2025 to 31 March 2026), matching the leases' "INV-2025-26-" prefix.
     private static readonly DateTimeOffset Now = new(2026, 1, 15, 10, 0, 0, TimeSpan.Zero);
 
+    // The signed-in user who syncs the invoices in these tests; every invoice the web client queues names its issuer.
+    private static readonly Guid ActorId = Guid.NewGuid();
+
     public SyncOfflineSalesCommandHandlerTests()
     {
         _expiryFence.AcquireAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
@@ -213,7 +216,9 @@ public class SyncOfflineSalesCommandHandlerTests
             null,
             null,
             null,
-            effectiveItems);
+            effectiveItems,
+            CalculationVersion: 1,
+            IssuedByUserId: ActorId);
     }
 
     private static void SetupSuccessfulLineValidation(
@@ -263,7 +268,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenOfflineLineFractionsAWholeUnitItem_FailsWithQuantityPrecisionExceeded()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = Item.Create(shopId, "Rice", "desc", "PCS", "BC-001", true, Guid.NewGuid());
         var batch = CreateBatch(shopId, item.Id);
@@ -310,7 +315,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenOfflineLineAmountIsNegative_ReturnsFailedResult()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -340,7 +345,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenStockIsShort_CreatesSaleConsumesAvailableAndPersistsStockVariance()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id, quantity: 1m);
@@ -387,7 +392,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenCustomerInactive_CreatesSaleWithWarningAndCustomerVarianceIssue()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -428,7 +433,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenFrozenSaleIsBelowCost_PreservesIssuedAmountsAndFilesReview()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -461,7 +466,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenPricingDiffers_CreatesSaleWithPricingVarianceIssue()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -494,7 +499,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenValidatorEmitsWarningOnlyVariance_PersistsValidationIssue()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -530,7 +535,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenDiscountRuleChanged_CreatesSaleWithDiscountVarianceIssue()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -577,7 +582,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenInvoiceAlreadyUsedByDifferentSale_ReturnsNeedsReviewAndPersistsInvoiceConflict()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
         var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
@@ -622,7 +627,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenInvoiceOutsideActiveLeaseRange_ReturnsNeedsReviewAndPersistsInvoiceConflict()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale(
             $"offline-{Guid.NewGuid():N}",
@@ -655,7 +660,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenNoLeaseMatches_ReturnsNeedsReviewAndPersistsInvoiceConflict()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
         var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
@@ -682,59 +687,10 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
-    public async Task HeldAgainForALegacyCase_AdoptsItInsteadOfFilingAnother()
-    {
-        // Held before envelopes existed (no lease matched then either): the resend's envelope now evidences that case.
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
-        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
-        var legacy = ReconciliationIssue.Create(
-            shopId, null, sale.ClientSaleId, deviceId, ReconciliationIssueType.InvoiceConflict,
-            Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, actorId);
-        var issues = CaptureReconciliationIssues();
-        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
-        StubLeases(shopId, deviceId);
-        _reconciliationIssueRepository
-            .FindOpenLegacyIssueAsync(
-                shopId, sale.ClientSaleId, deviceId, ReconciliationIssueType.InvoiceConflict,
-                Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, Arg.Any<CancellationToken>())
-            .Returns(legacy);
-
-        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
-
-        var syncResult = Assert.Single(result.Value.Results);
-        Assert.Equal("NeedsReview", syncResult.Status);
-        Assert.Equal(legacy.Id, syncResult.ReviewCaseId);
-        Assert.Empty(issues);
-        Assert.Equal(Assert.Single(_recordedSubmissions).Id, legacy.OfflineSubmissionId);
-        Assert.Equal(sale.InvoiceNumber, legacy.InvoiceNumber);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HeldForAnEnvelopeWithItsOwnCase_NeverAdoptsALegacyCase()
-    {
-        // Per-envelope reuse comes first; a legacy case is adopted only when the envelope has none.
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
-        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
-        var ownCaseId = Guid.NewGuid();
-        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
-        StubLeases(shopId, deviceId);
-        _reconciliationIssueRepository
-            .FindOpenIssueIdAsync(shopId, sale.ClientSaleId, deviceId, ReconciliationIssueType.InvoiceConflict, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
-            .Returns(ownCaseId);
-
-        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
-
-        Assert.Equal(ownCaseId, Assert.Single(result.Value.Results).ReviewCaseId);
-        await _reconciliationIssueRepository.DidNotReceive().FindOpenLegacyIssueAsync(
-            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ReconciliationIssueType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task HandleAsync_WhenInvoiceLeaseExpired_ReturnsNeedsReviewForHistoricalLease()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]) with { SoldAt = Now.AddDays(-5) };
         var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
@@ -764,7 +720,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenClientSalePayloadDiffers_ReturnsNeedsReviewAndPersistsValidationConflict()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
         var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
@@ -811,7 +767,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenDuplicate_ReturnsExistingResult()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
 
         var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
@@ -861,7 +817,9 @@ public class SyncOfflineSalesCommandHandlerTests
             null,
             null,
             null,
-            [line]);
+            [line],
+            CalculationVersion: 1,
+            IssuedByUserId: actorId);
 
         var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
         var requestHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, deviceId, sale);
@@ -954,7 +912,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenOneSaleHasPayloadError_ContinuesBatch()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -994,7 +952,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenOfflineLinesAreIdentical_CreatesBothLines()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1024,7 +982,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenOfflineDueBreaksEnforcedLimit_PostsWithCreditReviewIssueAndDueDate()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1070,7 +1028,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenDueSaleResolvesCustomer_AddsCustomerLedgerEntry()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1111,7 +1069,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenUniqueClientSaleRaceMatches_ReturnsDuplicateResult()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1166,7 +1124,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenUniqueClientSaleRaceDiffers_ReturnsConflictResult()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1216,7 +1174,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenRaceFailsFirstSale_ClearsChangesAndContinuesBatch()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id, quantity: 1m);
@@ -1293,7 +1251,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenSaveFailsWithoutClientSaleRace_ReturnsFailedResultAndContinuesBatch()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id, quantity: 1m);
@@ -1346,7 +1304,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenInvoiceNumberUniqueSaveFails_ReturnsInvoiceConflictResult()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1381,7 +1339,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_ServiceLineWithoutServiceId_ReturnsFailedResult()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var serviceLine = new OfflineSaleSyncLineCommand(
             "SVC-001", "", "Repair", 1m, 0m, 500m, 0m, 18m, false, Guid.Empty,
@@ -1408,7 +1366,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_ServiceOnlyOfflineSale_CreatesSaleWithoutStockAdjustment()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var serviceId = Guid.NewGuid();
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, Guid.NewGuid());
@@ -1454,7 +1412,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_MixedSale_OnlyAdjustsStockForGoodsLines()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var serviceId = Guid.NewGuid();
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, Guid.NewGuid());
@@ -1506,7 +1464,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenHeaderDisagreesWithLines_QuarantinesWithoutPosting()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -1544,7 +1502,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenCalculationVersionUnknown_QuarantinesWithoutPosting()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale($"offline-{Guid.NewGuid():N}") with { CalculationVersion = 2 };
         var issues = CaptureReconciliationIssues();
@@ -1564,7 +1522,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenHeldSaleIsResent_ReusesItsOpenReviewCase()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var openCaseId = Guid.NewGuid();
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
@@ -1595,7 +1553,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task ChangedResendHeldForSameReason_GetsItsOwnCase()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
         var first = CreateSale(clientSaleId) with { CalculationVersion = 2 };
         var second = first with { CalculationVersion = 3 };
@@ -1623,7 +1581,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task IdenticalResendHeld_ReusesCase()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
         var sale = CreateSale(clientSaleId) with { CalculationVersion = 2 };
         var issues = CaptureReconciliationIssues();
@@ -1647,7 +1605,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task NulCharacterInText_FailsOnlyThatSale()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -1668,7 +1626,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task UnpairedSurrogateInText_FailsOnlyThatSale()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -1894,7 +1852,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenItemDiscountExceedsBasis_QuarantinesWithoutPosting()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var sale = CreateSale(
             $"offline-{Guid.NewGuid():N}",
@@ -1916,7 +1874,7 @@ public class SyncOfflineSalesCommandHandlerTests
     public async Task HandleAsync_WhenCatalogPriceChangedAfterIssuance_PreservesFrozenAmounts()
     {
         var shopId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
+        var actorId = ActorId;
         var deviceId = "device-1";
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id, salesPrice: 200m, mrp: 250m);
@@ -1948,7 +1906,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task ExpiredLease_UnverifiedIssueTime_RequiresReview()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -1987,7 +1945,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task TrustedPriorReceipt_AllowsIdenticalReplay()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -2078,7 +2036,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task ResendWithOpenClosedPeriodCase_ReturnsSameCase_WithoutStaging()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine(Guid.NewGuid())]) with { SoldAt = Day(5) };
         _clock.UtcNow = Day(5);
         _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
@@ -2129,7 +2087,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task ConflictingEnvelope_Retained()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var original = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
         var originalHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, deviceId, original);
         var existingSale = Sale.Create(
@@ -2189,7 +2147,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task DuplicateOfSaleWithoutEnvelope_LinksTheResentEnvelopeOnce()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
         var existingSale = Sale.Create(
             shopId,
@@ -2230,7 +2188,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [InlineData(false, true, false)]
     public async Task IssuerDiffersFromSubmitter_HeldForProvenance(bool issuerWasMember, bool issuerHasDeviceHistory, bool issuerVerified)
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var issuerId = Guid.NewGuid();
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
@@ -2271,7 +2229,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task IssuerEqualsSubmitter_PostsWithVerifiedIssuer()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -2294,36 +2252,35 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
-    public async Task LegacyPayloadWithoutIssuer_PostsAsBefore()
+    public async Task PayloadWithoutIssuer_IsHeldForProvenanceReview()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
-        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine(batch.Id)]);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine(batch.Id)]) with { IssuedByUserId = null };
+        var issues = CaptureReconciliationIssues();
         ArrangeMemberWithLease(shopId, actorId, deviceId);
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
 
         var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
 
         var syncResult = Assert.Single(result.Value.Results);
-        Assert.Equal("created", syncResult.Status);
+        Assert.Equal("NeedsReview", syncResult.Status);
+        Assert.Equal(Errors.OfflineReconciliation.ProvenanceUnknown.Code, Assert.Single(syncResult.Errors).Code);
         var envelope = Assert.Single(_recordedSubmissions);
         Assert.Null(envelope.AssertedIssuerUserId);
-        Assert.Null(envelope.OriginalIssuerUserId);
-        Assert.Equal(actorId, envelope.AttributableUserId);
-        Assert.Equal(syncResult.SaleId, envelope.SaleId);
-        Assert.Equal(Now, envelope.ReceivedAt);
-        await _saleRepository.Received(1).AddAsync(Arg.Is<Sale>(s => s.ActorUserId == actorId && s.SyncedAt == Now), Arg.Any<CancellationToken>());
-        await _stockTransactionRepository.Received(1).AddAsync(
-            Arg.Is<StockTransaction>(tx => tx.PerformedBy == actorId && tx.CreatedBy == actorId),
-            Arg.Any<CancellationToken>());
+        Assert.Null(envelope.AttributableUserId);
+        var issue = Assert.Single(issues);
+        Assert.Equal(ReconciliationIssueType.ProvenanceReview, issue.IssueType);
+        Assert.Equal(envelope.Id, issue.OfflineSubmissionId);
+        await AssertNothingPostedAsync();
     }
 
     [Fact]
     public async Task EnvelopeRecordedBeforeStaging()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -2346,7 +2303,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task StagedVarianceIssues_CarryInvoiceNumberAndEnvelope()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id, quantity: 1m);
         var inventory = CreateInventory(shopId, item.Id, quantity: 1m);
@@ -2369,7 +2326,7 @@ public class SyncOfflineSalesCommandHandlerTests
 
     private async Task<OfflineSaleSyncResultDto> SyncAgainstHistoricalLeaseAsync(DateTimeOffset claimedSoldAt, DateTimeOffset now)
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var inventory = CreateInventory(shopId, item.Id);
@@ -2459,7 +2416,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_PendingRecoveryReviewUnderEnforcedLicence_HoldsWithoutPosting()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var sale = CreateSale("offline-recovery-hold", items: [CreateLine(batch.Id)]);
@@ -2507,7 +2464,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_RetainedEnvelopeWithMutatedServiceSemantics_HoldsAsEvidenceInvalid()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var sale = CreateSale("offline-retained-service-tamper", items: [CreateLine(batch.Id)]);
@@ -2534,7 +2491,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_MaterializedFreshReceipt_ServiceLineWithoutServiceId_ReturnsFailedResult()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var serviceLine = CreateServiceLine(serviceId: null);
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", paidAmount: 590m, items: [serviceLine]);
         ArrangeMemberWithLease(shopId, actorId, deviceId);
@@ -2553,7 +2510,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_MaterializedFreshReceipt_ServiceOnlyOfflineSale_CreatesSaleWithoutStockAdjustment()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var serviceId = Guid.NewGuid();
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, Guid.NewGuid());
         var sale = CreateSale($"offline-{Guid.NewGuid():N}", paidAmount: 590m, items: [CreateServiceLine(serviceId)]);
@@ -2574,7 +2531,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_MaterializedFreshReceipt_MixedSale_OnlyAdjustsStockForGoodsLines()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var serviceId = Guid.NewGuid();
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, Guid.NewGuid());
         var item = CreateItem(shopId);
@@ -2598,7 +2555,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_MaterializedFreshReceipt_WithTamperedUnhashedLineSemantics_HoldsAsEvidenceInvalid()
     {
-        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), ActorId, "device-1");
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id);
         var sale = CreateSale("offline-fresh-tamper", items: [CreateLine(batch.Id)]);
@@ -2621,7 +2578,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_RedeliveredDirectServiceAndMixedCommands_ReturnDuplicateWithoutAddedReviews()
     {
-        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), ActorId, "device-1", Guid.NewGuid());
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, actorId);
         var item = CreateItem(shopId);
         var batch = CreateBatch(shopId, item.Id, quantity: 10m);
@@ -2675,7 +2632,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_RedeliveredDirectServiceCommand_WithPriorHistoryCase_PreservesHistoryHold()
     {
-        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), ActorId, "device-1", Guid.NewGuid());
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, actorId);
         var sale = CreateSale("direct-svc-history-hold", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
         ArrangeMemberWithLease(shopId, actorId, deviceId);
@@ -2703,7 +2660,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_RedeliveredDirectServiceCommand_WithMutatedUnhashedServiceId_HoldsAsEvidenceInvalid()
     {
-        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), ActorId, "device-1", Guid.NewGuid());
         var service = Service.Create(shopId, "SVC-001", "Repair Service", null, 500m, null, 18m, false, true, actorId);
         var sale = CreateSale("direct-svc-unhashed-mut", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
         ArrangeMemberWithLease(shopId, actorId, deviceId);
@@ -2725,7 +2682,7 @@ public class SyncOfflineSalesCommandHandlerTests
     [Fact]
     public async Task HandleAsync_RecoveryOriginatedEnvelopeWithTamperedServiceLine_HoldsAsEvidenceInvalidEvenOnDirectSync()
     {
-        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1", Guid.NewGuid());
+        var (shopId, actorId, deviceId, serviceId) = (Guid.NewGuid(), ActorId, "device-1", Guid.NewGuid());
         var sale = CreateSale("direct-svc-recovery-tamper", paidAmount: 590m, items: [CreateServiceLine(serviceId)]) with { IssuedByUserId = actorId };
         ArrangeMemberWithLease(shopId, actorId, deviceId);
         StubRecordedEnvelope(candidate => OfflineSubmission.Record(

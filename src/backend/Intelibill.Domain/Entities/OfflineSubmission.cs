@@ -39,12 +39,10 @@ public sealed class OfflineSubmission : BaseEntity
     public Guid? SaleId { get; private set; }
 
     /// <summary>
-    /// The user a replayed sale may be attributed to: the verified issuer, or for a legacy sync with
-    /// no assertion the submitter. Null when nobody can be vouched for.
+    /// The user a replayed sale may be attributed to: the verified issuer. Null when nobody can be
+    /// vouched for (no issuer was asserted, or the asserted one could not be verified).
     /// </summary>
-    public Guid? AttributableUserId =>
-        OriginalIssuerUserId
-        ?? (Source == OfflineSubmissionSource.Sync && AssertedIssuerUserId is null ? SubmittedByUserId : null);
+    public Guid? AttributableUserId => OriginalIssuerUserId;
 
     private OfflineSubmission() { }
 

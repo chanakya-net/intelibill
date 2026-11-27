@@ -125,7 +125,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var invoice = await FirstLeasedInvoiceNumberAsync(client, owner.Token);
         var clientSaleId = NewClientSaleId();
 
-        var synced = await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 5m, DateTimeOffset.UtcNow));
+        var synced = await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 5m, DateTimeOffset.UtcNow, owner.UserId));
         Assert.Equal("SyncedWithWarnings", synced.GetProperty("status").GetString());
         var saleId = synced.GetProperty("saleId").GetGuid();
 
@@ -204,7 +204,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var stock = await AddInventoryAsync(client, owner.Token, 3m);
         var invoice = await FirstLeasedInvoiceNumberAsync(client, owner.Token);
         var clientSaleId = NewClientSaleId();
-        await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 5m, DateTimeOffset.UtcNow));
+        await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 5m, DateTimeOffset.UtcNow, owner.UserId));
         var caseId = await FindCaseIdAsync(client, owner.Token, clientSaleId, "StockVariance");
         var version = (await GetCaseAsync(client, owner.Token, caseId)).GetProperty("version").GetUInt32();
         var found = await CreateAdjustmentAsync(client, owner.Token, stock.BatchId, InventoryAdjustmentReason.FoundStock, 2m, "Supplier delivered two late");
@@ -255,7 +255,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var stock = await AddInventoryAsync(client, owner.Token, 3m);
         var invoice = await FirstLeasedInvoiceNumberAsync(client, owner.Token);
         var clientSaleId = NewClientSaleId();
-        await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 5m, DateTimeOffset.UtcNow));
+        await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 5m, DateTimeOffset.UtcNow, owner.UserId));
         var caseId = await FindCaseIdAsync(client, owner.Token, clientSaleId, "StockVariance");
         var version = (await GetCaseAsync(client, owner.Token, caseId)).GetProperty("version").GetUInt32();
 
@@ -328,10 +328,10 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var staff = await AddStaffAsync(client, owner);
 
         var staffSaleId = NewClientSaleId();
-        var staffSync = await SyncAsync(client, staff.Token, Payload(staffSaleId, InvoiceAt(lease, 0), stock, 2m, DateTimeOffset.UtcNow));
+        var staffSync = await SyncAsync(client, staff.Token, Payload(staffSaleId, InvoiceAt(lease, 0), stock, 2m, DateTimeOffset.UtcNow, staff.UserId));
         Assert.Equal("SyncedWithWarnings", staffSync.GetProperty("status").GetString());
         var ownerSaleId = NewClientSaleId();
-        await SyncAsync(client, owner.Token, Payload(ownerSaleId, InvoiceAt(lease, 1), stock, 1m, DateTimeOffset.UtcNow));
+        await SyncAsync(client, owner.Token, Payload(ownerSaleId, InvoiceAt(lease, 1), stock, 1m, DateTimeOffset.UtcNow, owner.UserId));
 
         var staffPage = await ListAsync(client, staff.Token, "open");
         var staffCase = Assert.Single(staffPage.GetProperty("items").EnumerateArray());
@@ -388,7 +388,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var soldAt = DateTimeOffset.UtcNow.AddDays(-6);
         await ExpireLeaseAsync(lease.GetProperty("leaseId").GetGuid(), soldAt);
         var clientSaleId = NewClientSaleId();
-        var payload = Payload(clientSaleId, invoice, stock, 1m, soldAt);
+        var payload = Payload(clientSaleId, invoice, stock, 1m, soldAt, owner.UserId);
 
         var held = await SyncAsync(client, owner.Token, payload);
         Assert.Equal("NeedsReview", held.GetProperty("status").GetString());
@@ -398,7 +398,6 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var detail = await GetCaseAsync(client, owner.Token, caseId);
         Assert.Equal("IssueTimingReview", detail.GetProperty("issueType").GetString());
         Assert.Equal([Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code], Strings(detail.GetProperty("reasonCodes")));
-        Assert.True(detail.GetProperty("hasOriginalEnvelope").GetBoolean());
         var submission = detail.GetProperty("submission");
         Assert.Equal("Sync", submission.GetProperty("source").GetString());
         Assert.Equal(owner.UserId, submission.GetProperty("submittedBy").GetProperty("userId").GetGuid());
@@ -453,11 +452,11 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var clientSaleId = NewClientSaleId();
         var soldAt = DateTimeOffset.UtcNow;
 
-        var created = await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 1m, soldAt));
+        var created = await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 1m, soldAt, owner.UserId));
         Assert.Equal("created", created.GetProperty("status").GetString());
         var saleId = created.GetProperty("saleId").GetGuid();
 
-        var conflicting = await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 2m, soldAt));
+        var conflicting = await SyncAsync(client, owner.Token, Payload(clientSaleId, invoice, stock, 2m, soldAt, owner.UserId));
         Assert.Equal("NeedsReview", conflicting.GetProperty("status").GetString());
         Assert.Equal(Errors.Sale.IdempotencyConflict.Code, conflicting.GetProperty("errors")[0].GetProperty("code").GetString());
         var caseId = conflicting.GetProperty("reviewCaseId").GetGuid();
@@ -655,7 +654,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
     }
 
     [Fact]
-    public async Task UnknownLegacyProvenance_EscalatesWithoutPosting()
+    public async Task BundleWithoutIssuer_EscalatesWithoutPosting()
     {
         using var client = CreateClient();
         var owner = await CreateOwnerAsync(client);
@@ -663,7 +662,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
 
         var clientSaleId = NewClientSaleId();
-        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(Payload(clientSaleId, InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow)));
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(Payload(clientSaleId, InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow, issuedByUserId: null)));
         var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
         Assert.Equal("Escalated", row.GetProperty("status").GetString());
         Assert.Equal(Errors.OfflineReconciliation.ProvenanceUnknown.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
@@ -689,66 +688,6 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         Assert.False(await db.Sales.AnyAsync(s => s.ShopId == owner.ShopId));
         Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
         Assert.Null((await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId)).SaleId);
-    }
-
-    // I1: a recovered invoice escalated for unknown provenance closes once its cashier's identical sync posts it.
-    [Fact]
-    public async Task EscalatedProvenanceCase_ClosesByLinkingTheLateIdenticalSync()
-    {
-        using var client = CreateClient();
-        var owner = await CreateOwnerAsync(client);
-        var stock = await AddInventoryAsync(client, owner.Token, 10m);
-        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
-        var staff = await AddStaffAsync(client, owner);
-
-        var clientSaleId = NewClientSaleId();
-        var invoice = InvoiceAt(lease, 0);
-        var payload = Payload(clientSaleId, invoice, stock, 1m, DateTimeOffset.UtcNow);
-        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(payload));
-        var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
-        Assert.Equal("Escalated", row.GetProperty("status").GetString());
-        Assert.Equal(Errors.OfflineReconciliation.ProvenanceUnknown.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
-        var caseId = row.GetProperty("caseId").GetGuid();
-        Assert.Equal(1, (await ListAsync(client, owner.Token, "open")).GetProperty("unresolvedCount").GetInt32());
-
-        // The till was still in use: the cashier syncs the very same invoice, which posts.
-        var synced = await SyncAsync(client, staff.Token, payload);
-        Assert.Equal("created", synced.GetProperty("status").GetString());
-        var saleId = synced.GetProperty("saleId").GetGuid();
-
-        var detail = await GetCaseAsync(client, owner.Token, caseId);
-        Assert.Equal("Escalated", detail.GetProperty("status").GetString());
-        Assert.Equal(["LinkExistingSale"], Strings(detail.GetProperty("availableActions")));
-        var candidate = Assert.Single(detail.GetProperty("linkCandidates").EnumerateArray());
-        Assert.Equal(saleId, candidate.GetProperty("operationId").GetGuid());
-        Assert.Equal("Sale", candidate.GetProperty("kind").GetString());
-        Assert.Equal(invoice, candidate.GetProperty("label").GetString());
-        var version = detail.GetProperty("version").GetUInt32();
-
-        // Text PostgreSQL cannot store is refused by the validator up front, never a server error.
-        using (var unstorable = await ResolveAsync(client, owner.Token, caseId, version, "LinkExistingSale", "Synced\u0000 late", saleId))
-        {
-            var content = await unstorable.Content.ReadAsStringAsync();
-            Assert.True(unstorable.StatusCode == HttpStatusCode.BadRequest, $"Expected 400 but got {unstorable.StatusCode}: {content}");
-            var problem = JsonDocument.Parse(content).RootElement;
-            var fieldError = Assert.Single(problem.GetProperty("errors").EnumerateArray());
-            Assert.Equal("Reason", fieldError.GetProperty("code").GetString());
-            Assert.Equal(Errors.Reconciliation.ReasonInvalid.Description, fieldError.GetProperty("description").GetString());
-        }
-
-        var linked = await ResolveAsync(client, owner.Token, caseId, version, "LinkExistingSale", "The cashier synced it from the till", saleId);
-        Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
-        var resolved = await linked.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Resolved", resolved.GetProperty("status").GetString());
-        Assert.Equal("LinkExistingSale", resolved.GetProperty("resolution").GetString());
-        Assert.Equal(saleId, resolved.GetProperty("saleId").GetGuid());
-        Assert.Equal(0, (await ListAsync(client, owner.Token, "open")).GetProperty("unresolvedCount").GetInt32());
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.Equal(1, await db.Sales.CountAsync(s => s.ShopId == owner.ShopId && s.ClientSaleId == clientSaleId));
-        Assert.Equal(saleId, (await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId)).SaleId);
-        Assert.Equal(9m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
     }
 
     // I2 + I3: an invoice the sync path holds for its issue time keeps its one case when it also arrives in a
@@ -1016,7 +955,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         Assert.Equal(1, updated);
     }
 
-    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid? issuedByUserId = null)
+    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid? issuedByUserId)
     {
         var preTax = 100m * quantity;
         var tax = 18m * quantity;
@@ -1037,6 +976,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
             totalAmount = total,
             saleDiscountOverrideType = (int)InstantDiscountType.None,
             saleDiscountOverrideValue = 0m,
+            calculationVersion = 1,
             items = new[]
             {
                 new

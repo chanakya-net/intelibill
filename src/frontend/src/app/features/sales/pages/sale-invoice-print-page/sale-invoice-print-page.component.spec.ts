@@ -72,6 +72,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     invoiceNumber: 'INV-2026-001',
     soldAt: '2026-05-01T10:30:00Z',
     pricing: {
+      calculationVersion: 1,
       lines: [
         {
           clientLineId: 'line-1',
@@ -99,6 +100,7 @@ describe('SaleInvoicePrintPageComponent', () => {
         },
       ],
       totals: {
+        subtotalBeforeDiscount: 50,
         totalBeforeDiscount: 50,
         totalDiscount: 2.38,
         totalTax: 2.26,
@@ -111,6 +113,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     customerId: null,
     customerName: 'Walk-in',
     customerPhone: null,
+    issuedByUserId: 'user-1',
   };
 
   const saleService = {

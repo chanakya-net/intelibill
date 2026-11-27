@@ -36,8 +36,7 @@ internal static class ReconciliationLinkRules
     /// With an envelope: the sale carries the envelope's device and client sale id, and either its exact
     /// payload hash (and the envelope is unlinked or already linked to this sale), or — for an
     /// idempotency conflict — it is the case's own sale and matches an earlier envelope, the conflicting
-    /// one staying unlinked as evidence. Without an envelope (a legacy held case): the device and client
-    /// sale id alone, as nothing else was stored.
+    /// one staying unlinked as evidence. A case without its envelope cannot be linked.
     /// </remarks>
     public static async Task<Error?> CheckSaleAsync(
         ReconciliationIssue issue,
@@ -47,12 +46,7 @@ internal static class ReconciliationLinkRules
         CancellationToken cancellationToken)
     {
         if (submission is null)
-        {
-            if (!ReconciliationActionPolicy.IsLegacyHeld(issue))
-                return Errors.Reconciliation.EnvelopeMissing;
-
-            return SameIdentity(sale, issue.DeviceId, issue.ClientSaleId) ? null : Errors.Reconciliation.SaleIdentityMismatch;
-        }
+            return Errors.Reconciliation.EnvelopeMissing;
 
         if (!SameIdentity(sale, submission.DeviceId, submission.ClientSaleId))
             return Errors.Reconciliation.SaleIdentityMismatch;

@@ -155,21 +155,6 @@ public sealed class ReconciliationCaseMapperTests
     }
 
     [Fact]
-    public async Task LegacyHeldCase_ListsTheSaleWithItsIdentity()
-    {
-        var issue = ReconciliationIssue.Create(
-            _shopId, null, "client-1", DeviceId, ReconciliationIssueType.InvoiceConflict,
-            Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, _cashier);
-        var sale = SaleFor("client-1", "ANY-HASH", InvoiceNumber);
-        _saleRepository.GetByClientSaleIdAsync(_shopId, DeviceId, "client-1", Arg.Any<CancellationToken>()).Returns(sale);
-
-        var detail = await Mapper().ToDetailAsync(issue, null, ShopRole.Owner, _owner, CancellationToken.None);
-
-        Assert.False(detail.HasOriginalEnvelope);
-        Assert.Equal([new ReconciliationLinkCandidateDto(sale.Id, "Sale", InvoiceNumber, null, sale.SoldAt)], detail.LinkCandidates);
-    }
-
-    [Fact]
     public async Task IdempotencyConflict_ListsTheCasesSaleWhenAnEarlierEnvelopeMatchesIt()
     {
         var original = Envelope(leaseId: null, hash: "HASH-A");

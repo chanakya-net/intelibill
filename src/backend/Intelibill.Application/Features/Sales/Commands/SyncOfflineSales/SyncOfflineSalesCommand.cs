@@ -33,8 +33,9 @@ public sealed record OfflineSaleSyncCommand(
     decimal? ConfiguredSaleRulePercentage,
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineCommand> Items,
+    // The arithmetic contract the amounts were frozen under; anything but the current version is held for review.
     int? CalculationVersion = null,
-    // The user signed in when the invoice was issued; absent on payloads queued before this was recorded.
+    // The user signed in when the invoice was issued; an invoice without it is held for review.
     Guid? IssuedByUserId = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null,

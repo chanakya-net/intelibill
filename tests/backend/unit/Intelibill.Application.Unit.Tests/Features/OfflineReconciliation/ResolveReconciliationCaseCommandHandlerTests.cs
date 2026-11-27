@@ -299,7 +299,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task RetryHistoricalLease_ExistingIdenticalSale_LinksWithoutStaging()
     {
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
         var issue = Case(ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code, envelope.Id);
         StubLease();
         var existing = SaleFor(envelope, envelope.PayloadHash);
@@ -349,7 +349,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task RetryHistoricalLease_ReplayHeld_RejectedWithoutSaving()
     {
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
         var issue = Case(ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code, envelope.Id);
         StubLease();
         _poster.StageAsync(Arg.Any<OfflineSalePostingRequest>(), Arg.Any<CancellationToken>())
@@ -368,7 +368,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task RetryHistoricalLease_InvoiceNumberUsedByAnotherSale_Refused()
     {
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
         var issue = Case(ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code, envelope.Id);
         StubLease();
         _saleRepository.GetByInvoiceNumberAsync(_shop.Id, InvoiceNumber, Arg.Any<CancellationToken>())
@@ -384,7 +384,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task RetryHistoricalLease_LeaseNoLongerFound_Refused()
     {
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
         var issue = Case(ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code, envelope.Id);
 
         var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.RetryHistoricalLease));
@@ -396,8 +396,8 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task LinkExistingSale_OnIdempotencyConflict_KeepsConflictingEnvelopeUnlinked()
     {
-        var original = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null, hash: "HASH-A");
-        var conflicting = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null, hash: "HASH-B");
+        var original = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id, hash: "HASH-A");
+        var conflicting = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id, hash: "HASH-B");
         var sale = SaleFor(original, "HASH-A");
         var issue = Case(ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, conflicting.Id, saleId: sale.Id);
         _saleRepository.GetByIdAsync(sale.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
@@ -415,8 +415,8 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task LinkExistingSale_OnIdempotencyConflict_OtherSale_Refused()
     {
-        var original = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null, hash: "HASH-A");
-        var conflicting = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null, hash: "HASH-B");
+        var original = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id, hash: "HASH-A");
+        var conflicting = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id, hash: "HASH-B");
         var sale = SaleFor(original, "HASH-A");
         var other = SaleFor(original, "HASH-A");
         var issue = Case(ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, conflicting.Id, saleId: sale.Id);
@@ -432,7 +432,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task LinkExistingSale_HashMismatch_Refused()
     {
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
         var issue = Case(ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code, envelope.Id);
         var sale = SaleFor(envelope, "SOME-OTHER-HASH");
         _saleRepository.GetByIdAsync(sale.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
@@ -446,7 +446,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     [Fact]
     public async Task LinkExistingSale_IdenticalSale_LinksEnvelopeAndCase()
     {
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
         var issue = Case(ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.IssuerNotSubmitter.Code, envelope.Id);
         var sale = SaleFor(envelope, envelope.PayloadHash);
         _saleRepository.GetByIdAsync(sale.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
@@ -478,40 +478,6 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
         Assert.Equal(sale.Id, envelope.SaleId);
         Assert.Equal(ReconciliationCaseStatus.Escalated, Assert.Single(_events).FromStatus);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task LinkExistingSale_LegacyCaseWithoutEnvelope_LinksByIdentity()
-    {
-        var issue = Case(ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code);
-        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
-        // Any payload: an envelope-less case has no hash to compare, only the identity.
-        var sale = SaleFor(envelope, "WHATEVER-THE-DEVICE-SENT");
-        _saleRepository.GetByIdAsync(sale.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
-
-        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.LinkExistingSale, sale.Id));
-
-        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
-        Assert.Equal(ReconciliationCaseStatus.Resolved, issue.Status);
-        Assert.Equal(sale.Id, issue.SaleId);
-        Assert.Equal(sale.Id, issue.LinkedOperationId);
-        Assert.Null(envelope.SaleId);
-    }
-
-    [Fact]
-    public async Task LinkExistingSale_LegacyCase_OtherIdentity_Refused()
-    {
-        var issue = Case(ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code);
-        var other = Sale.Create(
-            _shop.Id, _staff.Id, "key", "HASH", "INV-2026-27-000099", null, null, null, PaymentMethod.Cash, Now, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(Now), 0m, 0m, 0m, 0m, [],
-            source: SaleSource.Offline, clientSaleId: "client-2", deviceId: DeviceId, syncedAt: Now);
-        _saleRepository.GetByIdAsync(other.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(other);
-
-        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.LinkExistingSale, other.Id));
-
-        Assert.Equal(Errors.Reconciliation.SaleIdentityMismatch.Code, result.FirstError.Code);
-        Assert.Equal(ReconciliationCaseStatus.Open, issue.Status);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -778,6 +744,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             null,
             null,
             [new OfflineSaleSyncLineCommand("BC-1", "B-1", "Rice", 1m, 80m, 100m, 120m, 18m, false, _batch.Id, 100m, 0m, 0m, 100m, 18m, 118m, null, null, InstantDiscountType.None, 0m, null)],
+            CalculationVersion: 1,
             IssuedByUserId: asserted);
         var envelope = OfflineSubmission.Record(
             _shop.Id,
