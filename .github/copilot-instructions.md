@@ -1,6 +1,6 @@
 # Project Guidelines
 
-**For the complete and up-to-date project documentation, see [AGENTS.md](../../AGENTS.md) at the repo root.**
+**For the complete and up-to-date project documentation, see [AGENTS.md](../AGENTS.md) at the repo root.**
 
 All guidelines, conventions, build commands, architecture boundaries, and backend/frontend standards are documented in the primary file to maintain consistency across all tools.
 
@@ -12,4 +12,6 @@ All guidelines, conventions, build commands, architecture boundaries, and backen
 - Error handling: ErrorOr result pattern
 - Multi-shop: RLS-enforced row isolation per active_shop_id
 
-See [AGENTS.md](../../AGENTS.md) for full details.
+Architecture docs are per project (`<project>/README.md` and `<project>/architecture_doc/`); the index in [AGENTS.md](../AGENTS.md) says which to read.
+
+See [AGENTS.md](../AGENTS.md) for full details.

@@ -60,7 +60,7 @@ export function finalizeServiceWorker(browserDir = DEFAULT_BROWSER_DIR, wrapperP
 }
 
 /**
- * Writes the two manifests the wrapper worker chooses between (architecture_doc/frontend-architecture.md
+ * Writes the two manifests the wrapper worker chooses between (src/frontend/intelibill/architecture_doc/architecture.md
  * § Offline Pack).
  *
  * - `ngsw.json`, Angular's own manifest, is the full offline pack: every prefetch group is

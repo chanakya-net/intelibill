@@ -6,7 +6,7 @@
  * manifest, the wrapper looks the word up: `off` gives it `ngsw-lite.json` (nothing downloaded in
  * the background), anything else, including no flag at all, the full `ngsw.json`. The name is not
  * `ngsw:`-prefixed, so Angular never deletes it, and it holds no user or shop data.
- * See architecture_doc/frontend-architecture.md § Offline Pack.
+ * See src/frontend/intelibill/architecture_doc/architecture.md § Offline Pack.
  */
 export const OFFLINE_PACK_STATE_CACHE = 'intelibill:offline-pack:state';
 

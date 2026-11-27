@@ -14,7 +14,7 @@
  * exposed. Once this worker is installed, Angular's code in it takes control of every open tab
  * (skipWaiting + clients.claim), and the listeners below run before Angular's for all of them.
  *
- * See architecture_doc/frontend-architecture.md § Protected API Cache Isolation.
+ * See src/frontend/intelibill/architecture_doc/architecture.md § Protected API Cache Isolation.
  *
  * It also decides which manifest Angular's worker sees, so that only a device with offline billing
  * downloads the app for offline use. The build writes `ngsw.json` (the full offline pack) and
@@ -22,7 +22,7 @@
  * an explicit "off" into the `intelibill:offline-pack:state` cache, Angular's request for
  * `ngsw.json` is answered with the lite manifest; anything else, including no flag at all, keeps
  * the full one, so a device enabled before this existed keeps its pack. Every other request passes
- * through untouched. See architecture_doc/frontend-architecture.md § Offline Pack.
+ * through untouched. See src/frontend/intelibill/architecture_doc/architecture.md § Offline Pack.
  */
 'use strict';
 

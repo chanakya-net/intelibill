@@ -1,6 +1,6 @@
 # Infrastructure Decisions
 
-Rationale behind [infrastructure-architecture.md](../architecture_doc/infrastructure-architecture.md). Each decision records what was chosen, what was rejected, why, what it costs, and how to reverse it.
+Rationale behind [the infrastructure architecture](../.tofu/architecture_doc/architecture.md). Each decision records what was chosen, what was rejected, why, what it costs, and how to reverse it.
 
 Read this when you disagree with something in the architecture document, or before changing it.
 
@@ -30,7 +30,7 @@ Additional audited decisions:
 - Split plan, infrastructure-apply, routine-deploy, runtime, and migrator privileges. State access requires Azure Storage blob **data-plane** roles.
 - Rotate and purge the plaintext SMTP credential currently present in development settings.
 
-The current cost scenarios and source links are maintained in [infrastructure-architecture.md §10](../architecture_doc/infrastructure-architecture.md#10-cost-model). At the audited rates, the lean controlled launch is about **$43.40/month**, scale-ready public networking about **$130/month**, and scale-ready private production about **$152–156/month**, before egress and external services.
+The current cost scenarios and source links are maintained in [the infrastructure architecture §10](../.tofu/architecture_doc/architecture.md#10-cost-model). At the audited rates, the lean controlled launch is about **$43.40/month**, scale-ready public networking about **$130/month**, and scale-ready private production about **$152–156/month**, before egress and external services.
 
 ---
 

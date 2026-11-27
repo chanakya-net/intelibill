@@ -1,6 +1,6 @@
 # intelibill — Agent Guide
 
-`CLAUDE.md` and `GEMINI.md` symlink to this file. Keep this guide concise; put architecture docs in `architecture_doc/` and detailed subsystem/rollout notes in `docs/`, and link them below.
+`CLAUDE.md` and `GEMINI.md` symlink to this file. Keep this guide concise. Each project owns its docs: `<project>/README.md` and `<project>/architecture_doc/`; cross-project setup, rollout and operations notes go in `docs/`. Link them in the index below.
 
 ## Build & Test
 
@@ -21,7 +21,7 @@ dotnet ef migrations add <MigrationName> --project src/backend/intelibill/Inteli
 dotnet ef database update --project src/backend/intelibill/Intelibill.Infrastructure --startup-project src/backend/intelibill/Intelibill.Api
 ```
 For licensing migrations, target `--project src/backend/licensing/Intelibill.Licensing.Infrastructure --startup-project src/backend/licensing/Intelibill.Licensing.Api --context LicensingDbContext`.
-Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `architecture_doc/backend-architecture.md`).
+Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `src/backend/intelibill/architecture_doc/architecture.md` § Migration baselines).
 
 **Web Workspaces** (Bun `1.3.11` only — never `npm` or `yarn`; single root `bun.lock`):
 - Merchant web (`src/frontend/intelibill`): `bun install`, `bun run start`, `bun run build`, `bun run test --watch=false` (or `--run <spec>`)
@@ -95,11 +95,23 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 - Use `rg`, `rg --files`, and direct file reads for config, docs, and non-symbol searches.
 - If `.codegraph/` is missing, ask before running `codegraph init -i`.
 
-## Documentation Index (Read Before Editing a Subsystem)
+## Documentation Index (Read Before Editing a Project)
 
-- `README.md` — overview & local setup
-- `architecture_doc/architectural_patterns.md` — shared design & code patterns
-- `architecture_doc/backend-architecture.md` — tenancy, auth, financial ops, credit, returns, stock/purchase receipts, posting periods, offline sync/reconciliation, locking orders, integration parallelism
-- `architecture_doc/frontend-architecture.md` — shop context transitions, protected API service worker, offline pack & printing, shared styles
-- `architecture_doc/mobile-architecture.md` — Flutter app architecture
-- `architecture_doc/infrastructure-architecture.md` — Azure/OpenTofu infrastructure architecture
+Docs are per project. Read **only the row for the project you are working in**; open another project's docs only when your change crosses into it.
+
+| Working in | Read |
+|---|---|
+| `src/backend/intelibill/` (merchant API), `tests/backend/intelibill/` | `src/backend/intelibill/README.md`, `src/backend/intelibill/architecture_doc/architecture.md` (tenancy, auth, financial ops, credit, returns, stock/purchase receipts, posting periods, offline sync/reconciliation, locking orders, integration parallelism), `src/backend/intelibill/architecture_doc/patterns.md` |
+| `src/backend/licensing/`, `tests/backend/licensing/`, `tests/contracts/licensing/` | `src/backend/licensing/README.md`, `src/backend/licensing/architecture_doc/architecture.md`, `docs/licensing-rollout.md` |
+| `src/backend/shared/`, `tests/backend/shared/` | `src/backend/shared/README.md`, `src/backend/shared/architecture_doc/architecture.md` |
+| `src/backend/barcode-master-api/`, `tests/backend/barcode-master-api/` | `src/backend/barcode-master-api/AGENTS.md`, `README.md` and `architecture_doc/architecture.md` in that folder |
+| `src/backend/hsn-finder-ai/` | `src/backend/hsn-finder-ai/README.md`, `src/backend/hsn-finder-ai/architecture_doc/architecture.md` |
+| `src/frontend/intelibill/` (merchant web) | `src/frontend/intelibill/README.md`, `src/frontend/intelibill/architecture_doc/architecture.md` (shop context transitions, protected API service worker, offline pack & printing, shared styles), `src/frontend/intelibill/architecture_doc/patterns.md` |
+| `src/frontend/licensing/` (admin web) | `src/frontend/licensing/README.md`, `src/frontend/licensing/architecture_doc/architecture.md` |
+| `src/frontend/shared/` (`@intelibill/ui`, `@intelibill/api`) | `src/frontend/shared/README.md`, `src/frontend/shared/architecture_doc/architecture.md` |
+| `src/mobile/android/intelibill_mobile/` | `README.md` and `architecture_doc/architecture.md` in that folder |
+| `.tofu/`, `.github/workflows/infra-*.yml` | `.tofu/README.md`, `.tofu/architecture_doc/architecture.md`, `docs/infrastructure-decisions.md`, `docs/infrastructure-implementation-guide.md` |
+
+Repo-wide: `README.md` (overview, local setup, Docker stack) and `docs/` (auth setup, rollout, operations, security notes that span projects).
+
+When you change a project's behaviour or structure, update that project's README and `architecture_doc/` in the same change. Do not recreate a root `architecture_doc/`.

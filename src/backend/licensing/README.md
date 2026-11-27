@@ -4,6 +4,18 @@ Build the licensing solution from the repository root with
 `dotnet build src/backend/licensing/Intelibill.Licensing.slnx -warnaserror`.
 The root `Intelibill.slnx` builds merchant and licensing projects together.
 
+## Documentation
+
+- [Architecture](architecture_doc/architecture.md): layers, request flow, functional areas, persistence,
+  merchant integration, security invariants and test structure.
+- [Licensing rollout](../../../docs/licensing-rollout.md): local stack, ports, databases and identities,
+  configuration keys, integration test notes and per-slice rollout notes. Further slice notes are
+  `docs/licensing-*.md`.
+- Related projects: [merchant backend](../intelibill/architecture_doc/architecture.md),
+  [shared libraries](../shared/architecture_doc/architecture.md),
+  [admin web](../../frontend/licensing/architecture_doc/architecture.md),
+  [infrastructure](../../../.tofu/architecture_doc/architecture.md).
+
 ## Runtime configuration
 
 Provision a separate PostgreSQL 17 database and a dedicated login for the API.
@@ -51,8 +63,12 @@ The API never migrates. The `licensing-migrate` image
 as the identity that owns the licensing database. Provision the database and
 roles before it runs and grant the runtime login afterwards.
 
-The first migration is `InitialAdminIdentityAndAudit`. Run the explicit
-migration from the repository root with:
+The schema starts from a single migration, `20261127074702_Baseline`, which
+runs the embedded `Migrations/20261127074702_Baseline.sql` script. Never edit
+that script; add new migrations after it. Its `Down` is unsupported: drop and
+recreate the database instead. With the `LicensingMigrationDatabase__*`
+environment variables set, run the explicit migration from the repository root
+with:
 
 ```sh
 dotnet ef database update \
@@ -67,10 +83,9 @@ bundle, `licensing-runtime-role` grants the runtime login and checks it holds
 no schema or role authority, and only then does `licensing-api` start. See
 [docs/licensing-rollout.md](../../../docs/licensing-rollout.md).
 
-`20261116090000_AddCatalogueDrafts` adds the provider-only draft catalogue (plans,
-plan versions, trial policy versions and their change evidence) under forced
-row-level security. Its `Down` refuses while drafts exist. See "Draft plans and
-trial policy (P02-06)" in the rollout guide.
+The baseline includes the provider-only draft catalogue (plans, plan versions,
+trial policy versions and their change evidence) under forced row-level
+security. See "Draft plans and trial policy (P02-06)" in the rollout guide.
 
 ## Security primitives
 
@@ -121,8 +136,6 @@ P01-06 ends at pending enrollment.
 ## Administrator invitations
 
 A platform owner invites further administrators; there is no public signup.
-Both routes need the `AddAdminInvitations` migration, applied by the explicit
-migration job before the API is updated.
 
 - `GET /api/admin/invitations/context` and `POST /api/admin/invitations`
   (`{ email }`) run behind the `ProviderInvitations` policy: a provider session
@@ -167,8 +180,7 @@ persisted MFA-enrolled owner.
 
 ## Authenticator enrollment
 
-Apply `20261114185900_AddAdminMfaEnrollment` through the explicit licensing
-migration job before serving enrollment. The owner setup and invitation
+The owner setup and invitation
 acceptance pages both link to `/auth/mfa-enrollment`. That page requires the
 existing pending enrollment cookie, exact origin and CSRF token. It shows a
 manual setup key for a six-digit, 30-second TOTP. Verification records the used
@@ -198,8 +210,7 @@ transaction. The verifier is also available to later credential workflows.
 
 ## Provider sign-in
 
-Apply `20261114194123_AddAdminSignInSessions` through the explicit licensing
-migration job. The provider origin is the exact browser-facing origin recorded
+The provider origin is the exact browser-facing origin recorded
 by first-owner bootstrap. Configure `AdminSessions__SigningKey` on the source
 API with a dedicated base64-encoded 32-byte random key shared by the licensing
 replicas. Share the existing ASP.NET Data Protection key ring across those
@@ -222,20 +233,16 @@ Sign-in requires an exact Origin and the `X-Admin-CSRF` request proof. PostgreSQ
 enforces 5 sign-in attempts per normalized account per 15 minutes and 60
 overall per 5 minutes, across replicas. The authenticator keeps its existing
 separate proof budget. Provider audit events record accepted and refused
-sign-ins without credential material. Operator revocation, recovery and grant
-management are the subsequent P01 slices.
+sign-ins without credential material. Device session revocation
+(`/api/admin/sessions`), account recovery (`/api/admin/auth/recovery`) and
+capability management (`/api/admin/users`) are served by the same API.
 
-Run `bash tests/backend/licensing/acceptance/run-p0109-browser.sh` for the disposable
-PostgreSQL, migration job and Chromium acceptance flow.
+`tests/backend/licensing/acceptance/run-p0109-browser.sh` is the disposable
+PostgreSQL, migration job and Chromium acceptance runner for this slice. The
+`run-p01NN-browser.sh` runners from P01-08 to P01-14 still name migration IDs
+from before the baseline squash, so update them before relying on a run.
 
 ## Provider session refresh
-
-Apply `20261114202808_AddAdminRefreshCredentials` through the explicit licensing
-migration job before deploying the API or admin web. Sessions opened before the
-migration have no refresh credential: they end at access expiry and the operator
-signs in again. Down locks the credential table before checking for refresh
-credentials or reuse audit events. It refuses when evidence exists and holds
-the table lock through the schema change when rollback can proceed.
 
 Sign-in also sets an HttpOnly, SameSite=Strict refresh cookie (`__Host-` and
 Secure over HTTPS, `/api/admin` on the loopback HTTP origin) that lasts until the
@@ -274,13 +281,13 @@ definitive rejection clears grants and discards authorized invitation forms
 and their request proofs. Invitation recovery checks the session and requests
 a fresh proof before showing the form.
 
-Run `bash tests/backend/licensing/acceptance/run-p0110-browser.sh` for the disposable
-PostgreSQL, migration upgrade from P01-09 and reapply, and Chromium flow.
+`tests/backend/licensing/acceptance/run-p0110-browser.sh` is the acceptance
+runner for this slice. It was written as an upgrade from the P01-09 migration
+and is affected by the baseline note above.
 
 ## Recovering a checkout
 
-Apply licensing migration `20261117100000_PendingPaymentReconciliation` before
-starting the updated API. The local Compose role preparation script grants the
+The local Compose role preparation script grants the
 runtime execute permission on the payment scheduler's private routines. Refresh
 those grants after manually migrating a local database.
 
@@ -297,11 +304,11 @@ The merchant web app keeps the frozen start command in owner, account and order
 scoped browser storage. The existing payment status and verification routes
 recover that attempt. The simulator offers timeout, delayed full capture and
 definitive failure on an existing session. See
-[P03-03 checkout recovery](../../tests/backend/licensing/acceptance/p03-03-checkout-recovery.md)
+[P03-03 checkout recovery](../../../tests/backend/licensing/acceptance/p03-03-checkout-recovery.md)
 for the PostgreSQL and browser fixtures.
 
 ### Fresh paid periods and service restoration
 
-Apply `20261117130000_PaidFreshStarts` before deploying the checkout writers. First purchase and trial conversion start on a new anchor when licensing can publish the paid entitlement. A paid package bought after grace starts a fresh period at restoration readiness. Verified funds held by a restriction can use the same attempt or manual confirmation after an independent release. An accepted on-time renewal keeps its original anchor even when confirmation arrives late.
+First purchase and trial conversion start on a new anchor when licensing can publish the paid entitlement. A paid package bought after grace starts a fresh period at restoration readiness. Verified funds held by a restriction can use the same attempt or manual confirmation after an independent release. An accepted on-time renewal keeps its original anchor even when confirmation arrives late.
 
 The payment status distinguishes recorded funds, paid term fulfilment and merchant acknowledgement. A Licensing Manager can link a separately approved complimentary grant to a fulfilled payment order for covered shops. The adjustment preserves the original price and paid dates.
