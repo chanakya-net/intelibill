@@ -1,15 +1,10 @@
-// The OpenAI Responses types used to assert on the request (CreateResponseOptions, WebSearchToolLocation,
-// WebSearchToolContextSize, ResponsesClient) are marked [Experimental("OPENAI001")] in the OpenAI SDK.
+// The OpenAI Responses types asserted on here (WebSearchToolApproximateLocation, WebSearchToolContextSize)
+// are marked [Experimental("OPENAI001")] in the OpenAI SDK.
 #pragma warning disable OPENAI001
-using System.ClientModel;
-using System.ClientModel.Primitives;
-using System.Net;
-using System.Text;
 using System.Text.Json.Nodes;
 using HsnFinder.Api.Configuration;
 using HsnFinder.Api.Services;
 using Microsoft.Extensions.AI;
-using OpenAI;
 using OpenAI.Responses;
 
 namespace HsnFinder.Api.Tests;
@@ -97,15 +92,8 @@ public sealed class AiChatOptionsFactoryTests
         settings.ReasoningEffort = "low";
         settings.Verbosity = "low";
         settings.WebSearch = new AiWebSearchSettings { Enabled = true, Country = "IN", ContextSize = "low" };
-        var handler = new CapturingHandler();
-        var openAiClient = new OpenAIClient(
-            new ApiKeyCredential("test-key"),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri("https://ai.example.test/v1"),
-                Transport = new HttpClientPipelineTransport(new HttpClient(handler))
-            });
-        using var chatClient = openAiClient.GetResponsesClient().AsIChatClient("test-model");
+        var handler = new StubResponsesHandler();
+        using var chatClient = handler.CreateResponsesChatClient();
 
         var response = await chatClient.GetResponseAsync("Find HSN for rice", AiChatOptionsFactory.Create(settings));
 
@@ -128,40 +116,4 @@ public sealed class AiChatOptionsFactoryTests
         ApiKey = "test-key",
         Model = "test-model"
     };
-
-    private sealed class CapturingHandler : HttpMessageHandler
-    {
-        private const string ResponseJson = """
-            {
-              "id": "resp_1",
-              "object": "response",
-              "created_at": 0,
-              "status": "completed",
-              "model": "test-model",
-              "output": [
-                {
-                  "type": "message",
-                  "id": "msg_1",
-                  "status": "completed",
-                  "role": "assistant",
-                  "content": [ { "type": "output_text", "text": "ok", "annotations": [] } ]
-                }
-              ]
-            }
-            """;
-
-        public Uri? RequestUri { get; private set; }
-
-        public string? RequestBody { get; private set; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            RequestUri = request.RequestUri;
-            RequestBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(ResponseJson, Encoding.UTF8, "application/json")
-            };
-        }
-    }
 }

@@ -11,7 +11,7 @@ internal sealed class FakeChatClient(
 
     public ChatOptions? LastOptions { get; private set; }
 
-    public string? LastPrompt { get; private set; }
+    public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = [];
 
     public static FakeChatClient Returning(string text)
         => new((_, _, _) => Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, text))));
@@ -24,7 +24,7 @@ internal sealed class FakeChatClient(
         Interlocked.Increment(ref _callCount);
         var materialized = messages.ToList();
         LastOptions = options;
-        LastPrompt = materialized.LastOrDefault()?.Text;
+        LastMessages = materialized;
         return respond(materialized, options, cancellationToken);
     }
 

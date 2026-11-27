@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using HsnFinder.Api.Configuration;
 using HsnFinder.Api.Services;
 using Microsoft.Extensions.AI;
@@ -82,9 +83,61 @@ public sealed class HsnLookupServiceTests : IDisposable
 
         await sut.LookupAsync("Basmati rice");
 
-        Assert.Contains("Basmati rice", chatClient.LastPrompt);
+        Assert.Equal("Basmati rice", chatClient.LastMessages[^1].Text);
         Assert.NotNull(chatClient.LastOptions);
         Assert.IsType<HostedWebSearchTool>(Assert.Single(chatClient.LastOptions.Tools!));
+    }
+
+    [Fact]
+    public async Task Lookup_SendsInstructionsAsSystemMessageAndProductNameAsUserMessage()
+    {
+        var chatClient = FakeChatClient.Returning(RiceJson);
+        var sut = CreateService(chatClient);
+
+        await sut.LookupAsync("  basmati rice ");
+
+        Assert.Equal(2, chatClient.LastMessages.Count);
+        var system = chatClient.LastMessages[0];
+        Assert.Equal(ChatRole.System, system.Role);
+        Assert.Contains("CBIC", system.Text);
+        Assert.Contains("tax_scenarios", system.Text);
+        var user = chatClient.LastMessages[1];
+        Assert.Equal(ChatRole.User, user.Role);
+        Assert.Equal("basmati rice", user.Text);
+    }
+
+    [Fact]
+    public async Task Lookup_ProductNameWithBraces_IsSentVerbatim()
+    {
+        const string productName = """{0} "x" {{y}}""";
+        var chatClient = FakeChatClient.Returning(RiceJson);
+        var sut = CreateService(chatClient);
+
+        var result = await sut.LookupAsync(productName);
+
+        Assert.False(result.IsError);
+        Assert.Equal(productName, chatClient.LastMessages[^1].Text);
+    }
+
+    [Fact]
+    public async Task Lookup_ResponsesApi_SendsInstructionsAsSystemItemAndProductNameAsUserItem()
+    {
+        var handler = new StubResponsesHandler(RiceJson);
+        using var chatClient = handler.CreateResponsesChatClient();
+        var sut = CreateService(chatClient);
+
+        var result = await sut.LookupAsync(" basmati rice ");
+
+        Assert.False(result.IsError);
+        var input = JsonNode.Parse(handler.RequestBody!)!["input"]!.AsArray();
+        Assert.Equal(2, input.Count);
+        Assert.Equal("system", input[0]!["role"]!.GetValue<string>());
+        var systemText = string.Concat(input[0]!["content"]!.AsArray().Select(part => part!["text"]!.GetValue<string>()));
+        Assert.Contains("CBIC", systemText);
+        Assert.Contains("tax_scenarios", systemText);
+        Assert.Equal("user", input[1]!["role"]!.GetValue<string>());
+        var userPart = Assert.Single(input[1]!["content"]!.AsArray())!;
+        Assert.Equal("basmati rice", userPart["text"]!.GetValue<string>());
     }
 
     [Fact]
