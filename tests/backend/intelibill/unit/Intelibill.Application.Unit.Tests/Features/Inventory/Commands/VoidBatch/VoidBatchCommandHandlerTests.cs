@@ -380,23 +380,32 @@ public class VoidBatchCommandHandlerTests
     }
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
-    private VoidBatchCommandHandler CreateHandler() =>
-        new(
+    private VoidBatchCommandHandler CreateHandler()
+    {
+        var clock = BusinessTestDoubles.RealClock();
+        return new(
             _userRepository,
-            _inventoryBatchRepository,
-            _stockTransactionRepository,
-            _supplierLedgerEntryRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _inventoryRepository,
             _unitOfWork,
             _messageBus,
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
-            BusinessTestDoubles.RealClock(),
-            new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>()),
-            _reversals,
-            _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
+            clock,
+            _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>(),
+            new BatchVoidSourceReader(
+                _inventoryBatchRepository,
+                _purchaseReceiptValueRepository,
+                _paymentReceiptRepository,
+                _inventoryRepository,
+                new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>())),
+            new BatchVoidPoster(
+                _inventoryBatchRepository,
+                _stockTransactionRepository,
+                _supplierLedgerEntryRepository,
+                _purchaseReceiptValueRepository,
+                _inventoryRepository,
+                _reversals,
+                clock));
+    }
 
     private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
 

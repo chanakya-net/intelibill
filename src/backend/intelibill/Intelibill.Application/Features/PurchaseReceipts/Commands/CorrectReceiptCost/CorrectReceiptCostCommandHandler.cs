@@ -11,6 +11,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using LockedReceipt = Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost.ReceiptCostSourceReader.LockedReceipt;
 
 namespace Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
 
@@ -35,10 +36,6 @@ namespace Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectRecei
 /// </para>
 /// </remarks>
 public sealed class CorrectReceiptCostCommandHandler(
-    IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
-    IPurchaseReceiptCostAdjustmentRepository costAdjustmentRepository,
-    IInventoryBatchRepository inventoryBatchRepository,
-    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
@@ -46,9 +43,10 @@ public sealed class CorrectReceiptCostCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
     ISupplierReturnMutationLock supplierReturnLock,
-    ISupplierReturnRepository supplierReturns,
     IShopLicenceFence licenceFence,
-    ILiveSessionAuthority sessions)
+    ILiveSessionAuthority sessions,
+    ReceiptCostSourceReader sourceReader,
+    ReceiptCostCorrectionWriter writer)
 {
     private static readonly CorrectReceiptCostCommandValidator Validator = new();
 
@@ -131,26 +129,10 @@ public sealed class CorrectReceiptCostCommandHandler(
     private async Task<ErrorOr<LockedReceipt>> LockSourceAsync(
         CorrectReceiptCostCommand command, ShopLicenceLease lease, DateTimeOffset performedAt, CancellationToken ct)
     {
-        var receipt = (await purchaseReceiptValueRepository.FindAsync(
-            r => r.Id == command.ReceiptValueId && r.ShopId == command.ActiveShopId, ct)).SingleOrDefault();
-        if (lease.CurrentDecision().EnforcedDenial() is { } readDenial)
-            return readDenial;
-        if (receipt is null)
-            return Errors.PurchaseReceipt.NotFound;
-        if (ValidateReceipt(receipt) is { } invalid)
-            return invalid;
-        if (receipt.Version != command.ExpectedVersion)
-            return Errors.PurchaseReceipt.VersionConflict;
-        if (receipt.SupplierId is not { } supplierId)
-            return Errors.PurchaseReceipt.SupplierMissing;
-        if (CheckCompletion(lease, receipt, performedAt) is { } ineligible)
-            return ineligible;
-
-        var batch = await ReadBatchAsync(receipt, ct);
-        if (CheckCompletion(lease, receipt, performedAt) is { } batchDenial)
-            return batchDenial;
-        if (batch.IsError)
-            return batch.Errors;
+        var supplierRead = await sourceReader.ReadSourceSupplierAsync(command, lease, performedAt, ct);
+        if (supplierRead.IsError)
+            return supplierRead.Errors;
+        var supplierId = supplierRead.Value;
         var supplierLock = await supplierReturnLock.TakeBeforeReceiptWriteAsync(
             command.ActiveShopId, supplierId, Errors.PurchaseReceipt.SupplierMissing, ct);
         if (lease.CurrentDecision().EnforcedDenial() is { } lockDenial)
@@ -160,62 +142,7 @@ public sealed class CorrectReceiptCostCommandHandler(
         if (supplierLock.IsError)
             return supplierLock.Errors;
 
-        return await ReloadSourceAsync(command, supplierId, lease, performedAt, ct);
-    }
-
-    private async Task<ErrorOr<LockedReceipt>> ReloadSourceAsync(
-        CorrectReceiptCostCommand command, Guid supplierId, ShopLicenceLease lease,
-        DateTimeOffset performedAt, CancellationToken ct)
-    {
-        var receipt = (await supplierReturns.GetReceiptsAsync(command.ActiveShopId, [command.ReceiptValueId], ct))
-            .SingleOrDefault();
-        if (lease.CurrentDecision().EnforcedDenial() is { } reloadDenial)
-            return reloadDenial;
-        if (receipt is null)
-            return Errors.PurchaseReceipt.NotFound;
-        if (receipt.SupplierId != supplierId || receipt.Version != command.ExpectedVersion)
-            return Errors.PurchaseReceipt.VersionConflict;
-        if (ValidateReceipt(receipt) is { } invalid)
-            return invalid;
-        if (CheckCompletion(lease, receipt, performedAt) is { } ineligible)
-            return ineligible;
-
-        var batch = await ReadBatchAsync(receipt, ct);
-        if (CheckCompletion(lease, receipt, performedAt) is { } batchDenial)
-            return batchDenial;
-        return batch.IsError ? batch.Errors : new LockedReceipt(receipt, batch.Value, supplierId);
-    }
-
-    private async Task<ErrorOr<InventoryBatch>> ReadBatchAsync(PurchaseReceiptValue receipt, CancellationToken ct)
-    {
-        var batch = (await inventoryBatchRepository.FindAsync(
-            b => b.Id == receipt.InventoryBatchId && b.ShopId == receipt.ShopId && b.ItemId == receipt.ItemId, ct))
-            .SingleOrDefault();
-        if (batch is null)
-            return Errors.Inventory.BatchNotFound;
-        if (batch.IsVoided)
-            return Errors.PurchaseReceipt.BatchVoided;
-        return batch;
-    }
-
-    private static Error? ValidateReceipt(PurchaseReceiptValue receipt)
-    {
-        if (receipt.HasSupplierReturns)
-            return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments; its cost cannot change.");
-        return null;
-    }
-
-    private Error? CheckCompletion(ShopLicenceLease lease, PurchaseReceiptValue receipt, DateTimeOffset performedAt)
-    {
-        var decision = lease.CurrentDecision();
-        if (decision.EnforcedDenial() is { } denied)
-            return denied;
-        if (decision is not { Enforced: true, Outcome: LicenceOutcome.RequiresProvenSource })
-            return null;
-
-        return receipt.ReceivedAt == default || receipt.ReceivedAt > performedAt ||
-            receipt.ReceivedAt > businessClock.UtcNow || receipt.ReceivedQuantity <= 0
-            ? Errors.PurchaseReceipt.SourceIneligible : null;
+        return await sourceReader.ReloadSourceAsync(command, supplierId, lease, performedAt, ct);
     }
 
     private async Task<ErrorOr<ReceiptCostCorrectionResultDto>> PostDeltaAsync(
@@ -231,7 +158,7 @@ public sealed class CorrectReceiptCostCommandHandler(
             PaymentAllocationTargetType.SupplierReceipt,
             [receipt.Id],
             cancellationToken)).GetValueOrDefault(receipt.Id);
-        if (CheckCompletion(lease, receipt, performedAt) is { } allocationDenial)
+        if (sourceReader.CheckCompletion(lease, receipt, performedAt) is { } allocationDenial)
             return allocationDenial;
         if (command.RevisedTotalCost < allocated)
             return Errors.Payment.CorrectionBelowAllocated(allocated);
@@ -276,18 +203,11 @@ public sealed class CorrectReceiptCostCommandHandler(
         SupplierLedgerEntry ledgerEntry, PurchaseReceiptCostAdjustment adjustment, CancellationToken cancellationToken)
     {
         var (receipt, batch, _) = source;
-        // Written against the version the correction was entered at: a second correction of the
-        // same version fails here instead of posting its delta on top of the first. The batch row is
-        // written too, so a void of the batch racing this correction fails one of the two saves.
-        purchaseReceiptValueRepository.Update(receipt);
-        batch.MarkUpdatedBy(command.ActorUserId);
-        inventoryBatchRepository.Update(batch);
-        await supplierLedgerEntryRepository.AddAsync(ledgerEntry, cancellationToken);
-        await costAdjustmentRepository.AddAsync(adjustment, cancellationToken);
+        await writer.StageCorrectionAsync(command, receipt, batch, ledgerEntry, adjustment, cancellationToken);
 
         if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
             return authorityDenied;
-        if (CheckCompletion(lease, receipt, adjustment.PerformedAt) is { } denied)
+        if (sourceReader.CheckCompletion(lease, receipt, adjustment.PerformedAt) is { } denied)
             return denied;
 
         try
@@ -301,7 +221,7 @@ public sealed class CorrectReceiptCostCommandHandler(
 
         if (await CheckAuthorityAsync(command, cancellationToken) is { } postingAuthorityDenied)
             return postingAuthorityDenied;
-        if (CheckCompletion(lease, receipt, adjustment.PerformedAt) is { } postingDenial)
+        if (sourceReader.CheckCompletion(lease, receipt, adjustment.PerformedAt) is { } postingDenial)
             return postingDenial;
 
         return new ReceiptCostCorrectionResultDto(
@@ -325,8 +245,6 @@ public sealed class CorrectReceiptCostCommandHandler(
         var length = char.IsHighSurrogate(value[maxLength - 1]) ? maxLength - 1 : maxLength;
         return value[..length];
     }
-
-    private sealed record LockedReceipt(PurchaseReceiptValue Receipt, InventoryBatch Batch, Guid SupplierId);
 
     private sealed record ReceiptCostCorrectionPayload(Guid ReceiptValueId, uint ExpectedVersion, decimal RevisedTotalCost, string Reason);
 }

@@ -88,6 +88,11 @@ public static class DependencyInjection
         services.AddScoped<IInventoryUpdater, InventoryUpdater>();
         services.AddScoped<IInboundInventoryLineProcessor, InboundInventoryLineProcessor>();
         services.AddScoped<IInventoryAdjustmentNumberGenerator, InventoryAdjustmentNumberGenerator>();
+        services.AddScoped<Features.Inventory.Commands.VoidBatch.BatchVoidSourceReader>();
+        services.AddScoped<Features.Inventory.Commands.VoidBatch.BatchVoidPoster>();
+        services.AddScoped<Features.PurchaseReceipts.Commands.CorrectReceiptCost.ReceiptCostSourceReader>();
+        services.AddScoped<Features.PurchaseReceipts.Commands.CorrectReceiptCost.ReceiptCostCorrectionWriter>();
+        services.AddScoped<Features.Inventory.Commands.ReassignBatchSupplier.BatchSupplierLedgerReassigner>();
 
         services.AddScoped<ISaleLineValidator, SaleLineValidator>();
         services.AddScoped<ICustomerResolver, CustomerResolver>();
