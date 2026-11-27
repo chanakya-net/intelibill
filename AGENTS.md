@@ -35,6 +35,8 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 - Setup & codegen: `flutter pub get`, `./tool/codegen.sh` (commit `lib/**/*.g.dart`, `lib/**/*.freezed.dart`, `lib/src/core/localization/`)
 - Verify: `flutter analyze`, `dart format --set-exit-if-changed .`, `flutter test --coverage`, `flutter build apk --debug`
 
+**CI scope**: `.github/workflows/deploy.yml` builds and tests only the projects a change can affect. `.github/scripts/detect-changed-projects.sh` owns the path-to-project mapping (tested by `.github/scripts/tests/detect-changed-projects.test.sh`); when you add a project, a test root or a shared path, update both and `workflow-contracts.test.sh`. Mobile, barcode, HSN and infrastructure have their own path-filtered workflows.
+
 ## Architecture & Conventions
 
 **Layer order**: `Domain ← Application ← Infrastructure ← Api` (each layer registers via `DependencyInjection.cs`).

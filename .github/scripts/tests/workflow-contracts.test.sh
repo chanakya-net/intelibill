@@ -235,6 +235,13 @@ release_images.each do |job_name, image|
     release_build["needs"] == "validate",
     "#{job_name} must depend only on validation so image builds can run in parallel",
   )
+  # validate follows jobs that are skipped for unchanged projects. Without an
+  # explicit status check a skipped ancestor would skip the release as well.
+  assert(
+    release_build.fetch("if").include?("!cancelled()") &&
+      release_build.fetch("if").include?("needs.validate.result == 'success'"),
+    "#{job_name} must run only after a successful validation gate",
+  )
   assert(
     release_build.fetch("if").include?("github.event_name != 'pull_request'"),
     "#{job_name} must reject pull-request package writes",
@@ -276,16 +283,86 @@ release_images.each do |job_name, image|
     "#{job_name} does not scan its immutable image",
   )
 end
+# Validation is scoped: each project is built and tested by its own job, and
+# only when a change can affect it. detect-changed-projects.sh owns the mapping
+# from changed paths to projects (its own test covers the mapping itself).
+validation_job_names = %w[changes contracts backend merchant_web admin_web images]
+validation_job_names.each do |job_name|
+  assert(deploy_jobs.key?(job_name), "#{job_name} validation job missing")
+end
 validation_job = deploy_jobs.fetch("validate")
-validation_commands = commands(validation_job)
 assert(
-  validation_commands.scan("dotnet test").length == 1,
+  validation_job["needs"] == validation_job_names,
+  "the validation gate must follow every validation job",
+)
+assert(
+  validation_job.fetch("if").include?("always()"),
+  "the validation gate must report even when project jobs are skipped or fail",
+)
+gate_commands = commands(validation_job)
+%w[changes contracts].each do |job_name|
+  assert(
+    gate_commands.include?("needs.#{job_name}.result"),
+    "the validation gate ignores #{job_name}",
+  )
+end
+%w[backend merchant_web admin_web images].each do |job_name|
+  assert(
+    gate_commands.include?("needs.#{job_name}.result"),
+    "the validation gate ignores #{job_name}",
+  )
+  assert(
+    deploy_jobs.fetch(job_name)["needs"] == "changes",
+    "#{job_name} must be selected by change detection",
+  )
+  assert(
+    deploy_jobs.fetch(job_name).fetch("if").include?("needs.changes.outputs."),
+    "#{job_name} must run only for the projects a change affects",
+  )
+end
+
+changes_job = deploy_jobs.fetch("changes")
+changes_commands = commands(changes_job)
+assert(
+  changes_commands.include?(".github/scripts/detect-changed-projects.sh"),
+  "change detection must use the tested detection script",
+)
+assert(
+  changes_commands.include?("--all"),
+  "change detection must validate everything when no base commit is comparable",
+)
+%w[backend_suites images merchant_web admin_web].each do |output|
+  assert(
+    changes_job.dig("outputs", output).to_s.include?("steps.detect.outputs.#{output}"),
+    "change detection does not publish #{output}",
+  )
+end
+detect_script = File.read(File.join(root, ".github", "scripts", "detect-changed-projects.sh"))
+
+backend_job = deploy_jobs.fetch("backend")
+backend_commands = commands(backend_job)
+assert(
+  backend_job.dig("strategy", "matrix", "suite").to_s.include?("needs.changes.outputs.backend_suites"),
+  "backend suites must come from change detection",
+)
+assert(
+  backend_commands.scan("dotnet test").length == 1,
   "backend tests must have exactly one owner in application validation",
+)
+all_validation_commands = validation_job_names.map { |name| commands(deploy_jobs.fetch(name)) }.join("\n")
+assert(
+  all_validation_commands.scan("dotnet test").length == 1,
+  "backend tests must have exactly one owner in application validation",
+)
+assert(
+  backend_commands.include?("matrix.suite.roots"),
+  "a backend suite must test only its own test roots",
 )
 
 # P01-05: both consumers of shared code are validated together. A change to
-# src/shared (or the root workspace) must build and test the merchant and
-# licensing backends and both web apps, each exactly once.
+# src/backend/shared (or the root workspace) must build and test the merchant
+# and licensing backends, and a shared web change both web apps, each exactly
+# once.
 pre_835_release_paths = %w[
   .github/scripts/**
   .github/workflows/deploy.yml
@@ -312,64 +389,104 @@ validation_only_paths = %w[
   scripts/dev/**
   .dockerignore
 ]
+documentation_exclusion = "!**/*.md"
 pull_request_paths = deploy_triggers.dig("pull_request", "paths")
 (pre_835_release_paths + validation_only_paths).each do |path|
   assert(
     pull_request_paths.include?(path),
     "pull-request validation does not watch #{path}",
   )
+  # Every watched path must select something, or a run would start and
+  # validate nothing.
+  watched = path.sub(%r{/?\*\*\z}, "")
+  assert(
+    detect_script.include?(watched),
+    "change detection does not classify watched path #{path}",
+  )
 end
 assert(
-  deploy_triggers.dig("push", "paths") == pre_835_release_paths,
+  pull_request_paths.last == documentation_exclusion,
+  "documentation alone must not start pull-request validation",
+)
+assert(
+  deploy_triggers.dig("push", "paths") == pre_835_release_paths + [documentation_exclusion],
   "main pushes must keep the pre-P01-05 release trigger set; licensing-only changes validate on pull requests without publishing merchant images",
 )
 assert(
-  validation_commands.include?("dotnet restore Intelibill.slnx") &&
-    validation_commands.include?("dotnet build Intelibill.slnx"),
+  backend_commands.include?("dotnet restore Intelibill.slnx") &&
+    backend_commands.include?("dotnet build Intelibill.slnx"),
   "validation must restore and build the root solution so both backends compile against shared code",
 )
 %w[tests/backend/intelibill tests/backend/licensing tests/backend/shared].each do |test_root|
   assert(
-    validation_commands.include?(test_root),
+    detect_script.include?(test_root),
     "backend test enumeration omits #{test_root}",
   )
 end
 
-validation_steps = Array(validation_job["steps"]).select { |step| step.is_a?(Hash) }
-root_install = validation_steps.select do |step|
-  step.fetch("run", "").include?("bun install --frozen-lockfile") && !step.key?("working-directory")
-end
-assert(root_install.length == 1, "web dependencies must be installed once from the root workspace")
-assert(
-  validation_steps.none? do |step|
-    step.key?("working-directory") && step.fetch("run", "").include?("bun install")
-  end,
-  "app-local bun install bypasses the root workspace lockfile",
-)
 {
-  "src/frontend/intelibill" => "merchant web",
-  "src/frontend/licensing" => "admin web",
-}.each do |directory, consumer|
-  owned = validation_steps.select { |step| step["working-directory"] == directory }
+  "merchant_web" => ["src/frontend/intelibill", "merchant web"],
+  "admin_web" => ["src/frontend/licensing", "admin web"],
+}.each do |job_name, (directory, consumer)|
+  web_steps = Array(deploy_jobs.fetch(job_name)["steps"]).select { |step| step.is_a?(Hash) }
+  root_install = web_steps.select do |step|
+    step.fetch("run", "").include?("bun install --frozen-lockfile") && !step.key?("working-directory")
+  end
+  assert(root_install.length == 1, "#{consumer} dependencies must be installed once from the root workspace")
+  assert(
+    web_steps.none? do |step|
+      step.key?("working-directory") && step.fetch("run", "").include?("bun install")
+    end,
+    "app-local bun install bypasses the root workspace lockfile",
+  )
+  owned = web_steps.select { |step| step["working-directory"] == directory }
   owned_runs = owned.map { |step| step.fetch("run", "") }.join("\n")
   assert(owned_runs.scan("bun run build").length == 1, "#{consumer} must be built exactly once")
   assert(owned_runs.scan("bun run test").length == 1, "#{consumer} tests must have exactly one owner")
+  assert(
+    web_steps.all? { |step| !step.key?("working-directory") || step["working-directory"] == directory },
+    "#{job_name} must build and test only the #{consumer}",
+  )
 end
 assert(
-  validation_commands.scan("bun run test").length == 2,
+  all_validation_commands.scan("bun run test").length == 2,
   "only the two web consumers may own frontend test runs",
 )
+contract_commands = commands(deploy_jobs.fetch("contracts"))
 assert(
-  validation_commands.include?("licensing-stack-contract.test.sh"),
+  !deploy_jobs.fetch("contracts").key?("needs") && !deploy_jobs.fetch("contracts").key?("if"),
+  "delivery contracts must be checked on every run",
+)
+assert(
+  contract_commands.include?("detect-changed-projects.test.sh"),
+  "validation must test the change-detection mapping it relies on",
+)
+assert(
+  contract_commands.include?("licensing-stack-contract.test.sh"),
   "validation must check the combined local stack contract",
 )
 assert(
-  validation_commands.include?("licensing-stack-harness.test.sh"),
+  contract_commands.include?("licensing-stack-harness.test.sh"),
   "validation must check fixture isolation and Compose failure propagation",
 )
 assert(
-  validation_commands.include?("node --test src/frontend/licensing/tests/server.test.mjs"),
+  commands(deploy_jobs.fetch("admin_web")).include?("node --test src/frontend/licensing/tests/server.test.mjs"),
   "validation must exercise the admin web runtime server",
+)
+
+images_job = deploy_jobs.fetch("images")
+images_commands = commands(images_job)
+assert(
+  images_job.fetch("if").include?("github.event_name == 'pull_request'"),
+  "validation images are built for pull requests only; releases publish their own",
+)
+assert(
+  images_job.dig("strategy", "matrix", "image").to_s.include?("needs.changes.outputs.images"),
+  "validation images must come from change detection",
+)
+assert(
+  images_commands.include?("matrix.image.dockerfile") && !images_commands.include?("--push"),
+  "pull-request validation must build the selected Dockerfile without publishing it",
 )
 %w[
   src/backend/intelibill/Dockerfile
@@ -380,19 +497,26 @@ assert(
   src/frontend/licensing/Dockerfile
 ].each do |dockerfile|
   assert(
-    validation_commands.include?(dockerfile),
+    detect_script.include?(" #{dockerfile} "),
     "pull-request validation does not build #{dockerfile}",
   )
 end
-%w[intelibill-licensing-api-pr intelibill-licensing-migrate-pr intelibill-admin-web-pr].each do |local_tag|
-  scan = validation_steps.find do |step|
-    step.fetch("uses", "").start_with?("aquasecurity/trivy-action@") &&
-      step.dig("with", "image-ref").to_s.include?(local_tag)
-  end
-  assert(!scan.nil?, "pull-request validation does not scan #{local_tag}")
+%w[
+  intelibill-api-pr intelibill-migrate-pr intelibill-web-pr
+  intelibill-licensing-api-pr intelibill-licensing-migrate-pr intelibill-admin-web-pr
+].each do |local_tag|
+  assert(detect_script.include?(local_tag), "pull-request validation does not build #{local_tag}")
 end
+image_scan = Array(images_job["steps"]).find do |step|
+  step.fetch("uses", "").start_with?("aquasecurity/trivy-action@")
+end
+assert(
+  !image_scan.nil? && image_scan.dig("with", "image-ref").to_s.include?("matrix.image.tag"),
+  "pull-request validation does not scan the image it built",
+)
+assert(image_scan.dig("with", "exit-code") == "1", "pull-request image scan must fail the run")
 deploy_jobs.each do |job_name, job|
-  next if job_name == "validate"
+  next if validation_job_names.include?(job_name) || job_name == "validate"
 
   job_text = commands(job)
   %w[src/backend/licensing src/frontend/licensing licensing-api licensing-migrate admin-web].each do |marker|
@@ -413,6 +537,14 @@ assert(
   "badge publication must run only for main pushes",
 )
 assert(
+  badges_job.fetch("if").include?("needs.validate.result == 'success'"),
+  "badge publication must follow a successful validation gate",
+)
+assert(
+  commands(badges_job).include?("backend-projects.json"),
+  "the backend badge must keep counts for suites a scoped run did not test",
+)
+assert(
   badges_job.dig("permissions", "contents") == "write",
   "badge publication requires narrowly scoped contents write permission",
 )
@@ -424,6 +556,12 @@ assert(
   deploy_jobs.dig("prod", "needs") == [*release_images.keys, "dev"],
   "prod release must follow the same image builds and dev",
 )
+%w[dev prod].each do |environment|
+  assert(
+    deploy_jobs.fetch(environment).fetch("if").include?("!cancelled()"),
+    "#{environment} release must not be skipped because an unchanged project was not validated",
+  )
+end
 assert(deploy_jobs.dig("dev", "environment") == "dev", "dev environment missing")
 assert(deploy_jobs.dig("prod", "environment") == "prod", "prod gate missing")
 release_group = deploy.dig("concurrency", "group").to_s

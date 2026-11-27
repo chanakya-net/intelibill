@@ -5,10 +5,11 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
   pull_request:
     branches:
       - main
-    # Pull requests validate every consumer of shared code: the merchant and
-    # licensing backends and both web apps. Main pushes keep the original
-    # merchant release trigger set below, so a licensing- or admin-only change
-    # never publishes or deploys merchant images.
+    # Pull requests are watched for every project this workflow validates. Which
+    # of them a run actually builds and tests is decided per change by the
+    # `changes` job. Main pushes keep the original merchant release trigger set
+    # below, so a licensing- or admin-only change never publishes or deploys
+    # merchant images. Documentation alone never starts a run.
     paths:
       - .github/scripts/**
       - .github/workflows/deploy.yml
@@ -32,6 +33,7 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - scripts/db/**
       - scripts/dev/**
       - .dockerignore
+      - "!**/*.md"
   push:
     branches:
       - main
@@ -46,6 +48,7 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - Directory.Build.props
       - Directory.Packages.props
       - global.json
+      - "!**/*.md"
   workflow_dispatch:
     inputs:
       target:
@@ -77,8 +80,63 @@ env:
   RESOURCE_GROUP: intelibill-shared
 
 jobs:
-  validate:
-    name: Build and test application
+  # Every job below runs only for the projects a change can affect. The mapping
+  # from changed paths to projects lives in .github/scripts/detect-changed-projects.sh.
+  changes:
+    name: Detect changed projects
+    runs-on: ubuntu-latest
+    outputs:
+      backend_suites: ${{ steps.detect.outputs.backend_suites }}
+      images: ${{ steps.detect.outputs.images }}
+      merchant_web: ${{ steps.detect.outputs.merchant_web }}
+      admin_web: ${{ steps.detect.outputs.admin_web }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A pull request is checked out as its merge commit, whose first parent is
+      # the base branch, so the diff is exactly what the pull request changes.
+      # A push compares against the commit main pointed at before. Anything
+      # else, or a range that cannot be resolved, validates everything.
+      - name: Detect changed projects
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          detect=.github/scripts/detect-changed-projects.sh
+          base=""
+          case "${EVENT_NAME}" in
+            pull_request) base="HEAD^1" ;;
+            push) base="${BEFORE_SHA}" ;;
+          esac
+
+          if [ -n "${base}" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            git diff --name-only "${base}" HEAD >changed-paths.txt
+            echo "Changed paths:"
+            cat changed-paths.txt
+            "${detect}" <changed-paths.txt >detected.txt
+          else
+            echo "No comparable base commit; validating every project."
+            "${detect}" --all >detected.txt
+          fi
+
+          cat detected.txt
+          cat detected.txt >>"${GITHUB_OUTPUT}"
+          {
+            printf '## Projects validated\n\n```\n'
+            cat detected.txt
+            printf '```\n'
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+  contracts:
+    name: Test delivery helpers and workflow contracts
     runs-on: ubuntu-latest
 
     steps:
@@ -89,14 +147,28 @@ jobs:
 
       - name: Test delivery helpers and workflow contracts
         run: |
+          .github/scripts/tests/detect-changed-projects.test.sh
           .github/scripts/tests/wait-for-container-app-job.test.sh
           .github/scripts/tests/wait-for-container-app-revisions.test.sh
           .github/scripts/tests/workflow-contracts.test.sh
           .github/scripts/tests/licensing-stack-contract.test.sh
           bash .github/scripts/tests/licensing-stack-harness.test.sh
 
-      - name: Test admin web runtime server
-        run: node --test src/frontend/licensing/tests/server.test.mjs
+  backend:
+    name: Test ${{ matrix.suite.name }} backend
+    needs: changes
+    if: ${{ needs.changes.outputs.backend_suites != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.changes.outputs.backend_suites) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -104,8 +176,8 @@ jobs:
           global-json-file: global.json
 
       # The root solution holds the merchant and licensing backends, the shared
-      # projects and their consumer regression suites, so a shared edit compiles
-      # against both consumers.
+      # projects and their consumer regression suites, so every suite compiles
+      # against the same code the others do.
       - name: Restore backends
         run: dotnet restore Intelibill.slnx
 
@@ -123,15 +195,18 @@ jobs:
       - name: Test backend
         env:
           INTEGRATION_TEST_PREGENERATED_HANDLERS: "1"
+          SUITE_ROOTS: ${{ matrix.suite.roots }}
         run: |
           set -euo pipefail
 
-          mapfile -t test_projects < <(find tests/backend/intelibill tests/backend/licensing tests/backend/shared -type f -name '*.csproj' | sort)
+          read -r -a suite_roots <<<"${SUITE_ROOTS}"
+          mapfile -t test_projects < <(find "${suite_roots[@]}" -type f -name '*.csproj' | sort)
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo 'No backend test projects found under tests/backend/intelibill, tests/backend/licensing or tests/backend/shared.'
+            echo "No backend test projects found under ${SUITE_ROOTS}."
             exit 1
           fi
 
+          mkdir -p badge-data
           for project in "${test_projects[@]}"; do
             project_name=$(basename "${project}" .csproj)
             project_results_dir="TestResults/${project_name}"
@@ -143,15 +218,45 @@ jobs:
               --verbosity normal \
               --logger "trx;LogFileName=${project_name}.trx" \
               --results-directory "${project_results_dir}"
+
+            trx_file="${project_results_dir}/${project_name}.trx"
+            if [ ! -f "${trx_file}" ]; then
+              echo "Expected TRX file not found for ${project_name}: ${trx_file}"
+              exit 1
+            fi
+            total=$(grep -oP 'Counters[^>]*total="\K[0-9]+' "${trx_file}" | head -1 || true)
+            passed=$(grep -oP 'Counters[^>]*passed="\K[0-9]+' "${trx_file}" | head -1 || true)
+            printf '%s\t%s\t%s\n' "${project_name}" "${total:-0}" "${passed:-0}" \
+              >>"badge-data/backend-${{ matrix.suite.name }}.tsv"
           done
+
+      - name: Upload backend test counts
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: badge-backend-${{ matrix.suite.name }}
+          path: badge-data/
+          if-no-files-found: error
+
+  merchant_web:
+    name: Build and test merchant web
+    needs: changes
+    if: ${{ needs.changes.outputs.merchant_web == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.11
 
-      # One frozen install of the root Bun workspace serves both web apps and
-      # the shared packages.
+      # One frozen install of the root Bun workspace serves the app and the
+      # shared packages.
       - name: Install web dependencies
         run: bun install --frozen-lockfile
 
@@ -168,63 +273,10 @@ jobs:
           CI=true FORCE_COLOR=0 bun run test --watch=false --coverage 2>&1 | tee ../../../TestResults/frontend/test-output.log
           sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../../TestResults/frontend/test-output.log > ../../../TestResults/frontend/test-output.clean.log
 
-      - name: Build admin web
-        working-directory: src/frontend/licensing
-        run: bun run build
-
-      - name: Test admin web
-        working-directory: src/frontend/licensing
-        run: CI=true FORCE_COLOR=0 bun run test --watch=false
-
-      - name: Generate build and test badges
+      - name: Count frontend tests
         if: ${{ github.event_name == 'push' }}
         run: |
           set -euo pipefail
-
-          mkdir -p .github/badges
-
-          mapfile -t test_projects < <(find tests/backend/intelibill tests/backend/licensing tests/backend/shared -type f -name '*.csproj' | sort)
-          total_tests=0
-          passed_tests=0
-
-          for project in "${test_projects[@]}"; do
-            project_name=$(basename "${project}" .csproj)
-            trx_file="TestResults/${project_name}/${project_name}.trx"
-            if [ ! -f "${trx_file}" ]; then
-              echo "Expected TRX file not found for ${project_name}: ${trx_file}"
-              exit 1
-            fi
-
-            total=$(grep -oP 'Counters[^>]*total="\K[0-9]+' "${trx_file}" | head -1 || true)
-            passed=$(grep -oP 'Counters[^>]*passed="\K[0-9]+' "${trx_file}" | head -1 || true)
-            total_tests=$((total_tests + ${total:-0}))
-            passed_tests=$((passed_tests + ${passed:-0}))
-          done
-
-          backend_color="red"
-          if [ "${total_tests}" -eq 0 ]; then
-            backend_color="lightgrey"
-          elif [ "${passed_tests}" -eq "${total_tests}" ]; then
-            backend_color="brightgreen"
-          elif [ "${passed_tests}" -gt 0 ]; then
-            backend_color="yellow"
-          fi
-
-          backend_message="${passed_tests}/${total_tests} passed"
-          cat > .github/badges/tests.json <<JSON
-          {
-            "schemaVersion": 1,
-            "label": "tests",
-            "message": "${backend_message}",
-            "color": "${backend_color}"
-          }
-          JSON
-
-          encoded_backend_message=$(printf '%s' "${backend_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
-          curl -fsSL "https://img.shields.io/badge/tests-${encoded_backend_message}-${backend_color}.svg?style=flat" \
-            -o .github/badges/tests.svg
-          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
-            -o .github/badges/backend-build.svg
 
           frontend_log='TestResults/frontend/test-output.clean.log'
           tests_line=$(grep -E 'Tests[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${frontend_log}" | tail -1 || true)
@@ -241,159 +293,131 @@ jobs:
             exit 1
           fi
 
-          frontend_color="red"
-          if [ "${frontend_total}" -eq 0 ]; then
-            frontend_color="lightgrey"
-          elif [ "${frontend_passed}" -eq "${frontend_total}" ]; then
-            frontend_color="brightgreen"
-          elif [ "${frontend_passed}" -gt 0 ]; then
-            frontend_color="yellow"
-          fi
+          mkdir -p badge-data
+          printf '%s\t%s\n' "${frontend_passed}" "${frontend_total}" >badge-data/frontend.tsv
 
-          frontend_message="${frontend_passed}/${frontend_total} passed"
-          cat > .github/badges/frontend-tests.json <<JSON
-          {
-            "schemaVersion": 1,
-            "label": "frontend tests",
-            "message": "${frontend_message}",
-            "color": "${frontend_color}"
-          }
-          JSON
-
-          encoded_frontend_message=$(printf '%s' "${frontend_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
-          curl -fsSL "https://img.shields.io/badge/frontend%20tests-${encoded_frontend_message}-${frontend_color}.svg?style=flat" \
-            -o .github/badges/frontend-tests.svg
-          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
-            -o .github/badges/frontend-build.svg
-
-      - name: Upload build and test badges
+      - name: Upload frontend test counts
         if: ${{ github.event_name == 'push' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: application-badges
-          path: |
-            .github/badges/tests.json
-            .github/badges/tests.svg
-            .github/badges/backend-build.svg
-            .github/badges/frontend-tests.json
-            .github/badges/frontend-tests.svg
-            .github/badges/frontend-build.svg
+          name: badge-frontend
+          path: badge-data/
           if-no-files-found: error
 
-      - name: Build pull-request API image
-        if: ${{ github.event_name == 'pull_request' }}
+  admin_web:
+    name: Build and test admin web
+    needs: changes
+    if: ${{ needs.changes.outputs.admin_web == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Test admin web runtime server
+        run: node --test src/frontend/licensing/tests/server.test.mjs
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
+
+      - name: Install web dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build admin web
+        working-directory: src/frontend/licensing
+        run: bun run build
+
+      - name: Test admin web
+        working-directory: src/frontend/licensing
+        run: CI=true FORCE_COLOR=0 bun run test --watch=false
+
+  # Pull requests build and scan the images of the projects they change. Nothing
+  # is pushed here; licensing and admin images are built for validation only.
+  images:
+    name: Build and scan ${{ matrix.image.name }} image
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.images != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Build pull-request image
+        env:
+          DOCKERFILE: ${{ matrix.image.dockerfile }}
+          IMAGE_TAG: ${{ matrix.image.tag }}
         run: |
           docker build \
-            --file src/backend/intelibill/Dockerfile \
-            --tag "intelibill-api-pr:${GITHUB_SHA}" \
+            --file "${DOCKERFILE}" \
+            --tag "${IMAGE_TAG}:${GITHUB_SHA}" \
             .
 
-      - name: Build pull-request web image
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          docker build \
-            --file src/frontend/intelibill/Dockerfile \
-            --tag "intelibill-web-pr:${GITHUB_SHA}" \
-            .
-
-      - name: Build pull-request migration image
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          docker build \
-            --file src/backend/intelibill/Dockerfile.migrate \
-            --tag "intelibill-migrate-pr:${GITHUB_SHA}" \
-            .
-
-      # Licensing and admin images are built and scanned for validation only:
-      # nothing publishes or deploys them yet.
-      - name: Build pull-request licensing API image
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          docker build \
-            --file src/backend/licensing/Dockerfile \
-            --tag "intelibill-licensing-api-pr:${GITHUB_SHA}" \
-            .
-
-      - name: Build pull-request licensing migration image
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          docker build \
-            --file src/backend/licensing/Dockerfile.migrate \
-            --tag "intelibill-licensing-migrate-pr:${GITHUB_SHA}" \
-            .
-
-      - name: Build pull-request admin web image
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          docker build \
-            --file src/frontend/licensing/Dockerfile \
-            --tag "intelibill-admin-web-pr:${GITHUB_SHA}" \
-            .
-
-      - name: Scan pull-request API image
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Scan pull-request image
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
-          image-ref: intelibill-api-pr:${{ github.sha }}
+          image-ref: ${{ matrix.image.tag }}:${{ github.sha }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-      - name: Scan pull-request web image
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: intelibill-web-pr:${{ github.sha }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+  # The single gate every release job depends on. A project job that did not
+  # run because its project is unchanged counts as passing.
+  validate:
+    name: Build and test application
+    needs:
+      - changes
+      - contracts
+      - backend
+      - merchant_web
+      - admin_web
+      - images
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
 
-      - name: Scan pull-request migration image
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: intelibill-migrate-pr:${{ github.sha }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+    steps:
+      - name: Require every selected validation to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CONTRACTS_RESULT: ${{ needs.contracts.result }}
+          PROJECT_RESULTS: >-
+            ${{ needs.backend.result }}
+            ${{ needs.merchant_web.result }}
+            ${{ needs.admin_web.result }}
+            ${{ needs.images.result }}
+        run: |
+          set -euo pipefail
 
-      - name: Scan pull-request licensing API image
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: intelibill-licensing-api-pr:${{ github.sha }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+          if [ "${CHANGES_RESULT}" != success ] || [ "${CONTRACTS_RESULT}" != success ]; then
+            echo "Change detection (${CHANGES_RESULT}) and contract tests (${CONTRACTS_RESULT}) must both succeed."
+            exit 1
+          fi
 
-      - name: Scan pull-request licensing migration image
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: intelibill-licensing-migrate-pr:${{ github.sha }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
-
-      - name: Scan pull-request admin web image
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: intelibill-admin-web-pr:${{ github.sha }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+          for result in ${PROJECT_RESULTS}; do
+            case "${result}" in
+              success | skipped) ;;
+              *)
+                echo "A project validation job finished as ${result}."
+                exit 1
+                ;;
+            esac
+          done
 
   badges:
     name: Publish build and test badges
     needs: validate
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ !cancelled() && needs.validate.result == 'success' && github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -404,17 +428,97 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Download build and test badges
+      - name: Download test counts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: application-badges
-          path: .github/badges
+          pattern: badge-*
+          path: badge-data
+          merge-multiple: true
+
+      # A run tests only the projects that changed, so the backend badge is
+      # rebuilt from the last known counts of every test project, kept in
+      # backend-projects.json, with this run's counts laid over them.
+      - name: Generate build and test badges
+        run: |
+          set -euo pipefail
+
+          mkdir -p .github/badges badge-data
+          projects_file=.github/badges/backend-projects.json
+          [ -f "${projects_file}" ] || echo '{}' >"${projects_file}"
+
+          shopt -s nullglob
+          backend_counts=(badge-data/backend-*.tsv)
+          if [ ${#backend_counts[@]} -gt 0 ]; then
+            cat "${backend_counts[@]}" | jq -R -s --slurpfile known "${projects_file}" '
+              reduce (split("\n")[] | select(length > 0) | split("\t")) as $row
+                ($known[0]; .[$row[0]] = {total: ($row[1] | tonumber), passed: ($row[2] | tonumber)})
+            ' >"${projects_file}.new"
+            mv "${projects_file}.new" "${projects_file}"
+
+            total_tests=$(jq '[.[].total] | add // 0' "${projects_file}")
+            passed_tests=$(jq '[.[].passed] | add // 0' "${projects_file}")
+
+            backend_color="red"
+            if [ "${total_tests}" -eq 0 ]; then
+              backend_color="lightgrey"
+            elif [ "${passed_tests}" -eq "${total_tests}" ]; then
+              backend_color="brightgreen"
+            elif [ "${passed_tests}" -gt 0 ]; then
+              backend_color="yellow"
+            fi
+
+            backend_message="${passed_tests}/${total_tests} passed"
+            cat > .github/badges/tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "tests",
+            "message": "${backend_message}",
+            "color": "${backend_color}"
+          }
+          JSON
+
+            encoded_backend_message=$(printf '%s' "${backend_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+            curl -fsSL "https://img.shields.io/badge/tests-${encoded_backend_message}-${backend_color}.svg?style=flat" \
+              -o .github/badges/tests.svg
+            curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+              -o .github/badges/backend-build.svg
+          fi
+
+          if [ -f badge-data/frontend.tsv ]; then
+            IFS=$'\t' read -r frontend_passed frontend_total <badge-data/frontend.tsv
+
+            frontend_color="red"
+            if [ "${frontend_total}" -eq 0 ]; then
+              frontend_color="lightgrey"
+            elif [ "${frontend_passed}" -eq "${frontend_total}" ]; then
+              frontend_color="brightgreen"
+            elif [ "${frontend_passed}" -gt 0 ]; then
+              frontend_color="yellow"
+            fi
+
+            frontend_message="${frontend_passed}/${frontend_total} passed"
+            cat > .github/badges/frontend-tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "frontend tests",
+            "message": "${frontend_message}",
+            "color": "${frontend_color}"
+          }
+          JSON
+
+            encoded_frontend_message=$(printf '%s' "${frontend_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+            curl -fsSL "https://img.shields.io/badge/frontend%20tests-${encoded_frontend_message}-${frontend_color}.svg?style=flat" \
+              -o .github/badges/frontend-tests.svg
+            curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+              -o .github/badges/frontend-build.svg
+          fi
 
       - name: Commit badge updates
         run: |
           set -euo pipefail
 
           badge_files=(
+            .github/badges/backend-projects.json
             .github/badges/tests.json
             .github/badges/tests.svg
             .github/badges/backend-build.svg
@@ -451,7 +555,7 @@ jobs:
   build_api:
     name: Build, publish, and scan API image
     needs: validate
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ !cancelled() && needs.validate.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -531,7 +635,7 @@ jobs:
   build_web:
     name: Build, publish, and scan web image
     needs: validate
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ !cancelled() && needs.validate.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -611,7 +715,7 @@ jobs:
   build_migrate:
     name: Build, publish, and scan migration image
     needs: validate
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ !cancelled() && needs.validate.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -697,6 +801,7 @@ jobs:
       - build_web
       - build_migrate
     if: >-
+      !cancelled() &&
       vars.RELEASE_DEPLOYMENTS_ENABLED == 'true' &&
       needs.build_api.result == 'success' &&
       needs.build_web.result == 'success' &&
@@ -857,6 +962,7 @@ jobs:
       - build_migrate
       - dev
     if: >-
+      !cancelled() &&
       vars.RELEASE_DEPLOYMENTS_ENABLED == 'true' &&
       needs.build_api.result == 'success' &&
       needs.build_web.result == 'success' &&
