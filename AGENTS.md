@@ -88,7 +88,7 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 ## NuGet Packages & Supporting Services
 
 - Root projects: add `<PackageVersion Include="Pkg.Name" Version="X.Y.Z" />` to `Directory.Packages.props` and versionless `<PackageReference Include="Pkg.Name" />` to `.csproj`.
-- **Supporting services (`src/backend/barcode-master-api/`, `src/backend/hsn-finder-ai/`, `tests/backend/barcode-master-api/`)**: `barcode-master-api` (`BarcodeAPI.sln`, own `AGENTS.md`) and `hsn-finder-ai` (`Sankra.HsnFinder.sln`) are separate deployables excluded from `Intelibill.slnx`. Their local `Directory.Build.props` / `Directory.Packages.props` disable root CPM — keep those copies identical and **never** add service packages to the root `Directory.Packages.props`.
+- **Supporting services (`src/backend/barcode-master-api/`, `src/backend/hsn-finder-ai/`, `tests/backend/barcode-master-api/`, `tests/backend/hsn-finder-ai/`)**: `barcode-master-api` (`BarcodeAPI.sln`, own `AGENTS.md`) and `hsn-finder-ai` (`Sankra.HsnFinder.sln`) are separate deployables excluded from `Intelibill.slnx`. Their local `Directory.Build.props` / `Directory.Packages.props` disable root CPM — keep those copies identical and **never** add service packages to the root `Directory.Packages.props`.
 
 ## CodeGraph
 
