@@ -25,17 +25,17 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('complimentary grant drafts', () => {
   it('keeps the exact command per administrator and account', () => {
-    expect(grantDrafts.write({ adminId: 'a1', accountId: 'acc-1', command })).toBe(true);
+    expect(grantDrafts.write({ adminId: 'a1', accountId: 'acc-1', createdAt: 1, command })).toBe(true);
     expect(grantDrafts.read('a1', 'acc-1')?.command).toEqual(command);
     expect(grantDrafts.read('a2', 'acc-1')).toBeNull();
     expect(grantDrafts.read('a1', 'acc-2')).toBeNull();
-    grantDrafts.clear({ adminId: 'a1', accountId: 'acc-1', command });
+    grantDrafts.clear({ adminId: 'a1', accountId: 'acc-1', createdAt: 1, command });
     expect(grantDrafts.read('a1', 'acc-1')).toBeNull();
   });
 
   it('reports a storage failure instead of pretending the request is recoverable', () => {
     const failing = { setItem: () => { throw new Error('quota'); }, getItem: () => null, removeItem: () => undefined } as unknown as Storage;
-    expect(grantDrafts.write({ adminId: 'a1', accountId: 'acc-1', command }, failing)).toBe(false);
+    expect(grantDrafts.write({ adminId: 'a1', accountId: 'acc-1', createdAt: 1, command }, failing)).toBe(false);
   });
 
   it('keeps concurrent operations for one account independently and clears only the exact operation', () => {
@@ -60,20 +60,11 @@ describe('complimentary grant drafts', () => {
     expect(grantDrafts.list('a1', 'acc-1')).toEqual([a]);
   });
 
-  it('still recovers a record saved under the earlier single-slot key, and clears it only by its own operation', () => {
-    localStorage.setItem('intelibill.admin.complimentary-grant.v1.a1.acc-1', JSON.stringify({ adminId: 'a1', accountId: 'acc-1', command }));
-    const legacy = grantDrafts.read('a1', 'acc-1')!;
-    expect(legacy.command).toEqual(command);
-    grantDrafts.clear({ ...legacy, command: { ...command, operationKey: 'op-other' } });
-    expect(grantDrafts.read('a1', 'acc-1')).not.toBeNull();
-    grantDrafts.clear(legacy);
-    expect(grantDrafts.read('a1', 'acc-1')).toBeNull();
-  });
-
   it('ignores a record whose owner does not match its key', () => {
-    localStorage.setItem('intelibill.admin.complimentary-grant.v1.a1.acc-1', JSON.stringify({ adminId: 'a2', accountId: 'acc-1', command }));
+    localStorage.setItem('intelibill.admin.complimentary-grant.v1.a1.acc-1.op-owner',
+      JSON.stringify({ adminId: 'a2', accountId: 'acc-1', createdAt: 1, command: { ...command, operationKey: 'op-owner' } }));
     localStorage.setItem(`intelibill.admin.complimentary-grant.v1.a1.acc-1.${command.operationKey}`,
-      JSON.stringify({ adminId: 'a1', accountId: 'acc-1', command: { ...command, operationKey: 'mismatch' } }));
+      JSON.stringify({ adminId: 'a1', accountId: 'acc-1', createdAt: 1, command: { ...command, operationKey: 'mismatch' } }));
     expect(grantDrafts.read('a1', 'acc-1')).toBeNull();
   });
 });

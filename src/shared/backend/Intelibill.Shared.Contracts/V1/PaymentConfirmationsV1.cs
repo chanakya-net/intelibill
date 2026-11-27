@@ -12,10 +12,10 @@ public static class PaymentConfirmationsV1
     public static string FileName(Guid id) => $"payment-confirmation-{id:D}.txt";
     public static bool IsValid(PaymentConfirmationV1? value, Guid account, Guid order) =>
         value is not null && value.ConfirmationId != Guid.Empty && value.AccountId == account && value.OrderId == order &&
-        value.Source is "Online" or "Manual" && value.IssuanceBasis is "Verification" or "Retained" &&
+        value.Source is "Online" or "Manual" && value.IssuanceBasis == "Verification" &&
         value.AmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise && value.Currency == "INR" &&
         EntitlementSnapshotsV1.IsInstant(value.VerifiedAt) && EntitlementSnapshotsV1.IsInstant(value.IssuedAt) &&
-        (value.IssuanceBasis == "Retained" || value.IssuedAt >= value.VerifiedAt);
+        value.IssuedAt >= value.VerifiedAt;
 }
 
 public sealed record PaymentConfirmationV1(Guid ConfirmationId, Guid AccountId, Guid OrderId, string Source,

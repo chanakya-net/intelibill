@@ -198,7 +198,7 @@ describe('accounting invoice attachment and supersession', () => {
     h.http.verify();
   });
 
-  it('clears a definite stale-head refusal, reloads history and preserves untagged initial-upload drafts', async () => {
+  it('clears a definite stale-head refusal and reloads history', async () => {
     const v1 = savedVersion('99999999-9999-4999-8999-999999999991');
     const v2 = savedVersion('99999999-9999-4999-8999-999999999992', {
       ...v2Metadata, version: 2, versionId: v2VersionId, supersedesVersionId: other, supersessionReason: 'Concurrent fix',
@@ -211,21 +211,6 @@ describe('accounting invoice attachment and supersession', () => {
     (await h.take('GET', path)).flush(view([v2, v1]));
     await h.waitForText('A newer invoice version already exists.');
     expect(h.records.get(draftKey)).toEqual({ revision: 1 });
-
-    // Existing untagged initial-upload draft (no `mode` field) still recovers on the initial upload route.
-    h.records.set(draftKey, {
-      revision: 1,
-      pending: { operationKey: session, metadata, previewDigest: 'b'.repeat(64), bytes: Uint8Array.from(bytes).buffer },
-    });
-    h.reload();
-    await h.load([]);
-    await h.waitForText('Saved upload operation');
-    click(h, 'Retry original upload');
-    const legacy = savedVersion(session);
-    (await post(h, '')).flush(legacy);
-    (await h.take('GET', path)).flush(view([legacy]));
-    await vi.waitFor(() => { h.sync(); expect(badges(h)).toEqual(['Current']); });
-    expect(h.page().textContent).toContain('Accounting invoice attached.');
     h.http.verify();
   });
 

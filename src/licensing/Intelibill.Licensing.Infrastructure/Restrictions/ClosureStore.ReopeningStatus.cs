@@ -5,9 +5,6 @@ namespace Intelibill.Licensing.Infrastructure.Restrictions;
 
 internal sealed partial class ClosureStore
 {
-    public Task<bool> ReopeningPublishersReadyAsync(CancellationToken ct) =>
-        db.Database.SqlQuery<bool>($"SELECT public.reopening_publishers_ready() AS \"Value\"").SingleAsync(ct);
-
     public Task<ShopClosureStatus> ReadShopClosureStatusAsync(Guid account, Guid shop, CancellationToken ct) =>
         db.Database.SqlQuery<ShopClosureStatus>($"""
             SELECT closed.closed_at, reopening.reopened_at, reopening.shop_revision AS reopening_revision

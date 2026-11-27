@@ -245,7 +245,6 @@ export class ReopeningReviewComponent {
       return 'The saved draft could not be verified. Check the account history and contact support to recover the draft.';
     if (error instanceof InvalidReopeningInput) return 'Check the review fields, correct them and confirm again.';
     const code = error instanceof HttpErrorResponse ? error.error?.code : null;
-    if (code === 'Reopening.PublisherCutoverRequired') return 'Reopening is available after the provider delivery upgrade.';
     if (code === 'Reopening.RecentMfaRequired') return 'Sign in again with MFA to save the review.';
     if (this.pending()) return 'The save outcome is unconfirmed. Retry the same request.';
     if (reopeningRefusal(error)) return 'The review was refused. Check the current coverage and new owner consent before reviewing again.';

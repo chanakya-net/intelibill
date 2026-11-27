@@ -9,7 +9,7 @@ public sealed partial class ReviewUnmatchedPaymentHandler
     private async Task<RecoveryPreview> PreviewRecoveryAsync(Guid account, UnmatchedPayment review, CheckoutQuoteV1 quote,
         StoredPaymentAttempt? attempt, CancellationToken ct)
     {
-        if (review.Classification is not ("CoverageChanged" or "LegacyNeedsReview" or "RestorationPending"))
+        if (review.Classification is not ("CoverageChanged" or "RestorationPending"))
             return new(null, review.Classification, null);
         if (!CheckoutRenewalPolicy.Payable(quote) || quote.Acceptance!.AcceptedAt >= quote.ExpiresAt)
             return new(null, "AcceptedTermsUnavailable", null);

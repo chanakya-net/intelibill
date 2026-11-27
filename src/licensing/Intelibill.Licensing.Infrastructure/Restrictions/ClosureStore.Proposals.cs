@@ -59,8 +59,8 @@ internal sealed partial class ClosureStore
         WHERE account_id = {account} AND proposal_id = {proposal}
         """).ToArrayAsync(ct);
 
-    public Task<bool?> FindConsentOutcomeAsync(OwnerClosureNoticeV1 notice, Guid shop, Guid actor, Guid operation, CancellationToken ct) =>
-        db.Database.SqlQuery<bool?>($"""
+    public Task<bool> FindConsentOutcomeAsync(OwnerClosureNoticeV1 notice, Guid shop, Guid actor, Guid operation, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
             WITH notices AS (
                 SELECT actor_id, operation_key FROM public.operational_closure_consent_notices
                 WHERE account_id = {notice.AccountId} AND proposal_id = {notice.ProposalId} AND shop_id = {shop}
@@ -70,18 +70,14 @@ internal sealed partial class ClosureStore
                 WHERE c.shop_id IS NULL AND t.account_id = {notice.AccountId} AND t.shop_id = {shop}
                     AND t.affiliation_request_id = {notice.AffiliationRequestId}
             )
-            SELECT CASE
-                WHEN EXISTS (SELECT FROM notices WHERE actor_id = {actor} AND operation_key = {operation})
-                    OR EXISTS (SELECT FROM finalized_target WHERE consent_id = {notice.ConsentId}) THEN true
-                WHEN EXISTS (SELECT FROM notices WHERE operation_key IS NULL)
-                    OR ({notice.ConsentId}::uuid IS NULL AND EXISTS (SELECT FROM finalized_target)) THEN NULL
-                ELSE false END AS "Value"
+            SELECT EXISTS (SELECT FROM notices WHERE actor_id = {actor} AND operation_key = {operation})
+                OR EXISTS (SELECT FROM finalized_target WHERE consent_id = {notice.ConsentId}) AS "Value"
             """).SingleAsync(ct);
 
-    public Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid? operation, CancellationToken ct) =>
+    public Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid operation, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.operational_closure_consent_notices (proposal_id, account_id, shop_id, actor_id, operation_key)
-            VALUES ({proposal}, {account}, {shop}, {(operation.HasValue ? actor : (Guid?)null)}, {operation}) ON CONFLICT DO NOTHING
+            VALUES ({proposal}, {account}, {shop}, {actor}, {operation}) ON CONFLICT DO NOTHING
             """, ct);
 
     private sealed record ProposalRow(Guid Id, long Ordinal, Guid AccountId, Guid OperationKey, Guid ActorId, int BillingRevision,

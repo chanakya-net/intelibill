@@ -49,14 +49,7 @@ internal sealed partial class SuspensionStore(LicensingDbContext db, Entitlement
             WHERE r.account_id = {account} AND r.shop_id IS NOT DISTINCT FROM {shop}::uuid
             ORDER BY r.version DESC LIMIT 1
             """).SingleOrDefaultAsync(ct);
-        if (head is not null) return (head.Version, head.Active);
-        if (shop is not null) return (0, false);
-
-        var legacyRevision = await db.Database.SqlQuery<long?>($"""
-            SELECT revision AS "Value" FROM public.entitlement_account_heads
-            WHERE account_id = {account} AND restriction IN ('Trading', 'Security')
-            """).SingleOrDefaultAsync(ct);
-        return (legacyRevision ?? 0, legacyRevision is not null);
+        return head is null ? (0, false) : (head.Version, head.Active);
     }
 
     public Task<SavedSuspension?> ReadOperationAsync(Guid account, Guid key, CancellationToken ct) =>

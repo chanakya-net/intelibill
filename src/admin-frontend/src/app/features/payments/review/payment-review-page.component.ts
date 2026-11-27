@@ -26,7 +26,6 @@ const caseLabels: Readonly<Record<string, string>> = {
   TermUnavailable: 'Accepted period unavailable',
   CaptureTimeUnproven: 'Capture timing unavailable',
   RestorationPending: 'Access restoration pending',
-  LegacyNeedsReview: 'Historical payment needs review',
   AcceptedTermsUnavailable: 'Accepted terms unavailable',
   RefundReviewPending: 'Referred for refund review',
   NoAccessDecisionRecorded: 'No-access decision recorded',

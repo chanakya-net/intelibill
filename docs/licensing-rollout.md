@@ -532,7 +532,7 @@ A paid package (imported or bought through checkout) renews as a whole from its 
 
 ### Retained payment provider routing (P03-10)
 
-Apply licensing migration `20261117170000_PaymentProviderRouting` before writers. It retains selection revisions and their immutable audit, the selection revision used by each new intention, append-only routing review/restoration events, and the simulator session's original account/environment/configuration. No merchant schema changes. Update every API and worker replica before the first selection: older binaries ignore the persisted selector and are unsafe after switching. Rollback retains schema, facts, readers, all original adapters and keys; select a retained profile through another audited revision. Downgrade refuses after selection history exists.
+Apply licensing migration `20261117170000_PaymentProviderRouting` before writers. It retains selection revisions and their immutable audit, the selection revision used by each new intention, append-only routing review/restoration events, and the simulator session's original account/environment/configuration. No merchant schema changes. Rollback retains schema, facts, readers, all original adapters and keys; select a retained profile through another audited revision. Downgrade refuses after selection history exists.
 
 Deployment configuration supplies at most 32 retained `Payments:Profiles` entries. Each has `Id`, `ProviderId` (`development-simulator` or `razorpay`), `AccountId`, `Environment`, and `ConfigurationVersion`. IDs and pins are ordinal and case-sensitive; duplicates and conflicting definitions refuse resolution. Authorized selection or the first authorized legacy checkout freezes valid profiles' safe credential/webhook reference bindings in `payment_provider_bindings`; a later rebind under the same pin is `ConfigurationReused` and refuses recovery until the original references return. A missing registered profile cannot fall back to legacy direct settings under its pin. Secret-store versions must themselves be immutable; legacy direct-value settings retain their original compatibility contract. A Razorpay entry also names a `CredentialReference`: a configuration section containing the existing Razorpay options, including the matching account/environment/version, explicit methods, amount limit, credentials and webhook configuration. Use immutable, version-specific secret references. A simulator entry may name `WebhookSecretReference`, a configuration key holding its separate webhook secret, and is usable only in Development/Testing with environment `Development`. The registry never accepts arbitrary checkout script or provider API URLs. Configuration status, database audit and operator detail contain safe identifiers, never credential values.
 
@@ -552,20 +552,9 @@ P03-10 acceptance uses the isolated `intelibill-p0310` Compose project (and its 
 
 ## P03-11 — Immutable payment confirmations
 
-This release requires a **quiesced cutover**, not mixed-version receipt writing. The one-time backfill cannot cover an old writer that commits afterward; replay does not repair missing confirmations.
-
-1. Pause checkout verification, manual confirmation, webhook processing and recovery/reconciliation ingress. Preserve provider retry/inbox evidence; never discard uncertain payments or ask for a replacement charge. Stop scheduling payment work, drain every in-flight transaction, then stop **all** old licensing API replicas and receipt-writing workers. Disabling new checkout alone is insufficient: existing attempts and webhook/recovery work can still create receipts. Confirm zero old writer processes and no in-flight receipt transactions before proceeding.
-2. With receipt writers still stopped, apply licensing migration `20261118090000_PaymentConfirmations` through the explicit migration job. It backfills the now-fixed set of online and manual receipts. Deploy current confirmation-aware APIs and workers everywhere, along with both matching web builds, while keeping external ingress and background processing paused. Do not let an old binary reconnect.
-3. As the licensing table owner, run `psql -X -v ON_ERROR_STOP=1 "$LICENSING_MIGRATOR_CONNECTION" -f scripts/db/check-payment-confirmation-completeness.sql`. The gate checks both receipt sources against confirmations by source ID/account/order. It transactionally takes table locks and lifts owner FORCE RLS only inside a transaction that always rolls back. It must exit zero: **zero missing receipts** is required before resume. Missing confirmations, a timeout or any SQL error means keep writers paused and investigate; do not bypass RLS in a runtime identity. Record the gate output and deployed writer versions.
-4. Resume ingress and current workers only after that gate passes and every writer is current. Reconciliation retains original provider pins and operation keys. The PostgreSQL cutover regression drains completed legacy online/manual fixture calls, migrates/backfills, switches every fixture writer to current issuance, runs the exact gate, resumes both receipt sources, and reruns the gate.
-
-Rollback must retain schema and issued facts. Roll back only to a confirmation-aware writer, or keep **all** receipt writers stopped. **Old-writer rollback with payments enabled is prohibited.** If old writers ran after backfill, stop/drain again and require a newly reviewed, idempotent retained catch-up step plus the zero-missing gate before resuming; this release does not supply or authorize that repair. Do not rerun the migration, drop confirmations, or regenerate existing facts to repair gaps. The negative regression deliberately creates post-migration legacy online/manual receipts and proves the gate refuses resume while existing attachment bytes remain unchanged.
-
 New online verification and full manual confirmation freeze one `payment-confirmation/1` snapshot per receipt inside the existing account-locked transaction, including a receipt held for review. Replay and access restoration never reissue it. Failed/unverified captures get no confirmation. The SQL-owned table has forced RLS, source uniqueness, exact-source guards and retained-row/table triggers; EF's model remains unchanged. Downgrade refuses once confirmations exist. Keep schema and facts on rollback.
 
 The versioned UTF-8 plain-text attachment freezes the full gross integer-paise amount/currency, provider pin/references or protected manual receipt reference, verified/effective receipt times, accepted plan/policy/capacity/named-shop facts, accepting merchant user ID and billing account name at issuance. Bank references and private manual evidence are not disclosed. It contains no applied-access claim or promised term dates, legal/tax identity invented from an account name, merchant invoice number or merchant ledger posting. The fixed disclaimer distinguishes it from tax/GST documents and merchant sale receipts. Rendering v1 must stay compatible with the pinned corpus.
-
-The migration issues existing verified receipts as `Retained` using the migration instant and billing party information available at issuance, explicitly labeled as current issuance facts. It does not reconstruct unavailable historical party details or invent a historical issuance. During the migration transaction only, FORCE is lifted on the owner-read source tables, then restored before commit. Historical receipt timestamps remain untouched, including old clock anomalies; retained issuance time is the actual migration time.
 
 Billing Owners/Managers use authenticated merchant routes under `/api/billing/accounts/{account}/orders/{order}/payment/confirmations` and `/{id}/document`. Provider reads use `/api/admin/accounts/{account}/orders/{order}/payment-confirmations` and `/{id}/document`, rechecking live Billing capability and session; PlatformOwner or Support alone grants no billing-document access. Downloads are `text/plain; charset=utf-8`, authenticated attachments with `no-store` and `nosniff`. Listing returns at most 25 rows ordered by `(issued_at, confirmation_id)`. Request `/confirmations/after/{lastConfirmationId}` (provider: `/payment-confirmations/after/{lastConfirmationId}`) for the next page, until a page has fewer than 25 rows; an exact full final page is followed by an empty page. Cursor lookup is scoped to the same account/order; unknown or foreign cursors produce an empty page. These are live immutable-history pages, not an export snapshot: newly issued receipts can be discovered by refreshing from the first page. Both UIs append pages on explicit “Load more confirmations” and retain earlier download links. Cursor paths are included in delegated request signatures. Merchant relay keeps the 16 KiB response limit, enforces the 25-row contract and validates attachment identity/type. UI requests use authenticated blob downloads and discard answers after owner/account/session changes or page disposal.
 
@@ -573,48 +562,9 @@ P0311 backend tests and the gated Chromium acceptance harness use fixed-clock de
 
 ## P03 payment acceptance gate
 
-Use the [P03 acceptance index](../tests/licensing/acceptance/p03-payments.md) for the finite R01–R21 PostgreSQL, adapter, consumer and shipping Chromium checks, including original-provider recovery and immutable confirmations across Applying/Applied. Preserve every original provider pin, key and uncertain operation. Local simulator/HTTP/script fixtures do not establish provider credentials, supported hosted methods, receiving-account behavior or webhook reachability; those human launch inputs remain unexecuted. Passing this gate authorizes no live charge, production activation or enforcement. The P03-11 quiesced writer cutover, zero-missing-confirmation gate and rollback/retention restrictions above still apply.
+Use the [P03 acceptance index](../tests/licensing/acceptance/p03-payments.md) for the finite R01–R21 PostgreSQL, adapter, consumer and shipping Chromium checks, including original-provider recovery and immutable confirmations across Applying/Applied. Preserve every original provider pin, key and uncertain operation. Local simulator/HTTP/script fixtures do not establish provider credentials, supported hosted methods, receiving-account behavior or webhook reachability; those human launch inputs remain unexecuted. Passing this gate authorizes no live charge, production activation or enforcement.
 
 ## Reviewed shop reopening
-
-Use a quiesced cutover for every licensing snapshot publisher. The new provider
-and merchant migrations may be installed before the cutover. They preserve
-existing signed payloads and the gate initially refuses new reopening reviews.
-
-1. Apply merchant migration `20261121120000_ProjectClosureReopenings` and deploy
-   current merchant API readers everywhere. Refresh their runtime grants. Earlier
-   merchant readers reject snapshots carrying reopening and closure revisions.
-2. Pause licensing ingress and stop all legacy licensing API replicas and workers
-   that publish snapshots, including payment fulfilment, affiliation and
-   reconciliation workloads. Drain their in-flight transactions. Confirm that
-   no old publisher remains in the deployment or can restart. Retain the outbox
-   and recorded receipts.
-3. Apply licensing migration `20261121120000_OperationalClosureReopenings`, refresh
-   the runtime grants and deploy the current licensing APIs and workers. Record
-   the deployed versions for every publisher.
-4. As the licensing schema owner, enable review and the database publisher fence
-   in one transaction. A timeout or SQL failure leaves the gate closed.
-
-   ```sql
-   BEGIN;
-   SET LOCAL lock_timeout = '5s';
-   UPDATE public.reopening_publisher_cutover SET enabled = true WHERE singleton;
-   COMMIT;
-   ```
-
-5. Resume licensing ingress and workers after the update commits. Verify a current
-   reconciliation delivery and its signed receipt. The compatibility check on
-   each legacy insert takes a shared row lock until its transaction ends. The
-   gate waits for those writes and then PostgreSQL rejects future legacy
-   snapshot inserts and rolls back their enclosing source writes. Retained
-   pre-cutover jobs can still deliver their original signed bytes.
-
-The gate is one-way for the installed migration. Once a decision exists, retain
-the migrations and a compatible fleet on rollback. If compatible binaries are
-unavailable, keep licensing publishers paused while restoring them. The licensing
-downgrade rejects retained decisions, and the merchant downgrade rejects applied
-reopening evidence. The cutover enables review only. Production enforcement
-enrollment is still controlled by its existing gates.
 
 A Licensing Manager reviews active coverage and records the current shop
 owner's explicit request for the specific shop and closure. Retain the source
@@ -629,6 +579,10 @@ snapshot carries the cutoff authorizing the merchant projection to open. The
 merchant reports receipt separately from enforcement and allows a fresh closure
 review for the reopened cycle. A signed receipt confirms the provider history
 only when it proves the shop applied a snapshot in that decision's cycle.
+
+Reopening review does not enroll production enforcement; that remains
+controlled by its existing gates. On rollback, retain recorded reopening
+decisions and their evidence.
 
 ## P04 online enforcement acceptance
 

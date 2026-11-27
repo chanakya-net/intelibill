@@ -19,8 +19,6 @@ P0307_RUN_BROWSER=1 P0307_EVIDENCE_DIR=/absolute/local/evidence dotnet test test
 
 The Chromium harness uses the built admin and merchant apps, local API processes, separate PostgreSQL databases, and the development simulator. It drops one successful browser response and simulates an unresolved operation lookup. The attempted recovery and replay reach the real application and database. Razorpay adapter tests use HTTP fixtures.
 
-## Migration and rollback
+## Rollback
 
-Apply licensing migration `20261117160000_UnmatchedPaymentReviews` through the explicit migration job before deploying its writers. The migration projects existing unresolved online and manual receipts into cases using their original evidence. Historical online cases without a recorded reason use `LegacyNeedsReview`. Historical verification timestamps without a capture lower bound stay pending for recovery.
-
-The migration can be rolled down while its case table is empty. Once review evidence exists, roll back the readers and writers while retaining the financial tables and recorded decisions.
+Once review evidence exists, roll back the readers and writers while retaining the financial tables and recorded decisions.

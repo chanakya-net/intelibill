@@ -110,12 +110,7 @@ export class SuspensionApi {
   }
 
   suspend(account: string, command: SuspensionCommand, session: string) {
-    // Drafts saved by an older client may contain fields from the preview.
-    const { scope, shopId, operationKey, mode, effectiveAt, customerExplanation, internalReason,
-      reviewReference, expectedVersion, impactDigest } = command;
-    const body: SuspensionCommand = { scope, shopId, operationKey, mode, effectiveAt, customerExplanation,
-      internalReason, reviewReference, expectedVersion, impactDigest };
-    return this.save(this.path(account), body, session);
+    return this.save(this.path(account), command, session);
   }
 
   previewRelease(account: string, restriction: string, session: string) {

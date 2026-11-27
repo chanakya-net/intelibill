@@ -98,7 +98,7 @@ public sealed record OwnerClosureNoticeV1(
     [property: JsonPropertyName("affiliationRequestId")] Guid AffiliationRequestId,
     [property: JsonPropertyName("proposalId")] Guid ProposalId,
     [property: JsonPropertyName("scopeDigest")] string ScopeDigest,
-    [property: JsonPropertyName("operationKey")] Guid? OperationKey = null,
+    [property: JsonPropertyName("operationKey")] Guid OperationKey,
     [property: JsonPropertyName("recoverOnly")] bool RecoverOnly = false,
     [property: JsonPropertyName("consentId")] Guid? ConsentId = null);
 

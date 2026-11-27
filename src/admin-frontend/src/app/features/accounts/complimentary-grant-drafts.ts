@@ -5,14 +5,13 @@ export interface PendingGrant {
   readonly adminId: string;
   readonly accountId: string;
   readonly command: GrantCommand;
-  /** When this browser froze the request; absent on records kept by an earlier build (treated as oldest). */
-  readonly createdAt?: number;
+  /** When this browser froze the request. */
+  readonly createdAt: number;
 }
 
 const prefix = 'intelibill.admin.complimentary-grant.v1.';
-/** The single slot an earlier build used; still read so its unresolved operation is never stranded. */
-const legacyKey = (adminId: string, accountId: string) => `${prefix}${adminId}.${accountId}`;
-const operationKey = (pending: PendingGrant) => `${legacyKey(pending.adminId, pending.accountId)}.${pending.command.operationKey}`;
+const accountKey = (adminId: string, accountId: string) => `${prefix}${adminId}.${accountId}`;
+const operationKey = (pending: PendingGrant) => `${accountKey(pending.adminId, pending.accountId)}.${pending.command.operationKey}`;
 
 function parse(storage: Storage, key: string, adminId: string, accountId: string): PendingGrant | null {
   try {
@@ -20,23 +19,23 @@ function parse(storage: Storage, key: string, adminId: string, accountId: string
     const pending = raw ? JSON.parse(raw) as PendingGrant : null;
     if (!pending || pending.adminId !== adminId || pending.accountId !== accountId
       || typeof pending.command?.operationKey !== 'string') return null;
-    return key === legacyKey(adminId, accountId) || key === operationKey(pending) ? pending : null;
+    return key === operationKey(pending) ? pending : null;
   } catch {
     return null;
   }
 }
 
 function storedKeys(storage: Storage, adminId: string, accountId: string): string[] {
-  const base = legacyKey(adminId, accountId);
+  const base = `${accountKey(adminId, accountId)}.`;
   const keys: string[] = [];
   for (let index = 0; index < storage.length; index++) {
     const key = storage.key(index);
-    if (key === base || key?.startsWith(`${base}.`)) keys.push(key);
+    if (key?.startsWith(base)) keys.push(key);
   }
   return keys;
 }
 
-const order = (left: PendingGrant, right: PendingGrant) => (left.createdAt ?? 0) - (right.createdAt ?? 0)
+const order = (left: PendingGrant, right: PendingGrant) => left.createdAt - right.createdAt
   || left.command.operationKey.localeCompare(right.command.operationKey);
 
 /**

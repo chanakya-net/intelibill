@@ -46,7 +46,7 @@ internal sealed partial class PaymentStore
                         AND v.environment = c.environment AND v.provider_payment_reference = c.provider_payment_reference))
                 OR EXISTS (SELECT FROM public.unmatched_payments c JOIN public.payment_review_decisions d USING (account_id, case_id)
                     WHERE c.account_id = {account} AND c.order_id = {order}
-                        AND c.classification IN ('RestorationPending', 'LegacyNeedsReview')
+                        AND c.classification = 'RestorationPending'
                         AND (c.attempt_id = {attempt} OR c.manual_receipt_id = {receipt})
                         AND d.action IN ('RecordNoAccessDecision', 'ReferForRefundReview'))) AS "Value"
             """).SingleAsync(ct);

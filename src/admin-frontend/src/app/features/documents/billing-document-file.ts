@@ -17,7 +17,7 @@ export interface InvoiceMetadata {
 }
 
 export interface InvoiceIntent {
-  readonly mode?: 'upload' | 'supersede';
+  readonly mode: 'upload' | 'supersede';
   readonly operationKey: string;
   readonly metadata: InvoiceMetadata;
   readonly previewDigest: string;
@@ -29,7 +29,7 @@ export interface InvoiceIntent {
 }
 
 export function isSupersedeIntent(intent: InvoiceIntent): boolean {
-  return intent.mode === 'supersede' || Boolean(intent.supersedesVersionId);
+  return intent.mode === 'supersede';
 }
 
 export function buildUploadIntent(metadata: InvoiceMetadata, previewDigest: string, bytes: ArrayBuffer): InvoiceIntent {

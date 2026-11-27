@@ -53,19 +53,19 @@ public static class CheckoutOrdersV1
 
     public static string SnapshotHash(CheckoutQuoteV1 q)
     {
-        var legacy = LegacySnapshotHash(q);
+        var snapshot = BaseSnapshotHash(q);
         if (q.Increase is { } change)
-            return Digest(Policy, "capacity-increase", legacy, change.QuoteHash, change.PinHash, change.RoutingRevision, change.SourceRevision);
+            return Digest(Policy, "capacity-increase", snapshot, change.QuoteHash, change.PinHash, change.RoutingRevision, change.SourceRevision);
         if (q.Reduction is { } reduction)
-            return Digest(Policy, "capacity-reduction", legacy, reduction.ScheduleId, reduction.ScheduleHash, reduction.SourceShopCount, reduction.SourceShopHash);
+            return Digest(Policy, "capacity-reduction", snapshot, reduction.ScheduleId, reduction.ScheduleHash, reduction.SourceShopCount, reduction.SourceShopHash);
         if (q.Replacement is { } replacement)
-            return Digest(Policy, "coverage-replacement", legacy, replacement.ReplacementId, replacement.OutgoingShopId,
+            return Digest(Policy, "coverage-replacement", snapshot, replacement.ReplacementId, replacement.OutgoingShopId,
                 replacement.IncomingShopId, replacement.IncomingAffiliationId, replacement.ConsentEvent);
         return q.FreshStart is { } fresh
-            ? Digest(Policy, "fresh-start", legacy, fresh.Policy, fresh.TrialShopCount, fresh.TrialSourceHash) : legacy;
+            ? Digest(Policy, "fresh-start", snapshot, fresh.Policy, fresh.TrialShopCount, fresh.TrialSourceHash) : snapshot;
     }
 
-    private static string LegacySnapshotHash(CheckoutQuoteV1 q) => Digest(Policy, "snapshot", q.AccountId, q.OrderId,
+    private static string BaseSnapshotHash(CheckoutQuoteV1 q) => Digest(Policy, "snapshot", q.AccountId, q.OrderId,
         q.Revision, q.PlanId, q.PlanVersionId, q.PlanVersion, q.PlanName, q.Period, q.TermId, q.Capacity,
         q.MembersPerShop, q.ShopCount, q.ShopHash, q.SourceHash, q.AmountPaise, q.Currency, q.PriceBasis,
         q.CustomerTermsVersion, q.RefundPolicyVersion, q.BillingTimeZone, q.CalendarVersion, q.RenewalPolicyVersion,
