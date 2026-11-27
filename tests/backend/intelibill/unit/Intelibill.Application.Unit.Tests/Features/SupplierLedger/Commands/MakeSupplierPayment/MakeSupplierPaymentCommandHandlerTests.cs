@@ -46,12 +46,15 @@ public class MakeSupplierPaymentCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private MakeSupplierPaymentCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository,
-            _paymentReceiptRepository, _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
+        new(_userRepository, _supplierRepository, _ledgerRepository,
+            _paymentReceiptRepository, _bankAccountRepository,
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
-            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
+            BusinessTestDoubles.DisabledTillPosting(),
             Substitute.For<IShopLicenceFence>(), new PaymentCompletionPolicy(_balanceReader, Substitute.For<ICustomerLedgerEntryRepository>(),
-                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()));
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()),
+            new PaymentReceiptPoster(_paymentReceiptRepository, new PaymentAllocationPlanner(_balanceReader),
+                BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock()),
+            new SupplierPaymentExpensePoster(_expenseCategoryRepository, _expenseRepository, BusinessTestDoubles.RealClock()));
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
     {

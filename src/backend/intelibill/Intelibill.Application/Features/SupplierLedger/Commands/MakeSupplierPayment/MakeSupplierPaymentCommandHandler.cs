@@ -25,18 +25,16 @@ public sealed class MakeSupplierPaymentCommandHandler(
     IUserRepository userRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository ledgerRepository,
-    IExpenseCategoryRepository expenseCategoryRepository,
-    IExpenseRepository expenseRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     IBankAccountRepository bankAccountRepository,
-    IPaymentAllocationPlanner allocationPlanner,
     IPaymentTransactionRunner transactionRunner,
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     ITillPostingService tillPosting,
-    IBusinessClock businessClock,
     IShopLicenceFence licenceFence,
-    PaymentCompletionPolicy completionPolicy)
+    PaymentCompletionPolicy completionPolicy,
+    PaymentReceiptPoster receiptPoster,
+    SupplierPaymentExpensePoster expensePoster)
 {
     [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
@@ -132,14 +130,13 @@ public sealed class MakeSupplierPaymentCommandHandler(
         if (entryOrError.IsError)
             return entryOrError.Errors;
 
-        var (category, newCategory) = await ResolveExpenseCategoryAsync(command, cancellationToken);
+        var (category, newCategory) = await expensePoster.ResolveExpenseCategoryAsync(command.ActiveShopId, cancellationToken);
 
         var entry = entryOrError.Value;
-        var expense = Expense.CreateFromSupplierPayment(
+        var expense = SupplierPaymentExpensePoster.CreateExpense(
             command.ActiveShopId,
             category.Id,
             command.Amount,
-            "Supplier",
             command.Notes,
             command.PaymentDate,
             command.ActorUserId,
@@ -150,7 +147,7 @@ public sealed class MakeSupplierPaymentCommandHandler(
             return receiptResult.Errors;
 
         var receipt = receiptResult.Value;
-        var allocations = await allocationPlanner.PlanAsync(receipt, 0m, allocationRequests, command.ActorUserId, cancellationToken);
+        var allocations = await receiptPoster.PlanAllocationsAsync(receipt, allocationRequests, command.ActorUserId, cancellationToken);
         if (allocations.IsError)
             return allocations.Errors;
 
@@ -211,31 +208,19 @@ public sealed class MakeSupplierPaymentCommandHandler(
         }
     }
 
-    private async Task<(ExpenseCategory Category, bool IsNew)> ResolveExpenseCategoryAsync(
-        MakeSupplierPaymentCommand command,
-        CancellationToken cancellationToken)
-    {
-        const string categoryName = "Supplier Payments";
-        var category = await expenseCategoryRepository.GetByNameAsync(command.ActiveShopId, categoryName, cancellationToken);
-        var newCategory = category is null;
-        category ??= ExpenseCategory.Create(command.ActiveShopId, categoryName, businessClock.UtcNow);
-        return (category, newCategory);
-    }
-
     private ErrorOr<PaymentReceipt> RecordReceipt(
         MakeSupplierPaymentCommand command,
         SupplierLedgerEntry entry,
         Expense expense) =>
-        PaymentReceipt.Record(
+        receiptPoster.RecordReceipt(
             command.ActiveShopId,
             PaymentPartyType.Supplier,
             command.SupplierId,
             command.Amount,
-            command.Method ?? ReceiptTenderMethod.UnknownRecordedMethod,
+            command.Method,
             command.BankAccountId,
             command.ExternalReference,
             command.PaymentDate,
-            businessClock.UtcNow,
             command.Notes,
             entry.Id,
             expense.Id,
@@ -250,13 +235,10 @@ public sealed class MakeSupplierPaymentCommandHandler(
         IReadOnlyList<PaymentAllocation> allocations,
         CancellationToken cancellationToken)
     {
-        if (newCategory)
-            await expenseCategoryRepository.AddAsync(category, cancellationToken);
+        await expensePoster.StageCategoryAsync(category, newCategory, cancellationToken);
         await ledgerRepository.AddAsync(entry, cancellationToken);
-        await expenseRepository.AddAsync(expense, cancellationToken);
-        await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
-        foreach (var allocation in allocations)
-            await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+        await expensePoster.StageExpenseAsync(expense, cancellationToken);
+        await receiptPoster.StageReceiptAsync(receipt, allocations, cancellationToken);
     }
 
     private async Task<ErrorOr<Success>> AppendTillMovementAsync(
@@ -264,17 +246,13 @@ public sealed class MakeSupplierPaymentCommandHandler(
         MakeSupplierPaymentCommand command,
         PaymentReceipt receipt,
         CancellationToken cancellationToken) =>
-        await tillPosting.AppendAsync(
+        await receiptPoster.AppendTillMovementAsync(
             session,
-            new(
-                TillMovementSource.SupplierPayment,
-                receipt.Id,
-                "payment",
-                [new TenderLine(receipt.Method, receipt.Amount, null, null, receipt.ExternalReference, receipt.BankAccountId)],
-                -1m,
-                businessClock.UtcNow,
-                command.OperationKey.Trim(),
-                command.Notes),
+            TillMovementSource.SupplierPayment,
+            -1m,
+            receipt,
+            command.OperationKey,
+            command.Notes,
             command.ActorUserId,
             cancellationToken);
 

@@ -27,14 +27,13 @@ public sealed class RecordCustomerPaymentCommandHandler(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     IBankAccountRepository bankAccountRepository,
-    IPaymentAllocationPlanner allocationPlanner,
     IPaymentTransactionRunner transactionRunner,
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     ITillPostingService tillPosting,
-    IBusinessClock businessClock,
     IShopLicenceFence licenceFence,
-    PaymentCompletionPolicy completionPolicy)
+    PaymentCompletionPolicy completionPolicy,
+    PaymentReceiptPoster receiptPoster)
 {
     [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<ErrorOr<CustomerLedgerEntryDto>> HandleAsync(
@@ -136,7 +135,7 @@ public sealed class RecordCustomerPaymentCommandHandler(
             return receiptResult.Errors;
 
         var receipt = receiptResult.Value;
-        var allocations = await allocationPlanner.PlanAsync(receipt, 0m, allocationRequests, command.ActorUserId, cancellationToken);
+        var allocations = await receiptPoster.PlanAllocationsAsync(receipt, allocationRequests, command.ActorUserId, cancellationToken);
         if (allocations.IsError)
             return allocations.Errors;
 
@@ -207,16 +206,15 @@ public sealed class RecordCustomerPaymentCommandHandler(
     }
 
     private ErrorOr<PaymentReceipt> RecordReceipt(RecordCustomerPaymentCommand command, CustomerLedgerEntry paymentEntry) =>
-        PaymentReceipt.Record(
+        receiptPoster.RecordReceipt(
             command.ActiveShopId,
             PaymentPartyType.Customer,
             command.CustomerId,
             command.Amount,
-            command.Method ?? ReceiptTenderMethod.UnknownRecordedMethod,
+            command.Method,
             command.BankAccountId,
             command.ExternalReference,
             command.PaymentDate,
-            businessClock.UtcNow,
             command.Notes,
             paymentEntry.Id,
             expenseId: null,
@@ -229,9 +227,7 @@ public sealed class RecordCustomerPaymentCommandHandler(
         CancellationToken cancellationToken)
     {
         await customerLedgerEntryRepository.AddAsync(paymentEntry, cancellationToken);
-        await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
-        foreach (var allocation in allocations)
-            await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+        await receiptPoster.StageReceiptAsync(receipt, allocations, cancellationToken);
     }
 
     private async Task<ErrorOr<Success>> AppendTillMovementAsync(
@@ -239,17 +235,13 @@ public sealed class RecordCustomerPaymentCommandHandler(
         RecordCustomerPaymentCommand command,
         PaymentReceipt receipt,
         CancellationToken cancellationToken) =>
-        await tillPosting.AppendAsync(
+        await receiptPoster.AppendTillMovementAsync(
             session,
-            new(
-                TillMovementSource.CustomerPayment,
-                receipt.Id,
-                "payment",
-                [new TenderLine(receipt.Method, receipt.Amount, null, null, receipt.ExternalReference, receipt.BankAccountId)],
-                1m,
-                businessClock.UtcNow,
-                command.OperationKey.Trim(),
-                command.Notes),
+            TillMovementSource.CustomerPayment,
+            1m,
+            receipt,
+            command.OperationKey,
+            command.Notes,
             command.ActorUserId,
             cancellationToken);
 
