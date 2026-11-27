@@ -51,22 +51,34 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         if (!SalePricingMath.IsValidInstantDiscount(request.SaleDiscount)) return Errors.Sale.InvalidSaleDiscount;
 
         var isSaleDiscountRequested = request.SaleDiscount.Type != InstantDiscountType.None && request.SaleDiscount.Value > 0m;
-        if (isSaleDiscountRequested && saleLevelEligibleSubtotal <= 0m) return Errors.Sale.NoEligibleLinesForSaleDiscount;
+        if (isSaleDiscountRequested && saleLevelEligibleSubtotal <= 0m)
+            return Errors.Sale.NoEligibleLinesForSaleDiscount;
 
         var infos = new List<SalePricingInfoMessage>();
 
         DiscountRule? bestConfiguredSaleRule = SalePricingMath.SelectBestSaleLevelRule(rules.SaleRules, saleLevelEligibleSubtotal);
         if (bestConfiguredSaleRule is not null && saleLevelEligibleSubtotal <= 0m && !isSaleDiscountRequested)
         {
-            infos.Add(new SalePricingInfoMessage("sale_pricing.info.no_eligible_lines_for_configured_sale_discount", "Configured sale-level discount was available, but no eligible lines remained for sale-level discounts."));
+            infos.Add(
+                new SalePricingInfoMessage(
+                    "sale_pricing.info.no_eligible_lines_for_configured_sale_discount",
+                    "Configured sale-level discount was available, but no eligible lines remained for sale-level discounts."));
             bestConfiguredSaleRule = null;
         }
 
-        var saleDiscountAmount = SalePricingMath.CalculateEffectiveSaleDiscountAmount(request.SaleDiscount, saleLevelEligibleSubtotal, bestConfiguredSaleRule);
+        var saleDiscountAmount = SalePricingMath.CalculateEffectiveSaleDiscountAmount(
+            request.SaleDiscount,
+            saleLevelEligibleSubtotal,
+            bestConfiguredSaleRule);
         var totalCapacity = SalePricingMath.RoundMoney(eligibleDrafts.Sum(d => d.SaleDiscountCapacity));
-        if (saleDiscountAmount > totalCapacity) return Errors.Sale.BelowRecordedCost("SalePricing.SaleDiscountBelowCost", Guid.Empty,
-            SalePricingMath.RoundMoney(saleLevelEligibleSubtotal - saleDiscountAmount), eligibleDrafts.Sum(d => d.CostTotal));
-        var saleDiscountByLineIndex = SalePricingMath.AllocateSaleDiscountAmounts(eligibleDrafts, lineDrafts.Count, saleLevelEligibleSubtotal, saleDiscountAmount);
+        if (saleDiscountAmount > totalCapacity)
+            return Errors.Sale.BelowRecordedCost("SalePricing.SaleDiscountBelowCost", Guid.Empty,
+                SalePricingMath.RoundMoney(saleLevelEligibleSubtotal - saleDiscountAmount), eligibleDrafts.Sum(d => d.CostTotal));
+        var saleDiscountByLineIndex = SalePricingMath.AllocateSaleDiscountAmounts(
+            eligibleDrafts,
+            lineDrafts.Count,
+            saleLevelEligibleSubtotal,
+            saleDiscountAmount);
 
         var finalLines = new List<SalePricingLineCalculation>(lineDrafts.Count);
         foreach (var draft in lineDrafts)
@@ -79,21 +91,62 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
             }
 
             var taxableAfterAllDiscounts = SalePricingMath.RoundMoney(draft.TaxableAfterItemDiscount - saleDiscountForLine);
-            var revenueForCostCheck = SalePricingMath.CalculateRevenueForCostCheck(taxableAfterAllDiscounts, draft.TaxRatePercent, draft.IsPriceIncludingTax);
-            if (revenueForCostCheck < draft.CostTotal) return Errors.Sale.BelowRecordedCost("SalePricing.BelowCost", draft.InventoryBatchId, revenueForCostCheck, draft.CostTotal);
+            var revenueForCostCheck = SalePricingMath.CalculateRevenueForCostCheck(
+                taxableAfterAllDiscounts,
+                draft.TaxRatePercent,
+                draft.IsPriceIncludingTax);
+            if (revenueForCostCheck < draft.CostTotal)
+                return Errors.Sale.BelowRecordedCost("SalePricing.BelowCost", draft.InventoryBatchId, revenueForCostCheck, draft.CostTotal);
 
             var totalPreTaxDiscount = SalePricingMath.RoundMoney(draft.ItemDiscountAmount + saleDiscountForLine);
-            var totalAmount = SalePricingMath.CalculateLineTotalAmount(draft.Quantity, draft.SalesPrice, draft.TaxRatePercent, draft.IsPriceIncludingTax, taxableAfterAllDiscounts, totalPreTaxDiscount);
+            var totalAmount = SalePricingMath.CalculateLineTotalAmount(
+                draft.Quantity,
+                draft.SalesPrice,
+                draft.TaxRatePercent,
+                draft.IsPriceIncludingTax,
+                taxableAfterAllDiscounts,
+                totalPreTaxDiscount);
             var taxAmount = SalePricingMath.RoundMoney(Math.Max(0m, totalAmount - taxableAfterAllDiscounts));
 
-            finalLines.Add(new SalePricingLineCalculation(draft.LineType, draft.InventoryBatchId, draft.ServiceId, draft.Quantity, draft.CostPrice, draft.SalesPrice, draft.TaxRatePercent, draft.IsPriceIncludingTax, draft.PreTaxBeforeDiscount, draft.ItemDiscountAmount, saleDiscountForLine, taxableAfterAllDiscounts, taxAmount, totalAmount, draft.MaxAllowedItemDiscountFlat, draft.MaxAllowedItemDiscountPercent, draft.ConfiguredBatchRuleId, draft.ConfiguredBatchRulePercentage));
+            finalLines.Add(
+                new SalePricingLineCalculation(
+                    draft.LineType,
+                    draft.InventoryBatchId,
+                    draft.ServiceId,
+                    draft.Quantity,
+                    draft.CostPrice,
+                    draft.SalesPrice,
+                    draft.TaxRatePercent,
+                    draft.IsPriceIncludingTax,
+                    draft.PreTaxBeforeDiscount,
+                    draft.ItemDiscountAmount,
+                    saleDiscountForLine,
+                    taxableAfterAllDiscounts,
+                    taxAmount,
+                    totalAmount,
+                    draft.MaxAllowedItemDiscountFlat,
+                    draft.MaxAllowedItemDiscountPercent,
+                    draft.ConfiguredBatchRuleId,
+                    draft.ConfiguredBatchRulePercentage));
         }
 
         var totalTaxableAmount = SalePricingMath.RoundMoney(finalLines.Sum(l => l.TaxableAmount));
         var totalTaxAmount = SalePricingMath.RoundMoney(finalLines.Sum(l => l.TaxAmount));
         var totalDiscountAmount = SalePricingMath.RoundMoney(finalLines.Sum(l => l.ItemDiscountAmount + l.SaleDiscountAmount));
         var totalAmountSum = SalePricingMath.RoundMoney(finalLines.Sum(l => l.TotalAmount));
-        return new SalePricingCalculationResult(finalLines, saleLevelEligibleSubtotal, totalTaxableAmount, totalTaxAmount, totalDiscountAmount, totalAmountSum, bestConfiguredSaleRule is null ? null : new SalePricingConfiguredSaleRule(bestConfiguredSaleRule.Id, bestConfiguredSaleRule.RuleType, bestConfiguredSaleRule.Percentage, bestConfiguredSaleRule.ThresholdAmount), infos);
+        return new SalePricingCalculationResult(
+            finalLines,
+            saleLevelEligibleSubtotal,
+            totalTaxableAmount,
+            totalTaxAmount,
+            totalDiscountAmount,
+            totalAmountSum,
+            bestConfiguredSaleRule is null ? null : new SalePricingConfiguredSaleRule(
+                bestConfiguredSaleRule.Id,
+                bestConfiguredSaleRule.RuleType,
+                bestConfiguredSaleRule.Percentage,
+                bestConfiguredSaleRule.ThresholdAmount),
+            infos);
     }
 
     internal static RuleSnapshot CaptureRules(IReadOnlyList<DiscountRule> activeRules)
@@ -117,7 +170,8 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
     }
 
     internal sealed record RuleSnapshot(
-        IReadOnlyDictionary<Guid, DiscountRule> BatchRules,
+        IReadOnlyDictionary<Guid,
+        DiscountRule> BatchRules,
         IReadOnlyList<DiscountRule> SaleRules);
 
     private static ErrorOr<LineDraft> DraftLine(
@@ -135,19 +189,60 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
             return Errors.Sale.InvalidPricingInput(line.InventoryBatchId);
         }
 
-        if (!SalePricingMath.IsValidInstantDiscount(line.ItemDiscount)) return Errors.Sale.InvalidDiscount(line.InventoryBatchId);
+        if (!SalePricingMath.IsValidInstantDiscount(line.ItemDiscount))
+            return Errors.Sale.InvalidDiscount(line.InventoryBatchId);
 
-        var preTaxBeforeDiscount = SalePricingMath.RoundMoney(SalePricingMath.ExtractPreTaxAmount(line.Quantity, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax));
+        var preTaxBeforeDiscount = SalePricingMath.RoundMoney(
+            SalePricingMath.ExtractPreTaxAmount(line.Quantity, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax));
         var costTotal = SalePricingMath.RoundMoney(line.CostPrice * line.Quantity);
-        var maxAllowedItemDiscountFlat = SalePricingMath.CalculateDiscountCapacity(preTaxBeforeDiscount, costTotal, line.TaxRatePercent, line.IsPriceIncludingTax);
+        var maxAllowedItemDiscountFlat = SalePricingMath.CalculateDiscountCapacity(
+            preTaxBeforeDiscount,
+            costTotal,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax);
         var maxAllowedItemDiscountPercent = SalePricingMath.ComputeSafeMaxPercent(preTaxBeforeDiscount, maxAllowedItemDiscountFlat);
-        var itemDiscountAmount = SalePricingMath.CalculateEffectiveItemDiscountAmount(line.ItemDiscount, preTaxBeforeDiscount, configuredBatchRule);
-        if (itemDiscountAmount > maxAllowedItemDiscountFlat) return Errors.Sale.BelowRecordedCost("SalePricing.ItemDiscountBelowCost", line.InventoryBatchId, SalePricingMath.RoundMoney(preTaxBeforeDiscount - itemDiscountAmount), costTotal);
+        var itemDiscountAmount = SalePricingMath.CalculateEffectiveItemDiscountAmount(
+            line.ItemDiscount,
+            preTaxBeforeDiscount,
+            configuredBatchRule);
+        if (itemDiscountAmount > maxAllowedItemDiscountFlat)
+            return Errors.Sale.BelowRecordedCost(
+                "SalePricing.ItemDiscountBelowCost",
+                line.InventoryBatchId,
+                SalePricingMath.RoundMoney(preTaxBeforeDiscount - itemDiscountAmount),
+                costTotal);
 
         var taxableAfterItemDiscount = SalePricingMath.RoundMoney(preTaxBeforeDiscount - itemDiscountAmount);
-        var revenueAfterItemDiscount = SalePricingMath.CalculateRevenueForCostCheck(taxableAfterItemDiscount, line.TaxRatePercent, line.IsPriceIncludingTax);
-        if (revenueAfterItemDiscount < costTotal) return Errors.Sale.BelowRecordedCost("SalePricing.BelowCost", line.InventoryBatchId, revenueAfterItemDiscount, costTotal);
-        var saleDiscountCapacity = SalePricingMath.CalculateDiscountCapacity(taxableAfterItemDiscount, costTotal, line.TaxRatePercent, line.IsPriceIncludingTax);
-        return new LineDraft(lineIndex, line.LineType, line.InventoryBatchId, line.ServiceId, line.Quantity, line.CostPrice, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax, preTaxBeforeDiscount, costTotal, itemDiscountAmount, taxableAfterItemDiscount, saleDiscountCapacity, maxAllowedItemDiscountFlat, maxAllowedItemDiscountPercent, configuredBatchRule?.Id, configuredBatchRule?.Percentage, line.IsSaleDiscountEligible);
+        var revenueAfterItemDiscount = SalePricingMath.CalculateRevenueForCostCheck(
+            taxableAfterItemDiscount,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax);
+        if (revenueAfterItemDiscount < costTotal)
+            return Errors.Sale.BelowRecordedCost("SalePricing.BelowCost", line.InventoryBatchId, revenueAfterItemDiscount, costTotal);
+        var saleDiscountCapacity = SalePricingMath.CalculateDiscountCapacity(
+            taxableAfterItemDiscount,
+            costTotal,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax);
+        return new LineDraft(
+            lineIndex,
+            line.LineType,
+            line.InventoryBatchId,
+            line.ServiceId,
+            line.Quantity,
+            line.CostPrice,
+            line.SalesPrice,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax,
+            preTaxBeforeDiscount,
+            costTotal,
+            itemDiscountAmount,
+            taxableAfterItemDiscount,
+            saleDiscountCapacity,
+            maxAllowedItemDiscountFlat,
+            maxAllowedItemDiscountPercent,
+            configuredBatchRule?.Id,
+            configuredBatchRule?.Percentage,
+            line.IsSaleDiscountEligible);
     }
 }

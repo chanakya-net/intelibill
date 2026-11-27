@@ -55,10 +55,51 @@ public sealed partial class Sale : BaseEntity
 
     private Sale() { }
 
-    internal static Sale Create(Guid shopId, Guid actorUserId, string idempotencyKey, string requestHash, string invoiceNumber, Guid? customerId, string? customerName, string? customerPhone, PaymentMethod paymentMethod, DateTimeOffset soldAt, BusinessDay businessDay, decimal paidAmount, decimal dueAmount, decimal totalAmount, decimal totalTaxAmount, IReadOnlyList<SaleItem> items, decimal? subtotalBeforeDiscount = null, decimal? totalBeforeDiscount = null, decimal totalDiscountAmount = 0m, Guid? configuredSaleRuleId = null, DiscountRuleType? configuredSaleRuleType = null, decimal? configuredSaleRulePercentage = null, decimal? configuredSaleRuleThresholdAmount = null, InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None, decimal saleDiscountOverrideValue = 0m, SaleSource source = SaleSource.Online, string? clientSaleId = null, string? deviceId = null, DateTimeOffset? syncedAt = null, IReadOnlyList<string>? warnings = null, decimal creditNoteAppliedAmount = 0m)
+    internal static Sale Create(
+        Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
+        string invoiceNumber,
+        Guid? customerId,
+        string? customerName,
+        string? customerPhone,
+        PaymentMethod paymentMethod,
+        DateTimeOffset soldAt,
+        BusinessDay businessDay,
+        decimal paidAmount,
+        decimal dueAmount,
+        decimal totalAmount,
+        decimal totalTaxAmount,
+        IReadOnlyList<SaleItem> items,
+        decimal? subtotalBeforeDiscount = null,
+        decimal? totalBeforeDiscount = null,
+        decimal totalDiscountAmount = 0m,
+        Guid? configuredSaleRuleId = null,
+        DiscountRuleType? configuredSaleRuleType = null,
+        decimal? configuredSaleRulePercentage = null,
+        decimal? configuredSaleRuleThresholdAmount = null,
+        InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
+        decimal saleDiscountOverrideValue = 0m,
+        SaleSource source = SaleSource.Online,
+        string? clientSaleId = null,
+        string? deviceId = null,
+        DateTimeOffset? syncedAt = null,
+        IReadOnlyList<string>? warnings = null,
+        decimal creditNoteAppliedAmount = 0m)
     {
-        var effectiveSubtotalBeforeDiscount = subtotalBeforeDiscount ?? decimal.Round(items.Sum(i => i.PreTaxAmountBeforeDiscount), 2, MidpointRounding.AwayFromZero);
-        var effectiveTotalBeforeDiscount = totalBeforeDiscount ?? decimal.Round(items.Sum(i => i.TotalAmount + i.ItemDiscountAmount + i.SaleDiscountAmount), 2, MidpointRounding.AwayFromZero);
+        var effectiveSubtotalBeforeDiscount =
+            subtotalBeforeDiscount
+                ?? decimal.Round(
+                    items.Sum(i => i.PreTaxAmountBeforeDiscount),
+                    2,
+                    MidpointRounding.AwayFromZero);
+        var effectiveTotalBeforeDiscount =
+            totalBeforeDiscount
+                ?? decimal.Round(
+                    items.Sum(i => i.TotalAmount + i.ItemDiscountAmount + i.SaleDiscountAmount),
+                    2,
+                    MidpointRounding.AwayFromZero);
 
         var sale = new Sale
         {

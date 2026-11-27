@@ -20,10 +20,24 @@ using Wolverine;
 
 namespace Intelibill.Application.Features.Sales.Services.Cancellations;
 
-public sealed class SaleCancellationService(IShopRepository shops, ISaleRepository sales, SaleCancellationCompletionPolicy policy,
-    ISaleCancellationRollout rollout, IBusinessClock clock, IPostingPeriodPolicy periods, IFinancialOperationExecutor executor,
-    IInventoryBatchRepository batches, IInventoryRepository inventory, IStockTransactionRepository movements,
-    ICustomerLedgerEntryRepository ledger, ISaleCancellationRepository cancellations, IUnitOfWork uow, IMessageBus bus, ITillPostingService tills, IExpiryPolicyFence expiryFence, BatchDispositionService dispositions)
+public sealed class SaleCancellationService(
+    IShopRepository shops,
+    ISaleRepository sales,
+    SaleCancellationCompletionPolicy policy,
+    ISaleCancellationRollout rollout,
+    IBusinessClock clock,
+    IPostingPeriodPolicy periods,
+    IFinancialOperationExecutor executor,
+    IInventoryBatchRepository batches,
+    IInventoryRepository inventory,
+    IStockTransactionRepository movements,
+    ICustomerLedgerEntryRepository ledger,
+    ISaleCancellationRepository cancellations,
+    IUnitOfWork uow,
+    IMessageBus bus,
+    ITillPostingService tills,
+    IExpiryPolicyFence expiryFence,
+    BatchDispositionService dispositions)
 {
     private static readonly CancelSaleRequestValidator Validator = new();
     private async Task<ErrorOr<Shop>> AuthorizeAsync(Guid actor, Guid shopId, Guid saleId, CancellationToken ct)
@@ -86,7 +100,8 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         foreach (var line in lines)
         {
             var batch = line.InventoryBatchId is { } id ? await batches.GetByIdAsync(id, ct) : null;
-            if (batch is null || batch.ShopId != shopId) { preview.Add(line); continue; }
+            if (batch is null || batch.ShopId != shopId) { preview.Add(line);
+            continue; }
             var disposition = await dispositions.EvaluateAsync(batch, date, line.Quantity, ct);
             if (disposition.IsError) return disposition.Errors;
             preview.Add(line with { PhysicalRestorationQuantity = disposition.Value.PhysicalQuantity,
@@ -95,13 +110,27 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         return preview;
     }
 
-    public async Task<ErrorOr<SaleCancellationDto>> CancelAsync(Guid actorUserId, Guid shopId, Guid saleId, CancelSaleRequest request, CancellationToken ct)
+    public async Task<ErrorOr<SaleCancellationDto>> CancelAsync(
+        Guid actorUserId,
+        Guid shopId,
+        Guid saleId,
+        CancelSaleRequest request,
+        CancellationToken ct)
     {
         var validation = Validator.Validate(request);
-        if (!validation.IsValid) return validation.Errors.Select(x => Error.Validation("SaleCancellation.InvalidRequest", x.ErrorMessage)).ToList();
-        var access = await AuthorizeAsync(actorUserId, shopId, saleId, ct); if (access.IsError) return access.Errors;
-        var canonical = new { saleId, request.ExpectedVersion, Reason = request.Reason.Trim(), request.GoodsRecoveredConfirmed, request.CashRefundConfirmed };
-        var hash = request.Till is null ? FinancialOperationHasher.Compute(canonical) : FinancialOperationHasher.Compute(new { legacyHash = FinancialOperationHasher.Compute(canonical), actorUserId, request.Till });
+        if (!validation.IsValid)
+            return validation.Errors.Select(x => Error.Validation("SaleCancellation.InvalidRequest", x.ErrorMessage)).ToList();
+        var access = await AuthorizeAsync(actorUserId, shopId, saleId, ct);
+        if (access.IsError) return access.Errors;
+        var canonical = new {
+            saleId,
+            request.ExpectedVersion,
+            Reason = request.Reason.Trim(),
+            request.GoodsRecoveredConfirmed,
+            request.CashRefundConfirmed
+        };
+        var hash = request.Till is null ? FinancialOperationHasher.Compute(canonical) : FinancialOperationHasher.Compute(
+            new { legacyHash = FinancialOperationHasher.Compute(canonical), actorUserId, request.Till });
         var scope = new FinancialOperationScope(shopId, FinancialOperationType.SaleCancellation, request.OperationKey.Trim())
         {
             SuspensionAction = LicenceAction.SourceCorrection,
@@ -118,10 +147,14 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
                     return outcome;
                 }, ct);
         }
-        catch (DbUpdateConcurrencyException) { uow.ClearChanges(); return Errors.SaleCancellation.VersionConflict; }
-        catch (Exception ex) when (SqlStateOf(ex) is "55P03" or "40P01" or "40001") { uow.ClearChanges(); return Errors.SaleCancellation.Busy; }
+        catch (DbUpdateConcurrencyException) { uow.ClearChanges();
+        return Errors.SaleCancellation.VersionConflict; }
+        catch (Exception ex) when (SqlStateOf(ex) is "55P03" or "40P01" or "40001") { uow.ClearChanges();
+        return Errors.SaleCancellation.Busy; }
         if (!posted && !await CanManageAsync(actorUserId, shopId, ct)) return Errors.SaleCancellation.Forbidden;
-        if (!result.IsError && posted) await bus.PublishAsync(new InventoryStockChangedDomainEvent(shopId, result.Value.Lines.Select(x => x.ItemId).Distinct().ToArray()));
+        if (!result.IsError && posted)
+            await bus.PublishAsync(
+                new InventoryStockChangedDomainEvent(shopId, result.Value.Lines.Select(x => x.ItemId).Distinct().ToArray()));
         return result;
     }
     private async Task<ErrorOr<SaleCancellationDto>> PostAsync(Shop shop, Guid actorUserId, Guid saleId,
@@ -136,8 +169,10 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         if (!rollout.IsPostingEnabled(shopId)) return Errors.SaleCancellation.PostingDisabled;
         var now = clock.UtcNow;
         var day = clock.GetBusinessDay(now, shop.BusinessTimeZoneId);
-        var fence = await periods.AuthorizeForWriteAsync(shopId, day.Date, token); if (fence.IsError) return fence.Errors;
-        var expiry = await expiryFence.AcquireAsync(shopId, false, token); if (expiry.IsError) return expiry.Errors;
+        var fence = await periods.AuthorizeForWriteAsync(shopId, day.Date, token);
+        if (fence.IsError) return fence.Errors;
+        var expiry = await expiryFence.AcquireAsync(shopId, false, token);
+        if (expiry.IsError) return expiry.Errors;
         var acquired = await tills.AcquireAsync(shopId, actorUserId, request.Till, day.Date, token);
         if (acquired.IsError) return acquired.Errors;
         var locked = await sales.LockForReturnMutationAsync(shopId, saleId, token);
@@ -145,14 +180,21 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         if (locked != RowLockOutcome.Acquired) return Errors.SaleCancellation.Busy;
         if (SaleCancellationCompletionPolicy.Denial(lease.CurrentDecision()) is { } afterLock) return afterLock;
         // AuthorizeAsync deliberately did not track a sale or its dependencies.
-        var sale = await sales.GetByIdAsync(saleId, shopId, token); if (sale is null) return Errors.Sale.NotFound(saleId);
+        var sale = await sales.GetByIdAsync(saleId, shopId, token);
+        if (sale is null) return Errors.Sale.NotFound(saleId);
         if (sale.Status == SaleStatus.Cancelled) return Errors.SaleCancellation.AlreadyCancelled;
         if (sale.Version != request.ExpectedVersion) return Errors.SaleCancellation.VersionConflict;
         var e = await policy.EvaluateReceiptAsync(shopId, sale, day, token);
-        if (SaleCancellationCompletionPolicy.Denial(lease.CurrentDecision()) is { } afterEvaluation) return afterEvaluation;
+        if (SaleCancellationCompletionPolicy.Denial(lease.CurrentDecision()) is { } afterEvaluation)
+            return afterEvaluation;
         if (!e.Eligible) return e.Reasons.Select(x => Error.Conflict(x.Code, x.Message)).ToList();
         if (policy.PostingRefusal(lease, shop, sale, day) is { } refusal) return refusal;
-        if (request.CashRefundConfirmed != (sale.PaidAmount > 0)) return Error.Validation("SaleCancellation.CashConfirmationInvalid", sale.PaidAmount > 0 ? "Confirm the exact original cash amount was paid back." : "A sale with no paid amount must not confirm a cash refund.");
+        if (request.CashRefundConfirmed != (sale.PaidAmount > 0))
+            return Error.Validation(
+                "SaleCancellation.CashConfirmationInvalid",
+                sale.PaidAmount > 0
+                    ? "Confirm the exact original cash amount was paid back."
+                    : "A sale with no paid amount must not confirm a cash refund.");
 
         return await RecordAsync(shop, actorUserId, request, sale, day, now, e, acquired.Value, lease, token);
     }
@@ -168,12 +210,43 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         Guid? ledgerId = null;
         if (sale.DueAmount > 0)
         {
-            var credit = CustomerLedgerEntry.Create(shopId, sale.CustomerId!.Value, saleId, CustomerLedgerEntryType.SaleCancellationCredit, sale.DueAmount, day.Date, request.Reason.Trim(), actorUserId);
+            var credit = CustomerLedgerEntry.Create(
+                shopId,
+                sale.CustomerId!.Value,
+                saleId,
+                CustomerLedgerEntryType.SaleCancellationCredit,
+                sale.DueAmount,
+                day.Date,
+                request.Reason.Trim(),
+                actorUserId);
             if (credit.IsError) return credit.Errors;
-            ledgerId = credit.Value.Id; await ledger.AddAsync(credit.Value, token);
+            ledgerId = credit.Value.Id;
+            await ledger.AddAsync(credit.Value, token);
         }
         var document = sale.InvoiceDocument!;
-        var fact = SaleCancellation.Record(new SaleCancellationInput(shopId, saleId, actorUserId, request.OperationKey, request.Reason, now, day.Date, day.TimeZoneId, sale.InvoiceNumber, sale.BusinessDate, sale.TotalAmount, sale.TotalAmount, 0m, sale.DueAmount, sale.PaidAmount, ledgerId, document.Seller, document.Buyer, true, request.CashRefundConfirmed, restoration.Value.Lines));
+        var fact = SaleCancellation.Record(
+            new SaleCancellationInput(
+                shopId,
+                saleId,
+                actorUserId,
+                request.OperationKey,
+                request.Reason,
+                now,
+                day.Date,
+                day.TimeZoneId,
+                sale.InvoiceNumber,
+                sale.BusinessDate,
+                sale.TotalAmount,
+                sale.TotalAmount,
+                0m,
+                sale.DueAmount,
+                sale.PaidAmount,
+                ledgerId,
+                document.Seller,
+                document.Buyer,
+                true,
+                request.CashRefundConfirmed,
+                restoration.Value.Lines));
         if (fact.IsError) return fact.Errors;
         foreach (var stock in restoration.Value.Movements)
         {
@@ -185,8 +258,10 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
             if (staged.IsError) return staged.Errors;
             recoveredLine.FreezeDisposition(staged.Value, disposition.Value.QuarantinedQuantity, disposition.Value.ReasonCode);
         }
-        var cancelled = sale.MarkCancelled(); if (cancelled.IsError) return cancelled.Errors;
-        sales.Update(sale); await cancellations.AddAsync(fact.Value, token);
+        var cancelled = sale.MarkCancelled();
+        if (cancelled.IsError) return cancelled.Errors;
+        sales.Update(sale);
+        await cancellations.AddAsync(fact.Value, token);
         if (session is not null)
         {
             var appended = await tills.AppendAsync(session, new(TillMovementSource.SaleCancellation, fact.Value.Id, "cash-refund",
@@ -220,13 +295,38 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         {
             var batch = await batches.GetByIdAsync(line.InventoryBatchId!.Value, token);
             var stock = await inventory.GetByItemAsync(shopId, line.ItemId!.Value, token);
-            var added = stock!.AddQuantity(line.Quantity, actorUserId); if (added.IsError) return added.Errors;
-            var movement = StockTransaction.Create(shopId, line.ItemId.Value, batch!.Id, StockTransactionType.SaleCancellation, line.Quantity, sale.InvoiceNumber, reason, now, actorUserId, actorUserId);
+            var added = stock!.AddQuantity(line.Quantity, actorUserId);
+            if (added.IsError) return added.Errors;
+            var movement = StockTransaction.Create(
+                shopId,
+                line.ItemId.Value,
+                batch!.Id,
+                StockTransactionType.SaleCancellation,
+                line.Quantity,
+                sale.InvoiceNumber,
+                reason,
+                now,
+                actorUserId,
+                actorUserId);
             if (movement.IsError) return movement.Errors;
             await movements.AddAsync(movement.Value, token);
-            restorations.Add((batch!, line.Id, movement.Value)); inventory.Update(stock);
+            restorations.Add((batch!, line.Id, movement.Value));
+            inventory.Update(stock);
             var frozen = e.Lines.Single(x => x.SaleItemId == line.Id);
-            lines.Add(new(shopId, sale.Id, line.Id, line.ItemId.Value, batch.Id, movement.Value.Id, line.Quantity, frozen.Description, frozen.Uqc, line.CostPrice, line.TotalAmount, SaleEconomicsCalculator.RecordedCost(line.Quantity, line.CostPrice)));
+            lines.Add(
+                new(
+                    shopId,
+                    sale.Id,
+                    line.Id,
+                    line.ItemId.Value,
+                    batch.Id,
+                    movement.Value.Id,
+                    line.Quantity,
+                    frozen.Description,
+                    frozen.Uqc,
+                    line.CostPrice,
+                    line.TotalAmount,
+                    SaleEconomicsCalculator.RecordedCost(line.Quantity, line.CostPrice)));
         }
         return new StockRestoration(lines, restorations);
     }
@@ -236,7 +336,8 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
 
     private static string? SqlStateOf(Exception ex)
     {
-        for (Exception? current = ex; current is not null; current = current.InnerException) if (current is DbException { SqlState: { } state }) return state;
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+            if (current is DbException { SqlState: { } state }) return state;
         return null;
     }
 }
