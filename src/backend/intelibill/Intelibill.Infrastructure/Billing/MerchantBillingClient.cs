@@ -169,42 +169,18 @@ internal sealed partial class MerchantBillingClient(
                 return Unavailable("UpstreamAuthentication");
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
                 CoverageReplacementsV1.Read or CoverageReplacementsV1.Schedule or CoverageReplacementsV1.Recover or CoverageReplacementsV1.OwnerRead:
-                return await ReadProblemCodeAsync(response, cancellationToken) switch
-                {
-                    "Coverage.ReplacementInvalid" => Error.Validation("Coverage.ReplacementInvalid"),
-                    "Coverage.ReplacementChanged" => Error.Conflict("Coverage.ReplacementChanged"),
-                    "Coverage.ReplacementNotFound" => Error.NotFound("Coverage.ReplacementNotFound"),
-                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
-                    _ => MerchantBillingErrors.Unavailable,
-                };
+                return await MapReplacementFailureAsync(response, cancellationToken);
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CoverageReplacementExceptionsV1.IsAction(action):
-                return await ReadProblemCodeAsync(response, cancellationToken) switch
-                {
-                    "Coverage.ExceptionInvalid" => Error.Validation("Coverage.ExceptionInvalid"),
-                    "Coverage.ExceptionChanged" => Error.Conflict("Coverage.ExceptionChanged"),
-                    "Coverage.ExceptionNotFound" => Error.NotFound("Coverage.ExceptionNotFound"),
-                    "Coverage.ExceptionConsentsRequired" => Error.Conflict("Coverage.ExceptionConsentsRequired"),
-                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
-                    _ => MerchantBillingErrors.Unavailable,
-                };
+                return await MapReplacementExceptionFailureAsync(response, cancellationToken);
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
                 CoverageSlotsV1.Read or CoverageSlotsV1.Recover or CoverageSlotsV1.Request or CoverageSlotsV1.OwnerRead:
                 return SlotError(await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CoverageTransfersV1.IsAction(action):
                 return MapTransferRequestFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
-                return await ReadProblemCodeAsync(response, cancellationToken) switch
-                {
-                    "Closure.ScopeTooLarge" => Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit."),
-                    "Closure.AccountClosed" => Error.Conflict("Closure.AccountClosed", "Operational closure is already saved for this billing account."),
-                    ShopClosuresV1.ReviewChangedCode => Error.Conflict(ShopClosuresV1.ReviewChangedCode, "The closure review changed. Review the current scope and owner confirmations."),
-                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
-                    _ => Unavailable("UnrecognizedClosureConflict"),
-                };
+                return await MapClosureConflictAsync(response, cancellationToken);
             case HttpStatusCode.NotFound when ShopClosuresV1.IsAction(action):
-                return await ReadProblemCodeAsync(response, cancellationToken) == "Closure.ProposalUnavailable"
-                    ? Error.NotFound("Closure.ProposalUnavailable", "No current closure proposal is available.")
-                    : Unavailable("UnrecognizedClosureNotFound");
+                return await MapClosureNotFoundAsync(response, cancellationToken);
             case HttpStatusCode.BadRequest when ShopClosuresV1.IsAction(action):
                 return Error.Validation("Closure.AcknowledgementRequired", "Confirm the closure scope and acknowledgements.");
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when BillingOwnershipTransfersV1.IsAction(action):
@@ -214,9 +190,7 @@ internal sealed partial class MerchantBillingClient(
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutPaymentsV1.IsAction(action):
                 return MapPaymentFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when BillingDocumentsV1.IsAction(action):
-                return await ReadProblemCodeAsync(response, cancellationToken) == BillingDocumentsV1.NotFound
-                    ? Error.NotFound(BillingDocumentsV1.NotFound, "The billing document was not found.")
-                    : Unavailable("UpstreamStatus");
+                return await MapDocumentNotFoundAsync(response, cancellationToken);
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityChangeQuotesV1.IsAction(action):
                 return MapCapacityQuoteFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityReductionsV1.IsAction(action):
@@ -226,18 +200,11 @@ internal sealed partial class MerchantBillingClient(
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutOrdersV1.IsAction(action):
                 return MapCheckoutFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action == PublishedCatalogueV1.Read:
-                return await ReadProblemCodeAsync(response, cancellationToken) == MerchantBillingErrors.PlanVersionNotFound.Code
-                    ? MerchantBillingErrors.PlanVersionNotFound : Unavailable("UpstreamStatus");
+                return await MapCatalogueNotFoundAsync(response, cancellationToken);
             case HttpStatusCode.NotFound when action == ShopAffiliationsV1.OwnerRead:
                 return ShopAffiliationConsentErrors.Missing;
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action == ShopAffiliationsV1.Request:
-                return await ReadProblemCodeAsync(response, cancellationToken) switch
-                {
-                    "Billing.AffiliationInvalid" => ShopAffiliationConsentErrors.Invalid,
-                    "Billing.AffiliationConflict" => ShopAffiliationConsentErrors.Conflict,
-                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
-                    _ => Unavailable("UpstreamStatus"),
-                };
+                return await MapAffiliationRequestFailureAsync(response, cancellationToken);
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound
                 when action == BillingInvitationsV1.RemoveMember:
                 return MapRemovalFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
@@ -245,18 +212,91 @@ internal sealed partial class MerchantBillingClient(
                 return MerchantBillingInvitationErrors.UnavailableInvitation;
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action is
                 MerchantBillingDelegationV1.CreateAccount or BillingInvitationsV1.Issue:
-                return await ReadProblemCodeAsync(response, cancellationToken) switch
-                {
-                    "Billing.AccountNameInvalid" when response.StatusCode == HttpStatusCode.BadRequest => MerchantBillingErrors.NameInvalid,
-                    "Billing.OperationKeyInvalid" when response.StatusCode == HttpStatusCode.BadRequest => MerchantBillingErrors.OperationKeyInvalid,
-                    "Billing.InvitationRevisionConflict" when action == BillingInvitationsV1.Issue
-                        && response.StatusCode == HttpStatusCode.Conflict => MerchantBillingInvitationErrors.StaleRevision,
-                    "Billing.OperationPayloadMismatch" when response.StatusCode == HttpStatusCode.Conflict => MerchantBillingErrors.PayloadMismatch,
-                    _ => Unavailable("UpstreamStatus"),
-                };
+                return await MapAccountOrInvitationIssueFailureAsync(response, action, cancellationToken);
             default:
                 return Unavailable("UpstreamStatus");
         }
+    }
+
+    private static async Task<Error?> MapReplacementFailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) switch
+        {
+            "Coverage.ReplacementInvalid" => Error.Validation("Coverage.ReplacementInvalid"),
+            "Coverage.ReplacementChanged" => Error.Conflict("Coverage.ReplacementChanged"),
+            "Coverage.ReplacementNotFound" => Error.NotFound("Coverage.ReplacementNotFound"),
+            "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+            _ => MerchantBillingErrors.Unavailable,
+        };
+    }
+
+    private static async Task<Error?> MapReplacementExceptionFailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) switch
+        {
+            "Coverage.ExceptionInvalid" => Error.Validation("Coverage.ExceptionInvalid"),
+            "Coverage.ExceptionChanged" => Error.Conflict("Coverage.ExceptionChanged"),
+            "Coverage.ExceptionNotFound" => Error.NotFound("Coverage.ExceptionNotFound"),
+            "Coverage.ExceptionConsentsRequired" => Error.Conflict("Coverage.ExceptionConsentsRequired"),
+            "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+            _ => MerchantBillingErrors.Unavailable,
+        };
+    }
+
+    private async Task<Error?> MapClosureConflictAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) switch
+        {
+            "Closure.ScopeTooLarge" => Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit."),
+            "Closure.AccountClosed" => Error.Conflict("Closure.AccountClosed", "Operational closure is already saved for this billing account."),
+            ShopClosuresV1.ReviewChangedCode => Error.Conflict(ShopClosuresV1.ReviewChangedCode, "The closure review changed. Review the current scope and owner confirmations."),
+            "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+            _ => Unavailable("UnrecognizedClosureConflict"),
+        };
+    }
+
+    private async Task<Error?> MapClosureNotFoundAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) == "Closure.ProposalUnavailable"
+            ? Error.NotFound("Closure.ProposalUnavailable", "No current closure proposal is available.")
+            : Unavailable("UnrecognizedClosureNotFound");
+    }
+
+    private async Task<Error?> MapDocumentNotFoundAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) == BillingDocumentsV1.NotFound
+            ? Error.NotFound(BillingDocumentsV1.NotFound, "The billing document was not found.")
+            : Unavailable("UpstreamStatus");
+    }
+
+    private async Task<Error?> MapCatalogueNotFoundAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) == MerchantBillingErrors.PlanVersionNotFound.Code
+            ? MerchantBillingErrors.PlanVersionNotFound : Unavailable("UpstreamStatus");
+    }
+
+    private async Task<Error?> MapAffiliationRequestFailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) switch
+        {
+            "Billing.AffiliationInvalid" => ShopAffiliationConsentErrors.Invalid,
+            "Billing.AffiliationConflict" => ShopAffiliationConsentErrors.Conflict,
+            "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+            _ => Unavailable("UpstreamStatus"),
+        };
+    }
+
+    private async Task<Error?> MapAccountOrInvitationIssueFailureAsync(HttpResponseMessage response, string action, CancellationToken cancellationToken)
+    {
+        return await ReadProblemCodeAsync(response, cancellationToken) switch
+        {
+            "Billing.AccountNameInvalid" when response.StatusCode == HttpStatusCode.BadRequest => MerchantBillingErrors.NameInvalid,
+            "Billing.OperationKeyInvalid" when response.StatusCode == HttpStatusCode.BadRequest => MerchantBillingErrors.OperationKeyInvalid,
+            "Billing.InvitationRevisionConflict" when action == BillingInvitationsV1.Issue
+                && response.StatusCode == HttpStatusCode.Conflict => MerchantBillingInvitationErrors.StaleRevision,
+            "Billing.OperationPayloadMismatch" when response.StatusCode == HttpStatusCode.Conflict => MerchantBillingErrors.PayloadMismatch,
+            _ => Unavailable("UpstreamStatus"),
+        };
     }
 
     private static async Task<string?> ReadProblemCodeAsync(HttpResponseMessage response, CancellationToken cancellationToken)

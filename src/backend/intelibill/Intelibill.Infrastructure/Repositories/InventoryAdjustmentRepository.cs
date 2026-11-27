@@ -96,6 +96,62 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
         InventoryAdjustmentHistoryFilter filter,
         CancellationToken cancellationToken = default)
     {
+        var query = BuildHistoryFilterQuery(filter);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagedRows = await (
+                from adjustment in query
+                join performer in _context.Users.AsNoTracking()
+                    on adjustment.PerformedBy equals performer.Id into performers
+                from performer in performers.DefaultIfEmpty()
+                join voidedByUser in _context.Users.AsNoTracking()
+                    on adjustment.VoidedBy equals voidedByUser.Id into voidedByUsers
+                from voidedByUser in voidedByUsers.DefaultIfEmpty()
+                orderby adjustment.PerformedAt descending, adjustment.CreatedAt descending
+                select new HistoryRow
+                {
+                    Id = adjustment.Id,
+                    AdjustmentNumber = adjustment.AdjustmentNumber,
+                    ItemId = adjustment.ItemId,
+                    ItemName = adjustment.Item.Name,
+                    Barcode = adjustment.Item.Barcode,
+                    BatchId = adjustment.InventoryBatchId,
+                    BatchNumber = adjustment.InventoryBatch.BatchNumber,
+                    Direction = adjustment.Direction,
+                    Reason = adjustment.Reason,
+                    Quantity = adjustment.Quantity,
+                    UnitCost = adjustment.UnitCost,
+                    CostImpact = adjustment.CostImpact,
+                    Notes = adjustment.Notes,
+                    PerformedAt = adjustment.PerformedAt,
+                    CreatedAt = adjustment.CreatedAt,
+                    PerformedByUserId = adjustment.PerformedBy,
+                    PerformerFirstName = performer == null ? null : performer.FirstName,
+                    PerformerLastName = performer == null ? null : performer.LastName,
+                    PerformerEmail = performer == null ? null : performer.Email,
+                    PerformerPhoneNumber = performer == null ? null : performer.PhoneNumber,
+                    IsVoided = adjustment.IsVoided,
+                    VoidedAt = adjustment.VoidedAt,
+                    VoidedByUserId = adjustment.VoidedBy,
+                    VoidedByFirstName = voidedByUser == null ? null : voidedByUser.FirstName,
+                    VoidedByLastName = voidedByUser == null ? null : voidedByUser.LastName,
+                    VoidedByEmail = voidedByUser == null ? null : voidedByUser.Email,
+                    VoidedByPhoneNumber = voidedByUser == null ? null : voidedByUser.PhoneNumber,
+                    VoidReason = adjustment.VoidReason,
+                    ReversalStockTransactionId = adjustment.ReversalStockTransactionId,
+                })
+            .Skip((filter.PageNumber - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = pagedRows.Select(ToReadModel).ToList();
+
+        return (items, totalCount);
+    }
+
+    private IQueryable<InventoryAdjustment> BuildHistoryFilterQuery(InventoryAdjustmentHistoryFilter filter)
+    {
         var query = DbSet
             .AsNoTracking()
             .Where(a => a.ShopId == filter.ShopId);
@@ -121,93 +177,47 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
         if (filter.To is { } to)
             query = query.Where(a => a.PerformedAt <= to);
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        return query;
+    }
 
-        var pagedRows = await (
-                from adjustment in query
-                join performer in _context.Users.AsNoTracking()
-                    on adjustment.PerformedBy equals performer.Id into performers
-                from performer in performers.DefaultIfEmpty()
-                join voidedByUser in _context.Users.AsNoTracking()
-                    on adjustment.VoidedBy equals voidedByUser.Id into voidedByUsers
-                from voidedByUser in voidedByUsers.DefaultIfEmpty()
-                orderby adjustment.PerformedAt descending, adjustment.CreatedAt descending
-                select new
-                {
-                    adjustment.Id,
-                    adjustment.AdjustmentNumber,
-                    adjustment.ItemId,
-                    ItemName = adjustment.Item.Name,
-                    adjustment.Item.Barcode,
-                    BatchId = adjustment.InventoryBatchId,
-                    adjustment.InventoryBatch.BatchNumber,
-                    adjustment.Direction,
-                    adjustment.Reason,
-                    adjustment.Quantity,
-                    adjustment.UnitCost,
-                    adjustment.CostImpact,
-                    adjustment.Notes,
-                    adjustment.PerformedAt,
-                    adjustment.CreatedAt,
-                    PerformedByUserId = adjustment.PerformedBy,
-                    PerformerFirstName = performer == null ? null : performer.FirstName,
-                    PerformerLastName = performer == null ? null : performer.LastName,
-                    PerformerEmail = performer == null ? null : performer.Email,
-                    PerformerPhoneNumber = performer == null ? null : performer.PhoneNumber,
-                    adjustment.IsVoided,
-                    adjustment.VoidedAt,
-                    VoidedByUserId = adjustment.VoidedBy,
-                    VoidedByFirstName = voidedByUser == null ? null : voidedByUser.FirstName,
-                    VoidedByLastName = voidedByUser == null ? null : voidedByUser.LastName,
-                    VoidedByEmail = voidedByUser == null ? null : voidedByUser.Email,
-                    VoidedByPhoneNumber = voidedByUser == null ? null : voidedByUser.PhoneNumber,
-                    adjustment.VoidReason,
-                    adjustment.ReversalStockTransactionId,
-                })
-            .Skip((filter.PageNumber - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToListAsync(cancellationToken);
-
-        var items = pagedRows
-            .Select(row => new InventoryAdjustmentHistoryReadModel(
-                row.Id,
-                row.AdjustmentNumber,
-                row.ItemId,
-                row.ItemName,
-                row.Barcode,
-                row.BatchId,
-                row.BatchNumber,
-                row.Direction,
-                row.Reason,
-                row.Quantity,
-                row.UnitCost,
-                row.CostImpact,
-                row.Notes,
-                row.PerformedAt,
-                row.CreatedAt,
-                row.PerformedByUserId,
-                FormatDisplayName(
-                    row.PerformerFirstName,
-                    row.PerformerLastName,
-                    row.PerformerEmail,
-                    row.PerformerPhoneNumber,
-                    row.PerformedByUserId),
-                row.IsVoided,
-                row.VoidedAt,
-                row.VoidedByUserId,
-                row.VoidedByUserId is null
-                    ? null
-                    : FormatDisplayName(
-                        row.VoidedByFirstName,
-                        row.VoidedByLastName,
-                        row.VoidedByEmail,
-                        row.VoidedByPhoneNumber,
-                        row.VoidedByUserId.Value),
-                row.VoidReason,
-                row.ReversalStockTransactionId))
-            .ToList();
-
-        return (items, totalCount);
+    private static InventoryAdjustmentHistoryReadModel ToReadModel(HistoryRow row)
+    {
+        return new InventoryAdjustmentHistoryReadModel(
+            row.Id,
+            row.AdjustmentNumber,
+            row.ItemId,
+            row.ItemName,
+            row.Barcode,
+            row.BatchId,
+            row.BatchNumber,
+            row.Direction,
+            row.Reason,
+            row.Quantity,
+            row.UnitCost,
+            row.CostImpact,
+            row.Notes,
+            row.PerformedAt,
+            row.CreatedAt,
+            row.PerformedByUserId,
+            FormatDisplayName(
+                row.PerformerFirstName,
+                row.PerformerLastName,
+                row.PerformerEmail,
+                row.PerformerPhoneNumber,
+                row.PerformedByUserId),
+            row.IsVoided,
+            row.VoidedAt,
+            row.VoidedByUserId,
+            row.VoidedByUserId is null
+                ? null
+                : FormatDisplayName(
+                    row.VoidedByFirstName,
+                    row.VoidedByLastName,
+                    row.VoidedByEmail,
+                    row.VoidedByPhoneNumber,
+                    row.VoidedByUserId.Value),
+            row.VoidReason,
+            row.ReversalStockTransactionId);
     }
 
     private static string FormatDisplayName(
@@ -225,5 +235,38 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
             return email;
 
         return string.IsNullOrWhiteSpace(phoneNumber) ? userId.ToString() : phoneNumber;
+    }
+
+    private sealed class HistoryRow
+    {
+        public Guid Id { get; init; }
+        public string AdjustmentNumber { get; init; } = string.Empty;
+        public Guid ItemId { get; init; }
+        public string ItemName { get; init; } = string.Empty;
+        public string Barcode { get; init; } = string.Empty;
+        public Guid BatchId { get; init; }
+        public string BatchNumber { get; init; } = string.Empty;
+        public InventoryAdjustmentDirection Direction { get; init; }
+        public InventoryAdjustmentReason Reason { get; init; }
+        public decimal Quantity { get; init; }
+        public decimal UnitCost { get; init; }
+        public decimal CostImpact { get; init; }
+        public string? Notes { get; init; }
+        public DateTimeOffset PerformedAt { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+        public Guid PerformedByUserId { get; init; }
+        public string? PerformerFirstName { get; init; }
+        public string? PerformerLastName { get; init; }
+        public string? PerformerEmail { get; init; }
+        public string? PerformerPhoneNumber { get; init; }
+        public bool IsVoided { get; init; }
+        public DateTimeOffset? VoidedAt { get; init; }
+        public Guid? VoidedByUserId { get; init; }
+        public string? VoidedByFirstName { get; init; }
+        public string? VoidedByLastName { get; init; }
+        public string? VoidedByEmail { get; init; }
+        public string? VoidedByPhoneNumber { get; init; }
+        public string? VoidReason { get; init; }
+        public Guid? ReversalStockTransactionId { get; init; }
     }
 }

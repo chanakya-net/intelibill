@@ -70,11 +70,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
             return;
         }
 
-        var hasAnyBinding = leaseId.HasValue || grantId.HasValue || deviceId is not null;
         var isBound = leaseId.HasValue && grantId.HasValue && deviceId is not null;
-        if (hasAnyBinding &&
-            (!isBound || leaseId == Guid.Empty || grantId == Guid.Empty || string.IsNullOrWhiteSpace(deviceId) ||
-             (tillSessionId.HasValue && tillSessionId.Value == Guid.Empty)))
+        if (HasInvalidSnapshotBinding(leaseId, grantId, deviceId, tillSessionId, isBound))
         {
             Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
@@ -101,28 +98,55 @@ public sealed partial class SalesController : AuthenticatedControllerBase
             return;
         }
 
-        Guid snapshotId;
-        IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> records;
-        if (isBound)
-        {
-            var bound = _offlineSnapshotPermitStream.Start(
-                session!, grantId!.Value, leaseId!.Value, deviceId!, tillSessionId);
-            snapshotId = bound.SnapshotId;
-            records = bound.StreamAsync(cancellationToken);
-        }
-        else
-        {
-            snapshotId = Guid.NewGuid();
-            records = _offlineSnapshotStreamingService.StreamAsync(
-                ActiveShopId.Value,
-                snapshotId,
-                DateTimeOffset.UtcNow,
-                cancellationToken);
-        }
+        var (snapshotId, records) = StartSnapshotRecords(
+            isBound, session, leaseId, grantId, deviceId, tillSessionId, ActiveShopId.Value, cancellationToken);
 
         Response.ContentType = "application/x-ndjson; charset=utf-8";
         Response.Headers.CacheControl = "no-store";
 
+        await WriteSnapshotStreamAsync(records, snapshotId, cancellationToken);
+    }
+
+    private static bool HasInvalidSnapshotBinding(
+        Guid? leaseId, Guid? grantId, string? deviceId, Guid? tillSessionId, bool isBound)
+    {
+        var hasAnyBinding = leaseId.HasValue || grantId.HasValue || deviceId is not null;
+        return hasAnyBinding &&
+            (!isBound || leaseId == Guid.Empty || grantId == Guid.Empty || string.IsNullOrWhiteSpace(deviceId) ||
+             (tillSessionId.HasValue && tillSessionId.Value == Guid.Empty));
+    }
+
+    private (Guid SnapshotId, IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> Records) StartSnapshotRecords(
+        bool isBound,
+        SessionClaims? session,
+        Guid? leaseId,
+        Guid? grantId,
+        string? deviceId,
+        Guid? tillSessionId,
+        Guid shopId,
+        CancellationToken cancellationToken)
+    {
+        if (isBound)
+        {
+            var bound = _offlineSnapshotPermitStream.Start(
+                session!, grantId!.Value, leaseId!.Value, deviceId!, tillSessionId);
+            return (bound.SnapshotId, bound.StreamAsync(cancellationToken));
+        }
+
+        var snapshotId = Guid.NewGuid();
+        var records = _offlineSnapshotStreamingService.StreamAsync(
+            shopId,
+            snapshotId,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+        return (snapshotId, records);
+    }
+
+    private async Task WriteSnapshotStreamAsync(
+        IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> records,
+        Guid snapshotId,
+        CancellationToken cancellationToken)
+    {
         var buffer = new NdjsonResponseBuffer(Response);
         try
         {
