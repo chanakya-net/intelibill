@@ -82,48 +82,154 @@ public sealed class AddInventoryCommandHandler(
         return await StageReceiptAsync(command, shop, performedAt, licence.Value, cancellationToken);
     }
 
+    private sealed record ResolvedItem(Item Item, bool IsNew);
+
     private async Task<ErrorOr<AddInventoryResultDto>> StageReceiptAsync(
-        AddInventoryCommand command, Shop shop, DateTimeOffset performedAt, ShopLicenceLease licence,
+        AddInventoryCommand command,
+        Shop shop,
+        DateTimeOffset performedAt,
+        ShopLicenceLease licence,
+        CancellationToken cancellationToken)
+    {
+        var resolved = await ResolveItemAsync(command, cancellationToken);
+        if (resolved.IsError)
+            return resolved.Errors;
+
+        var item = resolved.Value.Item;
+
+        var prepared = await PrepareItemAsync(command, resolved.Value, cancellationToken);
+        if (prepared.IsError)
+            return prepared.Errors;
+
+        var batchNumberCheck = await EnsureBatchNumberFreeAsync(command, item, cancellationToken);
+        if (batchNumberCheck.IsError)
+            return batchNumberCheck.Errors;
+
+        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(
+            command.SupplierId,
+            command.ActiveShopId,
+            cancellationToken);
+        if (effectiveSupplierOrError.IsError)
+            return effectiveSupplierOrError.Errors;
+
+        var effectiveSupplier = effectiveSupplierOrError.Value;
+
+        var batchResult = await StageBatchAsync(command, item, effectiveSupplier, cancellationToken);
+        if (batchResult.IsError)
+            return batchResult.Errors;
+
+        var batch = batchResult.Value;
+
+        var stockTransactionResult = await StageStockTransactionAsync(
+            command,
+            item,
+            batch,
+            performedAt,
+            cancellationToken);
+        if (stockTransactionResult.IsError)
+            return stockTransactionResult.Errors;
+
+        var stockTransaction = stockTransactionResult.Value;
+
+        var ledgerAmount = ComputeLedgerAmount(command.TotalPurchaseCost);
+
+        var receiptValue = await StageReceiptValueAsync(
+            command,
+            item,
+            batch,
+            effectiveSupplier,
+            ledgerAmount,
+            performedAt,
+            cancellationToken);
+        if (receiptValue.IsError)
+            return receiptValue.Errors;
+
+        var ledger = await StageSupplierLedgerEntryAsync(
+            command,
+            shop,
+            batch,
+            effectiveSupplier,
+            ledgerAmount,
+            performedAt,
+            cancellationToken);
+        if (ledger.IsError)
+            return ledger.Errors;
+
+        var inventoryResult = await UpsertInventoryWithRetryAsync(
+            command, item.Id, licence, cancellationToken);
+
+        if (inventoryResult.IsError)
+            return inventoryResult.Errors;
+
+        var inventory = inventoryResult.Value;
+
+        return new AddInventoryResultDto(
+            item.Id,
+            item.Name,
+            item.Barcode,
+            batch.Id,
+            batch.BatchNumber,
+            batch.Quantity,
+            inventory.Quantity,
+            batch.SupplierId,
+            stockTransaction.Id,
+            stockTransaction.PerformedAt);
+    }
+
+    private async Task<ErrorOr<ResolvedItem>> ResolveItemAsync(
+        AddInventoryCommand command,
         CancellationToken cancellationToken)
     {
         var normalizedName = command.ItemName.Trim();
         var normalizedBarcode = command.Barcode.Trim();
 
-        var itemByBarcode = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, normalizedBarcode, cancellationToken);
-        var itemByName = await itemRepository.GetByNameAsync(command.ActiveShopId, normalizedName, cancellationToken);
+        var itemByBarcode = await itemRepository.GetByBarcodeAsync(
+            command.ActiveShopId,
+            normalizedBarcode,
+            cancellationToken);
+        var itemByName = await itemRepository.GetByNameAsync(
+            command.ActiveShopId,
+            normalizedName,
+            cancellationToken);
 
         if (itemByBarcode is not null && itemByName is not null && itemByBarcode.Id != itemByName.Id)
             return Errors.Inventory.ItemIdentityConflict;
 
-        Item item;
-        var isNewItem = false;
         if (itemByBarcode is not null)
         {
             if (!string.Equals(itemByBarcode.Name, normalizedName, StringComparison.Ordinal))
                 return Errors.Inventory.ItemNameBarcodeMismatch;
 
-            item = itemByBarcode;
+            return new ResolvedItem(itemByBarcode, IsNew: false);
         }
-        else if (itemByName is not null)
+
+        if (itemByName is not null)
         {
             if (!string.Equals(itemByName.Barcode, normalizedBarcode, StringComparison.Ordinal))
                 return Errors.Inventory.ItemNameBarcodeMismatch;
 
-            item = itemByName;
+            return new ResolvedItem(itemByName, IsNew: false);
         }
-        else
-        {
-            item = Item.Create(
-                command.ActiveShopId,
-                normalizedName,
-                command.ItemDescription,
-                command.Uom,
-                normalizedBarcode,
-                isActive: true,
-                createdBy: command.ActorUserId);
 
-            isNewItem = true;
-        }
+        var newItem = Item.Create(
+            command.ActiveShopId,
+            normalizedName,
+            command.ItemDescription,
+            command.Uom,
+            normalizedBarcode,
+            isActive: true,
+            createdBy: command.ActorUserId);
+
+        return new ResolvedItem(newItem, IsNew: true);
+    }
+
+    private async Task<ErrorOr<Success>> PrepareItemAsync(
+        AddInventoryCommand command,
+        ResolvedItem resolved,
+        CancellationToken cancellationToken)
+    {
+        var item = resolved.Item;
+        var isNewItem = resolved.IsNew;
 
         var quantityCheck = QuantityPolicy.Validate(command.Quantity, item.QuantityScale, item.Uom);
         if (quantityCheck.IsError)
@@ -134,13 +240,28 @@ public sealed class AddInventoryCommandHandler(
         if (isNewItem)
             await itemRepository.AddAsync(item, cancellationToken);
 
-        var dates = await expiryDates.ValidateReceiptAsync(command.ActiveShopId, item.Id, command.ExpiryDate, command.ManufacturingDate, cancellationToken);
-        if (dates.IsError) return dates.Errors;
+        var dates = await expiryDates.ValidateReceiptAsync(
+            command.ActiveShopId,
+            item.Id,
+            command.ExpiryDate,
+            command.ManufacturingDate,
+            cancellationToken);
+        if (dates.IsError)
+            return dates.Errors;
+
         var hsnCode = string.IsNullOrWhiteSpace(command.HsnCode) ? item.HsnCode : command.HsnCode;
         item.UpdateTaxDefaults(hsnCode, command.TaxRatePercent, command.TaxIncluded);
         if (!isNewItem)
             itemRepository.Update(item);
 
+        return Result.Success;
+    }
+
+    private async Task<ErrorOr<Success>> EnsureBatchNumberFreeAsync(
+        AddInventoryCommand command,
+        Item item,
+        CancellationToken cancellationToken)
+    {
         var existingBatch = await inventoryBatchRepository.GetByBatchNumberAsync(
             command.ActiveShopId,
             item.Id,
@@ -152,13 +273,15 @@ public sealed class AddInventoryCommandHandler(
             return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
-        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(command.SupplierId, command.ActiveShopId, cancellationToken);
-        if (effectiveSupplierOrError.IsError)
-            return effectiveSupplierOrError.Errors;
+        return Result.Success;
+    }
 
-        var effectiveSupplier = effectiveSupplierOrError.Value;
-        var isSystemSupplier = command.SupplierId is null;
-
+    private async Task<ErrorOr<InventoryBatch>> StageBatchAsync(
+        AddInventoryCommand command,
+        Item item,
+        Supplier effectiveSupplier,
+        CancellationToken cancellationToken)
+    {
         var batchResult = InventoryBatch.Create(
             command.ActiveShopId,
             item.Id,
@@ -181,6 +304,16 @@ public sealed class AddInventoryCommandHandler(
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
+        return batch;
+    }
+
+    private async Task<ErrorOr<StockTransaction>> StageStockTransactionAsync(
+        AddInventoryCommand command,
+        Item item,
+        InventoryBatch batch,
+        DateTimeOffset performedAt,
+        CancellationToken cancellationToken)
+    {
         var stockTransactionResult = StockTransaction.Create(
             command.ActiveShopId,
             item.Id,
@@ -199,8 +332,18 @@ public sealed class AddInventoryCommandHandler(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
-        var ledgerAmount = ComputeLedgerAmount(command.TotalPurchaseCost);
+        return stockTransaction;
+    }
 
+    private async Task<ErrorOr<Success>> StageReceiptValueAsync(
+        AddInventoryCommand command,
+        Item item,
+        InventoryBatch batch,
+        Supplier effectiveSupplier,
+        decimal ledgerAmount,
+        DateTimeOffset performedAt,
+        CancellationToken cancellationToken)
+    {
         // The receipt's total as posted, kept so a later correction or void works from it rather
         // than from the rounded unit cost.
         var receiptValueResult = PurchaseReceiptValue.Create(
@@ -218,6 +361,20 @@ public sealed class AddInventoryCommandHandler(
             return receiptValueResult.Errors;
 
         await purchaseReceiptValueRepository.AddAsync(receiptValueResult.Value, cancellationToken);
+
+        return Result.Success;
+    }
+
+    private async Task<ErrorOr<Success>> StageSupplierLedgerEntryAsync(
+        AddInventoryCommand command,
+        Shop shop,
+        InventoryBatch batch,
+        Supplier effectiveSupplier,
+        decimal ledgerAmount,
+        DateTimeOffset performedAt,
+        CancellationToken cancellationToken)
+    {
+        var isSystemSupplier = command.SupplierId is null;
 
         // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
         if (ledgerAmount != 0)
@@ -238,25 +395,7 @@ public sealed class AddInventoryCommandHandler(
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        var inventoryResult = await UpsertInventoryWithRetryAsync(
-            command, item.Id, licence, cancellationToken);
-
-        if (inventoryResult.IsError)
-            return inventoryResult.Errors;
-
-        var inventory = inventoryResult.Value;
-
-        return new AddInventoryResultDto(
-            item.Id,
-            item.Name,
-            item.Barcode,
-            batch.Id,
-            batch.BatchNumber,
-            batch.Quantity,
-            inventory.Quantity,
-            batch.SupplierId,
-            stockTransaction.Id,
-            stockTransaction.PerformedAt);
+        return Result.Success;
     }
 
     private async Task<ErrorOr<DomainInventory>> UpsertInventoryWithRetryAsync(
