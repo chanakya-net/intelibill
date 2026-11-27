@@ -175,7 +175,7 @@ public sealed partial class P0418LicensingTests
             case "customer-create":
                 return () => client.PostAsJsonAsync("/api/customers", new
                 {
-                    name = "Fenced customer", phoneNumber = "+919111111111", isActive = true, creditLimit = 0m,
+                    name = "Fenced customer", phoneNumber = "+919111111111", isActive = true, creditLimit = 0m, creditPolicyMode = "NoCredit",
                 }, Ct);
             default:
                 throw new ArgumentOutOfRangeException(nameof(route), route, null);

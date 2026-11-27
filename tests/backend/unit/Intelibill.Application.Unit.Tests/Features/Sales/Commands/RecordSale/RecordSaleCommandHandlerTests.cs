@@ -47,7 +47,7 @@ public class RecordSaleCommandHandlerTests
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
 
-    /// <summary>The customer as the credit check reads it under the lock; a legacy-advisory customer when unset.</summary>
+    /// <summary>The customer as the credit check reads it under the lock; a customer with ample enforced credit when unset.</summary>
     private Customer? _currentCustomer;
     private Shop _shop = DeclaredShop(TaxRegime.Regular, "29AAPFU0939F1ZR");
     private int _nextInvoiceNumber;
@@ -89,7 +89,7 @@ public class RecordSaleCommandHandlerTests
         _customerRepository.LockForCreditAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(RowLockOutcome.Acquired);
         _customerRepository.GetCurrentAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<Customer?>(_currentCustomer ?? Customer.Create(ci.ArgAt<Guid>(0), "Credit", "+919000000000", null)));
+            .Returns(ci => Task.FromResult<Customer?>(_currentCustomer ?? AmpleCreditCustomer(ci.ArgAt<Guid>(0))));
         _postingPeriods.AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<ErrorOr<PostingPeriodLease>>(new PostingPeriodLease(Guid.NewGuid(), new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31))));
         _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>())
@@ -261,6 +261,13 @@ public class RecordSaleCommandHandlerTests
         await _invoiceNumberAllocator.Received(1).AllocateAsync(
             Arg.Is<InvoiceSeriesKey>(key => key.FiscalYear == new FiscalYear(expectedStartYear)),
             Arg.Any<CancellationToken>());
+    }
+
+    private static Customer AmpleCreditCustomer(Guid shopId)
+    {
+        var customer = Customer.Create(shopId, "Credit", "+919000000000", null, creditLimit: 99_999_999m);
+        Assert.False(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null).IsError);
+        return customer;
     }
 
     private static Shop DeclaredShop(TaxRegime regime, string? gstin)
@@ -1572,20 +1579,6 @@ public class RecordSaleCommandHandlerTests
         // What the approver saw, not the live balance it was checked against.
         Assert.Equal(75m, posted.CreditOverrideObservedExposure);
         Assert.Equal(100m, posted.CreditOverrideLimit);
-    }
-
-    [Fact]
-    public async Task HandleAsync_LegacyAdvisoryOverLimit_PostsWithAWarning()
-    {
-        var (command, _) = ArrangeCreditSale(CreditPolicyMode.LegacyAdvisory, 50m, 30m);
-        Sale? posted = null;
-        await _saleRepository.AddAsync(Arg.Do<Sale>(sale => posted = sale), Arg.Any<CancellationToken>());
-
-        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Contains(posted!.Warnings, w => w.Contains("advisory credit limit", StringComparison.Ordinal));
-        Assert.Null(posted.CreditOverrideReason);
     }
 
     [Fact]

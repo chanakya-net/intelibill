@@ -244,14 +244,9 @@
             <small class="success-dot"
               >{{ selectedAccountUsagePercent() }}% {{ 'customers.usage' | transloco }}</small
             >
-            <small
-              class="credit-policy-note"
-              [class.credit-policy-note--advisory]="
-                selectedAccountCreditPolicy() === 'LegacyAdvisory'
-              "
-              data-testid="account-credit-policy"
-              >{{ selectedAccountCreditPolicyLabelKey() | transloco }}</small
-            >
+            <small class="credit-policy-note" data-testid="account-credit-policy">{{
+              selectedAccountCreditPolicyLabelKey() | transloco
+            }}</small>
             @if (selectedAccountAvailableCredit() !== null) {
               <small data-testid="account-available-credit"
                 >{{ 'customers.creditPolicy.available' | transloco }}:

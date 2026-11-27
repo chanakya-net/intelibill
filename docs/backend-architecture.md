@@ -591,14 +591,11 @@ purchase receipt with active allocations refuses void and supplier reassignment 
 
 ## Customer Credit Policy
 
-**Settings.** Every customer has a `CreditPolicyMode` (`customers.credit_policy_mode`): `NoCredit` (no
-new due), `Enforced` (new due refused once the account would exceed `credit_limit`; needs a limit above
-zero, so 0 never means "unlimited") or `LegacyAdvisory` (recorded before policies existed: the limit is
-shown, labelled, never enforced). The `AddCustomerCreditPolicyAndSaleDueDates` migration sets every
-existing customer to `LegacyAdvisory`; an API create without a mode is `LegacyAdvisory` too (an
-ambiguous request stays visibly unenforced), an edit without one keeps the stored mode and terms. The
-web app always sends an explicit mode and offers `LegacyAdvisory` only to keep it. Optional
-`credit_terms_days` (0–365). Only owners and managers may set or change limit, mode or terms, or
+**Settings.** Every customer has a `CreditPolicyMode` (`customers.credit_policy_mode`, no column
+default): `NoCredit` (no new due) or `Enforced` (new due refused once the account would exceed
+`credit_limit`; needs a limit above zero, so 0 never means "unlimited"). Create and edit both require a
+mode (absent → 400 `Customer.CreditPolicyModeInvalid`); an edit saves every field as sent, so an absent
+GSTIN, state or terms records none. Optional `credit_terms_days` (0–365). Only owners and managers may set or change limit, mode or terms, or
 reactivate a customer whose policy allows credit (`Customer.CreditSettingsChangeNotPermitted`, 403); a
 staff-created customer starts at `NoCredit`, and the web overlays show those fields read-only to staff.
 
@@ -608,8 +605,7 @@ credit has negative exposure). No new due → allowed. Inactive → 409 `Custome
 `NoCredit` → 409 `Customer.CreditNotExtended` (neither can be overridden). `Enforced` over the limit →
 409 `Customer.CreditLimitExceeded` unless an override `{reason, observedExposure}` from an owner or
 manager approves it: staff → 403 `Customer.CreditOverrideNotPermitted`; exposure grown past what the
-approver saw → 409 `Customer.CreditOverrideStale`. `LegacyAdvisory` posts with a sale warning when it
-exceeds a positive limit.
+approver saw → 409 `Customer.CreditOverrideStale`.
 
 **Serialization.** `RecordSale` takes the customer row (`ICustomerRepository.LockForCreditAsync`,
 `FOR NO KEY UPDATE`, 5 s budget that is reset with `SET LOCAL lock_timeout TO DEFAULT` once granted) as
@@ -630,7 +626,7 @@ and due date before the as-of business date; without a due date the debt is outs
 overdue. `IInvoiceBalanceReader` returns the due date per invoice.
 
 **Statement.** `GET customers/{id}/account?from=&to=` adds `creditLimit` (saved, exactly), `isActive`,
-`creditPolicyMode`, `creditTermsDays`, `availableCredit` (null when advisory), `openingBalance` (signed
+`creditPolicyMode`, `creditTermsDays`, `availableCredit` (0 unless an active customer has an enforced limit), `openingBalance` (signed
 entries before `from`), `closingBalance` (opening + window entries), `asOfBusinessDate`, `overdueAmount`
 (capped at what the account owes, since unallocated payments still pay it down; `from > to` → 400
 `Customer.StatementWindowInvalid`);

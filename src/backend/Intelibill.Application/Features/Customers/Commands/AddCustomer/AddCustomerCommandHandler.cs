@@ -21,26 +21,19 @@ public sealed class AddCustomerCommandHandler(
         if (mayChangeCredit.IsError)
             return mayChangeCredit.Errors;
 
-        // An absent policy is ambiguous, so it stays visibly unenforced (legacy advisory). Staff
-        // cannot grant credit: their customers start with none until an owner or manager decides.
-        var mode = command.CreditPolicyMode ?? CreditPolicyMode.LegacyAdvisory;
-        if (!mayChangeCredit.Value)
-        {
-            var grantsCredit = command.CreditLimit > 0m
-                || command.CreditTermsDays is not null
-                || command.CreditPolicyMode is not (null or CreditPolicyMode.NoCredit);
-            if (grantsCredit)
-                return Errors.CustomerCredit.SettingsChangeNotPermitted;
-
-            mode = CreditPolicyMode.NoCredit;
-        }
+        // Staff cannot grant credit: their customers start with none until an owner or manager decides.
+        var grantsCredit = command.CreditLimit > 0m
+            || command.CreditTermsDays is not null
+            || command.CreditPolicyMode != CreditPolicyMode.NoCredit;
+        if (!mayChangeCredit.Value && grantsCredit)
+            return Errors.CustomerCredit.SettingsChangeNotPermitted;
 
         return await creation.RunAsync<CustomerDto>(command.Session,
-            (lease, ct) => CreateAsync(command, mode, lease, ct), cancellationToken);
+            (lease, ct) => CreateAsync(command, lease, ct), cancellationToken);
     }
 
     private async Task<ErrorOr<CustomerDto>> CreateAsync(
-        AddCustomerCommand command, CreditPolicyMode mode, ShopLicenceLease lease, CancellationToken cancellationToken)
+        AddCustomerCommand command, ShopLicenceLease lease, CancellationToken cancellationToken)
     {
         if (lease.Decision.EnforcedDenial() is { } denial)
             return denial;
@@ -55,7 +48,7 @@ public sealed class AddCustomerCommandHandler(
             command.Gstin,
             command.StateCode);
 
-        var policy = customer.SetCreditPolicy(mode, command.CreditPolicyMode is null ? null : command.CreditTermsDays);
+        var policy = customer.SetCreditPolicy(command.CreditPolicyMode, command.CreditTermsDays);
         if (policy.IsError)
             return policy.Errors;
 

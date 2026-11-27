@@ -6,11 +6,11 @@ namespace Intelibill.Domain.Unit.Tests.Entities;
 public class CustomerCreditPolicyTests
 {
     [Fact]
-    public void New_customers_default_to_legacy_advisory_without_terms()
+    public void New_customers_default_to_no_credit_without_terms()
     {
         var customer = Customer.Create(Guid.NewGuid(), "A", "+911234567890", null);
 
-        Assert.Equal(CreditPolicyMode.LegacyAdvisory, customer.CreditPolicyMode);
+        Assert.Equal(CreditPolicyMode.NoCredit, customer.CreditPolicyMode);
         Assert.Null(customer.CreditTermsDays);
     }
 
@@ -23,7 +23,7 @@ public class CustomerCreditPolicyTests
 
         Assert.True(result.IsError);
         Assert.Equal("Customer.EnforcedCreditRequiresLimit", result.FirstError.Code);
-        Assert.Equal(CreditPolicyMode.LegacyAdvisory, customer.CreditPolicyMode);
+        Assert.Equal(CreditPolicyMode.NoCredit, customer.CreditPolicyMode);
     }
 
     [Theory]

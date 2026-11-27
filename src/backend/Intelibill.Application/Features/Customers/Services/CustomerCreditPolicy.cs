@@ -23,9 +23,6 @@ public enum CreditDecisionKind
     /// <summary>The due fits the enforced limit.</summary>
     WithinLimit = 2,
 
-    /// <summary>A legacy advisory setting: the due is accepted and not enforced.</summary>
-    Advisory = 3,
-
     /// <summary>The due exceeds the enforced limit and an authorized override approved it.</summary>
     Overridden = 4,
 }
@@ -35,12 +32,7 @@ public sealed record CreditDecision(
     decimal ExposureBefore,
     decimal ExposureAfter,
     decimal CreditLimit,
-    CreditOverrideRequest? Override = null)
-{
-    /// <summary>True when an advisory (unenforced) limit is exceeded: shown, never refused.</summary>
-    public bool ExceedsAdvisoryLimit =>
-        Kind == CreditDecisionKind.Advisory && CreditLimit > 0m && ExposureAfter > CreditLimit;
-}
+    CreditOverrideRequest? Override = null);
 
 /// <summary>
 /// Decides whether new due may be added to a customer's account. Exposure is the signed account
@@ -52,15 +44,13 @@ public static class CustomerCreditPolicy
 {
     public const int MaxOverrideReasonLength = 500;
 
-    /// <summary>New due the account can take now; null when the limit is advisory (not enforced).</summary>
-    public static decimal? AvailableCredit(CustomerCreditState state, decimal currentExposure)
+    /// <summary>New due the account can take now: none unless an active customer is on an enforced limit.</summary>
+    public static decimal AvailableCredit(CustomerCreditState state, decimal currentExposure)
     {
-        if (!state.IsActive || state.Mode == CreditPolicyMode.NoCredit)
+        if (!state.IsActive || state.Mode != CreditPolicyMode.Enforced)
             return 0m;
 
-        return state.Mode == CreditPolicyMode.Enforced
-            ? Math.Max(0m, state.CreditLimit - currentExposure)
-            : null;
+        return Math.Max(0m, state.CreditLimit - currentExposure);
     }
 
     public static ErrorOr<CreditDecision> Evaluate(
@@ -81,9 +71,6 @@ public static class CustomerCreditPolicy
         {
             case CreditPolicyMode.NoCredit:
                 return Errors.CustomerCredit.NotExtended;
-
-            case CreditPolicyMode.LegacyAdvisory:
-                return new CreditDecision(CreditDecisionKind.Advisory, currentExposure, exposureAfter, state.CreditLimit);
 
             case CreditPolicyMode.Enforced:
                 if (exposureAfter <= state.CreditLimit)

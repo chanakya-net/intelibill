@@ -549,7 +549,8 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
         using var client = CreateClient();
         var (owner, payload, _) = await ArrangeAsync(client);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
-        var customer = Customer.Create(owner.ShopId, "Legacy credit customer", "+919222222223", null, true);
+        var customer = Customer.Create(owner.ShopId, "Legacy credit customer", "+919222222223", null, true, 1_000_000m);
+        Success(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null));
         app.Db.Customers.Add(customer);
         await app.Db.SaveChangesAsync();
         RemoveTillEvidence(payload);
@@ -691,7 +692,8 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
         using var client = CreateClient();
         var (owner, payload, session) = await ArrangeAsync(client);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
-        var customer = Customer.Create(owner.ShopId, "All due customer", "+919222222225", null, true);
+        var customer = Customer.Create(owner.ShopId, "All due customer", "+919222222225", null, true, 1_000_000m);
+        Success(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null));
         app.Db.Customers.Add(customer);
         await app.Db.SaveChangesAsync();
         payload["customerId"] = customer.Id;

@@ -30,7 +30,7 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((Customer?)null);
 
-        var command = new EditCustomerCommand(shopId, Guid.NewGuid(), "New Name", "+919876543210", null, true, 0m, Session: null);
+        var command = new EditCustomerCommand(shopId, Guid.NewGuid(), "New Name", "+919876543210", null, true, 0m, CreditPolicyMode.NoCredit, Session: null);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
@@ -46,7 +46,7 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>())
             .Returns(customer);
 
-        var command = new EditCustomerCommand(shopId, customer.Id, "New Name", "+919999999999", "12 MG Road", false, 750m, Session: null);
+        var command = new EditCustomerCommand(shopId, customer.Id, "New Name", "+919999999999", "12 MG Road", false, 750m, CreditPolicyMode.NoCredit, Session: null);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
@@ -61,20 +61,27 @@ public class EditCustomerCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenGstinOmitted_KeepsTheRecordedRegistration()
+    public async Task HandleAsync_SavesTheGstinAsSent_AndAnAbsentOneRecordsNone()
     {
         var shopId = Guid.NewGuid();
-        var customer = Customer.Create(shopId, "Buyer", "+911234567890", "4 Market St", gstin: "33AABCT1332L1ZL");
-        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
+        var kept = Customer.Create(shopId, "Buyer", "+911234567890", "4 Market St", gstin: "33AABCT1332L1ZL");
+        var cleared = Customer.Create(shopId, "Other", "+911234567891", "4 Market St", gstin: "33AABCT1332L1ZL");
+        _customerRepository.GetByShopAndIdAsync(shopId, kept.Id, Arg.Any<CancellationToken>()).Returns(kept);
+        _customerRepository.GetByShopAndIdAsync(shopId, cleared.Id, Arg.Any<CancellationToken>()).Returns(cleared);
 
-        var result = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, customer.Id, "Buyer Renamed", "+911234567890", "4 Market St", true, 0m, Session: null),
+        var resent = await _handler.HandleAsync(
+            new EditCustomerCommand(shopId, kept.Id, "Buyer Renamed", "+911234567890", "4 Market St", true, 0m, CreditPolicyMode.NoCredit, Session: null, Gstin: "33AABCT1332L1ZL"),
+            CancellationToken.None);
+        var omitted = await _handler.HandleAsync(
+            new EditCustomerCommand(shopId, cleared.Id, "Other", "+911234567891", "4 Market St", true, 0m, CreditPolicyMode.NoCredit, Session: null),
             CancellationToken.None);
 
-        Assert.False(result.IsError);
-        Assert.Equal("33AABCT1332L1ZL", customer.Gstin);
-        Assert.Equal("33", customer.StateCode);
-        Assert.Equal("33AABCT1332L1ZL", result.Value.Gstin);
+        Assert.False(resent.IsError);
+        Assert.Equal("33AABCT1332L1ZL", resent.Value.Gstin);
+        Assert.Equal("33", kept.StateCode);
+        Assert.False(omitted.IsError);
+        Assert.Null(cleared.Gstin);
+        Assert.Null(cleared.StateCode);
     }
 
     [Fact]
@@ -85,28 +92,12 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
 
         var result = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, customer.Id, "Buyer", "+911234567890", "4 Market St", true, 0m, Gstin: "", StateCode: "29", Session: null),
+            new EditCustomerCommand(shopId, customer.Id, "Buyer", "+911234567890", "4 Market St", true, 0m, CreditPolicyMode.NoCredit, Gstin: "", StateCode: "29", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Null(customer.Gstin);
         Assert.Equal("29", customer.StateCode);
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenStateContradictsTheKeptGstin_IsRefused()
-    {
-        var shopId = Guid.NewGuid();
-        var customer = Customer.Create(shopId, "Buyer", "+911234567890", "4 Market St", gstin: "33AABCT1332L1ZL");
-        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
-
-        var result = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, customer.Id, "Buyer", "+911234567890", "4 Market St", true, 0m, StateCode: "29", Session: null),
-            CancellationToken.None);
-
-        Assert.Equal(Errors.Customer.GstinStateMismatch.Code, result.FirstError.Code);
-        Assert.Equal("33", customer.StateCode);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private static User MemberWithRole(Guid shopId, ShopRole role)
@@ -117,21 +108,6 @@ public class EditCustomerCommandHandlerTests
     }
 
     [Fact]
-    public async Task Edit_without_policy_keeps_the_stored_policy_and_terms()
-    {
-        var shopId = Guid.NewGuid();
-        var customer = Customer.Create(shopId, "A", "+911234567890", null, true, 500m);
-        Assert.False(customer.SetCreditPolicy(CreditPolicyMode.Enforced, 30).IsError);
-        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
-
-        var result = await _handler.HandleAsync(new EditCustomerCommand(shopId, customer.Id, "B", "+911234567890", null, true, 500m, Session: null), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal(CreditPolicyMode.Enforced, result.Value.CreditPolicyMode);
-        Assert.Equal(30, result.Value.CreditTermsDays);
-    }
-
-    [Fact]
     public async Task Edit_cannot_turn_an_enforced_limit_into_zero()
     {
         var shopId = Guid.NewGuid();
@@ -139,7 +115,7 @@ public class EditCustomerCommandHandlerTests
         Assert.False(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null).IsError);
         _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
 
-        var result = await _handler.HandleAsync(new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 0m, Session: null), CancellationToken.None);
+        var result = await _handler.HandleAsync(new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 0m, CreditPolicyMode.Enforced, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Customer.EnforcedCreditRequiresLimit", result.FirstError.Code);
@@ -156,11 +132,14 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
 
         var raise = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 5000m, ActorUserId: staff.Id, Session: null), CancellationToken.None);
+            new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 5000m, CreditPolicyMode.NoCredit, ActorUserId: staff.Id, Session: null), CancellationToken.None);
+        var enforce = await _handler.HandleAsync(
+            new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 500m, CreditPolicyMode.Enforced, ActorUserId: staff.Id, Session: null), CancellationToken.None);
         var rename = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, customer.Id, "Renamed", "+911234567890", null, true, 500m, ActorUserId: staff.Id, Session: null), CancellationToken.None);
+            new EditCustomerCommand(shopId, customer.Id, "Renamed", "+911234567890", null, true, 500m, CreditPolicyMode.NoCredit, ActorUserId: staff.Id, Session: null), CancellationToken.None);
 
         Assert.Equal(Errors.CustomerCredit.SettingsChangeNotPermitted.Code, raise.FirstError.Code);
+        Assert.Equal(Errors.CustomerCredit.SettingsChangeNotPermitted.Code, enforce.FirstError.Code);
         Assert.False(rename.IsError);
     }
 
@@ -172,13 +151,15 @@ public class EditCustomerCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(staff.Id, Arg.Any<CancellationToken>()).Returns(staff);
         var inactive = Customer.Create(shopId, "A", "+911234567890", null, isActive: false, creditLimit: 500m);
         var active = Customer.Create(shopId, "B", "+911234567891", null, isActive: true, creditLimit: 500m);
+        Assert.False(inactive.SetCreditPolicy(CreditPolicyMode.Enforced, null).IsError);
+        Assert.False(active.SetCreditPolicy(CreditPolicyMode.Enforced, null).IsError);
         _customerRepository.GetByShopAndIdAsync(shopId, inactive.Id, Arg.Any<CancellationToken>()).Returns(inactive);
         _customerRepository.GetByShopAndIdAsync(shopId, active.Id, Arg.Any<CancellationToken>()).Returns(active);
 
         var reactivate = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, inactive.Id, "A", "+911234567890", null, true, 500m, ActorUserId: staff.Id, Session: null), CancellationToken.None);
+            new EditCustomerCommand(shopId, inactive.Id, "A", "+911234567890", null, true, 500m, CreditPolicyMode.Enforced, ActorUserId: staff.Id, Session: null), CancellationToken.None);
         var deactivate = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, active.Id, "B", "+911234567891", null, false, 500m, ActorUserId: staff.Id, Session: null), CancellationToken.None);
+            new EditCustomerCommand(shopId, active.Id, "B", "+911234567891", null, false, 500m, CreditPolicyMode.Enforced, ActorUserId: staff.Id, Session: null), CancellationToken.None);
 
         Assert.Equal(Errors.CustomerCredit.SettingsChangeNotPermitted.Code, reactivate.FirstError.Code);
         Assert.False(deactivate.IsError);
@@ -194,7 +175,7 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
 
         var result = await _handler.HandleAsync(
-            new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 2000m, Session: null, CreditPolicyMode: CreditPolicyMode.Enforced, CreditTermsDays: 15, ActorUserId: manager.Id),
+            new EditCustomerCommand(shopId, customer.Id, "A", "+911234567890", null, true, 2000m, CreditPolicyMode.Enforced, Session: null, CreditTermsDays: 15, ActorUserId: manager.Id),
             CancellationToken.None);
 
         Assert.False(result.IsError);

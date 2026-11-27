@@ -635,13 +635,11 @@
       "available": "Available credit",
       "modes": {
         "NoCredit": "No credit",
-        "Enforced": "Enforced limit",
-        "LegacyAdvisory": "Legacy limit (not enforced)"
+        "Enforced": "Enforced limit"
       },
       "hints": {
         "NoCredit": "Every sale is paid in full; no new due can be added.",
-        "Enforced": "New due is refused once the account would go over the credit limit.",
-        "LegacyAdvisory": "Recorded before credit policies: the limit is shown but not enforced. Choose a policy to enforce it."
+        "Enforced": "New due is refused once the account would go over the credit limit."
       },
       "staffReadOnly": "Only an owner or manager can change credit settings."
     }
@@ -1608,7 +1606,6 @@
         "ariaLabel": "Customer credit",
         "available": "Available credit",
         "balance": "Current balance",
-        "advisoryNotice": "This limit is not enforced yet; ask an owner to choose a credit policy.",
         "overrideReason": "Reason for going over the limit",
         "approveOverride": "Approve override",
         "withdrawOverride": "Withdraw",

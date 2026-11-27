@@ -556,6 +556,8 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
             phoneNumber = $"+9198{Random.Shared.Next(10_000_000, 99_999_999)}",
             address = (string?)null,
             isActive = true,
+            creditLimit = 1_000_000m,
+            creditPolicyMode = "Enforced",
         });
         var content = await response.Content.ReadAsStringAsync();
         Assert.True(response.IsSuccessStatusCode, content);

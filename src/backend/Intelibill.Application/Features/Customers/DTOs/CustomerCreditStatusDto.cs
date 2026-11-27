@@ -3,7 +3,7 @@ using Intelibill.Domain.Enums;
 namespace Intelibill.Application.Features.Customers.DTOs;
 
 /// <param name="CurrentExposure">The signed account balance now (negative = the customer is in credit).</param>
-/// <param name="AvailableCredit">New due the account can take now; null when the limit is advisory (not enforced).</param>
+/// <param name="AvailableCredit">New due the account can take now (0 unless an active customer has an enforced limit).</param>
 public sealed record CustomerCreditStatusDto(
     Guid CustomerId,
     bool IsActive,
@@ -11,4 +11,4 @@ public sealed record CustomerCreditStatusDto(
     decimal CreditLimit,
     int? CreditTermsDays,
     decimal CurrentExposure,
-    decimal? AvailableCredit);
+    decimal AvailableCredit);

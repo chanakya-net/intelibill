@@ -5,7 +5,6 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Services;
-using Gstin = Intelibill.Domain.Common.Gstin;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -38,26 +37,12 @@ public sealed class EditCustomerCommandHandler(
         if (customer is null)
             return Errors.Customer.CustomerNotFound;
 
-        // An absent GSTIN or state keeps what is recorded, so a client that predates the fields
-        // cannot erase them; an empty value clears it. A new GSTIN without a state takes its own.
-        var gstin = command.Gstin ?? customer.Gstin;
-        var stateCode = command.StateCode ?? (command.Gstin is null ? customer.StateCode : null);
-        if (Gstin.IsValid(Gstin.Normalize(gstin))
-            && !string.IsNullOrWhiteSpace(stateCode)
-            && !string.Equals(Gstin.StateCodeOf(Gstin.Normalize(gstin)!), stateCode.Trim(), StringComparison.Ordinal))
-            return Errors.Customer.GstinStateMismatch;
-
-        // An absent policy keeps the stored policy and terms, so a client that predates them
-        // cannot erase them. The policy is checked against the new limit: lowering an enforced
-        // customer's limit to 0 is refused rather than read as unlimited.
-        var mode = command.CreditPolicyMode ?? customer.CreditPolicyMode;
-        var termsDays = command.CreditPolicyMode is null ? customer.CreditTermsDays : command.CreditTermsDays;
         // Reactivating a customer who may take credit reopens their credit, so it is a credit decision
         // too; deactivating only takes credit away and stays open to staff.
-        var reactivatesCredit = command.IsActive && !customer.IsActive && mode != CreditPolicyMode.NoCredit;
+        var reactivatesCredit = command.IsActive && !customer.IsActive && command.CreditPolicyMode != CreditPolicyMode.NoCredit;
         var changesCredit = command.CreditLimit != customer.CreditLimit
-            || mode != customer.CreditPolicyMode
-            || termsDays != customer.CreditTermsDays
+            || command.CreditPolicyMode != customer.CreditPolicyMode
+            || command.CreditTermsDays != customer.CreditTermsDays
             || reactivatesCredit;
         if (changesCredit)
         {
@@ -74,10 +59,12 @@ public sealed class EditCustomerCommandHandler(
             command.Address,
             command.IsActive,
             command.CreditLimit,
-            gstin,
-            stateCode);
+            command.Gstin,
+            command.StateCode);
 
-        var policy = customer.SetCreditPolicy(mode, termsDays);
+        // The policy is checked against the new limit: lowering an enforced customer's limit to 0 is
+        // refused rather than read as unlimited.
+        var policy = customer.SetCreditPolicy(command.CreditPolicyMode, command.CreditTermsDays);
         if (policy.IsError)
             return policy.Errors;
 

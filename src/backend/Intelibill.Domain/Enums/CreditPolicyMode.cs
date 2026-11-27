@@ -8,10 +8,4 @@ public enum CreditPolicyMode
 
     /// <summary>New due is refused once the account would exceed the saved credit limit.</summary>
     Enforced = 2,
-
-    /// <summary>
-    /// A setting recorded before credit policies existed: the limit is shown but not enforced until
-    /// the merchant reviews it. Never presented as enforced.
-    /// </summary>
-    LegacyAdvisory = 3,
 }

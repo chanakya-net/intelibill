@@ -115,30 +115,11 @@ public class CustomerCreditPolicyTests
     }
 
     [Fact]
-    public void LegacyAdvisory_AllowsDueOverTheLimit_AndFlagsIt()
-    {
-        var result = CustomerCreditPolicy.Evaluate(new CustomerCreditState(true, CreditPolicyMode.LegacyAdvisory, 100m), 90m, 50m, null, ShopRole.Staff);
-
-        Assert.False(result.IsError);
-        Assert.Equal(CreditDecisionKind.Advisory, result.Value.Kind);
-        Assert.True(result.Value.ExceedsAdvisoryLimit);
-    }
-
-    [Fact]
-    public void LegacyAdvisory_WithZeroLimit_IsNotFlaggedAsExceeded()
-    {
-        var result = CustomerCreditPolicy.Evaluate(new CustomerCreditState(true, CreditPolicyMode.LegacyAdvisory, 0m), 0m, 50m, null, ShopRole.Staff);
-
-        Assert.False(result.Value.ExceedsAdvisoryLimit);
-    }
-
-    [Fact]
     public void AvailableCredit_FollowsThePolicy()
     {
         Assert.Equal(10m, CustomerCreditPolicy.AvailableCredit(Enforced100, 90m));
         Assert.Equal(0m, CustomerCreditPolicy.AvailableCredit(Enforced100, 150m));
         Assert.Equal(0m, CustomerCreditPolicy.AvailableCredit(new CustomerCreditState(true, CreditPolicyMode.NoCredit, 500m), 0m));
         Assert.Equal(0m, CustomerCreditPolicy.AvailableCredit(Enforced100 with { IsActive = false }, 0m));
-        Assert.Null(CustomerCreditPolicy.AvailableCredit(new CustomerCreditState(true, CreditPolicyMode.LegacyAdvisory, 100m), 0m));
     }
 }

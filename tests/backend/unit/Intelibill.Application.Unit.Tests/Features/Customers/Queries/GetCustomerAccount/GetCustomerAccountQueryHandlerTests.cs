@@ -363,15 +363,15 @@ public class GetCustomerAccountQueryHandlerTests
     }
 
     [Fact]
-    public async Task Legacy_advisory_customer_has_no_enforced_available_credit()
+    public async Task No_credit_customer_has_no_available_credit()
     {
         var fixture = BuildFixture();
         Arrange(fixture, [], []);
 
         var result = await CreateHandler().HandleAsync(new GetCustomerAccountQuery(fixture.owner.Id, fixture.shop.Id, fixture.customer.Id), CancellationToken.None);
 
-        Assert.Equal(CreditPolicyMode.LegacyAdvisory, result.Value.CreditPolicyMode);
-        Assert.Null(result.Value.AvailableCredit);
+        Assert.Equal(CreditPolicyMode.NoCredit, result.Value.CreditPolicyMode);
+        Assert.Equal(0m, result.Value.AvailableCredit);
     }
 
     [Theory]

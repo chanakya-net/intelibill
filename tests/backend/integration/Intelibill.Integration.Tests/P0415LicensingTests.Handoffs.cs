@@ -29,6 +29,7 @@ public sealed partial class P0415LicensingTests
         using var added = await merchant.PostAsJsonAsync("/api/customers", new
         {
             name = "Payment fixture", phoneNumber = "+919812345678", isActive = true,
+            creditLimit = 1_000_000m, creditPolicyMode = "Enforced",
         }, Ct);
         var customer = (await ReadSuccessAsync(added)).GetProperty("customerId").GetGuid();
         await CreateSaleAsync(merchant, customer);

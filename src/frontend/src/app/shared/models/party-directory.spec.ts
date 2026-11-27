@@ -102,6 +102,7 @@ describe('bounded party requests', () => {
           address: null,
           isActive: true,
           creditLimit: 0,
+          creditPolicyMode: 'NoCredit' as const,
           purchaseCount: 0,
           lifetimeRevenue: 0,
           currentMonthRevenue: 0,

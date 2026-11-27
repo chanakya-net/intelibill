@@ -78,7 +78,7 @@ import {
   customerUsageLabel as deriveCustomerUsageLabel,
   customerUsagePercent as deriveCustomerUsagePercent,
 } from '../utils/customer-status.util';
-import { creditPolicyLabelKey, effectiveCreditPolicy } from '../utils/credit-policy.util';
+import { creditPolicyLabelKey } from '../utils/credit-policy.util';
 import {
   CURRENCY_ADDON_PT,
   CURRENCY_INPUT_GROUP_PT,
@@ -331,15 +331,16 @@ export class CustomersPageComponent {
   readonly selectedAccountCreditLimit = computed(
     () => this.selectedAccount()?.creditLimit ?? this.selectedAccountCustomer()?.creditLimit ?? 0,
   );
-  readonly selectedAccountCreditPolicy = computed(() =>
-    effectiveCreditPolicy(
-      this.selectedAccount()?.creditPolicyMode ?? this.selectedAccountCustomer()?.creditPolicyMode,
-    ),
+  readonly selectedAccountCreditPolicy = computed(
+    () =>
+      this.selectedAccount()?.creditPolicyMode ??
+      this.selectedAccountCustomer()?.creditPolicyMode ??
+      'NoCredit',
   );
   readonly selectedAccountCreditPolicyLabelKey = computed(() =>
     creditPolicyLabelKey(this.selectedAccountCreditPolicy()),
   );
-  /** Null when the limit is not enforced (legacy advisory), so nothing is promised that is not checked. */
+  /** Null until the account statement has loaded. */
   readonly selectedAccountAvailableCredit = computed(
     () => this.selectedAccount()?.availableCredit ?? null,
   );

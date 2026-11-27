@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Queries.GetCustomers;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -72,7 +73,7 @@ public class CustomersControllerTests
     {
         var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m, 0m);
         ArrangeBusResponse<CustomerDto>(dto);
-        var request = new AddCustomerRequest("Alice", "+919876543210", null, true, 0m);
+        var request = new AddCustomerRequest("Alice", "+919876543210", null, true, CreditPolicyMode.NoCredit);
 
         var result = await _controller.AddCustomer(request, CancellationToken.None);
 
@@ -84,7 +85,7 @@ public class CustomersControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.AddCustomer(new AddCustomerRequest("A", "+9198", null, true, 0m), CancellationToken.None);
+        var result = await _controller.AddCustomer(new AddCustomerRequest("A", "+9198", null, true, CreditPolicyMode.NoCredit), CancellationToken.None);
 
         Assert.IsType<ObjectResult>(result);
     }
@@ -94,7 +95,7 @@ public class CustomersControllerTests
     {
         ArrangeBusResponse<CustomerDto>(Error.Validation("Customer.NameRequired", "Name is required"));
 
-        var result = await _controller.AddCustomer(new AddCustomerRequest("", "+9198", null, true, 0m), CancellationToken.None);
+        var result = await _controller.AddCustomer(new AddCustomerRequest("", "+9198", null, true, CreditPolicyMode.NoCredit), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
@@ -107,7 +108,7 @@ public class CustomersControllerTests
     {
         var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m, 0m);
         ArrangeBusResponse<CustomerDto>(dto);
-        var request = new EditCustomerRequest("Alice", "+919876543210", null, true, 0m);
+        var request = new EditCustomerRequest("Alice", "+919876543210", null, true, 0m, CreditPolicyMode.NoCredit);
 
         var result = await _controller.EditCustomer(Guid.NewGuid(), request, CancellationToken.None);
 
@@ -120,7 +121,7 @@ public class CustomersControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true, 0m), CancellationToken.None);
+        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true, 0m, CreditPolicyMode.NoCredit), CancellationToken.None);
 
         Assert.IsType<ObjectResult>(result);
     }
@@ -130,7 +131,7 @@ public class CustomersControllerTests
     {
         ArrangeBusResponse<CustomerDto>(Error.NotFound("Customer.NotFound", "Customer not found"));
 
-        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true, 0m), CancellationToken.None);
+        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true, 0m, CreditPolicyMode.NoCredit), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);

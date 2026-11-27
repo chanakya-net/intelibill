@@ -31,6 +31,7 @@ function customer(customerId: string, isActive = true): Customer {
     address: 'Main Street',
     isActive,
     creditLimit: 500,
+    creditPolicyMode: 'NoCredit',
     purchaseCount: 1,
     lifetimeRevenue: 100,
     currentMonthRevenue: 25,

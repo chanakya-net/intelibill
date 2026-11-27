@@ -25,6 +25,7 @@ describe('CustomersFacade', () => {
       address: null,
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit' as const,
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,
@@ -78,6 +79,7 @@ describe('CustomersFacade', () => {
       address: null,
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit' as const,
       gstin: null,
       stateCode: null,
     };
@@ -92,6 +94,7 @@ describe('CustomersFacade', () => {
       address: null,
       isActive: true,
       creditLimit: 100,
+      creditPolicyMode: 'NoCredit' as const,
       gstin: null,
       stateCode: null,
     };

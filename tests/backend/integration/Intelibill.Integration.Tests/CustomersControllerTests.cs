@@ -113,7 +113,8 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             name = "John Doe",
             phoneNumber = "+919876543210",
             address = "12 Market Road",
-            isActive = true
+            isActive = true,
+            creditPolicyMode = "NoCredit"
         });
 
         var addResponse = await client.SendAsync(addRequest);
@@ -146,7 +147,8 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             name = "John Doe",
             phoneNumber = "+919876543210",
             address = "12 Market Road",
-            isActive = true
+            isActive = true,
+            creditPolicyMode = "NoCredit"
         });
         var addResponse = await client.SendAsync(addRequest);
         addResponse.EnsureSuccessStatusCode();
@@ -165,7 +167,8 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             phoneNumber = "+918888888888",
             address = "43 MG Road",
             isActive = false,
-            creditLimit = 1250.50m
+            creditLimit = 1250.50m,
+            creditPolicyMode = "NoCredit"
         });
         
         var editResponse = await client.SendAsync(editRequest);
@@ -202,6 +205,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             phoneNumber = "+919876543210",
             address = "12 Market Road",
             isActive = true,
+            creditPolicyMode = "NoCredit",
         });
         var addCustomerResponse = await client.SendAsync(addCustomerRequest);
         Assert.Equal(HttpStatusCode.Created, addCustomerResponse.StatusCode);
@@ -275,6 +279,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             phoneNumber = "+919876543210",
             address = "12 Market Road",
             isActive = true,
+            creditPolicyMode = "NoCredit",
         });
         var addResponse = await client.SendAsync(addCustomerRequest);
         addResponse.EnsureSuccessStatusCode();
@@ -313,6 +318,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             phoneNumber = "+919876543210",
             address = "12 Market Road",
             isActive = true,
+            creditPolicyMode = "NoCredit",
         });
         var addCustomerResponse = await client.SendAsync(addCustomerRequest);
         Assert.Equal(HttpStatusCode.Created, addCustomerResponse.StatusCode);
@@ -357,6 +363,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             phoneNumber = "+919876543210",
             address = "12 Market Road",
             isActive = true,
+            creditPolicyMode = "NoCredit",
         });
         var addCustomerResponse = await client.SendAsync(addCustomerRequest);
         Assert.Equal(HttpStatusCode.Created, addCustomerResponse.StatusCode);

@@ -20,7 +20,6 @@ import { CustomersFacade } from '../state/customers.facade';
 import {
   MAX_CREDIT_TERMS_DAYS,
   SELECTABLE_CREDIT_POLICIES,
-  effectiveCreditPolicy,
   creditPolicyLabelKey,
   enforcedPolicyNeedsLimit,
 } from '../utils/credit-policy.util';
@@ -72,17 +71,12 @@ export class EditCustomerOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly stateOptions = [...GST_STATE_OPTIONS];
-  /** Legacy advisory can be kept while the owner reviews it, never newly chosen. */
-  readonly creditPolicyOptions = computed(() => {
-    const modes: CreditPolicyMode[] =
-      effectiveCreditPolicy(this.customer().creditPolicyMode) === 'LegacyAdvisory'
-        ? [...SELECTABLE_CREDIT_POLICIES, 'LegacyAdvisory']
-        : [...SELECTABLE_CREDIT_POLICIES];
-    return modes.map((value) => ({
+  readonly creditPolicyOptions = computed(() =>
+    SELECTABLE_CREDIT_POLICIES.map((value) => ({
       value,
       label: creditPolicyLabelKey(value),
-    }));
-  });
+    })),
+  );
 
   readonly form = this.formBuilder.nonNullable.group(
     {
@@ -146,7 +140,7 @@ export class EditCustomerOverlayComponent implements OnInit {
       address: c.address ?? '',
       isActive: c.isActive,
       creditLimit: c.creditLimit,
-      creditPolicyMode: effectiveCreditPolicy(c.creditPolicyMode),
+      creditPolicyMode: c.creditPolicyMode,
       creditTermsDays: c.creditTermsDays ?? null,
       gstin: c.gstin ?? '',
       stateCode: c.stateCode ?? '',
@@ -179,10 +173,10 @@ export class EditCustomerOverlayComponent implements OnInit {
       creditLimit: raw.creditLimit,
       creditPolicyMode: raw.creditPolicyMode,
       creditTermsDays: raw.creditTermsDays ?? null,
-      // The server keeps a field that is absent or null; an empty string is what clears it.
-      gstin: this.nullableTrimmed(raw.gstin)?.toUpperCase() ?? '',
+      // Every field is saved as sent: null records none.
+      gstin: this.nullableTrimmed(raw.gstin)?.toUpperCase() ?? null,
       // A cleared state select leaves null in the control.
-      stateCode: raw.stateCode || '',
+      stateCode: raw.stateCode || null,
     });
   }
 

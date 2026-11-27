@@ -161,7 +161,7 @@ public sealed partial class P0412LicensingTests
     {
         if (partyType == "Customer")
         {
-            using var customer = await client.PostAsJsonAsync("/api/customers", new { name = "Customer", phoneNumber = $"+9198{Random.Shared.Next(10000000, 99999999)}", isActive = true }, Ct);
+            using var customer = await client.PostAsJsonAsync("/api/customers", new { name = "Customer", phoneNumber = $"+9198{Random.Shared.Next(10000000, 99999999)}", isActive = true, creditLimit = 1_000_000m, creditPolicyMode = "Enforced" }, Ct);
             return (await ReadSuccessAsync(customer)).GetProperty("customerId").GetGuid();
         }
 

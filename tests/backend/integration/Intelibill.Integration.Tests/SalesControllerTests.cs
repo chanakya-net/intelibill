@@ -199,6 +199,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             phoneNumber,
             address = (string?)null,
             isActive,
+            creditLimit = 1_000_000m,
+            creditPolicyMode = "Enforced",
         });
 
         var response = await client.SendAsync(request);
@@ -1661,7 +1663,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         using (var editCustomer = new HttpRequestMessage(HttpMethod.Put, $"/api/customers/{customerId}"))
         {
             editCustomer.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-            editCustomer.Content = JsonContent.Create(new { name = "Renamed Buyer", phoneNumber = "+919999999999", address = "Elsewhere", isActive = true, creditLimit = 0m });
+            editCustomer.Content = JsonContent.Create(new { name = "Renamed Buyer", phoneNumber = "+919999999999", address = "Elsewhere", isActive = true, creditLimit = 1_000_000m, creditPolicyMode = "Enforced" });
             (await client.SendAsync(editCustomer)).EnsureSuccessStatusCode();
         }
 
@@ -3160,6 +3162,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                 phoneNumber = "+919876543210",
                 address = "12 Market Road",
                 isActive = true,
+                creditLimit = 1_000_000m,
+                creditPolicyMode = "Enforced",
             });
 
             var addCustomerResponse = await client.SendAsync(addCustomerRequest);

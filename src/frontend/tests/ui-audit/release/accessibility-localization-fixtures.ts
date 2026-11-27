@@ -12,7 +12,7 @@ export const CUSTOMER = {
   creditLimit: 100000,
   outstandingDue: 50,
   isActive: true,
-  creditPolicyMode: 'LegacyAdvisory',
+  creditPolicyMode: 'Enforced',
   creditTermsDays: null,
 };
 const json = (r: Route, body: unknown, status = 200) =>
@@ -282,7 +282,7 @@ export async function accessibilityFixtures(page: Page) {
       return json(r, {
         ...CUSTOMER,
         currentExposure: 50,
-        availableCredit: null,
+        availableCredit: 99950,
         overdueAmount: 0,
         requiresOverride: false,
       });

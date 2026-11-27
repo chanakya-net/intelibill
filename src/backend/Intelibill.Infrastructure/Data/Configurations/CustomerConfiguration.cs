@@ -41,11 +41,12 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .HasColumnType("numeric(10,2)")
             .HasDefaultValue(0m);
 
-        // Customers recorded before credit policies existed keep their old, unenforced behaviour,
-        // labelled as legacy advisory until the merchant chooses a policy.
+        // Every customer is created with an explicit policy. The baseline schema still carries the
+        // removed mode 3 as its column default and in its CHECK list; neither is ever written, and
+        // both go with the next migration (default dropped, CHECK narrowed to (1, 2)).
         builder.Property(c => c.CreditPolicyMode)
             .IsRequired()
-            .HasDefaultValue(CreditPolicyMode.LegacyAdvisory)
+            .HasDefaultValue((CreditPolicyMode)3)
             .HasSentinel((CreditPolicyMode)0);
 
         builder.Property(c => c.CreditTermsDays);

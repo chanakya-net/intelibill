@@ -6,20 +6,15 @@
   >
     <div class="flex flex-wrap items-center gap-2">
       <span class="font-semibold">{{ policyLabelKey() | transloco }}</span>
-      @if (credit.availableCredit !== null) {
-        <span data-testid="sale-credit-available"
-          >{{ 'sales.newSale.credit.available' | transloco }}:
-          {{ credit.availableCredit | localeMoney }}</span
-        >
-      }
+      <span data-testid="sale-credit-available"
+        >{{ 'sales.newSale.credit.available' | transloco }}:
+        {{ credit.availableCredit | localeMoney }}</span
+      >
       <span class="text-slate-500"
         >{{ 'sales.newSale.credit.balance' | transloco }}:
         {{ credit.currentExposure | localeMoney }}</span
       >
     </div>
-    @if (isAdvisory()) {
-      <small class="text-amber-700">{{ 'sales.newSale.credit.advisoryNotice' | transloco }}</small>
-    }
     @if (isBlocked()) {
       <small class="text-red-700" data-testid="sale-credit-blocked">{{
         (credit.isActive
