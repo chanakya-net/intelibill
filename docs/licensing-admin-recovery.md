@@ -89,4 +89,4 @@ launch inputs and are **not** established by this change. Before production acce
    accounts, and retired authenticator ciphertext is erased when recovery commits.
 3. Both migrations refuse Down after recovery evidence exists (SQLSTATE 55000). Use the existing
    schema and recover forward. Reproduce the local cutover, rollback and browser paths with
-   `bash tests/licensing/acceptance/run-p0112-browser.sh`.
+   `bash tests/backend/licensing/acceptance/run-p0112-browser.sh`.

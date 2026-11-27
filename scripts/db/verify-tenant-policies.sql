@@ -9,7 +9,7 @@
 --     -f scripts/db/verify-tenant-policies.sql
 --
 -- The authority on how each table should be treated is
--- src/backend/Intelibill.Infrastructure/Data/TenantPolicyManifest.cs, which the
+-- src/backend/intelibill/Intelibill.Infrastructure/Data/TenantPolicyManifest.cs, which the
 -- test suite compares against the EF model for exact set equality.
 -- docs/security/tenant-policy-matrix.md is the readable form of the same thing.
 

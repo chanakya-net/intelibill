@@ -5,7 +5,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../backend/integration/Intelibill.Integration.Tests/Intelibill.Integration.Tests.csproj" />
+    <ProjectReference Include="../../backend/intelibill/integration/Intelibill.Integration.Tests/Intelibill.Integration.Tests.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 </Project>

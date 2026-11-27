@@ -46,13 +46,13 @@ services:
     restart: "no"
 
   # The merchant schema, applied by the migration bundle (src/backend/
-  # Dockerfile.migrate) as the schema owner `intelibill` -- the same identity
+  # intelibill/Dockerfile.migrate) as the schema owner `intelibill` -- the same identity
   # `dotnet ef database update` uses locally. The API never migrates.
   merchant-migrate:
     profiles: [full]
     build:
       context: .
-      dockerfile: src/backend/Dockerfile.migrate
+      dockerfile: src/backend/intelibill/Dockerfile.migrate
     container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_merchant_migrate
     environment:
       - Database__Host=postgres
@@ -110,7 +110,7 @@ services:
     profiles: [full]
     build:
       context: .
-      dockerfile: src/backend/Dockerfile
+      dockerfile: src/backend/intelibill/Dockerfile
     container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_backend
     # The container listens on 8080, the same port it uses when deployed. The
     # host mapping stays 5277 (loopback only) so local tooling and the Angular
@@ -218,7 +218,7 @@ services:
     profiles: [full]
     build:
       context: .
-      dockerfile: src/licensing/Dockerfile.migrate
+      dockerfile: src/backend/licensing/Dockerfile.migrate
     container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_licensing_migrate
     environment:
       - LicensingMigrationDatabase__Host=postgres
@@ -260,7 +260,7 @@ services:
     profiles: [full]
     build:
       context: .
-      dockerfile: src/licensing/Dockerfile
+      dockerfile: src/backend/licensing/Dockerfile
     container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_licensing_api
     ports:
       - "127.0.0.1:${INTELIBILL_LICENSING_API_PORT:-5278}:8080"

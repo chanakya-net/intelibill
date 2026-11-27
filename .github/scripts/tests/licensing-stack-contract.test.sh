@@ -142,11 +142,11 @@ published(services, "mailpit").each do |host_ip, _, _|
 end
 
 builds = {
-  "backend" => "src/backend/Dockerfile",
+  "backend" => "src/backend/intelibill/Dockerfile",
   "frontend" => "src/frontend/Dockerfile",
-  "merchant-migrate" => "src/backend/Dockerfile.migrate",
-  "licensing-api" => "src/licensing/Dockerfile",
-  "licensing-migrate" => "src/licensing/Dockerfile.migrate",
+  "merchant-migrate" => "src/backend/intelibill/Dockerfile.migrate",
+  "licensing-api" => "src/backend/licensing/Dockerfile",
+  "licensing-migrate" => "src/backend/licensing/Dockerfile.migrate",
   "admin-frontend" => "src/admin-frontend/Dockerfile",
 }
 builds.each do |name, dockerfile|

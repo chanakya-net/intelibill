@@ -19,6 +19,6 @@ Remove the web entry and startup redirect by reverting the web release. Retain t
 
 ## Verification
 
-Run `dotnet test tests/backend/integration/Intelibill.Integration.Tests --filter FullyQualifiedName~ShopSetupTests` and `dotnet ef migrations has-pending-model-changes --project src/backend/Intelibill.Infrastructure --startup-project src/backend/Intelibill.Api`.
+Run `dotnet test tests/backend/intelibill/integration/Intelibill.Integration.Tests --filter FullyQualifiedName~ShopSetupTests` and `dotnet ef migrations has-pending-model-changes --project src/backend/intelibill/Intelibill.Infrastructure --startup-project src/backend/intelibill/Intelibill.Api`.
 
 From `src/frontend`, run `bun run build`, then `bun run audit:ui:onboarding`. The audit requires Docker and Chromium. It starts the real API on loopback with a new Testcontainers database, serves the production bundle through the built web proxy, and takes down its own processes and database. The normal `bun run audit:ui:release` suite remains separate.

@@ -17,7 +17,7 @@ The Chromium fixture seeds two independent terms and one grouped term in local P
 Behavior-first red check against `3544c9c6cba46dadaec51480a00263a70c8c4ee1`, with only the initial test added:
 
 ```shell
-dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0205Tests' --logger 'console;verbosity=normal'
+dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0205Tests' --logger 'console;verbosity=normal'
 ```
 
 The test ran on PostgreSQL and failed at `RequestAsync`. It expected HTTP 201 Created and got HTTP 404 Not Found. The exit status was 1.

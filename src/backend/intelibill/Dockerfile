@@ -1,0 +1,56 @@
+# Base images are pinned by digest rather than the floating 10.0 tag. Two builds
+# of the same commit must produce the same image, and a rollback to a recorded
+# digest is only a rollback if the base cannot move underneath it. Refresh these
+# deliberately, in a reviewed commit.
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS build
+WORKDIR /app
+
+# Copy the root-level property files for NuGet package management
+COPY ["Directory.Build.props", "./"]
+COPY ["Directory.Packages.props", "./"]
+
+# Copy project files and restore dependencies
+COPY ["src/backend/intelibill/Intelibill.Api/Intelibill.Api.csproj", "src/backend/intelibill/Intelibill.Api/"]
+COPY ["src/backend/intelibill/Intelibill.Application/Intelibill.Application.csproj", "src/backend/intelibill/Intelibill.Application/"]
+COPY ["src/backend/intelibill/Intelibill.Domain/Intelibill.Domain.csproj", "src/backend/intelibill/Intelibill.Domain/"]
+COPY ["src/backend/intelibill/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj", "src/backend/intelibill/Intelibill.Infrastructure/"]
+COPY ["src/backend/shared/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj", "src/backend/shared/Intelibill.Shared.Web/"]
+
+# Restore NuGet packages
+COPY ["src/backend/shared/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj", "src/backend/shared/Intelibill.Shared.Contracts/"]
+COPY ["src/backend/shared/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj", "src/backend/shared/Intelibill.Shared.Security/"]
+RUN dotnet restore "src/backend/intelibill/Intelibill.Api/Intelibill.Api.csproj"
+
+# Copy the rest of the backend source code
+COPY ["src/backend/intelibill/", "src/backend/intelibill/"]
+COPY ["src/backend/shared/", "src/backend/shared/"]
+
+# Build and publish the API project
+WORKDIR "/app/src/backend/intelibill/Intelibill.Api"
+RUN dotnet run --no-launch-profile --no-restore -c Release -- codegen write \
+    && dotnet publish "Intelibill.Api.csproj" --no-restore -c Release -o /app/publish /p:UseAppHost=false
+
+# Use the ASP.NET 10.0 runtime for the final image
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:bfd912c83295ce66d4b706ebb8541b9f14259b0e76fbb88b2751f58ce2399d2e AS runtime
+WORKDIR /app
+
+# Installed before the user switch, which needs root. libgssapi-krb5-2 is a
+# PostgreSQL connectivity dependency; curl serves the container health check.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_HTTP_PORTS=8080
+
+EXPOSE 8080
+
+# APP_UID is the non-root account the .NET base image already ships (1654).
+# Nothing here writes to the filesystem and the schema belongs to the migration
+# job, so the runtime never needs a privilege it cannot get back.
+USER $APP_UID
+
+# Run the app
+ENTRYPOINT ["dotnet", "Intelibill.Api.dll"]

@@ -164,7 +164,7 @@ merchant data:
   Merchant credentials carry no provider authority.
 - Probe `GET http://127.0.0.1:5278/health/live` and `/health/ready`.
 
-For a disposable fixture, run [the P01 foundation smoke check](../tests/licensing/acceptance/p01-foundation.md).
+For a disposable fixture, run [the P01 foundation smoke check](../tests/backend/licensing/acceptance/p01-foundation.md).
 It supplies separate local MFA and session-signing roots, prepares a one-use
 owner proof and exercises invitation delivery through Mailpit. The owner
 chooses a password, enrolls an authenticator, acknowledges recovery codes and
@@ -198,7 +198,7 @@ services and synthetic identities.
 that touch merchant, licensing, admin, shared, workspace, Compose or local
 database script paths. Its single validation job builds the root
 `Intelibill.slnx` (both backends and the shared projects), runs every test
-project under `tests/backend`, `tests/licensing` and `tests/shared` once,
+project under `tests/backend`, `tests/backend/licensing` and `tests/backend/shared` once,
 installs the root Bun workspace once, builds and tests the merchant and admin
 web apps, checks the Compose contract and the admin runtime server, and builds
 and scans all six images. Licensing and admin images are built for validation
@@ -212,7 +212,7 @@ Compose projects (never your default stack, containers or volume) and records
 evidence. The harness uses Docker Compose and `jq` to check resolved resources
 and existing ownership before changing or removing a fixture. It reads the
 checked-in Compose file with fixture-specific ports and skips local Compose
-overrides and `.env`. See `tests/licensing/acceptance/p01-05-infrastructure.md`.
+overrides and `.env`. See `tests/backend/licensing/acceptance/p01-05-infrastructure.md`.
 
 ```bash
 P0105_PROJECT=intelibill-p01-05-local P0105_ARTIFACTS=/tmp/p0105 \
@@ -351,8 +351,8 @@ Run the local browser check after `bun run build` from each of `src/frontend`
 and `src/admin-frontend`.
 
 ```sh
-P0201_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0201BrowserTests'
-P0202_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0202BrowserTests'
+P0201_RUN_BROWSER=1 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0201BrowserTests'
+P0202_RUN_BROWSER=1 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0202BrowserTests'
 ```
 
 The P0202 check needs only the merchant web build. It runs the production
@@ -439,8 +439,8 @@ both participants' authority and request evidence.
 Local verification, after building the merchant web from `src/frontend`:
 
 ```bash
-dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204Tests'
-P0204_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204BrowserTests' --logger 'console;verbosity=normal'
+dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204Tests'
+P0204_RUN_BROWSER=1 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204BrowserTests' --logger 'console;verbosity=normal'
 ```
 
 ### Plan retirement (P02-08)
@@ -504,7 +504,7 @@ Apply `20261116220000_AddSubscriptionCancellationWithdrawals` after the cancella
 
 ### P02 lifecycle acceptance
 
-Use the [P02 acceptance guide](../tests/licensing/acceptance/p02-lifecycle.md) for the PostgreSQL and shipping Chromium scenarios, P03 synchronization contracts and commercial launch inputs. Keep this phase observe-only.
+Use the [P02 acceptance guide](../tests/backend/licensing/acceptance/p02-lifecycle.md) for the PostgreSQL and shipping Chromium scenarios, P03 synchronization contracts and commercial launch inputs. Keep this phase observe-only.
 
 ### Full-payment quote review
 
@@ -512,7 +512,7 @@ Apply `20261116230000_CheckoutPayments` to the licensing database, apply the exi
 
 Acceptance appends a receipt to the frozen quote. The merchant can reload or recover the original operation when a response is lost. Quote acceptance creates no payment attempt and confers no entitlement. Roll back by retiring the quote reviewers and writers while retaining the tables and their facts. The migration refuses a downgrade after the first quote.
 
-See [P03-01 fixture verification](../tests/licensing/acceptance/p03-01-checkout.md) for the browser run.
+See [P03-01 fixture verification](../tests/backend/licensing/acceptance/p03-01-checkout.md) for the browser run.
 
 ### Simulator full-payment purchase
 
@@ -522,7 +522,7 @@ An accepted first-purchase quote (no renewal term, start at fulfilment, no trial
 
 The only adapter in this slice is the development simulator. It is registered only when `Payments:Mode = LocalSimulator` in a Development or Testing host; otherwise `canStart` is false, starting answers `Billing.PaymentUnavailable`, and the simulator capture route is not mapped (the merchant relay also answers 404 outside Development/Testing). A started simulator attempt keeps its status when it is later served by a host that no longer permits the simulator, but licensing offers no launcher for it, and a merchant host outside Development/Testing strips any simulator launcher before it reaches the browser. A trial delivery re-reads shop coverage after taking the billing-account lock, and `trial_history` refuses a shop with paid coverage, so a trial that loses the race to a paid fulfilment answers `NeedsReview`/`CoverageExists`; a fulfilment that loses to a committed trial keeps the verified payment as `PaidNeedsReview`. No production payment, real provider or enforcement is enabled by this slice. Renewals, trial conversion, recovery of unknown dispatch, webhooks, manual payments and unmatched funds belong to later P03 slices.
 
-See [P03-02 simulator purchase](../tests/licensing/acceptance/p03-02-simulator-purchase.md) for the browser run.
+See [P03-02 simulator purchase](../tests/backend/licensing/acceptance/p03-02-simulator-purchase.md) for the browser run.
 
 ### Early and grace renewals (P03-08)
 
@@ -562,7 +562,7 @@ P0311 backend tests and the gated Chromium acceptance harness use fixed-clock de
 
 ## P03 payment acceptance gate
 
-Use the [P03 acceptance index](../tests/licensing/acceptance/p03-payments.md) for the finite R01–R21 PostgreSQL, adapter, consumer and shipping Chromium checks, including original-provider recovery and immutable confirmations across Applying/Applied. Preserve every original provider pin, key and uncertain operation. Local simulator/HTTP/script fixtures do not establish provider credentials, supported hosted methods, receiving-account behavior or webhook reachability; those human launch inputs remain unexecuted. Passing this gate authorizes no live charge, production activation or enforcement.
+Use the [P03 acceptance index](../tests/backend/licensing/acceptance/p03-payments.md) for the finite R01–R21 PostgreSQL, adapter, consumer and shipping Chromium checks, including original-provider recovery and immutable confirmations across Applying/Applied. Preserve every original provider pin, key and uncertain operation. Local simulator/HTTP/script fixtures do not establish provider credentials, supported hosted methods, receiving-account behavior or webhook reachability; those human launch inputs remain unexecuted. Passing this gate authorizes no live charge, production activation or enforcement.
 
 ## Reviewed shop reopening
 
@@ -586,7 +586,7 @@ decisions and their evidence.
 
 ## P04 online enforcement acceptance
 
-Run the [P04 acceptance matrix](../tests/licensing/acceptance/p04-enforcement.md)
+Run the [P04 acceptance matrix](../tests/backend/licensing/acceptance/p04-enforcement.md)
 against the combined branch with PostgreSQL, the shipping merchant build and
 local fixture credentials. Verify source and response fencing, expiry and
 suspension history, and measure provider-to-merchant acknowledgement under

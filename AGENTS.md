@@ -4,23 +4,23 @@
 
 ## Build & Test
 
-**Merchant Backend** (`src/backend/Intelibill.slnx`):
-- Build: `dotnet build src/backend/Intelibill.slnx`
-- Run: `dotnet run --project src/backend/Intelibill.Api`
-- Unit tests: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests` (also `Application.Unit.Tests`, `Api.Unit.Tests`)
+**Merchant Backend** (`src/backend/intelibill/Intelibill.slnx`):
+- Build: `dotnet build src/backend/intelibill/Intelibill.slnx`
+- Run: `dotnet run --project src/backend/intelibill/Intelibill.Api`
+- Unit tests: `dotnet test tests/backend/intelibill/unit/Intelibill.Domain.Unit.Tests` (also `Application.Unit.Tests`, `Api.Unit.Tests`)
 - Integration tests (requires Docker): `scripts/dev/test-integration.sh [--filter "..."]` (pre-generates Wolverine handlers, runs against Testcontainers PostgreSQL, then cleans generated files)
 
-**Licensing Service** (`src/licensing/Intelibill.Licensing.slnx`):
-- Build: `dotnet build src/licensing/Intelibill.Licensing.slnx`
+**Licensing Service** (`src/backend/licensing/Intelibill.Licensing.slnx`):
+- Build: `dotnet build src/backend/licensing/Intelibill.Licensing.slnx`
 - Integration tests (requires Docker): `scripts/dev/test-integration.sh --licensing [--filter "..."]` (reuses cached generated handlers while the merchant backend is unchanged; do not set `INTEGRATION_TEST_PARALLELISM` below the default for a local run, see `docs/licensing-rollout.md`)
 - Verification scoping: run targeted `--filter` suites for touched features/seams first; run the unfiltered licensing suite only when shared licensing DB, entitlement, or delegation seams change.
 
 **EF Core Migrations** — API startup never applies migrations automatically; run `database update` locally (deployed environments use the migration job):
 ```bash
-dotnet ef migrations add <MigrationName> --project src/backend/Intelibill.Infrastructure --startup-project src/backend/Intelibill.Api
-dotnet ef database update --project src/backend/Intelibill.Infrastructure --startup-project src/backend/Intelibill.Api
+dotnet ef migrations add <MigrationName> --project src/backend/intelibill/Intelibill.Infrastructure --startup-project src/backend/intelibill/Intelibill.Api
+dotnet ef database update --project src/backend/intelibill/Intelibill.Infrastructure --startup-project src/backend/intelibill/Intelibill.Api
 ```
-For licensing migrations, target `--project src/licensing/Intelibill.Licensing.Infrastructure --startup-project src/licensing/Intelibill.Licensing.Api --context LicensingDbContext`.
+For licensing migrations, target `--project src/backend/licensing/Intelibill.Licensing.Infrastructure --startup-project src/backend/licensing/Intelibill.Licensing.Api --context LicensingDbContext`.
 Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `architecture_doc/backend-architecture.md`).
 
 **Web Workspaces** (Bun `1.3.11` only — never `npm` or `yarn`; single root `bun.lock`):
@@ -65,27 +65,28 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 ## Environment & Tech Stack
 
 - **.NET**: SDK pinned in `global.json` (`10.0.105`, `latestMinor` roll-forward); ASP.NET Core 10, C# latest, EF Core 10, Npgsql, Wolverine 5.24, FluentValidation 12, ErrorOr 2.0, xUnit 2.9.
-- **Database**: PostgreSQL (`src/backend/Intelibill.Api/appsettings.Development.json` or `docker compose up -d`; `DatabaseOptions` in `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs`). `appsettings.json` is intentionally empty.
+- **Database**: PostgreSQL (`src/backend/intelibill/Intelibill.Api/appsettings.Development.json` or `docker compose up -d`; `DatabaseOptions` in `src/backend/intelibill/Intelibill.Infrastructure/Options/DatabaseOptions.cs`). `appsettings.json` is intentionally empty.
 - **Web / Mobile**: Angular 21 + PrimeNG 21 + Bun 1.3.11 + Vitest + Playwright; Flutter 3.44.2.
 
 ## Structure
 
 | Path | Purpose |
 |---|---|
-| `src/backend/` | Merchant API (`Domain`, `Application`, `Infrastructure`, `Api`) |
-| `src/licensing/` | Licensing service (`Intelibill.Licensing.slnx`) |
+| `src/backend/intelibill/` | Merchant API (`Domain`, `Application`, `Infrastructure`, `Api`) |
+| `src/backend/licensing/` | Licensing service (`Intelibill.Licensing.slnx`) |
+| `src/backend/shared/` | Shared backend libraries (`Contracts`, `Security`, `Web`) |
+| `src/backend/barcode-master-api/` & `src/backend/hsn-finder-ai/` | Separate deployable services (own solutions & package versions) |
 | `src/frontend/` | Merchant Angular web app |
 | `src/admin-frontend/` | Admin Angular web app (`ADMIN`) |
 | `src/shared/frontend/` | Shared web workspace packages (`@intelibill/ui`, `@intelibill/api`) |
 | `src/mobile/android/intelibill_mobile/` | Flutter Android app |
-| `src/services/` | Separate deployables (`barcode-master-api`, `hsn-finder-ai`) |
-| `tests/backend/` & `tests/licensing/` | Unit & Testcontainers integration tests |
+| `tests/backend/` | Unit & Testcontainers integration tests (`intelibill/`, `licensing/`, `shared/`, `barcode-master-api/`) |
 | `Directory.Build.props`, `Directory.Packages.props`, `global.json` | Root MSBuild, CPM, and .NET SDK pin |
 
 ## NuGet Packages & Supporting Services
 
 - Root projects: add `<PackageVersion Include="Pkg.Name" Version="X.Y.Z" />` to `Directory.Packages.props` and versionless `<PackageReference Include="Pkg.Name" />` to `.csproj`.
-- **Supporting services (`src/services/`, `tests/services/`)**: `barcode-master-api` (`BarcodeAPI.sln`, own `AGENTS.md`) and `hsn-finder-ai` (`Sankra.HsnFinder.sln`) are separate deployables excluded from `Intelibill.slnx`. Their `Directory.Build.props` / `Directory.Packages.props` disable root CPM — keep both copies identical and **never** add service packages to the root `Directory.Packages.props`.
+- **Supporting services (`src/backend/barcode-master-api/`, `src/backend/hsn-finder-ai/`, `tests/backend/barcode-master-api/`)**: `barcode-master-api` (`BarcodeAPI.sln`, own `AGENTS.md`) and `hsn-finder-ai` (`Sankra.HsnFinder.sln`) are separate deployables excluded from `Intelibill.slnx`. Their local `Directory.Build.props` / `Directory.Packages.props` disable root CPM — keep those copies identical and **never** add service packages to the root `Directory.Packages.props`.
 
 ## CodeGraph
 

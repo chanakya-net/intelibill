@@ -232,7 +232,7 @@ docs/superpowers/
 docs/reviews/
 docs/environment-infrastructure-handoff.md
 # Wolverine handler code written by `codegen write`; always regenerated, never committed.
-src/backend/Intelibill.Api/Internal/Generated/
+src/backend/intelibill/Intelibill.Api/Internal/Generated/
 CLAUDE.md
 GEMINI.md
 band

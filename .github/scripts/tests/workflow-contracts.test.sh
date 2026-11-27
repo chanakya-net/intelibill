@@ -208,7 +208,7 @@ assert(
 )
 release_images = {
   "build_api" => {
-    "dockerfile" => "src/backend/Dockerfile",
+    "dockerfile" => "src/backend/intelibill/Dockerfile",
     "repository" => "${{ env.API_IMAGE }}",
     "consumer" => "needs.build_api.outputs.image",
   },
@@ -218,7 +218,7 @@ release_images = {
     "consumer" => "needs.build_web.outputs.image",
   },
   "build_migrate" => {
-    "dockerfile" => "src/backend/Dockerfile.migrate",
+    "dockerfile" => "src/backend/intelibill/Dockerfile.migrate",
     "repository" => "${{ env.MIGRATE_IMAGE }}",
     "consumer" => "needs.build_migrate.outputs.image",
   },
@@ -289,19 +289,20 @@ assert(
 pre_835_release_paths = %w[
   .github/scripts/**
   .github/workflows/deploy.yml
-  src/backend/**
+  src/backend/intelibill/**
+  src/backend/shared/**
   src/frontend/**
   src/shared/**
-  tests/backend/**
+  tests/backend/intelibill/**
   Directory.Build.props
   Directory.Packages.props
   global.json
 ]
 validation_only_paths = %w[
-  src/licensing/**
+  src/backend/licensing/**
   src/admin-frontend/**
-  tests/licensing/**
-  tests/shared/**
+  tests/backend/licensing/**
+  tests/backend/shared/**
   tests/contracts/licensing/**
   Intelibill.slnx
   package.json
@@ -327,7 +328,7 @@ assert(
     validation_commands.include?("dotnet build Intelibill.slnx"),
   "validation must restore and build the root solution so both backends compile against shared code",
 )
-%w[tests/backend tests/licensing tests/shared].each do |test_root|
+%w[tests/backend/intelibill tests/backend/licensing tests/backend/shared].each do |test_root|
   assert(
     validation_commands.include?(test_root),
     "backend test enumeration omits #{test_root}",
@@ -371,11 +372,11 @@ assert(
   "validation must exercise the admin web runtime server",
 )
 %w[
-  src/backend/Dockerfile
+  src/backend/intelibill/Dockerfile
   src/frontend/Dockerfile
-  src/backend/Dockerfile.migrate
-  src/licensing/Dockerfile
-  src/licensing/Dockerfile.migrate
+  src/backend/intelibill/Dockerfile.migrate
+  src/backend/licensing/Dockerfile
+  src/backend/licensing/Dockerfile.migrate
   src/admin-frontend/Dockerfile
 ].each do |dockerfile|
   assert(
@@ -394,7 +395,7 @@ deploy_jobs.each do |job_name, job|
   next if job_name == "validate"
 
   job_text = commands(job)
-  %w[src/licensing src/admin-frontend licensing-api licensing-migrate admin-web].each do |marker|
+  %w[src/backend/licensing src/admin-frontend licensing-api licensing-migrate admin-web].each do |marker|
     assert(
       !job_text.include?(marker),
       "#{job_name} publishes or deploys licensing/admin output (#{marker}); P01-05 adds validation only",

@@ -147,8 +147,8 @@ rendering-library behavior still need environment-specific measurement.
 - Final adversarial plus return/cancellation accounting integration run:48 passed,0 failed,
   `/tmp/task4-bounded-final.log`, `/tmp/task4-bounded-final.trx`. Four supplemental measurement checks passed after adding the sampler and exact9/5
   directory assertions: `/tmp/task4-memory-final.log`, `/tmp/task4-memory-final.trx`. Existing dashboard/P&L regression coverage is included in the full backend run.
-- EF `has-pending-model-changes --no-build --project src/backend/Intelibill.Infrastructure
-  --startup-project src/backend/Intelibill.Api`:exit0, no changes; `/tmp/task4-pending-model.log`.
+- EF `has-pending-model-changes --no-build --project src/backend/intelibill/Intelibill.Infrastructure
+  --startup-project src/backend/intelibill/Intelibill.Api`:exit0, no changes; `/tmp/task4-pending-model.log`.
 - Final frontend1278fe06:294 files /2,918 tests plus59 worker/style checks passed;
   `/tmp/intelibill-bounded-final-fix-frontend.log`. Production build passed,
   `/tmp/intelibill-bounded-final-fix-build.log`, retaining existing bundle/stylesheet budget warnings.

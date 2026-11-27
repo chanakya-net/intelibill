@@ -1,0 +1,58 @@
+# Run EF design-time code on the native build host while publishing the bundle
+# for the requested Container Apps architecture.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS build
+WORKDIR /src
+
+COPY ["global.json", "./"]
+COPY ["Directory.Build.props", "./"]
+COPY ["Directory.Packages.props", "./"]
+COPY ["src/backend/intelibill/Intelibill.Api/Intelibill.Api.csproj", "src/backend/intelibill/Intelibill.Api/"]
+COPY ["src/backend/intelibill/Intelibill.Application/Intelibill.Application.csproj", "src/backend/intelibill/Intelibill.Application/"]
+COPY ["src/backend/intelibill/Intelibill.Domain/Intelibill.Domain.csproj", "src/backend/intelibill/Intelibill.Domain/"]
+COPY ["src/backend/intelibill/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj", "src/backend/intelibill/Intelibill.Infrastructure/"]
+COPY ["src/backend/shared/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj", "src/backend/shared/Intelibill.Shared.Web/"]
+
+COPY ["src/backend/shared/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj", "src/backend/shared/Intelibill.Shared.Contracts/"]
+COPY ["src/backend/shared/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj", "src/backend/shared/Intelibill.Shared.Security/"]
+RUN dotnet restore "src/backend/intelibill/Intelibill.Api/Intelibill.Api.csproj"
+
+COPY ["src/backend/intelibill/", "src/backend/intelibill/"]
+COPY ["src/backend/shared/", "src/backend/shared/"]
+
+# EF tooling constructs the DbContext while generating the bundle but never
+# connects to this database. These non-secret values exist only in the discarded
+# build stage; the runtime bundle reads its real Database__* configuration.
+ENV Database__Host=localhost \
+    Database__Database=intelibill_build \
+    Database__Username=intelibill_build \
+    Database__UseEntraAuth=true
+
+ARG TARGETARCH
+RUN dotnet tool install --tool-path /tools dotnet-ef --version 10.0.4 \
+    && case "${TARGETARCH}" in \
+       amd64) runtime_id="linux-x64" ;; \
+       arm64) runtime_id="linux-arm64" ;; \
+       *) printf 'Unsupported target architecture: %s\n' "${TARGETARCH}" >&2; exit 1 ;; \
+       esac \
+    && /tools/dotnet-ef migrations bundle \
+         --project src/backend/intelibill/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj \
+         --startup-project src/backend/intelibill/Intelibill.Api/Intelibill.Api.csproj \
+         --configuration Release \
+         --self-contained \
+         --target-runtime "${runtime_id}" \
+         --output /out/efbundle
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:bfd912c83295ce66d4b706ebb8541b9f14259b0e76fbb88b2751f58ce2399d2e AS runtime
+WORKDIR /app
+
+# Azure.Identity needs the system CA bundle; Npgsql's integrated authentication
+# dependencies load libgssapi even though production uses Entra access tokens.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build --chown=$APP_UID:$APP_UID /out/efbundle /app/efbundle
+
+USER $APP_UID
+
+ENTRYPOINT ["/app/efbundle"]

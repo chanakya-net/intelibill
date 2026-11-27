@@ -103,7 +103,7 @@ cd src/frontend && bun run audit:ui:release offline-permit-refresh.spec.ts offli
 27 Chromium release scenarios passed, including all 14 reconnect scenarios.
 
 ```sh
-dotnet test tests/backend/integration/Intelibill.Integration.Tests --filter 'FullyQualifiedName~P0502LicensingTests|FullyQualifiedName~P0402LicensingTests'
+dotnet test tests/backend/intelibill/integration/Intelibill.Integration.Tests --filter 'FullyQualifiedName~P0502LicensingTests|FullyQualifiedName~P0402LicensingTests'
 ```
 
 41 PostgreSQL integration cases passed, zero skipped.

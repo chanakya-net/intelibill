@@ -76,8 +76,8 @@ reports the saved policy and merchant confirmation separately.
 ## Verification
 
 ```sh
-dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0209Tests'
-P0209_RUN_BROWSER=1 P0209_EVIDENCE_DIR=<dir> dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0209BrowserTests'
+dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0209Tests'
+P0209_RUN_BROWSER=1 P0209_EVIDENCE_DIR=<dir> dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0209BrowserTests'
 ```
 
 Build both web apps first. The browser run uses local fixture terms and prices,

@@ -85,7 +85,7 @@ The current cost scenarios and source links are maintained in [infrastructure-ar
 
 ## 2. Azure Container Apps as the compute platform
 
-**Context.** The repository already builds `src/backend/Dockerfile` and `src/frontend/Dockerfile`. The platform should consume those without re-architecture.
+**Context.** The repository already builds `src/backend/intelibill/Dockerfile` and `src/frontend/Dockerfile`. The platform should consume those without re-architecture.
 
 **Options.**
 

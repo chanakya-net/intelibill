@@ -1317,7 +1317,7 @@ Deferred, each for a stated reason:
 
 ### 8.1 Make `Password` optional
 
-`src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs` currently marks `Password` as `[Required]` and concatenates it into the connection string. Under Entra auth there is no password. Drop `[Required]`, and add the pool setting:
+`src/backend/intelibill/Intelibill.Infrastructure/Options/DatabaseOptions.cs` currently marks `Password` as `[Required]` and concatenates it into the connection string. Under Entra auth there is no password. Drop `[Required]`, and add the pool setting:
 
 ```csharp
 public string? Password { get; init; }
@@ -1410,8 +1410,8 @@ Add health and operational telemetry for database pool wait, PostgreSQL token re
 ### 8.5 Verify
 
 ```bash
-dotnet build src/backend/Intelibill.slnx
-dotnet test src/backend/Intelibill.slnx
+dotnet build src/backend/intelibill/Intelibill.slnx
+dotnet test src/backend/intelibill/Intelibill.slnx
 docker compose up -d && docker compose logs backend
 ```
 
@@ -1704,7 +1704,7 @@ images once, and capture **three digests**. The implemented workflow publishes
   run: |
     az acr login --name intelibillacr
     docker buildx build \
-      -f src/backend/Dockerfile \
+      -f src/backend/intelibill/Dockerfile \
       -t intelibillacr.azurecr.io/api:${{ github.sha }} \
       --push --metadata-file meta.json .
     echo "digest=$(jq -r '."containerimage.digest"' meta.json)" >> "$GITHUB_OUTPUT"

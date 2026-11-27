@@ -7,24 +7,16 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - main
     paths:
       - .github/workflows/hsn-finder-ai-ci.yml
-      - src/services/hsn-finder-ai/**
-      - tests/services/hsn-finder-ai/**
-      - src/services/Directory.Build.props
-      - src/services/Directory.Packages.props
-      - tests/services/Directory.Build.props
-      - tests/services/Directory.Packages.props
+      - src/backend/hsn-finder-ai/**
+      - tests/backend/hsn-finder-ai/**
       - global.json
   push:
     branches:
       - main
     paths:
       - .github/workflows/hsn-finder-ai-ci.yml
-      - src/services/hsn-finder-ai/**
-      - tests/services/hsn-finder-ai/**
-      - src/services/Directory.Build.props
-      - src/services/Directory.Packages.props
-      - tests/services/Directory.Build.props
-      - tests/services/Directory.Packages.props
+      - src/backend/hsn-finder-ai/**
+      - tests/backend/hsn-finder-ai/**
       - global.json
   workflow_dispatch:
 
@@ -36,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOLUTION: src/services/hsn-finder-ai/Sankra.HsnFinder.sln
+  SOLUTION: src/backend/hsn-finder-ai/Sankra.HsnFinder.sln
 
 jobs:
   build-and-test:

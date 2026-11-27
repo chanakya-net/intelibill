@@ -1,7 +1,7 @@
 # Tenant policy matrix
 
 Every mapped table, and how the tenant boundary treats it. Generated from
-`src/backend/Intelibill.Infrastructure/Data/TenantPolicyManifest.cs`, which is
+`src/backend/intelibill/Intelibill.Infrastructure/Data/TenantPolicyManifest.cs`, which is
 compared for exact set equality against the EF model by
 `TenantPolicyManifestTests.EveryMappedTable_HasExplicitSecurityClassification`:
 a table added by a future migration fails that test until it is classified here.

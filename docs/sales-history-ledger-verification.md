@@ -4,8 +4,8 @@ This checklist captures the end-to-end verification steps for the Sales History 
 
 ## Backend
 
-- Unit: `dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests -c Release`
-- Integration (requires Docker): `dotnet test tests/backend/integration/Intelibill.Integration.Tests -c Release --filter SalesControllerTests`
+- Unit: `dotnet test tests/backend/intelibill/unit/Intelibill.Application.Unit.Tests -c Release`
+- Integration (requires Docker): `dotnet test tests/backend/intelibill/integration/Intelibill.Integration.Tests -c Release --filter SalesControllerTests`
 
 ## Frontend
 
