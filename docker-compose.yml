@@ -140,6 +140,11 @@ services:
       # and a local stack that quietly stopped checking its own runtime identity
       # would be the one place a missing shop scope goes unnoticed.
       - Database__RequireRestrictedRuntimeRole=true
+      # HSN lookups go to the HSN Finder container below. There is no
+      # depends_on for it on purpose: an HSN failure never holds this API back.
+      # The key must match the one hsn-finder accepts (ApiKey__Key there).
+      - HsnService__BaseUrl=http://hsn-finder:8080
+      - HsnService__ApiKey=${INTELIBILL_HSN_SERVICE_KEY:-dev-hsn-key-change-in-production}
       - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
       - Jwt__Issuer=Intelibill
       - Jwt__Audience=Intelibill
@@ -320,6 +325,47 @@ services:
     depends_on:
       licensing-api:
         condition: service_healthy
+    restart: on-failure
+
+  # ---- HSN Finder (AI lookup of GST HSN codes; no database) ----------------
+  #
+  # Independent of both branches above: it needs no database and nothing waits
+  # on it, so its failure never holds the merchant or licensing services back.
+  # The merchant API reaches it at http://hsn-finder:8080 (HsnService__BaseUrl).
+  #
+  # The provider key is NOT set here. Ai__ApiKey below is a deliberate
+  # placeholder so the stack starts for a developer without a provider key (the
+  # service refuses to start with a blank key); until a real one is supplied,
+  # lookups answer 503. Put the real values in the git-ignored root .env or the
+  # shell, never in this file: INTELIBILL_HSN_AI_API_KEY, and optionally
+  # INTELIBILL_HSN_AI_MODEL, INTELIBILL_HSN_AI_ENDPOINT, INTELIBILL_HSN_SERVICE_KEY.
+  # The image excludes appsettings.secrets.json, so environment variables are
+  # the only configuration channel here. Other Ai settings (API, reasoning
+  # effort, verbosity, web search) come from the image's appsettings.json.
+  hsn-finder:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/backend/hsn-finder-ai/Dockerfile
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_hsn_finder
+    ports:
+      - "127.0.0.1:${INTELIBILL_HSN_FINDER_PORT:-5279}:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - Ai__Endpoint=${INTELIBILL_HSN_AI_ENDPOINT:-https://api.openai.com/v1}
+      - Ai__ApiKey=${INTELIBILL_HSN_AI_API_KEY:-not-configured}
+      - Ai__Model=${INTELIBILL_HSN_AI_MODEL:-gpt-6.1-terra}
+      # The shared key callers send in X-Api-Key; the merchant API sends the
+      # same value (HsnService__ApiKey above).
+      - ApiKey__Key=${INTELIBILL_HSN_SERVICE_KEY:-dev-hsn-key-change-in-production}
+    healthcheck:
+      # The OpenAPI document is served without the API key, and answering it
+      # shows the host started with valid configuration.
+      test: ["CMD", "curl", "-f", "--max-time", "5", "http://localhost:8080/openapi/v1.json"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: on-failure
 
 volumes:

@@ -30,6 +30,7 @@ resolve() {
     INTELIBILL_WEB_PORT=24000 \
     INTELIBILL_LICENSING_API_PORT=25278 \
     INTELIBILL_ADMIN_WEB_PORT=24001 \
+    INTELIBILL_HSN_FINDER_PORT=25279 \
     INTELIBILL_MAILPIT_SMTP_PORT=21025 \
     INTELIBILL_MAILPIT_UI_PORT=28025 \
     docker compose -p intelibill-p01-05-contract --profile full config --format json >"${scratch}/isolated.json"
@@ -53,6 +54,7 @@ expected = %w[
   postgres db-bootstrap mailpit
   merchant-migrate db-runtime-role backend frontend
   licensing-migrate licensing-runtime-role licensing-api admin-frontend
+  hsn-finder
 ]
 expected.each do |name|
   assert(services.key?(name), "full profile is missing service #{name}")
@@ -132,6 +134,7 @@ end
   "frontend" => ["4000", "4000"],
   "licensing-api" => ["5278", "8080"],
   "admin-frontend" => ["4001", "4000"],
+  "hsn-finder" => ["5279", "8080"],
 }.each do |name, (host, target)|
   ports = published(services, name)
   assert(ports == [["127.0.0.1", host, target]], "#{name} must publish only 127.0.0.1:#{host}->#{target}, got #{ports.inspect}")
@@ -148,6 +151,7 @@ builds = {
   "licensing-api" => "src/backend/licensing/Dockerfile",
   "licensing-migrate" => "src/backend/licensing/Dockerfile.migrate",
   "admin-frontend" => "src/frontend/licensing/Dockerfile",
+  "hsn-finder" => "src/backend/hsn-finder-ai/Dockerfile",
 }
 builds.each do |name, dockerfile|
   build = services.fetch(name).fetch("build", {})

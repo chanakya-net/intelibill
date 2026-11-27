@@ -1,6 +1,6 @@
 # Barcode Master API Agent Notes
 
-This service is a small layered ASP.NET Core API for storing and looking up product data by barcode. It lives in a monorepo but has its own solution (`BarcodeAPI.sln`); paths below are relative to the repository root.
+This service is a small layered ASP.NET Core API for storing and looking up product data by barcode. It lives in a monorepo but has its own solution (`BarcodeAPI.sln`, also listed in the root `Intelibill.slnx`); paths below are relative to the repository root.
 
 Read first: [README.md](README.md) for setup, configuration and commands, and [architecture_doc/architecture.md](architecture_doc/architecture.md) for the full design.
 

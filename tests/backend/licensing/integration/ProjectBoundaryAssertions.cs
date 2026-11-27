@@ -5,6 +5,11 @@ namespace Intelibill.Licensing.Integration.Tests;
 internal static class ProjectBoundaryAssertions
 {
     private static readonly string[] Layers = ["Domain", "Application", "Infrastructure", "Api"];
+    private static readonly string[] StandaloneServiceRoots =
+    [
+        "src/backend/barcode-master-api", "src/backend/hsn-finder-ai",
+        "tests/backend/barcode-master-api", "tests/backend/hsn-finder-ai",
+    ];
     private static readonly string[] BuildOverrides =
         ["Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props"];
     private static readonly string[] PolicyProperties =
@@ -111,11 +116,34 @@ internal static class ProjectBoundaryAssertions
         var sharedTests = Path.Combine(ProjectPaths.Root, "tests/backend/shared");
         var crossConsumerTests = aggregate.Where(path => IsUnder(path, sharedTests)).ToArray();
         Assert.All(crossConsumerTests, path => Assert.Equal("true", (string?)Load(path).Descendants("IsTestProject").SingleOrDefault()));
+        var standalone = StandaloneServiceProjects();
         Assert.Equal(merchant.Union(licensingSolution, StringComparer.Ordinal).Union(crossConsumerTests, StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal), aggregate.Order(StringComparer.Ordinal));
-        Assert.DoesNotContain(aggregate, path => IsUnder(path, Path.Combine(ProjectPaths.Root, "src/backend/barcode-master-api"))
-            || IsUnder(path, Path.Combine(ProjectPaths.Root, "src/backend/hsn-finder-ai"))
-            || IsUnder(path, Path.Combine(ProjectPaths.Root, "tests/backend/barcode-master-api")));
+            .Union(standalone, StringComparer.Ordinal).Order(StringComparer.Ordinal), aggregate.Order(StringComparer.Ordinal));
+
+        // The standalone services are part of the root solution only: neither backend sub-solution builds them.
+        Assert.DoesNotContain(merchant, standalone.Contains);
+        Assert.DoesNotContain(licensingSolution, standalone.Contains);
+    }
+
+    // Every project under the standalone service folders, discovered from disk so that a new one must be added to the
+    // root solution. Each folder keeps its own package versions and build settings, so root CPM never applies to them.
+    private static string[] StandaloneServiceProjects()
+    {
+        var projects = StandaloneServiceRoots
+            .Select(root => Path.Combine(ProjectPaths.Root, root))
+            .SelectMany(root =>
+            {
+                var manifest = Path.Combine(root, "Directory.Packages.props");
+                Assert.True(File.Exists(manifest), $"Missing isolating package manifest: {Path.GetRelativePath(ProjectPaths.Root, manifest)}");
+                Assert.Equal("false", (string?)Load(manifest).Descendants("ManagePackageVersionsCentrally").SingleOrDefault());
+                return Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+                    .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"));
+            })
+            .Select(Path.GetFullPath)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.NotEmpty(projects);
+        return projects;
     }
 
     private static string LayerProject(string directory, string layer)

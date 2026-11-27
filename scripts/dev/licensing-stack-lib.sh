@@ -118,6 +118,7 @@ assign_ports() {
   export INTELIBILL_WEB_PORT="$((base + 0))"
   export INTELIBILL_LICENSING_API_PORT="$((base + 278))"
   export INTELIBILL_ADMIN_WEB_PORT="$((base + 1))"
+  export INTELIBILL_HSN_FINDER_PORT="$((base + 279))"
   export INTELIBILL_MAILPIT_SMTP_PORT="$((base + 25))"
   export INTELIBILL_MAILPIT_UI_PORT="$((base + 825))"
   merchant_api="http://localhost:${INTELIBILL_MERCHANT_API_PORT}"
@@ -126,7 +127,7 @@ assign_ports() {
   admin_web="http://localhost:${INTELIBILL_ADMIN_WEB_PORT}"
   mailpit_ui="http://localhost:${INTELIBILL_MAILPIT_UI_PORT}"
   if [[ -z "$(compose ps -q 2>/dev/null)" ]]; then
-    for name in MERCHANT_API WEB LICENSING_API ADMIN_WEB MAILPIT_SMTP MAILPIT_UI; do
+    for name in MERCHANT_API WEB LICENSING_API ADMIN_WEB HSN_FINDER MAILPIT_SMTP MAILPIT_UI; do
       port="INTELIBILL_${name}_PORT"
       port="${!port}"
       ! lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1 || fail "host port ${port} is already in use"
