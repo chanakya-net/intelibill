@@ -31,59 +31,27 @@ public sealed partial class Sale
         IReadOnlyList<string>? warnings = null,
         decimal creditNoteAppliedAmount = 0m)
     {
-        if (lines is null || lines.Count == 0)
+        var inputError = ValidateRecordInputs(
+            lines,
+            customerId,
+            customerPhone,
+            paymentMethod,
+            paidAmount,
+            dueAmount,
+            creditNoteAppliedAmount);
+        if (inputError is { } error)
         {
-            return Errors.Sale.ItemsRequired;
+            return error;
         }
 
-        if (paidAmount < 0)
+        var itemsOrError = CreateSaleItems(shopId, lines);
+        if (itemsOrError.IsError)
         {
-            return Errors.Sale.PaidAmountInvalid;
+            return itemsOrError.Errors;
         }
 
-        if (dueAmount < 0)
-        {
-            return Errors.Sale.DueAmountInvalid;
-        }
-
-        if (creditNoteAppliedAmount < 0)
-        {
-            return Errors.Sale.CreditNoteAppliedAmountInvalid;
-        }
-
-        if (paymentMethod == PaymentMethod.Credit && dueAmount <= 0)
-        {
-            return Errors.Sale.CreditRequiresDueAmount;
-        }
-
-        if (dueAmount > 0 && !customerId.HasValue && string.IsNullOrWhiteSpace(customerPhone))
-        {
-            return Errors.Sale.CustomerIdentityRequiredForDue;
-        }
-
-        var subtotalBeforeDiscount = 0m;
-        var totalBeforeDiscount = 0m;
-        var totalDiscountAmount = 0m;
-        var totalAmount = 0m;
-        var totalTaxAmount = 0m;
-        var saleItems = new List<SaleItem>(lines.Count);
-
-        foreach (var line in lines)
-        {
-            var saleItemOrError = CreateSaleItem(shopId, line);
-            if (saleItemOrError.IsError)
-            {
-                return saleItemOrError.Errors;
-            }
-
-            var saleItem = saleItemOrError.Value;
-            subtotalBeforeDiscount += saleItem.PreTaxAmountBeforeDiscount;
-            totalBeforeDiscount += saleItem.TotalAmount + saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
-            totalDiscountAmount += saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
-            totalAmount += saleItem.TotalAmount;
-            totalTaxAmount += saleItem.TaxAmount;
-            saleItems.Add(saleItem);
-        }
+        var (saleItems, subtotalBeforeDiscount, totalBeforeDiscount, totalDiscountAmount, totalAmount, totalTaxAmount) =
+            itemsOrError.Value;
 
         if (decimal.Round(totalAmount, 2, MidpointRounding.AwayFromZero) !=
             decimal.Round(paidAmount + dueAmount + creditNoteAppliedAmount, 2, MidpointRounding.AwayFromZero))
@@ -126,6 +94,91 @@ public sealed partial class Sale
             CreditNoteAppliedAmount = creditNoteAppliedAmount,
         }.WithItems(saleItems);
     }
+
+    private static Error? ValidateRecordInputs(
+        IReadOnlyList<SaleLineInput> lines,
+        Guid? customerId,
+        string? customerPhone,
+        PaymentMethod paymentMethod,
+        decimal paidAmount,
+        decimal dueAmount,
+        decimal creditNoteAppliedAmount)
+    {
+        if (lines is null || lines.Count == 0)
+        {
+            return Errors.Sale.ItemsRequired;
+        }
+
+        if (paidAmount < 0)
+        {
+            return Errors.Sale.PaidAmountInvalid;
+        }
+
+        if (dueAmount < 0)
+        {
+            return Errors.Sale.DueAmountInvalid;
+        }
+
+        if (creditNoteAppliedAmount < 0)
+        {
+            return Errors.Sale.CreditNoteAppliedAmountInvalid;
+        }
+
+        if (paymentMethod == PaymentMethod.Credit && dueAmount <= 0)
+        {
+            return Errors.Sale.CreditRequiresDueAmount;
+        }
+
+        if (dueAmount > 0 && !customerId.HasValue && string.IsNullOrWhiteSpace(customerPhone))
+        {
+            return Errors.Sale.CustomerIdentityRequiredForDue;
+        }
+
+        return null;
+    }
+
+    private static ErrorOr<SaleItemsAndTotals> CreateSaleItems(Guid shopId, IReadOnlyList<SaleLineInput> lines)
+    {
+        var subtotalBeforeDiscount = 0m;
+        var totalBeforeDiscount = 0m;
+        var totalDiscountAmount = 0m;
+        var totalAmount = 0m;
+        var totalTaxAmount = 0m;
+        var saleItems = new List<SaleItem>(lines.Count);
+
+        foreach (var line in lines)
+        {
+            var saleItemOrError = CreateSaleItem(shopId, line);
+            if (saleItemOrError.IsError)
+            {
+                return saleItemOrError.Errors;
+            }
+
+            var saleItem = saleItemOrError.Value;
+            subtotalBeforeDiscount += saleItem.PreTaxAmountBeforeDiscount;
+            totalBeforeDiscount += saleItem.TotalAmount + saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
+            totalDiscountAmount += saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
+            totalAmount += saleItem.TotalAmount;
+            totalTaxAmount += saleItem.TaxAmount;
+            saleItems.Add(saleItem);
+        }
+
+        return new SaleItemsAndTotals(
+            saleItems,
+            subtotalBeforeDiscount,
+            totalBeforeDiscount,
+            totalDiscountAmount,
+            totalAmount,
+            totalTaxAmount);
+    }
+
+    private sealed record SaleItemsAndTotals(
+        List<SaleItem> SaleItems,
+        decimal SubtotalBeforeDiscount,
+        decimal TotalBeforeDiscount,
+        decimal TotalDiscountAmount,
+        decimal TotalAmount,
+        decimal TotalTaxAmount);
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

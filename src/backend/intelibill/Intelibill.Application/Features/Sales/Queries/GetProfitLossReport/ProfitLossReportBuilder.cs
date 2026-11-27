@@ -41,64 +41,16 @@ public sealed class ProfitLossReportBuilder(
         var report = new List<ProfitLossReportItemDto>();
 
         foreach (var sale in salesInRange)
-        {
-            decimal saleTotalCost = 0;
-            decimal revenueExclTax = 0;
-            decimal revenueInclTax = 0;
-
-            foreach (var item in sale.Items)
-            {
-                if (item.LineType != SaleLineType.Service)
-                {
-                    saleTotalCost += item.CostPrice * item.Quantity;
-                }
-
-                revenueExclTax += item.TaxableAmount;
-                revenueInclTax += item.TotalAmount;
-            }
-
-            report.Add(new ProfitLossReportItemDto(
-                sale.Id,
-                sale.InvoiceNumber,
-                sale.SoldAt,
-                sale.InvoiceDocument?.Buyer.Name ?? sale.CustomerName,
-                saleTotalCost,
-                WastageCost: 0m,
-                revenueExclTax,
-                revenueInclTax,
-                revenueInclTax - saleTotalCost,
-                revenueExclTax - saleTotalCost,
-                CalculateMarginPercent(revenueExclTax - saleTotalCost, saleTotalCost),
-                ProfitLossReportRowTypes.Sale,
-                InventoryAdjustmentId: null,
-                Economics: RowEconomics(revenueExclTax,
-                    sale.Items.Where(i => i.LineType != SaleLineType.Service).Sum(i => SaleEconomicsCalculator.RecordedCost(i.Quantity, i.CostPrice)),
-                    0m, 0m, sale.Items.Any(i => i.LineType == SaleLineType.Service))));
-        }
+            report.Add(BuildSaleRow(sale));
 
         foreach (var entry in cancellations)
-            report.Add(new ProfitLossReportItemDto(entry.SaleId, $"{entry.InvoiceNumber} / {entry.ReferenceNumber}",
-                entry.PostedAt, entry.CustomerName, -entry.RawCostAmount, 0m, -entry.RevenueAmount, -entry.TotalAmount,
-                -entry.TotalAmount + entry.RawCostAmount, -entry.RevenueAmount + entry.RawCostAmount,
-                CalculateMarginPercent(-entry.RevenueAmount + entry.RawCostAmount, -entry.RawCostAmount),
-                ProfitLossReportRowTypes.SaleCancellation, null, Economics: RowEconomics(-entry.RevenueAmount, -entry.RecordedCogs, 0m, 0m, false)));
+            report.Add(BuildCancellationRow(entry));
 
         foreach (var entry in returnAdjustments)
             report.Add(BuildReturnRow(entry, returnCosts));
 
         foreach (var adjustment in adjustmentsInRange.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease))
-        {
-            if (window.Contains(adjustment.PerformedAt)) AddAdjustment(adjustment.PerformedAt, adjustment.CostImpact, false);
-            if (adjustment.IsVoided && adjustment.VoidedAt is { } voidedAt && window.Contains(voidedAt))
-                AddAdjustment(voidedAt, -adjustment.CostImpact, true);
-
-            void AddAdjustment(DateTimeOffset at, decimal loss, bool reversal) => report.Add(new ProfitLossReportItemDto(
-                SaleId: null, adjustment.AdjustmentNumber, at, PartyName: null,
-                TotalCost: 0m, WastageCost: loss, RevenueBeforeTax: 0m, RevenueAfterTax: 0m,
-                ProfitBeforeTax: -loss, ProfitAfterTax: -loss, MarginPercent: null,
-                RowType: ProfitLossReportRowTypes.InventoryAdjustment, InventoryAdjustmentId: adjustment.Id,
-                IsReversal: reversal, Economics: RowEconomics(0m, 0m, loss, 0m, false)));
-        }
+            AddInventoryAdjustmentRows(report, adjustment, window);
 
         var filtered = report
             .Where(row => MatchesType(row.RowType, normalizedType))
@@ -107,10 +59,81 @@ public sealed class ProfitLossReportBuilder(
             .ThenByDescending(row => row.ReferenceNumber)
             .ToList();
 
+        var summary = BuildSummary(filtered, expenses, normalizedType, search);
+
+        return new ProfitLossReportBuildResult(filtered, summary, from, to, normalizedType, search);
+    }
+
+    private static ProfitLossReportItemDto BuildSaleRow(Domain.Entities.Sale sale)
+    {
+        decimal saleTotalCost = 0;
+        decimal revenueExclTax = 0;
+        decimal revenueInclTax = 0;
+
+        foreach (var item in sale.Items)
+        {
+            if (item.LineType != SaleLineType.Service)
+            {
+                saleTotalCost += item.CostPrice * item.Quantity;
+            }
+
+            revenueExclTax += item.TaxableAmount;
+            revenueInclTax += item.TotalAmount;
+        }
+
+        return new ProfitLossReportItemDto(
+            sale.Id,
+            sale.InvoiceNumber,
+            sale.SoldAt,
+            sale.InvoiceDocument?.Buyer.Name ?? sale.CustomerName,
+            saleTotalCost,
+            WastageCost: 0m,
+            revenueExclTax,
+            revenueInclTax,
+            revenueInclTax - saleTotalCost,
+            revenueExclTax - saleTotalCost,
+            CalculateMarginPercent(revenueExclTax - saleTotalCost, saleTotalCost),
+            ProfitLossReportRowTypes.Sale,
+            InventoryAdjustmentId: null,
+            Economics: RowEconomics(revenueExclTax,
+                sale.Items.Where(i => i.LineType != SaleLineType.Service).Sum(i => SaleEconomicsCalculator.RecordedCost(i.Quantity, i.CostPrice)),
+                0m, 0m, sale.Items.Any(i => i.LineType == SaleLineType.Service)));
+    }
+
+    private static ProfitLossReportItemDto BuildCancellationRow(SaleCancellationAdjustmentEntry entry) =>
+        new(entry.SaleId, $"{entry.InvoiceNumber} / {entry.ReferenceNumber}",
+            entry.PostedAt, entry.CustomerName, -entry.RawCostAmount, 0m, -entry.RevenueAmount, -entry.TotalAmount,
+            -entry.TotalAmount + entry.RawCostAmount, -entry.RevenueAmount + entry.RawCostAmount,
+            CalculateMarginPercent(-entry.RevenueAmount + entry.RawCostAmount, -entry.RawCostAmount),
+            ProfitLossReportRowTypes.SaleCancellation, null, Economics: RowEconomics(-entry.RevenueAmount, -entry.RecordedCogs, 0m, 0m, false));
+
+    private static void AddInventoryAdjustmentRows(
+        List<ProfitLossReportItemDto> report,
+        Domain.Entities.InventoryAdjustment adjustment,
+        Domain.ValueObjects.UtcDateWindow window)
+    {
+        if (window.Contains(adjustment.PerformedAt)) AddAdjustment(adjustment.PerformedAt, adjustment.CostImpact, false);
+        if (adjustment.IsVoided && adjustment.VoidedAt is { } voidedAt && window.Contains(voidedAt))
+            AddAdjustment(voidedAt, -adjustment.CostImpact, true);
+
+        void AddAdjustment(DateTimeOffset at, decimal loss, bool reversal) => report.Add(new ProfitLossReportItemDto(
+            SaleId: null, adjustment.AdjustmentNumber, at, PartyName: null,
+            TotalCost: 0m, WastageCost: loss, RevenueBeforeTax: 0m, RevenueAfterTax: 0m,
+            ProfitBeforeTax: -loss, ProfitAfterTax: -loss, MarginPercent: null,
+            RowType: ProfitLossReportRowTypes.InventoryAdjustment, InventoryAdjustmentId: adjustment.Id,
+            IsReversal: reversal, Economics: RowEconomics(0m, 0m, loss, 0m, false)));
+    }
+
+    private static ProfitLossSummaryDto BuildSummary(
+        List<ProfitLossReportItemDto> filtered,
+        IReadOnlyList<Domain.Entities.Expense> expenses,
+        string normalizedType,
+        string? search)
+    {
         var totalCost = filtered.Sum(row => row.TotalCost);
         var revenueIncludingTax = filtered.Sum(row => row.RevenueAfterTax);
         var netProfitAfterTax = filtered.Sum(row => row.ProfitAfterTax);
-        var summary = new ProfitLossSummaryDto(
+        return new ProfitLossSummaryDto(
             NetProfitAfterTax: netProfitAfterTax,
             RevenueIncludingTax: revenueIncludingTax,
             TotalCost: totalCost,
@@ -123,8 +146,6 @@ public sealed class ProfitLossReportBuilder(
             Economics: SummaryEconomics(filtered, expenses, normalizedType != "all" || !string.IsNullOrWhiteSpace(search)),
             CancellationAmount: -filtered.Where(r => r.RowType == ProfitLossReportRowTypes.SaleCancellation).Sum(r => r.RevenueAfterTax),
             CancellationCount: filtered.Count(r => r.RowType == ProfitLossReportRowTypes.SaleCancellation));
-
-        return new ProfitLossReportBuildResult(filtered, summary, from, to, normalizedType, search);
     }
 
     /// <summary>

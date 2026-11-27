@@ -63,61 +63,13 @@ internal sealed class SaleLineValidator(
 
         foreach (var (index, cmd) in serviceLines)
         {
-            if (serviceRepository is null)
+            var serviceLineOrError = await ValidateServiceLineAsync(shopId, cmd, warnings, cancellationToken);
+            if (serviceLineOrError.IsError)
             {
-                return Errors.Sale.ServiceNotFound;
-            }
-            if (!IsValidTaxRatePercent(cmd.TaxRatePercent))
-            {
-                return Errors.Sale.InvalidTaxRatePercent;
+                return serviceLineOrError.Errors;
             }
 
-            if (!string.IsNullOrWhiteSpace(cmd.HsnCode) && !IsValidHsnCode(cmd.HsnCode))
-            {
-                return Errors.Sale.InvalidHsnCode;
-            }
-
-            if (cmd.ServiceId is null)
-            {
-                return Errors.Sale.ServiceNotFound;
-            }
-
-            if (cmd.ItemDiscount is not null && cmd.ItemDiscount.Type != InstantDiscountType.None)
-            {
-                return Errors.Sale.ServiceDiscountNotSupported;
-            }
-
-            var service = await serviceRepository.GetByIdAsync(cmd.ServiceId.Value, cancellationToken);
-            if (service is null || service.ShopId != shopId)
-            {
-                return Errors.Sale.ServiceNotFound;
-            }
-
-            if (!service.IsActive)
-            {
-                return Errors.Sale.ServiceInactive;
-            }
-
-            if (!QuantityPolicy.FitsScale(cmd.Quantity, QuantityUnits.MaxScale))
-            {
-                return Errors.Sale.QuantityPrecisionExceeded(service.Code, "units", QuantityUnits.MaxScale);
-            }
-
-            var hasMismatch = cmd.SalesPrice != service.Price
-                || cmd.TaxRatePercent != service.TaxRatePercent
-                || cmd.IsPriceIncludingTax != service.TaxIncluded;
-
-            if (hasMismatch)
-            {
-                warnings.Add($"Price mismatch for service '{service.Name}' (code: {service.Code}).");
-            }
-
-            if (!string.Equals(cmd.ItemName.Trim(), service.Name, StringComparison.OrdinalIgnoreCase))
-            {
-                warnings.Add($"Service name mismatch for code '{service.Code}': provided '{cmd.ItemName}', found '{service.Name}'.");
-            }
-
-            validatedByIndex[index] = new ValidatedSaleLine(cmd, SaleLineType.Service, null, null, null, service, hasMismatch);
+            validatedByIndex[index] = serviceLineOrError.Value;
         }
 
         var validated = new List<ValidatedSaleLine>(items.Count);
@@ -127,6 +79,69 @@ internal sealed class SaleLineValidator(
         }
 
         return new SaleLineValidationResult(validated, itemNameById);
+    }
+
+    private async Task<ErrorOr<ValidatedSaleLine>> ValidateServiceLineAsync(
+        Guid shopId,
+        RecordSaleItemCommand cmd,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        if (serviceRepository is null)
+        {
+            return Errors.Sale.ServiceNotFound;
+        }
+        if (!IsValidTaxRatePercent(cmd.TaxRatePercent))
+        {
+            return Errors.Sale.InvalidTaxRatePercent;
+        }
+
+        if (!string.IsNullOrWhiteSpace(cmd.HsnCode) && !IsValidHsnCode(cmd.HsnCode))
+        {
+            return Errors.Sale.InvalidHsnCode;
+        }
+
+        if (cmd.ServiceId is null)
+        {
+            return Errors.Sale.ServiceNotFound;
+        }
+
+        if (cmd.ItemDiscount is not null && cmd.ItemDiscount.Type != InstantDiscountType.None)
+        {
+            return Errors.Sale.ServiceDiscountNotSupported;
+        }
+
+        var service = await serviceRepository.GetByIdAsync(cmd.ServiceId.Value, cancellationToken);
+        if (service is null || service.ShopId != shopId)
+        {
+            return Errors.Sale.ServiceNotFound;
+        }
+
+        if (!service.IsActive)
+        {
+            return Errors.Sale.ServiceInactive;
+        }
+
+        if (!QuantityPolicy.FitsScale(cmd.Quantity, QuantityUnits.MaxScale))
+        {
+            return Errors.Sale.QuantityPrecisionExceeded(service.Code, "units", QuantityUnits.MaxScale);
+        }
+
+        var hasMismatch = cmd.SalesPrice != service.Price
+            || cmd.TaxRatePercent != service.TaxRatePercent
+            || cmd.IsPriceIncludingTax != service.TaxIncluded;
+
+        if (hasMismatch)
+        {
+            warnings.Add($"Price mismatch for service '{service.Name}' (code: {service.Code}).");
+        }
+
+        if (!string.Equals(cmd.ItemName.Trim(), service.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            warnings.Add($"Service name mismatch for code '{service.Code}': provided '{cmd.ItemName}', found '{service.Name}'.");
+        }
+
+        return new ValidatedSaleLine(cmd, SaleLineType.Service, null, null, null, service, hasMismatch);
     }
 
     private async Task<ErrorOr<SaleLineValidationResult>> ValidateGoodsLinesAsync(
@@ -173,48 +188,71 @@ internal sealed class SaleLineValidator(
 
         foreach (var (cmdItem, item, batch) in resolvedContexts)
         {
-            if (!IsValidTaxRatePercent(cmdItem.TaxRatePercent))
-                return Errors.Sale.InvalidTaxRatePercent;
+            var lineOrError = ValidateGoodsLine(
+                cmdItem,
+                item,
+                batch,
+                inventoryByItemId,
+                requestedQuantityByBatchId,
+                warnings,
+                allowInsufficientStock);
+            if (lineOrError.IsError)
+                return lineOrError.Errors;
 
-            if (!string.IsNullOrWhiteSpace(cmdItem.HsnCode) && !IsValidHsnCode(cmdItem.HsnCode))
-                return Errors.Sale.InvalidHsnCode;
-
-            if (!item.IsActive)
-                return Errors.Sale.ItemInactive(cmdItem.Barcode);
-
-            if (batch.IsVoided)
-                return Errors.Sale.BatchVoided(cmdItem.Barcode, cmdItem.BatchNumber);
-
-            var quantityCheck = QuantityPolicy.Validate(cmdItem.Quantity, item.QuantityScale, item.Uom);
-            if (quantityCheck.IsError)
-            {
-                return quantityCheck.FirstError.Code == Domain.Common.Errors.Quantity.PrecisionExceededCode
-                    ? Errors.Sale.QuantityPrecisionExceeded(cmdItem.Barcode, item.Uom, item.QuantityScale)
-                    : Errors.Sale.OfflineLineQuantityMustBePositive;
-            }
-
-            if (!allowInsufficientStock && requestedQuantityByBatchId[batch.Id] > batch.UnquarantinedQuantity)
-                return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);
-
-            if (!inventoryByItemId.TryGetValue(item.Id, out var inventory))
-                return Errors.Sale.InventoryAggregateNotFound(cmdItem.Barcode);
-
-            var hasMismatch = cmdItem.CostPrice != batch.CostPrice
-                || cmdItem.SalesPrice != batch.SalesPrice
-                || cmdItem.Mrp != batch.Mrp
-                || cmdItem.TaxRatePercent != batch.TaxRatePercent
-                || cmdItem.IsPriceIncludingTax != batch.TaxIncluded;
-
-            if (hasMismatch)
-                warnings.Add($"Price mismatch for item '{item.Name}' (barcode: {item.Barcode}, batch: {batch.BatchNumber}).");
-
-            if (!string.Equals(cmdItem.ItemName.Trim(), item.Name, StringComparison.OrdinalIgnoreCase))
-                warnings.Add($"Item name mismatch for barcode '{cmdItem.Barcode}': provided '{cmdItem.ItemName}', found '{item.Name}'.");
-
-            validated.Add(new ValidatedSaleLine(cmdItem, SaleLineType.Goods, item, batch, inventory, null, hasMismatch));
+            validated.Add(lineOrError.Value);
         }
 
         return new SaleLineValidationResult(validated, itemNameById);
+    }
+
+    private static ErrorOr<ValidatedSaleLine> ValidateGoodsLine(
+        RecordSaleItemCommand cmdItem,
+        Item item,
+        InventoryBatch batch,
+        Dictionary<Guid, Domain.Entities.Inventory> inventoryByItemId,
+        Dictionary<Guid, decimal> requestedQuantityByBatchId,
+        List<string> warnings,
+        bool allowInsufficientStock)
+    {
+        if (!IsValidTaxRatePercent(cmdItem.TaxRatePercent))
+            return Errors.Sale.InvalidTaxRatePercent;
+
+        if (!string.IsNullOrWhiteSpace(cmdItem.HsnCode) && !IsValidHsnCode(cmdItem.HsnCode))
+            return Errors.Sale.InvalidHsnCode;
+
+        if (!item.IsActive)
+            return Errors.Sale.ItemInactive(cmdItem.Barcode);
+
+        if (batch.IsVoided)
+            return Errors.Sale.BatchVoided(cmdItem.Barcode, cmdItem.BatchNumber);
+
+        var quantityCheck = QuantityPolicy.Validate(cmdItem.Quantity, item.QuantityScale, item.Uom);
+        if (quantityCheck.IsError)
+        {
+            return quantityCheck.FirstError.Code == Domain.Common.Errors.Quantity.PrecisionExceededCode
+                ? Errors.Sale.QuantityPrecisionExceeded(cmdItem.Barcode, item.Uom, item.QuantityScale)
+                : Errors.Sale.OfflineLineQuantityMustBePositive;
+        }
+
+        if (!allowInsufficientStock && requestedQuantityByBatchId[batch.Id] > batch.UnquarantinedQuantity)
+            return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);
+
+        if (!inventoryByItemId.TryGetValue(item.Id, out var inventory))
+            return Errors.Sale.InventoryAggregateNotFound(cmdItem.Barcode);
+
+        var hasMismatch = cmdItem.CostPrice != batch.CostPrice
+            || cmdItem.SalesPrice != batch.SalesPrice
+            || cmdItem.Mrp != batch.Mrp
+            || cmdItem.TaxRatePercent != batch.TaxRatePercent
+            || cmdItem.IsPriceIncludingTax != batch.TaxIncluded;
+
+        if (hasMismatch)
+            warnings.Add($"Price mismatch for item '{item.Name}' (barcode: {item.Barcode}, batch: {batch.BatchNumber}).");
+
+        if (!string.Equals(cmdItem.ItemName.Trim(), item.Name, StringComparison.OrdinalIgnoreCase))
+            warnings.Add($"Item name mismatch for barcode '{cmdItem.Barcode}': provided '{cmdItem.ItemName}', found '{item.Name}'.");
+
+        return new ValidatedSaleLine(cmdItem, SaleLineType.Goods, item, batch, inventory, null, hasMismatch);
     }
 
     internal static bool IsValidHsnCode(string value)
