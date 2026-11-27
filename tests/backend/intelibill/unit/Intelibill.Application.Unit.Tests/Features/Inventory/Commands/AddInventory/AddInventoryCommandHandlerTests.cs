@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Security;
@@ -28,7 +29,7 @@ public class AddInventoryCommandHandlerTests
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
 
     [Fact]
     public async Task HandleAsync_WhenStaffRole_ReturnsForbidden()

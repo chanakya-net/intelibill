@@ -1,5 +1,4 @@
 using Intelibill.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
@@ -102,7 +101,7 @@ internal static class OfflineSaleSyncHelpers
     internal static OfflineSaleSyncResultDto BuildErrorResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusFailed, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
 
-    internal static Error GetSaveFailureError(DbUpdateException exception) =>
+    internal static Error GetSaveFailureError(Exception exception) =>
         ContainsExceptionText(exception, "ix_sales_shop_id_invoice_number")
             ? Errors.Sale.InvoiceNumberAlreadyUsed
             : Errors.General.Unexpected("Offline sale could not be synced. Please retry.");

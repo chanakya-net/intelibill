@@ -12,7 +12,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 
@@ -290,7 +289,7 @@ public sealed class CorrectStockCountCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.Inventory.BatchVersionConflict;
         }

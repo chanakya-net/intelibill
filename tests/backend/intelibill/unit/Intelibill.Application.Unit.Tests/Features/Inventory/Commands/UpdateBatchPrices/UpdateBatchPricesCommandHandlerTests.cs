@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
@@ -22,7 +23,7 @@ public sealed class UpdateBatchPricesCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IBatchPriceRevisionRepository _revisionRepository = Substitute.For<IBatchPriceRevisionRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
 
     private readonly User _actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");

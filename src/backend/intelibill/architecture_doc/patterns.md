@@ -52,6 +52,13 @@ Wraps `SaveChangesAsync` so Application handlers stay decoupled from EF Core.
 
 **Convention:** Handlers inject `IUnitOfWork` and call `SaveChangesAsync` once at the end of a command. Never call `DbContext.SaveChangesAsync` directly from Application code.
 
+**Persistence failures:** Application never names an ORM exception type, and `Intelibill.Application.csproj` has no EF Core package reference. The persistence layer still throws its own exceptions (EF Core's `DbUpdateConcurrencyException` / `DbUpdateException`, which repositories, `SafeErrorFactory` and tests rely on); Application only classifies them through the unit of work in an exception filter:
+- `catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))` for an optimistic-concurrency conflict;
+- `catch (Exception ex) when (unitOfWork.IsWriteFailure(ex) && ...)` for any failed write (a concurrency conflict is also a write failure);
+- `unitOfWork.ConflictedEntities(ex)` to inspect the conflicting entities and `unitOfWork.ReloadConflictedEntitiesAsync(ex, ct)` to reload them before a retry.
+
+The checks look at the exception itself only, never its inner exceptions, exactly like a typed `catch`. Keep the type test first in the filter so a condition on the exception runs only for persistence failures, and keep a filtered clause in the same position a typed clause would take.
+
 ---
 
 ### 5. Result Pattern (ErrorOr)

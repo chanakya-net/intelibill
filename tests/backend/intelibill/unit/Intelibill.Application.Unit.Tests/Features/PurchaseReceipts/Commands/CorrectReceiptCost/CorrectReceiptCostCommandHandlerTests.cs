@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using System.Linq.Expressions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Security;
@@ -29,7 +30,7 @@ public sealed class CorrectReceiptCostCommandHandlerTests
     private readonly IPurchaseReceiptCostAdjustmentRepository _adjustmentRepository = Substitute.For<IPurchaseReceiptCostAdjustmentRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ISupplierLedgerEntryRepository _ledgerRepository = Substitute.For<ISupplierLedgerEntryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IFinancialOperationExecutor _operationExecutor = Substitute.For<IFinancialOperationExecutor>();
 
     private readonly User _actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");

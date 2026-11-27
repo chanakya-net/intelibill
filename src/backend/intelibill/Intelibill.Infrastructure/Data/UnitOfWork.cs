@@ -1,4 +1,5 @@
 using Intelibill.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Data;
 
@@ -42,4 +43,24 @@ public class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
         context.Database.CurrentTransaction is not null
             ? context.Database.CurrentTransaction.ReleaseSavepointAsync(name, cancellationToken)
             : Task.CompletedTask;
+
+    public bool IsConcurrencyConflict(Exception exception) =>
+        exception is DbUpdateConcurrencyException;
+
+    public bool IsWriteFailure(Exception exception) =>
+        exception is DbUpdateException;
+
+    public IReadOnlyList<object> ConflictedEntities(Exception exception) =>
+        exception is DbUpdateConcurrencyException concurrencyException
+            ? concurrencyException.Entries.Select(entry => entry.Entity).ToList()
+            : [];
+
+    public async Task ReloadConflictedEntitiesAsync(Exception exception, CancellationToken cancellationToken = default)
+    {
+        if (exception is not DbUpdateConcurrencyException concurrencyException)
+            return;
+
+        foreach (var entry in concurrencyException.Entries)
+            await entry.ReloadAsync(cancellationToken);
+    }
 }

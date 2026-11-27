@@ -11,7 +11,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
 
@@ -295,7 +294,7 @@ public sealed class CorrectReceiptCostCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.PurchaseReceipt.VersionConflict;
         }

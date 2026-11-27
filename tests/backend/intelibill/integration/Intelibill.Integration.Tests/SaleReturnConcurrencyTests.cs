@@ -502,6 +502,15 @@ public sealed class SaleReturnConcurrencyTests(PostgreSqlTestFixture fixture) : 
         public Task RollbackToSavepointAsync(string name, CancellationToken cancellationToken = default) => inner.RollbackToSavepointAsync(name, cancellationToken);
 
         public Task ReleaseSavepointAsync(string name, CancellationToken cancellationToken = default) => inner.ReleaseSavepointAsync(name, cancellationToken);
+
+        public bool IsConcurrencyConflict(Exception exception) => inner.IsConcurrencyConflict(exception);
+
+        public bool IsWriteFailure(Exception exception) => inner.IsWriteFailure(exception);
+
+        public IReadOnlyList<object> ConflictedEntities(Exception exception) => inner.ConflictedEntities(exception);
+
+        public Task ReloadConflictedEntitiesAsync(Exception exception, CancellationToken cancellationToken = default) =>
+            inner.ReloadConflictedEntitiesAsync(exception, cancellationToken);
     }
 
     // ── Seeding ─────────────────────────────────────────────────────────────────

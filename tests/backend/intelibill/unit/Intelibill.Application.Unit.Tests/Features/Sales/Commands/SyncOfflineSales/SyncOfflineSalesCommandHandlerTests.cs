@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Features.Expiry;
 using System.Globalization;
@@ -30,7 +31,7 @@ public class SyncOfflineSalesCommandHandlerTests
     private readonly IReconciliationIssueRepository _reconciliationIssueRepository = Substitute.For<IReconciliationIssueRepository>();
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
     private readonly IOfflineSaleVarianceAnalyzer _varianceAnalyzer;
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IOfflineSubmissionRepository _offlineSubmissionRepository = Substitute.For<IOfflineSubmissionRepository>();
     private readonly List<OfflineSubmission> _recordedSubmissions = [];

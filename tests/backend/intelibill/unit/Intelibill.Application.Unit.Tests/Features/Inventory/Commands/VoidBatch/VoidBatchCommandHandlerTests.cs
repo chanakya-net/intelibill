@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Features.SupplierReturns.Services;
@@ -30,7 +31,7 @@ public class VoidBatchCommandHandlerTests
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
     private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
 

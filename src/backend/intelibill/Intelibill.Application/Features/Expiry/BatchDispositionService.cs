@@ -13,7 +13,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Expiry;
 
@@ -115,7 +114,7 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
             return await executor.ExecuteAsync<BatchDispositionResponse>(scope, actor, batchId, hash,
                 token => PostUnderFenceAsync(posting, token), ct);
         }
-        catch (DbUpdateConcurrencyException) { uow.ClearChanges(); return Refused("BatchVersionConflict", "Concurrent stock change; reload."); }
+        catch (Exception ex) when (uow.IsConcurrencyConflict(ex)) { uow.ClearChanges(); return Refused("BatchVersionConflict", "Concurrent stock change; reload."); }
         catch (Exception ex) when (SqlState(ex) is "55P03" or "40P01" or "40001") { uow.ClearChanges(); return Refused("DispositionBusy", "Stock is busy; retry the same operation."); }
     }
 

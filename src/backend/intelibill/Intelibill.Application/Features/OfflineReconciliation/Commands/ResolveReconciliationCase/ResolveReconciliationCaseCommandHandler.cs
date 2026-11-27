@@ -8,7 +8,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.OfflineReconciliation.Commands.ResolveReconciliationCase;
 
@@ -256,11 +255,11 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return Result.Success;
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.Reconciliation.CaseVersionConflict;
         }
-        catch (DbUpdateException ex) when (OfflineSaleSyncHelpers.ContainsExceptionText(ex, UniqueViolationState))
+        catch (Exception ex) when (unitOfWork.IsWriteFailure(ex) && OfflineSaleSyncHelpers.ContainsExceptionText(ex, UniqueViolationState))
         {
             if (OfflineSaleSyncHelpers.ContainsExceptionText(ex, LinkedOperationIndex))
                 return Errors.Reconciliation.OperationAlreadyLinked;
@@ -268,7 +267,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 return Errors.Sale.InvoiceNumberAlreadyUsed;
             return Errors.Reconciliation.ConcurrentChange;
         }
-        catch (DbUpdateException ex) when (OfflineSaleSyncHelpers.ContainsExceptionText(ex, LockNotAvailableState))
+        catch (Exception ex) when (unitOfWork.IsWriteFailure(ex) && OfflineSaleSyncHelpers.ContainsExceptionText(ex, LockNotAvailableState))
         {
             return Errors.Reconciliation.ConcurrentChange;
         }

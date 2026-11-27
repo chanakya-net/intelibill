@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
@@ -29,7 +30,7 @@ public sealed class CorrectStockCountCommandHandlerTests
     private readonly IInventoryAdjustmentRepository _adjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
     private readonly IStockCountRepository _stockCountRepository = Substitute.For<IStockCountRepository>();
     private readonly IInventoryAdjustmentNumberGenerator _numberGenerator = Substitute.For<IInventoryAdjustmentNumberGenerator>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IFinancialOperationExecutor _operationExecutor = Substitute.For<IFinancialOperationExecutor>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 

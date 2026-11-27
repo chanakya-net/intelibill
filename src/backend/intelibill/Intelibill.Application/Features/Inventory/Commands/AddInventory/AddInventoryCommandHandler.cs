@@ -11,7 +11,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
-using Microsoft.EntityFrameworkCore;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventory;
@@ -439,15 +438,14 @@ public sealed class AddInventoryCommandHandler(
 
                 return inventory;
             }
-            catch (DbUpdateConcurrencyException ex)
+            catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
             {
                 if (attempt == maxRetries - 1)
                     return Error.Conflict(
                         "Inventory.UpdateConflict",
                         "Inventory aggregate could not be updated after 3 retries due to concurrent modifications.");
 
-                foreach (var entry in ex.Entries)
-                    await entry.ReloadAsync(ct);
+                await unitOfWork.ReloadConflictedEntitiesAsync(ex, ct);
             }
         }
 

@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -37,7 +38,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     private readonly IInvoiceLeaseRepository _leaseRepository = Substitute.For<IInvoiceLeaseRepository>();
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
     private readonly IOfflineSalePoster _poster = Substitute.For<IOfflineSalePoster>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
 
     private readonly Shop _shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);

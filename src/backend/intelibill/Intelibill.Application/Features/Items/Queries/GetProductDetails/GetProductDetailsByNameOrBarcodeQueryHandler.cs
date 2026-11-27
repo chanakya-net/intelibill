@@ -4,7 +4,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
+using Intelibill.Domain.Interfaces;
 using System.Data.Common;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -17,7 +17,8 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
     ISupplierRepository supplierRepository,
     IExternalProductLookupService externalProductLookupService,
     DefinitionCreationTransaction creation,
-    ISuspensionAccessReader suspensionAccess)
+    ISuspensionAccessReader suspensionAccess,
+    IUnitOfWork unitOfWork)
 {
     [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ProductDetailsDto>> HandleAsync(
@@ -75,7 +76,7 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
             return await creation.RunAsync<Item?>(query.Session, (lease, token) =>
                 ReadOrStageImportAsync(query, barcode, product, lease, token), ct);
         }
-        catch (DbUpdateException exception) when (exception.InnerException is DbException { SqlState: "23505" })
+        catch (Exception exception) when (unitOfWork.IsWriteFailure(exception) && exception.InnerException is DbException { SqlState: "23505" })
         {
             // The shop/barcode unique index resolves races with any other creator, including intake.
             // The losing transaction has rolled back. Read the winner under current authority.

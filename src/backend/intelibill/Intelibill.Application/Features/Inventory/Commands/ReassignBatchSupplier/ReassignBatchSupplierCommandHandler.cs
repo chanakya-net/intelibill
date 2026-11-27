@@ -9,7 +9,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 
@@ -256,7 +255,7 @@ public sealed class ReassignBatchSupplierCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.Inventory.ConcurrentChange;
         }

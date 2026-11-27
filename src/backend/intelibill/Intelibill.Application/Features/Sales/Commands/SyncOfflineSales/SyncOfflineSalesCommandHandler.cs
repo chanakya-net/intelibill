@@ -6,7 +6,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
@@ -511,7 +510,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                 [])
             { Warnings = warnings };
         }
-        catch (DbUpdateException ex)
+        catch (Exception ex) when (unitOfWork.IsWriteFailure(ex))
         {
             await RollbackStageSavepointAsync();
             var concurrent = await saleRepository.GetByClientSaleIdAsync(hold.ShopId, hold.DeviceId, hold.ClientSaleId, cancellationToken);

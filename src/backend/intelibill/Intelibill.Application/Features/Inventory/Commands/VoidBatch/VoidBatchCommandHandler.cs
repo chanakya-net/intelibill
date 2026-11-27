@@ -11,7 +11,6 @@ using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.VoidBatch;
@@ -364,7 +363,7 @@ public sealed class VoidBatchCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.Inventory.ConcurrentChange;
         }

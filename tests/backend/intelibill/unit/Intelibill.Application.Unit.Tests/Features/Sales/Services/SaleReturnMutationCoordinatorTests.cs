@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Unit.Tests.Common;
@@ -18,7 +19,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Services;
 public sealed class SaleReturnMutationCoordinatorTests
 {
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly Guid _shopId = Guid.NewGuid();
     private readonly Guid _saleId = Guid.NewGuid();
     private int _mutationRuns;

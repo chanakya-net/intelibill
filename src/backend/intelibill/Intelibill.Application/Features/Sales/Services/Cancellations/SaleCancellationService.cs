@@ -15,7 +15,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Events;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 using Wolverine;
 
 namespace Intelibill.Application.Features.Sales.Services.Cancellations;
@@ -147,7 +146,7 @@ public sealed class SaleCancellationService(
                     return outcome;
                 }, ct);
         }
-        catch (DbUpdateConcurrencyException) { uow.ClearChanges();
+        catch (Exception ex) when (uow.IsConcurrencyConflict(ex)) { uow.ClearChanges();
         return Errors.SaleCancellation.VersionConflict; }
         catch (Exception ex) when (SqlStateOf(ex) is "55P03" or "40P01" or "40001") { uow.ClearChanges();
         return Errors.SaleCancellation.Busy; }
