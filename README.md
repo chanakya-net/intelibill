@@ -1,6 +1,6 @@
 # intelibill
 
-AI-powered inventory management system.
+AI-powered inventory management and billing for multi-shop merchants: a merchant API and web app, an Android app, a licensing service with its admin web app, and two supporting lookup services.
 
 ## Build Status
 
@@ -18,24 +18,19 @@ AI-powered inventory management system.
 | Messaging / CQRS | Wolverine 5.24 |
 | Validation | FluentValidation 12 |
 | Error handling | ErrorOr 2.0 |
-| Frontend | Angular 21 (client-rendered), PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Transloco, Bun |
-| Mobile | Flutter Android (Riverpod, GoRouter, Dio, Freezed) |
+| Frontend | Angular 21 (client-rendered), PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Transloco, Bun 1.3.11 |
+| Infrastructure | OpenTofu on Azure, GitHub Actions |
+| Mobile | Flutter 3.44.2, Android only (Riverpod, GoRouter, Dio, Freezed) |
 
 ## Repository Structure
 
 ```
 intelibill/
-├── architecture_doc/           # Architecture & pattern docs
-├── docs/                       # Setup, rollout, operations & functional docs
 ├── src/
 │   ├── backend/
-│   │   ├── intelibill/             # Merchant API — Clean Architecture
-│   │   │   ├── Intelibill.Domain/
-│   │   │   ├── Intelibill.Application/
-│   │   │   ├── Intelibill.Infrastructure/
-│   │   │   └── Intelibill.Api/
+│   │   ├── intelibill/             # Merchant API — Clean Architecture (Intelibill.slnx)
 │   │   ├── licensing/              # Licensing service (Intelibill.Licensing.slnx)
-│   │   ├── shared/                 # Shared backend libraries
+│   │   ├── shared/                 # Shared backend libraries (Contracts, Security, Web)
 │   │   ├── barcode-master-api/     # Product lookup by barcode (BarcodeAPI.sln)
 │   │   └── hsn-finder-ai/          # AI HSN code lookup (Sankra.HsnFinder.sln)
 │   ├── frontend/
@@ -47,25 +42,49 @@ intelibill/
 │           └── intelibill_mobile/  # Flutter Android
 ├── tests/
 │   ├── backend/
-│   │   ├── intelibill/             # Unit & integration tests (Testcontainers)
+│   │   ├── intelibill/             # Merchant unit & integration tests (Testcontainers)
 │   │   ├── licensing/              # Licensing integration, browser & acceptance tests
 │   │   ├── shared/                 # Cross-consumer regression tests
 │   │   └── barcode-master-api/     # Barcode service tests
-│   └── frontend/
-├── Directory.Build.props
-├── Directory.Packages.props
-└── global.json
+│   └── contracts/                  # Cross-client contract fixtures
+├── .tofu/                      # OpenTofu infrastructure (Azure)
+├── docs/                       # Cross-project setup, rollout, operations & security notes
+├── scripts/                    # Database and developer scripts
+├── docker-compose.yml          # Local database and full local stack
+├── Intelibill.slnx             # Root solution: merchant, licensing, shared and their tests
+├── Directory.Build.props       # Root MSBuild settings (warnings are errors)
+├── Directory.Packages.props    # Central Package Management
+├── package.json, bun.lock      # Bun workspaces and the single lockfile
+└── global.json                 # .NET SDK pin
 ```
 
-See [CLAUDE.md](CLAUDE.md) for backend architecture and [architecture_doc/architectural_patterns.md](architecture_doc/architectural_patterns.md) for design patterns.
+## Project Documentation
+
+Every project keeps its own README and architecture docs next to its code. Start with the project you are working on; nothing project-specific lives at the repository root.
+
+| Project | README | Architecture |
+|---|---|---|
+| Merchant API | [src/backend/intelibill](src/backend/intelibill/README.md) | [architecture](src/backend/intelibill/architecture_doc/architecture.md), [patterns](src/backend/intelibill/architecture_doc/patterns.md) |
+| Licensing service | [src/backend/licensing](src/backend/licensing/README.md) | [architecture](src/backend/licensing/architecture_doc/architecture.md) |
+| Shared backend libraries | [src/backend/shared](src/backend/shared/README.md) | [architecture](src/backend/shared/architecture_doc/architecture.md) |
+| Barcode master API | [src/backend/barcode-master-api](src/backend/barcode-master-api/README.md) | [architecture](src/backend/barcode-master-api/architecture_doc/architecture.md) |
+| HSN finder AI | [src/backend/hsn-finder-ai](src/backend/hsn-finder-ai/README.md) | [architecture](src/backend/hsn-finder-ai/architecture_doc/architecture.md) |
+| Merchant web | [src/frontend/intelibill](src/frontend/intelibill/README.md) | [architecture](src/frontend/intelibill/architecture_doc/architecture.md), [patterns](src/frontend/intelibill/architecture_doc/patterns.md) |
+| Admin web | [src/frontend/licensing](src/frontend/licensing/README.md) | [architecture](src/frontend/licensing/architecture_doc/architecture.md) |
+| Shared web packages | [src/frontend/shared](src/frontend/shared/README.md) | [architecture](src/frontend/shared/architecture_doc/architecture.md) |
+| Android app | [src/mobile/android/intelibill_mobile](src/mobile/android/intelibill_mobile/README.md) | [architecture](src/mobile/android/intelibill_mobile/architecture_doc/architecture.md) |
+| Infrastructure | [.tofu](.tofu/README.md) | [architecture](.tofu/architecture_doc/architecture.md) |
+
+Notes that span projects (auth setup, rollouts, operations, security) are in [docs/](docs). Conventions for AI coding agents, including which docs to read for which project, are in [AGENTS.md](AGENTS.md).
 
 ## Getting Started
 
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (10.0.105+)
-- PostgreSQL running locally
-- [Bun](https://bun.sh/) 1.3+
+- PostgreSQL running locally (`docker compose up -d` starts one)
+- [Bun](https://bun.sh/) 1.3.11 (never `npm` or `yarn`)
+- Docker, for the local database, the full stack and integration tests
 
 ### Backend
 
@@ -81,7 +100,7 @@ dotnet ef database update \
 dotnet run --project src/backend/intelibill/Intelibill.Api
 ```
 
-API: `http://localhost:5202` — OpenAPI: `http://localhost:5202/openapi/v1.json` (dev only)
+API: `http://localhost:5277` — OpenAPI: `http://localhost:5277/openapi/v1.json` (dev only). More: [src/backend/intelibill/README.md](src/backend/intelibill/README.md).
 
 ### Frontend
 
@@ -91,6 +110,8 @@ bun install
 bun run start
 ```
 
+Dev server: `http://localhost:4200`. More: [src/frontend/intelibill/README.md](src/frontend/intelibill/README.md).
+
 ### Mobile
 
 Flutter Android (Android-only):
@@ -98,9 +119,9 @@ Flutter Android (Android-only):
 ```bash
 cd src/mobile/android/intelibill_mobile
 
-# Setup
+# Setup and codegen
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+./tool/codegen.sh
 
 # Development
 flutter analyze
@@ -111,7 +132,7 @@ flutter test --coverage
 flutter build apk --debug
 ```
 
-See [architecture_doc/mobile-architecture.md](architecture_doc/mobile-architecture.md) for architecture and testing details.
+See [src/mobile/android/intelibill_mobile/README.md](src/mobile/android/intelibill_mobile/README.md) for setup, architecture and testing details.
 
 ### Docker
 
@@ -166,13 +187,9 @@ docker compose --profile full up -d --build
 docker compose --profile full down
 ```
 
-## Azure App Service — WebSocket Configuration
+## Deployment
 
-SignalR is embedded in the ASP.NET Core app. To enable WebSockets on Azure App Service:
-
-**Portal → App Service → Configuration → General Settings → Web Sockets: On**
-
-SignalR automatically falls back to Server-Sent Events (SSE) or Long Polling if WebSockets are disabled — no code change required. WebSockets should be enabled in production for lowest latency.
+Infrastructure is defined with OpenTofu under [.tofu](.tofu/README.md) and targets Azure Container Apps. See the [infrastructure architecture](.tofu/architecture_doc/architecture.md) and the [implementation guide](docs/infrastructure-implementation-guide.md) for the current status.
 
 ## License
 

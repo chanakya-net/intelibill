@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 
 /**
  * The offline pack (the app's own files cached for offline use) belongs to the device, not to a
- * shop: every shop enabled on this browser shares it. See architecture_doc/frontend-architecture.md § Offline Pack.
+ * shop: every shop enabled on this browser shares it. See src/frontend/intelibill/architecture_doc/architecture.md § Offline Pack.
  */
 export interface OfflinePackStatus {
   /** `ready`: every file of the full manifest was found in the worker's caches; `incomplete`: not. */

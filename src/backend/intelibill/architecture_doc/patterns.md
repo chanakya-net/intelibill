@@ -1,13 +1,10 @@
-# Architectural Patterns
+# Merchant Backend Patterns
 
-Implementation patterns with canonical file references. For high-level architecture overview and build commands see:
-- **Source of truth**: [`AGENTS.md`](../AGENTS.md) (repo root) — build/test commands, tech stack, domain model, all endpoints
-- **Backend details**: [`backend-architecture.md`](backend-architecture.md)
-- **Frontend details**: [`frontend-architecture.md`](frontend-architecture.md)
+Implementation patterns of the merchant API with canonical file references. See also:
+- **Architecture**: [`architecture.md`](architecture.md)
+- **Build/test commands**: [`README.md`](../README.md) and the repo-root [`AGENTS.md`](../../../../AGENTS.md)
 
 Check the referenced files for the canonical implementation before adding new code.
-
-## Backend Patterns
 
 ### 1. Clean Architecture / Onion Layering
 
@@ -15,7 +12,7 @@ Dependencies flow strictly inward: `Domain ← Application ← Infrastructure �
 
 **Convention:** New features go in `Application/Features/<FeatureName>/`. Infrastructure concerns (DB, external APIs) never leak into Application or Domain.
 
-See [`backend-architecture.md`](backend-architecture.md) for layer responsibilities.
+See [`architecture.md`](architecture.md) for layer responsibilities.
 
 ---
 
@@ -133,7 +130,7 @@ All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `O
 
 ### 11. Global Exception Handling Middleware
 
-Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See `architecture_doc/backend-architecture.md` § Safe Errors and Diagnostics.
+Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See [`architecture.md`](architecture.md) § Safe Errors and Diagnostics.
 
 **Where it appears:**
 - Implementation (shared by the merchant and licensing APIs): `src/backend/shared/Intelibill.Shared.Web/Middleware/ExceptionHandlingMiddleware.cs`
@@ -205,59 +202,3 @@ All NuGet versions declared once in `Directory.Packages.props`; project files re
 - Enabled by: `Directory.Build.props:14` — `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`
 
 **Convention:** To add a package: (1) add `<PackageVersion>` to `Directory.Packages.props`, (2) add a version-free `<PackageReference>` in the target `.csproj`.
-
----
-
-## Frontend Patterns
-
-See [`frontend-architecture.md`](frontend-architecture.md) for folder structure, state shape, and routing flow.
-
-### 1. Standalone Components
-
-No NgModules. Every component declares its own `imports` array.
-
-**Convention:** Always use `standalone: true`. Import only what the component template directly uses — no barrel imports of entire feature sets.
-
----
-
-### 2. Feature-First Layout
-
-Each feature is self-contained: its own routes, state, and components under `features/<name>/`.
-
-**Convention:** New features go in `src/frontend/intelibill/src/app/features/<feature-name>/`. Shared concerns (auth service, guards, interceptors) go in `core/`. Do not put feature-specific state in the root store.
-
----
-
-### 3. NgRx State Boundaries
-
-Root store holds global/shared state; all domain feature states are provided lazily at the shell route level and shared across child pages.
-
-**Where it appears:**
-- Root reducers wired in: `src/frontend/intelibill/src/app/app.config.ts`
-- Shell-scoped feature state (shops, users, suppliers, inventory, customers, sales, expenses, bankAccounts) provided in: `src/frontend/intelibill/src/app/core/layout/shell.routes.ts`
-
-**Convention:** Use NgRx for shared or async state. Use component-local state (`signal` or property) for simple UI-only cases. Never put transient UI state (e.g., a single dropdown open/close) in the store.
-
----
-
-### 4. Interceptor Chain
-
-Auth and loading concerns are cross-cutting and wired once in `app.config.ts`.
-
-**Where it appears:**
-- `src/frontend/intelibill/src/app/core/interceptors/` — `authInterceptor` (bearer token + 401 refresh with loop prevention), HTTP loading tracker
-- Wired in: `src/frontend/intelibill/src/app/app.config.ts`
-
-**Convention:** Add new cross-cutting HTTP concerns as interceptors, not as service wrappers. Order matters — auth interceptor must run before the loading tracker.
-
----
-
-### 5. Route Guards
-
-`authGuard` protects all shell/app routes. Public routes (`/login`, `/register`) are unguarded.
-
-**Where it appears:**
-- `src/frontend/intelibill/src/app/core/guards/`
-- Applied in: `src/frontend/intelibill/src/app/app.routes.ts`
-
-**Convention:** Apply `authGuard` at the shell route level, not on individual leaf routes.

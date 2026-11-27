@@ -14,7 +14,7 @@ import {
 
 /**
  * The offline-pack manifest switch in `service-worker/protected-api-worker.js`
- * (architecture_doc/frontend-architecture.md § Offline Pack): the wrapper answers Angular's `ngsw.json` request
+ * (src/frontend/intelibill/architecture_doc/architecture.md § Offline Pack): the wrapper answers Angular's `ngsw.json` request
  * with `ngsw-lite.json` only when the page wrote an explicit "off", and passes everything else
  * through. The second half runs the real wrapper with Angular's real published worker imported
  * behind it, as the build ships them.

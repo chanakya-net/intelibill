@@ -144,7 +144,7 @@ describe('ngsw-config.json', () => {
     expect(isNavigationUrl(manifest, '/__harness')).toBe(false);
   });
 
-  it('prefetches everything an offline device needs in the full manifest (architecture_doc/frontend-architecture.md § Offline Pack)', async () => {
+  it('prefetches everything an offline device needs in the full manifest (src/frontend/intelibill/architecture_doc/architecture.md § Offline Pack)', async () => {
     const manifest = await generate();
     const prefetched = manifest.assetGroups.filter((group) => group.installMode === 'prefetch').flatMap((group) => group.urls);
 

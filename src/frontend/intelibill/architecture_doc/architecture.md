@@ -1,6 +1,6 @@
-# Frontend Architecture
+# Merchant Web Architecture
 
-> High-level architecture reference. For implementation patterns see [`architecture_doc/architectural_patterns.md`](architectural_patterns.md). For build commands and dependencies see [`AGENTS.md`](../AGENTS.md) at repo root.
+> Architecture reference for the merchant Angular app (`src/frontend/intelibill`). For implementation patterns see [`patterns.md`](patterns.md). For commands see [`README.md`](../README.md). Shared workspace packages are documented in [`src/frontend/shared`](../../shared/architecture_doc/architecture.md).
 
 ## Stack
 
@@ -13,7 +13,7 @@
 | State | NgRx 21 — root store + feature providers |
 | Data / Auth | HttpClient with interceptors (JWT bearer + 401 refresh) |
 | i18n | Transloco — HTTP-loaded JSON translation files (locale files under `public/assets/i18n/`) |
-| Package manager | **Bun only** (1.3+) — no npm/yarn |
+| Package manager | **Bun only** (`1.3.11`, pinned in `package.json`) — no npm/yarn |
 
 ## Folder Structure
 
@@ -23,28 +23,26 @@ src/frontend/intelibill/src/app/
 ├── app.routes.ts          # Public auth routes + guarded shell
 ├── core/
 │   ├── auth/              # Auth service, storage, endpoint constants, session models
+│   ├── context/           # Shop context transitions
 │   ├── guards/            # authGuard (protects shell routes)
-│   ├── i18n/              # Transloco setup, language constants, LocalizationService
+│   ├── i18n/              # Transloco setup, language constants, LocalizationService, locale coverage spec
 │   ├── interceptors/      # authInterceptor (bearer token + 401 refresh), HTTP loading tracker
 │   ├── layout/            # ShellComponent + shell.routes.ts (lazy feature state providers)
-│   ├── services/          # AudioService, BarcodeDetectorService, CameraStreamService, ProductCatalogSyncService
+│   ├── service-worker/    # Offline pack and protected-cache migration services
+│   ├── services/          # Cross-feature services (audio, barcode, camera, catalog sync, offline intents)
 │   ├── state/             # Root NgRx reducers/actions (appShell, httpUi)
-│   └── storage/           # IndexedDB services: product catalog, sales cart, inventory draft
-├── features/
-│   ├── auth/              # Login, register (multi-step routes), email verification
-│   ├── bank-accounts/     # Bank accounts CRUD
-│   ├── customers/         # Customer list + account/ledger sub-page
-│   ├── expenses/          # Expense recording + list
-│   ├── inventory/         # Inbound stock, batch list, batch management
-│   ├── not-found/         # 404 page (wildcard route)
-│   ├── sales/             # New sale (POS), sales list, profit-loss page
-│   ├── shops/             # Create/switch shop overlay + shop service
-│   ├── suppliers/         # Supplier list + ledger
-│   └── users/             # Shop user management + profile
-└── shared/
-    └── components/
-        └── bank-account-form/   # Reusable bank account form component
+│   ├── storage/           # IndexedDB services: product catalog, sales cart, inventory draft, offline pack status
+│   └── styles/            # Core style helpers
+├── features/              # One folder per area, each with its own routes, state and pages:
+│                          # auth, bank-accounts, billing, customers, dashboard, discounts, expenses,
+│                          # expiry, inventory, not-found, purchase-orders, sales, services, shops,
+│                          # supplier-returns, suppliers, tills, users
+└── shared/                # accessibility, components, forms, gst, models, pipes, quantity, styles, utils
 ```
+
+Outside `src/app`: `src/server.ts` (static file server and `/api` + `/hubs` proxy), `service-worker/`
+(the protected API wrapper worker), `scripts/` (build finalisation, style and UI audits, test runner),
+`tests/ui-audit/` (Playwright suites) and `public/` (manifest, icons, i18n JSON).
 
 ## Routing and Auth Flow
 
@@ -87,7 +85,7 @@ src/frontend/intelibill/src/app/
 
 `/sales/offline-reconciliation` (`features/sales/pages/offline-reconciliation-page`, data via
 `OfflineReconciliationService`; linked from the menu and sales history). Every role sees it; actions
-follow the server's `availableActions`. Backend rules: `architecture_doc/backend-architecture.md` § Offline Reconciliation.
+follow the server's `availableActions`. Backend rules: `src/backend/intelibill/architecture_doc/architecture.md` § Offline Reconciliation.
 
 - **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales` for the active shop and this
   browser's device id: Pending/Failed invoices are transport retries, NeedsReview opens its case, and
@@ -200,7 +198,7 @@ The active-shop menu opens `/shops/setup` for a live member. At the application 
 
 Setup HTTP reads capture the owner and tab epoch, cancel on scope change, and clear page state on detach. Preference writes use the captured request scope, hold a scoped mutation until their outcome, and compare the last read version. A conflict refreshes the saved facts and offers an explicit retry or exit. The authenticated sample route uses the same A4 and thermal presentation as the issued document, with a sample banner and without the invoice number or payment and signatory sections. Preview and print require no acknowledgement.
 
-Run `bun run build && bun run audit:ui:onboarding` for the isolated browser journey. See [Guided merchant onboarding rollout](../docs/guided-merchant-onboarding-rollout.md).
+Run `bun run build && bun run audit:ui:onboarding` for the isolated browser journey. See [Guided merchant onboarding rollout](../../../../docs/guided-merchant-onboarding-rollout.md).
 
 ## Protected API Cache Isolation
 
@@ -444,18 +442,22 @@ immutable for a year).
 
 ## Test Structure
 
-| Suite | Path |
-|---|---|
-| Unit specs | `src/frontend/intelibill/src/**/*.spec.ts` (Vitest + Angular test utilities) |
-| Unit (workspace) | `tests/frontend/unit/` |
-| E2E | `tests/frontend/e2e/` |
-| Coverage output | `src/frontend/intelibill/coverage/` |
+| Suite | Path | Command |
+|---|---|---|
+| Unit specs | `src/**/*.spec.ts`, colocated with the code (Vitest + Angular test utilities) | `bun run test --watch=false` or `bun run test --run <path-fragment>` |
+| Build script specs | `scripts/tests/` | run with the unit specs |
+| UI audit (mocked) | `tests/ui-audit/mock/`, `print/`, `login-page.spec.ts` (Playwright, `playwright.config.ts`) | `bun run audit:ui:mocked` |
+| UI audit (release build) | `tests/ui-audit/release/` | `bun run build && bun run audit:ui:release` |
+| UI audit (live / onboarding) | `tests/ui-audit/live/`, `tests/ui-audit/onboarding/` | `bun run audit:ui:live`, `bun run audit:ui:onboarding` |
+| Style audits | `scripts/audit-unused-styles.mjs`, `scripts/audit-duplicate-styles.mjs` | `bun run audit:styles`, `bun run audit:styles:duplicates` |
 
 ## Workspace Files
 
-- `src/frontend/intelibill/angular.json` — project build/test targets
-- `src/frontend/intelibill/package.json` — scripts (`start`, `build`, `test`, `serve:ssr:INVENTORY`)
-- `src/frontend/intelibill/ngsw-config.json` — PWA service worker config
+- `angular.json` — project (`INVENTORY`) build/test targets
+- `package.json` — scripts (`start`, `build`, `build:worker`, `build:server`, `serve`, `test`, `audit:*`)
+- `ngsw-config.json` — PWA service worker config
+- `playwright.config.ts` — mocked UI audit configuration
+- Repo-root `package.json` and `bun.lock` — Bun workspace definition and the single lockfile
 
 ## Recorded-cost Trading and Operating Figures
 
@@ -582,7 +584,7 @@ Reusable till/evidence controls cover checkout, customer/supplier payment, payme
 
 For new till-aware requests, `TillActionRunner` and `FinancialActionDraftStore` retain durable user/shop/action/target drafts, revision CAS, frozen sending/unknown requests and confirmation proofs before HTTP. Cancellation retains its separate namespace/store over the shared core. Existing customer/supplier outer payment keys are adopted unchanged, and exact completion proof settles the matching outer intent. Unknown timeout, stale scope, reload/tab race and lookup404 preserve the same key and payload; persistence failure sends zero requests. Released pre-Till frozen localStorage payment intents retain their original K1 request and same-key recovery even with IndexedDB unavailable; the current till selection never decorates that historical request. A selected different till never rewrites a pending action. Captured scope epoch is checked after persistence, capability and cached-proof awaits, including A→B→A. Detached completion cannot dispatch success or clean up the new scope's intent; explicit current-epoch recovery may consume its retained proof without another POST.
 
-Offline start requires previously verified enabled capability and an own open same-day session. Queue/snapshot freezes till session, cashier, business date and actual tender; offline opening/closing is unavailable. Pending invoice warnings help the count but are not a server safety dependency. TillReview displays bounded ordinary RetryHistoricalLease only for structurally complete new context, plus explicit manager reconciliation when needed. Recorded/Unknown evidence and purpose labels are localized in all eight supported locales. Gate-off preserves pending recovery and saved read/print/replay access while refusing new supplied-evidence writes. Mixed tender remains unavailable. See [Till rollout](../docs/till-sessions-rollout.md) for API contracts, migration order and limitations.
+Offline start requires previously verified enabled capability and an own open same-day session. Queue/snapshot freezes till session, cashier, business date and actual tender; offline opening/closing is unavailable. Pending invoice warnings help the count but are not a server safety dependency. TillReview displays bounded ordinary RetryHistoricalLease only for structurally complete new context, plus explicit manager reconciliation when needed. Recorded/Unknown evidence and purpose labels are localized in all eight supported locales. Gate-off preserves pending recovery and saved read/print/replay access while refusing new supplied-evidence writes. Mixed tender remains unavailable. See [Till rollout](../../../../docs/till-sessions-rollout.md) for API contracts, migration order and limitations.
 
 ## Expiry Policy, Checkout and Quarantine
 
@@ -590,7 +592,7 @@ Owner settings and item editor expose reasoned default/override/inherit policy c
 
 Checkout intents and Owner Release/Dispose drafts persist exact owner/shop/action/key/payload through IndexedDB revision claims before HTTP. Reload, scope changes and unknown404 never authorize a new key or mutate a submitted payload. History preserves root source dates/causes separately from current corrected dates. Fully held missing-date roots may release only after audited correction/current policy evaluation; originally expired roots remain refused. The backend rechecks all authority and facts. Existing till selectors and settlements are preserved.
 
-Completed schema4 catalogs alone activate trusted expiry inputs; explicit nullable dates, effective policy, shop zone, catalog and server evidence IDs remain frozen in issued queues. Offline warning approval is unavailable. Future-use caches refresh when connected; disconnected devices cannot learn remote policy edits instantly, and unsupported historical authority becomes `ExpiryReview=14`. Legacy issued readers, invoice-v2/arithmetic-v1/hash contracts and pending envelopes remain unchanged. Reconciliation offers only supported evidence-backed actions; reason alone cannot override expiry. All nine shipped locales have text/accessibility states. See [expiry rollout](../docs/expiry-aware-selling-rollout.md) for migration/deployment/recovery and recorded-cost limits.
+Completed schema4 catalogs alone activate trusted expiry inputs; explicit nullable dates, effective policy, shop zone, catalog and server evidence IDs remain frozen in issued queues. Offline warning approval is unavailable. Future-use caches refresh when connected; disconnected devices cannot learn remote policy edits instantly, and unsupported historical authority becomes `ExpiryReview=14`. Legacy issued readers, invoice-v2/arithmetic-v1/hash contracts and pending envelopes remain unchanged. Reconciliation offers only supported evidence-backed actions; reason alone cannot override expiry. All nine shipped locales have text/accessibility states. See [expiry rollout](../../../../docs/expiry-aware-selling-rollout.md) for migration/deployment/recovery and recorded-cost limits.
 
 
 ## Bounded Party Directories and Selector Identity
@@ -622,5 +624,5 @@ also clears loading. This prevents an empty overlay reopening after the picker c
 audit checks actual popup closure and scans full pages at a normalized viewport, keeping all axe
 rules. Customer/supplier workflows retain keyboard names, loading/error/empty states and all nine
 locales. Deploy the new API before/with this client; legacy array routes remain available only for
-compatibility. See [bounded reads verification](../docs/bounded-reads-verification.md) for limits, local
+compatibility. See [bounded reads verification](../../../../docs/bounded-reads-verification.md) for limits, local
 measurements, regression evidence and remaining limitations.

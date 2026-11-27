@@ -196,14 +196,35 @@ services and synthetic identities.
 
 `Application Release` (`.github/workflows/deploy.yml`) validates pull requests
 that touch merchant, licensing, admin, shared, workspace, Compose or local
-database script paths. Its single validation job builds the root
-`Intelibill.slnx` (both backends and the shared projects), runs every test
-project under `tests/backend`, `tests/backend/licensing` and `tests/backend/shared` once,
-installs the root Bun workspace once, builds and tests the merchant and admin
-web apps, checks the Compose contract and the admin runtime server, and builds
-and scans all six images. Licensing and admin images are built for validation
-only; the publish and dev/prod release jobs, and the main-push trigger set that
-starts them, are unchanged.
+database script paths. A run validates only the projects the change can affect:
+its `changes` job maps the changed paths to projects with
+`.github/scripts/detect-changed-projects.sh`, and each project has its own job.
+
+| Change | Runs |
+|---|---|
+| `src/backend/licensing`, `tests/backend/licensing`, `tests/contracts/licensing` | licensing backend suite, licensing API and migration images |
+| `src/backend/intelibill`, `tests/backend/intelibill` | merchant backend suite, merchant API and migration images |
+| `src/backend/shared`, `scripts/db`, `scripts/dev`, `docker-compose.yml` | both backend suites and their images |
+| `src/frontend/licensing` | admin web build, tests, runtime server test and image |
+| `src/frontend/intelibill` | merchant web build, tests and image |
+| `src/frontend/shared`, `package.json`, `bun.lock` | both web apps and their images |
+| the workflow, `.github/scripts`, root MSBuild/SDK files, `Intelibill.slnx`, `.dockerignore` | everything |
+| Markdown only | nothing; the workflow does not start |
+
+The consumer regression suites in `tests/backend/shared` run with whichever
+backend suite is selected. Every backend suite builds the root `Intelibill.slnx`
+(both backends and the shared projects) and then tests only its own test roots.
+The delivery contract tests run on every run. Images are built and scanned on
+pull requests only; licensing and admin images are built for validation only.
+The `Build and test application` job is the single gate: it passes when every
+selected job passed, and the publish and dev/prod release jobs, and the
+main-push trigger set that starts them, are unchanged. A manual run
+(`workflow_dispatch`) validates everything.
+
+The licensing integration suite also hosts the merchant API, but a merchant-only
+change does not run it. Run the workflow manually, or
+`scripts/dev/test-integration.sh --licensing`, when a merchant change touches
+behaviour licensing depends on (licence enforcement, delegation, offline permits).
 
 ## Acceptance harness
 
