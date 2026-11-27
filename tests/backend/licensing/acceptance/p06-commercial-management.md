@@ -23,12 +23,12 @@ export DOTNET_ROOT=/usr/local/share/dotnet
 export PATH="<bun-1.3.11-dir>:$DOTNET_ROOT:$PATH"
 test "$(bun --version)" = 1.3.11
 bun install --frozen-lockfile
-(cd src/admin-frontend && bun x playwright install chromium)   # only if Chromium is missing
+(cd src/frontend/licensing && bun x playwright install chromium)   # only if Chromium is missing
 export P0614_EVIDENCE="$(mktemp -d /tmp/intelibill-p0614.XXXXXX)"
 dotnet build src/backend/licensing/Intelibill.Licensing.slnx -c Release
 dotnet build src/backend/intelibill/Intelibill.slnx -c Release
-(cd src/frontend && bun run build)
-(cd src/admin-frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
+(cd src/frontend/licensing && bun run build)
 ```
 
 Run every `scripts/dev/test-integration.sh` invocation **sequentially** (each one generates and deletes `src/backend/intelibill/Intelibill.Api/Internal/Generated`) with `INTEGRATION_TEST_PARALLELISM=12`.
@@ -137,8 +137,8 @@ Each line is a distinct check against the committed head; measured counts, exits
 ```bash
 dotnet build src/backend/licensing/Intelibill.Licensing.slnx -c Release
 dotnet build src/backend/intelibill/Intelibill.slnx -c Release
-(cd src/frontend && bun run build)
-(cd src/admin-frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
+(cd src/frontend/licensing && bun run build)
 INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0614Tests' --logger 'console;verbosity=normal'
 INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0601Tests.ProrationV1VectorsMatchPolicy|FullyQualifiedName~P0601Tests.OwnerQuotesLeapMonthIncreaseFromPurchasedGross|FullyQualifiedName~P0601Tests.EligibilityOffersOnlyTheApplicableNextSteps|FullyQualifiedName~P0601Tests.TrialUpgradeConvertsThroughAFullPaidPurchase|FullyQualifiedName~P0602Tests.FullPaymentQueuesOneIncreaseWithoutCreatingATerm|FullyQualifiedName~P0602Tests.ReservationDecisionSurvivesReplayAndKeepsOriginalAnchor|FullyQualifiedName~P0603Tests.AdmissionAndReductionConsumeSerializeAtTheFenceAndRecoverWithOriginalFunds|FullyQualifiedName~P0604Tests.FinalSlotReceiptsCompeteForOneRemainingTermAndGrantNoShopMembership|FullyQualifiedName~P0605Tests.PermitReportedAfterSchedulingDefersSuccessorUntilExactExpiry|FullyQualifiedName~P0606Tests.CourtesyBridgeConservesThePurchasedSlotAtEveryBoundary|FullyQualifiedName~P0607aTests.LiveReviewCheckRejectsLostAndRegainedAuthority|FullyQualifiedName~P0607Tests.AgreedIntervalsConserveOneFundedSlot|FullyQualifiedName~P0607Tests.ApplyingTransferSerializesWithCompetingMutation' --logger 'console;verbosity=normal'
 INTEGRATION_TEST_PARALLELISM=12 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0608Tests.MemberRequestsRefundWithoutChangingTermAccessBalanceOrShopStatus|FullyQualifiedName~P0608Tests.RefundRequestContractPinsHashStatesBoundsAndMigrationAction|FullyQualifiedName~P0609Tests.MfaOlderThanFiveMinutesCannotPreviewApproveOrRecover|FullyQualifiedName~P0609Tests.ConfirmedPlusHeldCountsEachReservationOnce|FullyQualifiedName~P0610Tests.InterveningPaidCapacityIncreaseMovesDelayedRefundAccessToNeedsReview|FullyQualifiedName~P0610Tests.LostSendResponseAndLeaseExpiryNeverCauseAnotherPost|FullyQualifiedName~P0611Tests.InvalidOversizedAndNonPdfContentIsRejected|FullyQualifiedName~P0611Tests.ExactlyTenMiBAndTheNextIstDayAreAcceptedAtTheirBoundaries|FullyQualifiedName~P0612Tests.ContractFixtureMatchesSharedConstantsAndNoInlinePdfSurfaceExists|FullyQualifiedName~P0612Tests.MemberListsOnlyTruthfulInvoiceMetadataForTheirOrder|FullyQualifiedName~P0613Tests.ConcurrentCorrectionsConvergeOnOneSuccessor' --logger 'console;verbosity=normal'

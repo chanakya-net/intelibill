@@ -3,7 +3,7 @@
 Use the shipping merchant build, the loopback merchant and licensing APIs (each on its own PostgreSQL database), the local payment simulator (`Payments:Mode = LocalSimulator`, Testing host) and the signed entitlement transport pumped by the fixture. Set `P0302_EVIDENCE_DIR` to an absolute path outside the product worktree.
 
 ```sh
-(cd src/frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
 P0302_RUN_BROWSER=1 P0302_EVIDENCE_DIR=/absolute/path/to/evidence dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0302BrowserTests.BillingOwnerCompletesSimulatorPurchaseAndSeesAccessApplied' --logger 'console;verbosity=normal'
 ```
 

@@ -40,10 +40,10 @@ wait_for licensing-api healthy
 wait_http "${admin_web}/" 200
 
 (
-  cd src/admin-frontend
+  cd src/frontend/licensing
   NODE_PATH="${PWD}/node_modules" P0105_ARTIFACTS="${evidence}" P0107_ADMIN_WEB="${admin_web}" \
     P0107_MAILPIT="${mailpit_ui}" P0107_SESSION_FILE="${session_file}" \
-    bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0107.config.ts
+    bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0107.config.ts
 )
 
 facts="$(sql intelibill_licensing_dev -c "

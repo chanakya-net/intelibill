@@ -5,7 +5,7 @@ Chromium installed. Build the shipping merchant application before running the
 browser fixture.
 
 ```sh
-(cd src/frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
 export P0303_EVIDENCE_DIR=/absolute/path/to/issue-local/evidence/p0303
 mkdir -p "$P0303_EVIDENCE_DIR"
 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0303Tests'

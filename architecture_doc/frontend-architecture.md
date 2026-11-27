@@ -18,7 +18,7 @@
 ## Folder Structure
 
 ```
-src/frontend/src/app/
+src/frontend/intelibill/src/app/
 ├── app.config.ts          # Global providers: router, HTTP interceptors, NgRx, PrimeNG, Transloco, SW
 ├── app.routes.ts          # Public auth routes + guarded shell
 ├── core/
@@ -279,7 +279,7 @@ may hold a protected answer now:
 Repeated component styles live once, in a lazily delivered UI kit; component files keep only what is unique.
 
 - **Layers.** Tokens (`--app-*` custom properties: orange, sand/brown/bronze, stone, slate, red, amber, radii,
-  shadows, font families) sit on `:root` in `@intelibill/ui/styles/tokens.css` (`src/shared/frontend/ui/styles/`,
+  shadows, font families) sit on `:root` in `@intelibill/ui/styles/tokens.css` (`src/frontend/shared/ui/styles/`,
   beside `fonts.css` and `base.css`); `src/styles.css` imports them and they ship with the first load. The admin
   app imports the same files. The `ib-form-section`, `ib-panel` and `ib-page-heading` families and the kit layer
   order also live there; the merchant ui-kit files `@import` them. Kit classes use the
@@ -430,7 +430,7 @@ immutable for a year).
 - **Returns.** The return form allows `max(item scale, scale of the sold quantity)` decimals per line. A typed
   quantity above the returnable amount is kept and refused by the form's validation, never clamped.
 - **Mocked UI proof.** The fractional-sale flow runs against mocked APIs in
-  `tests/ui-audit/mock/new-sale-fractional-quantity.spec.ts`. Run it alone from `src/frontend` with
+  `tests/ui-audit/mock/new-sale-fractional-quantity.spec.ts`. Run it alone from `src/frontend/intelibill` with
   `bun x playwright test --config playwright.config.ts tests/ui-audit/mock/new-sale-fractional-quantity.spec.ts`
   (`audit:ui:mocked` ignores a file argument).
 
@@ -446,16 +446,16 @@ immutable for a year).
 
 | Suite | Path |
 |---|---|
-| Unit specs | `src/frontend/src/**/*.spec.ts` (Vitest + Angular test utilities) |
+| Unit specs | `src/frontend/intelibill/src/**/*.spec.ts` (Vitest + Angular test utilities) |
 | Unit (workspace) | `tests/frontend/unit/` |
 | E2E | `tests/frontend/e2e/` |
-| Coverage output | `src/frontend/coverage/` |
+| Coverage output | `src/frontend/intelibill/coverage/` |
 
 ## Workspace Files
 
-- `src/frontend/angular.json` — project build/test targets
-- `src/frontend/package.json` — scripts (`start`, `build`, `test`, `serve:ssr:INVENTORY`)
-- `src/frontend/ngsw-config.json` — PWA service worker config
+- `src/frontend/intelibill/angular.json` — project build/test targets
+- `src/frontend/intelibill/package.json` — scripts (`start`, `build`, `test`, `serve:ssr:INVENTORY`)
+- `src/frontend/intelibill/ngsw-config.json` — PWA service worker config
 
 ## Recorded-cost Trading and Operating Figures
 

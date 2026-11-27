@@ -224,7 +224,7 @@ No NgModules. Every component declares its own `imports` array.
 
 Each feature is self-contained: its own routes, state, and components under `features/<name>/`.
 
-**Convention:** New features go in `src/frontend/src/app/features/<feature-name>/`. Shared concerns (auth service, guards, interceptors) go in `core/`. Do not put feature-specific state in the root store.
+**Convention:** New features go in `src/frontend/intelibill/src/app/features/<feature-name>/`. Shared concerns (auth service, guards, interceptors) go in `core/`. Do not put feature-specific state in the root store.
 
 ---
 
@@ -233,8 +233,8 @@ Each feature is self-contained: its own routes, state, and components under `fea
 Root store holds global/shared state; all domain feature states are provided lazily at the shell route level and shared across child pages.
 
 **Where it appears:**
-- Root reducers wired in: `src/frontend/src/app/app.config.ts`
-- Shell-scoped feature state (shops, users, suppliers, inventory, customers, sales, expenses, bankAccounts) provided in: `src/frontend/src/app/core/layout/shell.routes.ts`
+- Root reducers wired in: `src/frontend/intelibill/src/app/app.config.ts`
+- Shell-scoped feature state (shops, users, suppliers, inventory, customers, sales, expenses, bankAccounts) provided in: `src/frontend/intelibill/src/app/core/layout/shell.routes.ts`
 
 **Convention:** Use NgRx for shared or async state. Use component-local state (`signal` or property) for simple UI-only cases. Never put transient UI state (e.g., a single dropdown open/close) in the store.
 
@@ -245,8 +245,8 @@ Root store holds global/shared state; all domain feature states are provided laz
 Auth and loading concerns are cross-cutting and wired once in `app.config.ts`.
 
 **Where it appears:**
-- `src/frontend/src/app/core/interceptors/` — `authInterceptor` (bearer token + 401 refresh with loop prevention), HTTP loading tracker
-- Wired in: `src/frontend/src/app/app.config.ts`
+- `src/frontend/intelibill/src/app/core/interceptors/` — `authInterceptor` (bearer token + 401 refresh with loop prevention), HTTP loading tracker
+- Wired in: `src/frontend/intelibill/src/app/app.config.ts`
 
 **Convention:** Add new cross-cutting HTTP concerns as interceptors, not as service wrappers. Order matters — auth interceptor must run before the loading tracker.
 
@@ -257,7 +257,7 @@ Auth and loading concerns are cross-cutting and wired once in `app.config.ts`.
 `authGuard` protects all shell/app routes. Public routes (`/login`, `/register`) are unguarded.
 
 **Where it appears:**
-- `src/frontend/src/app/core/guards/`
-- Applied in: `src/frontend/src/app/app.routes.ts`
+- `src/frontend/intelibill/src/app/core/guards/`
+- Applied in: `src/frontend/intelibill/src/app/app.routes.ts`
 
 **Convention:** Apply `authGuard` at the shell route level, not on individual leaf routes.

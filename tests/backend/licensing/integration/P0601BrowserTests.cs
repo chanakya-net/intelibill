@@ -14,7 +14,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0601BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0601.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0601.config.ts";
 
     [P0601BrowserFact]
     [Trait("Category", "Browser")]
@@ -32,7 +32,7 @@ public sealed class P0601BrowserTests(LicensingPostgreSqlFixture database, ITest
         var before = await P0601Tests.EvidenceAsync(fixture, term);
         fixture.At(P0601Tests.February14);
 
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         using var staged = new MerchantWebBuild(frontend);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         await using var web = await StartMerchantWebAsync(staged.Root, package.Payer.Client.BaseAddress!, timeout.Token);

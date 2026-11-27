@@ -34,8 +34,8 @@ public sealed class P0201BrowserTests(LicensingPostgreSqlFixture database, ITest
         await fixture.GrantAsync(allowed, actor);
 
         var root = ProjectPaths.Root;
-        var merchantRoot = Path.Combine(root, "src/frontend");
-        var adminRoot = Path.Combine(root, "src/admin-frontend");
+        var merchantRoot = Path.Combine(root, "src/frontend/intelibill");
+        var adminRoot = Path.Combine(root, "src/frontend/licensing");
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         using var staging = new MerchantWebBuild(merchantRoot);
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, deadline.Token);
@@ -53,7 +53,7 @@ public sealed class P0201BrowserTests(LicensingPostgreSqlFixture database, ITest
         Uri licensingOrigin, Guid account, string evidence, CancellationToken cancellationToken)
     {
         var playwright = new ProcessStartInfo("bun") { WorkingDirectory = adminRoot, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0201.config.ts" })
+        foreach (var argument in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0201.config.ts" })
             playwright.ArgumentList.Add(argument);
         playwright.Environment["NODE_PATH"] = Path.Combine(adminRoot, "node_modules");
         playwright.Environment["P0201_MERCHANT_WEB"] = merchantWeb;

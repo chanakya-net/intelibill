@@ -37,9 +37,9 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         var coverage = await CoverageAsync(bootstrap);
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         await using var adminWeb = await StartAdminWebAsync(adminRoot, licensingClient.BaseAddress!, timeout.Token);
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, timeout.Token);
         var evidence = Directory.CreateTempSubdirectory("intelibill-p0207-").FullName;
         var proof = await WriteBootstrapProofAsync(licensing.Services, evidence, adminWeb.Origin, timeout.Token);
@@ -117,7 +117,7 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         {
             WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/" + config })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/" + config })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(root, "node_modules");
         start.Environment["P0112_ADMIN_WEB"] = admin;

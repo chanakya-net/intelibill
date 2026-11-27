@@ -12,7 +12,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0603BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0603.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0603.config.ts";
 
     [P0603BrowserTheory]
     [InlineData(false)]
@@ -40,7 +40,7 @@ public sealed class P0603BrowserTests(LicensingPostgreSqlFixture database, ITest
         var solo = await P0603Tests.PublishReductionPlanAsync(fixture, "single-shop", "Solo Renewal", 1, 2, 6000L);
         fixture.At(February14);
 
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         using var staged = new MerchantWebBuild(frontend);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         await using var web = await StartMerchantWebAsync(staged.Root, package.Payer.Client.BaseAddress!, timeout.Token);

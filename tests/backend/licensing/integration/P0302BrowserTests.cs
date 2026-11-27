@@ -19,7 +19,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0302BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0302.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0302.config.ts";
     private static readonly string[] ShopNames = ["Purchase Central", "Purchase East", "Purchase North"];
     private static readonly string[] Phases = ["pending", "capture", "applied"];
 
@@ -32,7 +32,7 @@ public sealed class P0302BrowserTests(LicensingPostgreSqlFixture database, ITest
         Directory.CreateDirectory(evidence);
         await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0302Fixture.WholeSecondStart }, browser: true);
         var (payer, quote) = await PrepareAsync(fixture);
-        var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend"), evidence, payer.Email, quote);
+        var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"), evidence, payer.Email, quote);
         using var staged = new MerchantWebBuild(run.Frontend);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         await using var web = await StartMerchantWebAsync(staged.Root, payer.Client.BaseAddress!, timeout.Token);

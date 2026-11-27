@@ -14,7 +14,7 @@ public sealed partial class P0509Tests
     public async Task BrowserSaleRecoversAfterOrdinaryExpiry()
     {
         var evidence = CreateScenarioEvidence("ordinary-expiry");
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         var pinned = EnsurePinnedBrowserBuild(frontend);
         using var staged = StagePinnedMerchantWeb(frontend, pinned);
 
@@ -72,7 +72,7 @@ public sealed partial class P0509Tests
     public async Task MissedSuspensionRetainsOneReview()
     {
         var evidence = CreateScenarioEvidence("missed-suspension");
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         var pinned = EnsurePinnedBrowserBuild(frontend);
         using var staged = StagePinnedMerchantWeb(frontend, pinned);
 

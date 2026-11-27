@@ -12,9 +12,9 @@ internal sealed record EntitlementBrowserRun(string Suite, ITestOutputHelper Out
         string evidence, string suite, ITestOutputHelper output, Func<EntitlementBrowserRun, CancellationToken, Task> exercise)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         await using var adminWeb = await StartAdminWebAsync(adminRoot, fixture.LicensingApi.BaseAddress!, timeout.Token);
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, fixture.MerchantApi.BaseAddress!, timeout.Token);
         var secrets = Directory.CreateTempSubdirectory("intelibill-entitlement-provider-");
         try
@@ -35,7 +35,7 @@ internal sealed record EntitlementBrowserRun(string Suite, ITestOutputHelper Out
     {
         var before = (fixture.MerchantTraffic.Count, fixture.LicensingTraffic.Count);
         var start = new ProcessStartInfo("bun") { WorkingDirectory = Root, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", $"../../tests/backend/licensing/browser/playwright.{Suite}.config.ts",
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", $"../../../tests/backend/licensing/browser/playwright.{Suite}.config.ts",
             "--grep", "@" + phase })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(Root, "node_modules");

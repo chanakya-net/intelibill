@@ -4,14 +4,14 @@ Run from an installed workspace using Bun 1.3.11, supported Node 24 or 25, and t
 
 | Scenario | Command | Expected observation |
 | --- | --- | --- |
-| Clean dependency restore | `bun install --frozen-lockfile` at the repository root, then `cd src/frontend && bun install --frozen-lockfile` | The same workspace lockfile supports both directories. |
-| Consumer dependency boundary | `cd src/frontend && bun run test --run scripts/tests/web-workspace.spec.ts` | Both applications and the shared packages resolve the same physical Angular core. The shared peers resolve consistently. Admin and shared sources have no merchant or POS dependencies. |
-| App-local builds | `cd src/frontend && bun run build` and `cd src/admin-frontend && bun run build` from the root | Separate browser output for INVENTORY and ADMIN. The merchant build publishes its protected worker and full and lite offline manifests. |
+| Clean dependency restore | `bun install --frozen-lockfile` at the repository root, then `cd src/frontend/intelibill && bun install --frozen-lockfile` | The same workspace lockfile supports both directories. |
+| Consumer dependency boundary | `cd src/frontend/intelibill && bun run test --run scripts/tests/web-workspace.spec.ts` | Both applications and the shared packages resolve the same physical Angular core. The shared peers resolve consistently. Admin and shared sources have no merchant or POS dependencies. |
+| App-local builds | `cd src/frontend/intelibill && bun run build` and `cd src/frontend/licensing && bun run build` from the root | Separate browser output for INVENTORY and ADMIN. The merchant build publishes its protected worker and full and lite offline manifests. |
 | App-local regression suites | `bun run test --watch=false` in each app directory | Merchant and admin component tests run. The admin test supplies the empty, unauthenticated session and verifies denial without reading browser storage. |
-| Merchant style ceiling | `cd src/frontend && bun run audit:styles:duplicates` | At most 27 repeated blocks. The audit resolves token values from the shared stylesheet. |
-| Merchant production Chromium | `cd src/frontend && bun run build && bun run audit:ui:release` | Runs the merchant scenarios below, including the protected-cache and offline-pack release suites. Needs no admin build output. |
-| Admin production Chromium | `cd src/admin-frontend && bun run audit:release` | Builds the admin app, then runs the admin access scenario below from `src/admin-frontend/tests/release`. |
-| Merchant image | `docker build -f src/frontend/Dockerfile .` at the repository root | Frozen workspace install and merchant build succeed. The existing runtime entry point is still present. |
+| Merchant style ceiling | `cd src/frontend/intelibill && bun run audit:styles:duplicates` | At most 27 repeated blocks. The audit resolves token values from the shared stylesheet. |
+| Merchant production Chromium | `cd src/frontend/intelibill && bun run build && bun run audit:ui:release` | Runs the merchant scenarios below, including the protected-cache and offline-pack release suites. Needs no admin build output. |
+| Admin production Chromium | `cd src/frontend/licensing && bun run audit:release` | Builds the admin app, then runs the admin access scenario below from `src/frontend/licensing/tests/release`. |
+| Merchant image | `docker build -f src/frontend/intelibill/Dockerfile .` at the repository root | Frozen workspace install and merchant build succeed. The existing runtime entry point is still present. |
 
 ## Production Chromium scenarios
 

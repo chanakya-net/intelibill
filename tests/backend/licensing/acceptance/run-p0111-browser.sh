@@ -99,7 +99,7 @@ SQL
 
 printf 'P01-11 fixture output in %s\n' "$artifacts"
 dotnet build src/backend/licensing/Intelibill.Licensing.Api -warnaserror >"$artifacts/api-build.log"
-(cd src/admin-frontend && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
+(cd src/frontend/licensing && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
 docker build -f src/backend/licensing/Dockerfile.migrate -t "$image" . >"$artifacts/bundle-build.log" 2>&1
 
 docker network create "$project" >/dev/null
@@ -192,15 +192,15 @@ assert_down_fences_insert
 ) >"$artifacts/proof"
 
 PORT="$admin_port" API_ORIGIN="$api" ADMIN_WEB_ROOT="$artifacts/admin/browser" \
-  node src/admin-frontend/server.mjs >"$artifacts/web.log" 2>&1 &
+  node src/frontend/licensing/server.mjs >"$artifacts/web.log" 2>&1 &
 web_pid=$!
 wait_http "$admin/"
 wait_http "$mail/"
 (
-  cd src/admin-frontend
+  cd src/frontend/licensing
   export NODE_PATH="$PWD/node_modules"
   export P0111_ADMIN_WEB="$admin" P0111_MAILPIT="$mail" P0111_PROOF_FILE="$artifacts/proof" P0111_ARTIFACTS="$artifacts"
-  bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0111.config.ts
+  bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0111.config.ts
 )
 
 for statement in 'UPDATE provider_audit_events SET action=action' 'DELETE FROM provider_audit_events' 'TRUNCATE provider_audit_events'; do

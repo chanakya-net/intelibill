@@ -25,11 +25,11 @@ Run from the repository root with `.NET 10` first on `PATH` and an absolute scra
 export PATH="/usr/local/share/dotnet:$PATH"
 export P0509_EVIDENCE_DIR="$(mktemp -d /tmp/intelibill-p0509.XXXXXX)"
 bun install --frozen-lockfile
-(cd src/frontend && bun x playwright install chromium)
+(cd src/frontend/intelibill && bun x playwright install chromium)
 dotnet build src/backend/intelibill/Intelibill.slnx
 dotnet build src/backend/licensing/Intelibill.Licensing.slnx
-(cd src/frontend && bun run build)
-(cd src/admin-frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
+(cd src/frontend/licensing && bun run build)
 ```
 
 Run the two integration wrappers (`scripts/dev/test-integration.sh --licensing ...` and `scripts/dev/test-integration.sh ...`) sequentially because both generate and delete `src/backend/intelibill/Intelibill.Api/Internal/Generated`.
@@ -184,19 +184,19 @@ Measured on `2026-11-23` (`15:04:11Z`–`15:15:15Z`) with `.NET SDK 10.0.300` an
 | --- | --- | --- | --- | --- |
 | 1 | root | `dotnet build src/backend/intelibill/Intelibill.slnx` | `0` | Build succeeded (0 warnings, 0 errors) |
 | 2 | root | `dotnet build src/backend/licensing/Intelibill.Licensing.slnx` | `0` | Build succeeded (0 warnings, 0 errors) |
-| 3 | `src/frontend` | `bun run build` | `0` | Production bundle + `ngsw-worker.js` wrapper + `ngsw.json` + `ngsw-lite.json` built |
-| 4 | `src/admin-frontend` | `bun run build` | `0` | Production admin bundle built |
+| 3 | `src/frontend/intelibill` | `bun run build` | `0` | Production bundle + `ngsw-worker.js` wrapper + `ngsw.json` + `ngsw-lite.json` built |
+| 4 | `src/frontend/licensing` | `bun run build` | `0` | Production admin bundle built |
 | 5 | root | `P0509_RUN_BROWSER=1 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0509Tests\|FullyQualifiedName~P0507Tests' --logger 'console;verbosity=normal'` | `0` | `10 passed, 0 failed, 0 skipped` (`52.79 s`) |
 | 6 | root | `scripts/dev/test-integration.sh --filter 'FullyQualifiedName~P0501LicensingTests\|FullyQualifiedName~P0502LicensingTests\|FullyQualifiedName~P0504LicensingTests\|FullyQualifiedName~P0505LicensingTests\|FullyQualifiedName~P0506LicensingTests' --logger 'console;verbosity=normal'` | `0` | `119 passed, 0 failed, 0 skipped` (`49.98 s`) |
 | 7 | root | `dotnet test tests/backend/intelibill/unit/Intelibill.Application.Unit.Tests --filter 'FullyQualifiedName~OfflineInvoiceArithmeticValidatorTests\|FullyQualifiedName~OfflineInvoiceDocumentContractTests'` | `0` | `234 passed, 0 failed, 0 skipped` |
 | 8 | root | `dotnet test tests/backend/shared/P0102ConsumerRegressionTests` | `0` | `15 passed, 0 failed, 0 skipped` |
 | 9 | root | `dotnet test tests/backend/shared/P0103ConsumerRegressionTests` | `0` | `12 passed, 0 failed, 0 skipped` |
 | 10 | root | `bash .github/scripts/tests/licensing-stack-contract.test.sh` | `0` | `Licensing stack contract passed (11 services).` |
-| 11 | `src/frontend` | `bun run audit:ui:release licensing-offline.spec.ts` | `0` | `5 passed, 0 failed, 0 skipped` (`40.5 s`), including the security-barred upload case |
-| 12 | `src/frontend` | `bun run audit:ui:release legacy-queue-recovery.spec.ts offline-permit-finalization.spec.ts offline-permit-refresh.spec.ts offline-permit.spec.ts offline-pack.spec.ts protected-cache-isolation.spec.ts` | `0` | `46 passed, 0 failed, 0 skipped` (`4.0 m`) |
-| 13 | `src/frontend` | `bun run test --run offline-permit-clock offline-permit-refresh offline-licence-permit invoice-lease-indexeddb offline-sales-snapshot-sync offline-sale-sync.mapper offline-recovery-bundle offline-sale-pricing-calculator offline-invoice-document.builder offline-invoice-print.guard sale-invoice-print-page` | `0` | `14 test files, 297 passed, 0 failed` (`1.82 s`) |
-| 14 | `src/frontend` | `bun run test --run scripts/tests/angular-worker-manifest.spec.ts scripts/tests/finalize-service-worker.spec.ts scripts/tests/offline-pack-worker.spec.ts scripts/tests/protected-api-worker.spec.ts` | `0` | `4 files, 59 passed, 0 failed` |
-| 15 | `src/admin-frontend` | `bun x playwright test --config tests/release/playwright.release.config.ts device-permits.spec.ts` | `0` | `2 passed, 0 failed` (`1.8 s`) |
+| 11 | `src/frontend/intelibill` | `bun run audit:ui:release licensing-offline.spec.ts` | `0` | `5 passed, 0 failed, 0 skipped` (`40.5 s`), including the security-barred upload case |
+| 12 | `src/frontend/intelibill` | `bun run audit:ui:release legacy-queue-recovery.spec.ts offline-permit-finalization.spec.ts offline-permit-refresh.spec.ts offline-permit.spec.ts offline-pack.spec.ts protected-cache-isolation.spec.ts` | `0` | `46 passed, 0 failed, 0 skipped` (`4.0 m`) |
+| 13 | `src/frontend/intelibill` | `bun run test --run offline-permit-clock offline-permit-refresh offline-licence-permit invoice-lease-indexeddb offline-sales-snapshot-sync offline-sale-sync.mapper offline-recovery-bundle offline-sale-pricing-calculator offline-invoice-document.builder offline-invoice-print.guard sale-invoice-print-page` | `0` | `14 test files, 297 passed, 0 failed` (`1.82 s`) |
+| 14 | `src/frontend/intelibill` | `bun run test --run scripts/tests/angular-worker-manifest.spec.ts scripts/tests/finalize-service-worker.spec.ts scripts/tests/offline-pack-worker.spec.ts scripts/tests/protected-api-worker.spec.ts` | `0` | `4 files, 59 passed, 0 failed` |
+| 15 | `src/frontend/licensing` | `bun x playwright test --config tests/release/playwright.release.config.ts device-permits.spec.ts` | `0` | `2 passed, 0 failed` (`1.8 s`) |
 | 16 | root | `bash scripts/dev/test-licensing-stack.sh --case browser` + `docker inspect` + probes + `--case cleanup` (isolated project `intelibill-p01-05-908-20261123151324-74089`) | `0` | Enroll `2 passed`, RLS `PASS`, restart `2 passed`, `/health/ready` `200` on `14277`/`14278`, five jobs exited `0`, default stack diff empty |
 | 17 | root | `P0509_RUN_BROWSER=1 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0509Tests' --logger 'console;verbosity=normal'` | `0` | `3 passed, 0 failed, 0 skipped` (`50.55 s`) |
 | 18 | root | `P0509_RUN_BROWSER=1 scripts/dev/test-integration.sh --licensing --filter 'FullyQualifiedName~P0509Tests.MissedSuspensionRetainsOneReview' --logger 'console;verbosity=normal'` | `0` | `1 passed, 0 failed, 0 skipped` (`32.92 s`) |

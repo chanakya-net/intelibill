@@ -6,7 +6,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0305BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0305.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0305.config.ts";
     private static readonly string[] Phases = ["webhook-reload"];
 
     [P0305BrowserFact]

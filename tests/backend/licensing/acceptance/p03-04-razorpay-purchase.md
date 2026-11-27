@@ -4,7 +4,7 @@ Run from the repository root with Docker and the repository's Playwright
 Chromium installed. Build the shipping merchant application first.
 
 ```sh
-(cd src/frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
 export P0304_EVIDENCE_DIR=/absolute/path/to/issue-local/evidence/p0304
 mkdir -p "$P0304_EVIDENCE_DIR"
 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0304Tests'

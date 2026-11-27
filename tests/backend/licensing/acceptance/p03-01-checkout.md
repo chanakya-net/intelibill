@@ -5,7 +5,7 @@ Use the shipping merchant build, the loopback merchant and licensing APIs, Postg
 Run the merchant build and the fixture from the repository root.
 
 ```sh
-(cd src/frontend && bun run build)
+(cd src/frontend/intelibill && bun run build)
 P0301_RUN_BROWSER=1 P0301_EVIDENCE_DIR=/absolute/path/to/evidence dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0301BrowserTests.BillingOwnerReviewsAndAcceptsFrozenFullPaymentQuote' --logger 'console;verbosity=normal'
 ```
 

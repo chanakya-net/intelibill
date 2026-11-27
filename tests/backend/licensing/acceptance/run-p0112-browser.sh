@@ -75,7 +75,7 @@ git archive "$predecessor_ref" global.json Directory.Build.props Directory.Packa
 predecessor_api="$predecessor_src/src/licensing/Intelibill.Licensing.Api"
 dotnet build "$predecessor_api" -warnaserror >"$artifacts/predecessor-build.log"
 dotnet build src/backend/licensing/Intelibill.Licensing.Api -warnaserror >"$artifacts/api-build.log"
-(cd src/admin-frontend && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
+(cd src/frontend/licensing && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
 docker build -f src/backend/licensing/Dockerfile.migrate -t "$image" . >"$artifacts/bundle-build.log" 2>&1
 
 docker network create "$project" >/dev/null
@@ -185,15 +185,15 @@ printf 'Predecessor and recovery-aware APIs shared the upgraded database. Predec
 ) >"$artifacts/proof"
 
 PORT="$admin_port" API_ORIGIN="$api" ADMIN_WEB_ROOT="$artifacts/admin/browser" \
-  node src/admin-frontend/server.mjs >"$artifacts/web.log" 2>&1 &
+  node src/frontend/licensing/server.mjs >"$artifacts/web.log" 2>&1 &
 web_pid=$!
 wait_http "$admin/"
 wait_http "$mail/"
 (
-  cd src/admin-frontend
+  cd src/frontend/licensing
   export NODE_PATH="$PWD/node_modules"
   export P0112_ADMIN_WEB="$admin" P0112_MAILPIT="$mail" P0112_PROOF_FILE="$artifacts/proof" P0112_ARTIFACTS="$artifacts"
-  bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0112.config.ts
+  bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0112.config.ts
 )
 
 [[ "$(sql -c "SELECT count(*) FROM admin_recoveries WHERE kind=1 AND redeemed_at IS NOT NULL")" == 1 ]]

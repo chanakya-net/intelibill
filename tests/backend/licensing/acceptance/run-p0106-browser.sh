@@ -43,10 +43,10 @@ prepare() {
 
 prepare >"${proof_file}" 2>"${evidence}/p0106-prepare.log"
 (
-  cd src/admin-frontend
+  cd src/frontend/licensing
   NODE_PATH="${PWD}/node_modules" P0105_ARTIFACTS="${evidence}" P0106_ADMIN_WEB="${admin_web}" \
     P0106_PROOF_FILE="${proof_file}" P0106_RUNNER="${repository_root}/tests/backend/licensing/acceptance/run-p0106-browser.sh" \
-    bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0106.config.ts
+    bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0106.config.ts
 )
 rm -f "${proof_file}"
 

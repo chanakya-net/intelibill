@@ -39,7 +39,7 @@ public sealed class P0204BrowserTests(LicensingPostgreSqlFixture database, ITest
         var shopRoles = await ShopAuthoritiesAsync();
 
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var web = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, deadline.Token);
         var evidence = Environment.GetEnvironmentVariable("P0204_EVIDENCE")
             ?? Directory.CreateTempSubdirectory("intelibill-p0204-browser-").FullName;
@@ -62,12 +62,12 @@ public sealed class P0204BrowserTests(LicensingPostgreSqlFixture database, ITest
 
     private static async Task RunPlaywrightAsync(BrowserLaunch launch, CancellationToken ct)
     {
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         var start = new ProcessStartInfo("bun")
         {
             WorkingDirectory = adminRoot, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/backend/licensing/browser/playwright.p0204.config.ts" })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../../tests/backend/licensing/browser/playwright.p0204.config.ts" })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(adminRoot, "node_modules");
         start.Environment["P0204_WEB"] = launch.Web;

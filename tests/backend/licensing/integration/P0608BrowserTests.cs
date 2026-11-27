@@ -14,7 +14,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0608BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0608.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0608.config.ts";
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
     [P0608BrowserFact]
@@ -41,8 +41,8 @@ public sealed class P0608BrowserTests(LicensingPostgreSqlFixture database, ITest
 
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         var ct = deadline.Token;
-        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend");
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var merchantRoot = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         using var staged = new MerchantWebBuild(merchantRoot);
         await using var merchantApi = await P0310ApiRelay.StartAsync(package.Payer.Client.BaseAddress!, ct);
         await using var adminApi = await P0310ApiRelay.StartAsync(fixture.Checkout.Delivery.LicensingApi.BaseAddress!, ct);

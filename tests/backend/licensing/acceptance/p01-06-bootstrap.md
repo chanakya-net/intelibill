@@ -41,7 +41,7 @@ only the pending enrollment screen after clearing secrets.
   then exit 0 with 6 passed. The durable budget first allowed a sixth attempt
   after restarting the API. The stage command returned exit 1, then exit 0
   with 7 passing tests after the PostgreSQL budget.
-- `cd src/admin-frontend && bun run test --watch=false` first exited 1
+- `cd src/frontend/licensing && bun run test --watch=false` first exited 1
   with 1 failed and 1 passed. The setup URL redirected to the landing page.
 
 ## Release evidence

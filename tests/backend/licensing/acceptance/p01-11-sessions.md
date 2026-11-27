@@ -17,9 +17,9 @@ Run from the repository root unless the command changes directories. All API and
 | `dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 80 passed. Includes the original refresh and audit suites and EF snapshot check. |
 | `dotnet test tests/backend/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed. |
 | `dotnet build Intelibill.slnx -warnaserror` | Built with zero warnings and errors. |
-| `cd src/admin-frontend && bun run test --watch=false` | 40 passed across eight files. Includes delayed 200 and 401 refreshes, stale protected results, abandoned sign-out intent, queued sign-in and unavailable Web Locks. |
-| `cd src/admin-frontend && bun run audit:release` | Production build and release Chromium check passed. |
-| `cd src/frontend && bun run build` | Merchant production build and worker packaging passed. The build emitted existing style-budget warnings. |
+| `cd src/frontend/licensing && bun run test --watch=false` | 40 passed across eight files. Includes delayed 200 and 401 refreshes, stale protected results, abandoned sign-out intent, queued sign-in and unavailable Web Locks. |
+| `cd src/frontend/licensing && bun run audit:release` | Production build and release Chromium check passed. |
+| `cd src/frontend/intelibill && bun run build` | Merchant production build and worker packaging passed. The build emitted existing style-budget warnings. |
 | `bash tests/backend/licensing/acceptance/run-p0111-browser.sh` | Chromium scenario and explicit migration job checks passed. |
 | `git diff --check cbda75bd0bdf57b17fa9c704d8307b821b8a4194 HEAD` | Exit 0. |
 

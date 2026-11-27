@@ -14,14 +14,14 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - .github/workflows/deploy.yml
       - src/backend/intelibill/**
       - src/backend/shared/**
-      - src/frontend/**
-      - src/shared/**
+      - src/frontend/intelibill/**
+      - src/frontend/shared/**
       - tests/backend/intelibill/**
       - Directory.Build.props
       - Directory.Packages.props
       - global.json
       - src/backend/licensing/**
-      - src/admin-frontend/**
+      - src/frontend/licensing/**
       - tests/backend/licensing/**
       - tests/backend/shared/**
       - tests/contracts/licensing/**
@@ -40,8 +40,8 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - .github/workflows/deploy.yml
       - src/backend/intelibill/**
       - src/backend/shared/**
-      - src/frontend/**
-      - src/shared/**
+      - src/frontend/intelibill/**
+      - src/frontend/shared/**
       - tests/backend/intelibill/**
       - Directory.Build.props
       - Directory.Packages.props
@@ -96,7 +96,7 @@ jobs:
           bash .github/scripts/tests/licensing-stack-harness.test.sh
 
       - name: Test admin web runtime server
-        run: node --test src/admin-frontend/tests/server.test.mjs
+        run: node --test src/frontend/licensing/tests/server.test.mjs
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -156,24 +156,24 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build frontend
-        working-directory: src/frontend
+        working-directory: src/frontend/intelibill
         run: bun run build
 
       - name: Test frontend
-        working-directory: src/frontend
+        working-directory: src/frontend/intelibill
         run: |
           set -euo pipefail
-          mkdir -p ../../TestResults/frontend
+          mkdir -p ../../../TestResults/frontend
           rm -rf coverage
-          CI=true FORCE_COLOR=0 bun run test --watch=false --coverage 2>&1 | tee ../../TestResults/frontend/test-output.log
-          sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../TestResults/frontend/test-output.log > ../../TestResults/frontend/test-output.clean.log
+          CI=true FORCE_COLOR=0 bun run test --watch=false --coverage 2>&1 | tee ../../../TestResults/frontend/test-output.log
+          sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../../TestResults/frontend/test-output.log > ../../../TestResults/frontend/test-output.clean.log
 
       - name: Build admin web
-        working-directory: src/admin-frontend
+        working-directory: src/frontend/licensing
         run: bun run build
 
       - name: Test admin web
-        working-directory: src/admin-frontend
+        working-directory: src/frontend/licensing
         run: CI=true FORCE_COLOR=0 bun run test --watch=false
 
       - name: Generate build and test badges
@@ -292,7 +292,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           docker build \
-            --file src/frontend/Dockerfile \
+            --file src/frontend/intelibill/Dockerfile \
             --tag "intelibill-web-pr:${GITHUB_SHA}" \
             .
 
@@ -326,7 +326,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           docker build \
-            --file src/admin-frontend/Dockerfile \
+            --file src/frontend/licensing/Dockerfile \
             --tag "intelibill-admin-web-pr:${GITHUB_SHA}" \
             .
 
@@ -560,7 +560,7 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          file: src/frontend/Dockerfile
+          file: src/frontend/intelibill/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.WEB_IMAGE }}:${{ github.sha }}

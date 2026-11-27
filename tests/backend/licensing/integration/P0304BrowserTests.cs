@@ -20,7 +20,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Configuration = "../../tests/backend/licensing/browser/playwright.p0304.config.ts";
+    private const string Configuration = "../../../tests/backend/licensing/browser/playwright.p0304.config.ts";
     private static readonly string[] Phases = ["forged", "authorized", "captured", "applied"];
     private static readonly string[] RecoveryPhases = ["lost", "tabs", "recheck"];
     private static readonly string[] DismissalPhases = ["dismiss-idle", "dismiss-authorized", "dismiss-captured"];
@@ -137,7 +137,7 @@ public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture databas
             var session = new Session { Fixture = fixture, Fake = fake };
             var (payer, quote) = await PrepareAsync(fixture);
             var other = withOtherAccount ? await OtherAccountQuoteAsync(fixture, payer) : null;
-            session.Run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend"), evidence, payer.Email, quote, other);
+            session.Run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"), evidence, payer.Email, quote, other);
             session.staged = new MerchantWebBuild(session.Run.Frontend);
             var started = await StartMerchantWebAsync(session.staged.Root, payer.Client.BaseAddress!, session.Timeout);
             (session.web, session.Origin) = (started, started.Origin);

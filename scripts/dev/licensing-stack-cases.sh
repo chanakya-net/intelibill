@@ -102,10 +102,10 @@ case_failure() {
 # the repository root free of packages), so the suite runs from there.
 browser_phase() {
   (
-    cd src/admin-frontend
+    cd src/frontend/licensing
     NODE_PATH="${PWD}/node_modules" P0105_PHASE="$1" P0105_MERCHANT_WEB="${merchant_web}" \
       P0105_ADMIN_WEB="${admin_web}" P0105_MAILPIT="${mailpit_ui}" P0105_ARTIFACTS="${evidence}" \
-      bun x playwright test --config ../../tests/backend/licensing/browser/playwright.config.ts
+      bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.config.ts
   ) 2>&1 | tee "${evidence}/browser-$1.log" >&2
   return "${PIPESTATUS[0]}"
 }

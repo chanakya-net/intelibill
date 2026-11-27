@@ -11,7 +11,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Config = "../../tests/backend/licensing/browser/playwright.p0306.config.ts";
+    private const string Config = "../../../tests/backend/licensing/browser/playwright.p0306.config.ts";
 
     [P0306BrowserFact]
     [Trait("Category", "Browser")]
@@ -39,7 +39,7 @@ public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITest
         var seed = await P0306Tests.EnrollBillingAsync(fixture, P0306Tests.BillingEmail);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
         var ct = timeout.Token;
-        var root = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var root = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         await using var web = await StartAdminWebAsync(root, fixture.Delivery.LicensingApi.BaseAddress!, ct);
         await SetFixtureBrowserOriginAsync(fixture, web.Origin, ct);
         var secrets = JsonSerializer.SerializeToUtf8Bytes(new

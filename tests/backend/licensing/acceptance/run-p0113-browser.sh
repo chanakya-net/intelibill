@@ -104,7 +104,7 @@ start_api() {
 
 printf 'P01-13 fixture output in %s\n' "$artifacts"
 dotnet build src/backend/licensing/Intelibill.Licensing.Api -warnaserror >"$artifacts/api-build.log"
-(cd src/admin-frontend && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
+(cd src/frontend/licensing && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
 docker build -f src/backend/licensing/Dockerfile.migrate -t "$image" . >"$artifacts/bundle-build.log" 2>&1
 
 docker network create "$project" >/dev/null
@@ -166,17 +166,17 @@ printf 'Explicit upgrade from P01-12 preserved bootstrap, identity, authenticato
 start_api >"$artifacts/api.log" 2>&1 &
 api_pid=$!
 PORT="$admin_port" API_ORIGIN="$api" ADMIN_WEB_ROOT="$artifacts/admin/browser" \
-  node src/admin-frontend/server.mjs >"$artifacts/web.log" 2>&1 &
+  node src/frontend/licensing/server.mjs >"$artifacts/web.log" 2>&1 &
 web_pid=$!
 wait_http "$api/health/ready"
 wait_http "$admin/"
 wait_http "$mail/"
 (
-  cd src/admin-frontend
+  cd src/frontend/licensing
   export NODE_PATH="$PWD/node_modules"
   export P0112_ADMIN_WEB="$admin" P0112_MAILPIT="$mail" P0112_PROOF_FILE="$artifacts/proof"
   export P0113_ARTIFACTS="$artifacts" P0113_DB_CONTAINER="$project-db"
-  bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0113.config.ts
+  bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0113.config.ts
 )
 
 [[ "$(sql licensing -c "SELECT count(*) FROM admin_identities WHERE capabilities=16 AND deactivated_at IS NULL")" == 1 ]]

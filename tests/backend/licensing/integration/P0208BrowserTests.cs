@@ -39,9 +39,9 @@ public sealed class P0208BrowserTests(LicensingPostgreSqlFixture database, ITest
     private async Task RunDemoAsync(LicensingApiFactory licensing, Uri licensingOrigin, Uri merchantOrigin, string email,
         NpgsqlConnectionStringBuilder bootstrap, object? coverage, CancellationToken token)
     {
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
+        var adminRoot = Path.Combine(ProjectPaths.Root, "src/frontend/licensing");
         await using var adminWeb = await StartAdminWebAsync(adminRoot, licensingOrigin, token);
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
+        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend/intelibill"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantOrigin, token);
         var evidence = Environment.GetEnvironmentVariable("P0208_EVIDENCE_DIR") is { Length: > 0 } path
             ? Directory.CreateDirectory(path).FullName : Directory.CreateTempSubdirectory("intelibill-p0208-").FullName;

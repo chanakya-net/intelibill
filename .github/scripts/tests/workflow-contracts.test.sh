@@ -213,7 +213,7 @@ release_images = {
     "consumer" => "needs.build_api.outputs.image",
   },
   "build_web" => {
-    "dockerfile" => "src/frontend/Dockerfile",
+    "dockerfile" => "src/frontend/intelibill/Dockerfile",
     "repository" => "${{ env.WEB_IMAGE }}",
     "consumer" => "needs.build_web.outputs.image",
   },
@@ -291,8 +291,8 @@ pre_835_release_paths = %w[
   .github/workflows/deploy.yml
   src/backend/intelibill/**
   src/backend/shared/**
-  src/frontend/**
-  src/shared/**
+  src/frontend/intelibill/**
+  src/frontend/shared/**
   tests/backend/intelibill/**
   Directory.Build.props
   Directory.Packages.props
@@ -300,7 +300,7 @@ pre_835_release_paths = %w[
 ]
 validation_only_paths = %w[
   src/backend/licensing/**
-  src/admin-frontend/**
+  src/frontend/licensing/**
   tests/backend/licensing/**
   tests/backend/shared/**
   tests/contracts/licensing/**
@@ -347,8 +347,8 @@ assert(
   "app-local bun install bypasses the root workspace lockfile",
 )
 {
-  "src/frontend" => "merchant web",
-  "src/admin-frontend" => "admin web",
+  "src/frontend/intelibill" => "merchant web",
+  "src/frontend/licensing" => "admin web",
 }.each do |directory, consumer|
   owned = validation_steps.select { |step| step["working-directory"] == directory }
   owned_runs = owned.map { |step| step.fetch("run", "") }.join("\n")
@@ -368,16 +368,16 @@ assert(
   "validation must check fixture isolation and Compose failure propagation",
 )
 assert(
-  validation_commands.include?("node --test src/admin-frontend/tests/server.test.mjs"),
+  validation_commands.include?("node --test src/frontend/licensing/tests/server.test.mjs"),
   "validation must exercise the admin web runtime server",
 )
 %w[
   src/backend/intelibill/Dockerfile
-  src/frontend/Dockerfile
+  src/frontend/intelibill/Dockerfile
   src/backend/intelibill/Dockerfile.migrate
   src/backend/licensing/Dockerfile
   src/backend/licensing/Dockerfile.migrate
-  src/admin-frontend/Dockerfile
+  src/frontend/licensing/Dockerfile
 ].each do |dockerfile|
   assert(
     validation_commands.include?(dockerfile),
@@ -395,7 +395,7 @@ deploy_jobs.each do |job_name, job|
   next if job_name == "validate"
 
   job_text = commands(job)
-  %w[src/backend/licensing src/admin-frontend licensing-api licensing-migrate admin-web].each do |marker|
+  %w[src/backend/licensing src/frontend/licensing licensing-api licensing-migrate admin-web].each do |marker|
     assert(
       !job_text.include?(marker),
       "#{job_name} publishes or deploys licensing/admin output (#{marker}); P01-05 adds validation only",

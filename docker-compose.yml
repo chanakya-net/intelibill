@@ -194,7 +194,7 @@ services:
     profiles: [full]
     build:
       context: .
-      dockerfile: src/frontend/Dockerfile
+      dockerfile: src/frontend/intelibill/Dockerfile
     container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_frontend
     ports:
       - "127.0.0.1:${INTELIBILL_WEB_PORT:-4000}:4000"
@@ -308,7 +308,7 @@ services:
     profiles: [full]
     build:
       context: .
-      dockerfile: src/admin-frontend/Dockerfile
+      dockerfile: src/frontend/licensing/Dockerfile
     container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_admin_frontend
     ports:
       - "127.0.0.1:${INTELIBILL_ADMIN_WEB_PORT:-4001}:4000"

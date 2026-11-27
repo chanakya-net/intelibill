@@ -82,13 +82,13 @@ pending_facts() {
 
 start_browser() {
   (
-    cd src/admin-frontend
+    cd src/frontend/licensing
     export NODE_PATH="${PWD}/node_modules"
     export P0108_ARTIFACTS="${evidence}" P0108_ADMIN_WEB="${admin}" P0108_MAILPIT="${mail}"
     export P0108_PROOF_FILE="${evidence}/proof" P0108_SESSION_FILE="${evidence}/fixture-session"
     export P0108_API_LOG="${evidence}/api.log"
     export P0108_OWNER_ENROLLED="${evidence}/owner-enrolled" P0108_INVITER_READY="${evidence}/inviter-ready"
-    exec bun x playwright test --config ../../tests/backend/licensing/browser/playwright.p0108.config.ts
+    exec bun x playwright test --config ../../../tests/backend/licensing/browser/playwright.p0108.config.ts
   ) >"${evidence}/browser.log" 2>&1 &
   browser_pid=$!
 }
@@ -105,7 +105,7 @@ wait_owner() {
 
 printf 'P01-08 fixture output in %s\n' "${evidence}"
 dotnet build "${api_project}" -warnaserror >"${evidence}/api-build.log"
-(cd src/admin-frontend && bun run build) >"${evidence}/web-build.log"
+(cd src/frontend/licensing && bun run build) >"${evidence}/web-build.log"
 docker build -f src/backend/licensing/Dockerfile.migrate -t "${job_image}" . >"${evidence}/bundle-build.log" 2>&1
 
 docker network create "${project}" >/dev/null
@@ -172,8 +172,8 @@ printf 'Migration job upgraded the exact predecessor and preserved its pending c
     --verification-reference p0108-local-fixture --admin-origin "${admin}"
 ) >"${evidence}/proof"
 
-PORT="${admin_port}" API_ORIGIN="${api}" ADMIN_WEB_ROOT="${repository_root}/src/admin-frontend/dist/ADMIN/browser" \
-  node src/admin-frontend/server.mjs >"${evidence}/web.log" 2>&1 &
+PORT="${admin_port}" API_ORIGIN="${api}" ADMIN_WEB_ROOT="${repository_root}/src/frontend/licensing/dist/ADMIN/browser" \
+  node src/frontend/licensing/server.mjs >"${evidence}/web.log" 2>&1 &
 web_pid=$!
 wait_http "${admin}/"
 wait_http "${mail}/"

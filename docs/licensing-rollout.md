@@ -347,8 +347,8 @@ create (one delegated call per page), with no polling. Before paid traffic (P03)
 purge of rows past `expires_at` plus a retention window. Keep global replay
 uniqueness for every assertion that can still be accepted.
 
-Run the local browser check after `bun run build` from each of `src/frontend`
-and `src/admin-frontend`.
+Run the local browser check after `bun run build` from each of `src/frontend/intelibill/intelibill`
+and `src/frontend/intelibill/licensing`.
 
 ```sh
 P0201_RUN_BROWSER=1 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0201BrowserTests'
@@ -436,7 +436,7 @@ financial obligations, coverage and shop memberships continue under their
 original recorded terms. The versioned proposal and acceptance jointly retain
 both participants' authority and request evidence.
 
-Local verification, after building the merchant web from `src/frontend`:
+Local verification, after building the merchant web from `src/frontend/intelibill/intelibill`:
 
 ```bash
 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204Tests'

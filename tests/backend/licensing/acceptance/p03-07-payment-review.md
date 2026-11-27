@@ -12,8 +12,8 @@ Run from the repository root with Docker available and install frontend dependen
 
 ```sh
 dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0307Tests'
-(cd src/admin-frontend && bun run build)
-(cd src/frontend && bun run build)
+(cd src/frontend/licensing && bun run build)
+(cd src/frontend/intelibill && bun run build)
 P0307_RUN_BROWSER=1 P0307_EVIDENCE_DIR=/absolute/local/evidence dotnet test tests/backend/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0307BrowserTests' --logger 'console;verbosity=normal'
 ```
 

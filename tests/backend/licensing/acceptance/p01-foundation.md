@@ -12,7 +12,7 @@ Use the repository's Bun and Playwright versions, Chromium installed for the adm
 
 ```bash
 bun install --frozen-lockfile
-(cd src/admin-frontend && bun x playwright install chromium)
+(cd src/frontend/licensing && bun x playwright install chromium)
 
 export P0115_PROJECT="intelibill-p01-05-845-$(date -u +%Y%m%d%H%M%S)"
 export P0115_ARTIFACTS="$(mktemp -d /tmp/intelibill-p0115.XXXXXX)"
@@ -23,11 +23,11 @@ bash scripts/licensing/test-p01-foundation.sh --case cleanup
 
 Use a fresh project and evidence directory each run. The primary fixture uses merchant web 14000, admin web 14001, the APIs on 14277 and 14278, PostgreSQL on 14432 and Mailpit on 14025 and 14825, all on loopback. The P01-05 migration cases use distinct loopback ports. The cleanup command checks the evidence directory's project record and the Compose resource labels before removing the fixture volumes.
 
-The runner first calls `scripts/dev/test-licensing-stack.sh --case all`. That calls guarded `docker compose --env-file /dev/null -f docker-compose.yml -p "$P0115_PROJECT" --profile full up -d --build`, plus the existing reused-volume, failure and merchant browser cases. The provider stages add two random roots through a private Compose override and issue the bootstrap proof through the one-shot CLI under the migration identity. The running API uses the licensing runtime role. The browser uses no fixture session. The provider stages launch Chromium from `src/admin-frontend` with the following command and private fixture inputs.
+The runner first calls `scripts/dev/test-licensing-stack.sh --case all`. That calls guarded `docker compose --env-file /dev/null -f docker-compose.yml -p "$P0115_PROJECT" --profile full up -d --build`, plus the existing reused-volume, failure and merchant browser cases. The provider stages add two random roots through a private Compose override and issue the bootstrap proof through the one-shot CLI under the migration identity. The running API uses the licensing runtime role. The browser uses no fixture session. The provider stages launch Chromium from `src/frontend/licensing` with the following command and private fixture inputs.
 
 ```bash
 NODE_PATH="$PWD/node_modules" bun x playwright test \
-  --config ../../tests/backend/licensing/browser/playwright.p0115.config.ts
+  --config ../../../tests/backend/licensing/browser/playwright.p0115.config.ts
 ```
 
 The runner requires merchant Chromium results of two passes in each phase and one passing provider journey for each of `enroll` and `restart`. The provider restart uses `compose restart backend licensing-api`, then `compose down` and `compose up -d` with the original fixture volume and roots. It compares the identities, grants, accepted invitation, revoked sessions, audit count and ordered migration IDs across both restarts. The runner publishes `summary.txt` after all checks and a fixture credential scan. Proofs, cookies, tokens, private logs and browser traces stay in temporary scratch deleted when the runner exits.
@@ -94,17 +94,17 @@ Local checks ran from clean source `8f4b2e50ac77b83befd7fb2d6587798733942a18` in
 | I03 | 06:22:20 | `bash .github/scripts/tests/frontend-image-contract.test.sh` | 0 | Merchant and admin image contracts |
 | I04 | 06:17:41 | `bash .github/scripts/tests/migration-image-contract.test.sh` | 0 | Merchant and licensing migration image contracts |
 | I05 | 06:12:38 | `bash .github/scripts/tests/validate-phase-11-workflows.test.sh` | 0 | Release workflow contracts |
-| I06 | 06:12:38 | `node --test src/admin-frontend/tests/server.test.mjs` | 0 | Admin runtime server tests |
+| I06 | 06:12:38 | `node --test src/frontend/licensing/tests/server.test.mjs` | 0 | Admin runtime server tests |
 | S01 | 06:22:20 | `bash tests/backend/licensing/acceptance/p01-foundation-harness.test.sh` | 0 | Exit propagation, safe evidence, scope and source provenance |
 | W00 | 06:12:34 | `bun install --frozen-lockfile` | 0 | Frozen workspace install with Bun 1.3.11 |
-| W01 | 06:12:35 | `(cd src/frontend && bun run test --run scripts/tests/web-workspace.spec.ts)` | 0 | Web workspace boundary tests (3 passed) |
-| W02 | 06:12:35 | `(cd src/frontend && bun run test --watch=false)` | 0 | Merchant test suites (2998 Angular and 107 Bun tests passed) |
-| W03 | 06:13:09 | `(cd src/frontend && bun run build)` | 0 | Merchant production build and worker packaging |
-| W04 | 06:13:21 | `(cd src/frontend && bun run audit:styles:duplicates)` | 0 | 27 duplicate style blocks against a ceiling of 27 |
-| W05 | 06:13:57 | `(cd src/frontend && bun run audit:ui:release)` | 0 | Merchant production Chromium release audit (78 passed) |
-| W06 | 06:13:21 | `(cd src/admin-frontend && bun run test --watch=false)` | 0 | Admin Angular unit tests (48 passed) |
-| W07 | 06:13:25 | `(cd src/admin-frontend && bun run build)` | 0 | Admin production build |
-| W08 | 06:13:28 | `(cd src/admin-frontend && bun run audit:release)` | 0 | Admin production Chromium release audit (1 passed) |
+| W01 | 06:12:35 | `(cd src/frontend/intelibill && bun run test --run scripts/tests/web-workspace.spec.ts)` | 0 | Web workspace boundary tests (3 passed) |
+| W02 | 06:12:35 | `(cd src/frontend/intelibill && bun run test --watch=false)` | 0 | Merchant test suites (2998 Angular and 107 Bun tests passed) |
+| W03 | 06:13:09 | `(cd src/frontend/intelibill && bun run build)` | 0 | Merchant production build and worker packaging |
+| W04 | 06:13:21 | `(cd src/frontend/intelibill && bun run audit:styles:duplicates)` | 0 | 27 duplicate style blocks against a ceiling of 27 |
+| W05 | 06:13:57 | `(cd src/frontend/intelibill && bun run audit:ui:release)` | 0 | Merchant production Chromium release audit (78 passed) |
+| W06 | 06:13:21 | `(cd src/frontend/licensing && bun run test --watch=false)` | 0 | Admin Angular unit tests (48 passed) |
+| W07 | 06:13:25 | `(cd src/frontend/licensing && bun run build)` | 0 | Admin production build |
+| W08 | 06:13:28 | `(cd src/frontend/licensing && bun run audit:release)` | 0 | Admin production Chromium release audit (1 passed) |
 | G01 | 06:22:00 | `bash scripts/licensing/test-p01-foundation.sh --case all` | 0 | 4 merchant and 2 provider Chromium passes, database isolation, startup jobs, persistence and credential scan |
 | G02 | 06:29:28 | `bash scripts/licensing/test-p01-foundation.sh --case cleanup` | 0 | Label-checked fixture cleanup |
 

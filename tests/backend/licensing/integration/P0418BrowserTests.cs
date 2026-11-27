@@ -8,7 +8,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0418BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Config = "../../tests/backend/licensing/browser/playwright.p0418.config.ts";
+    private const string Config = "../../../tests/backend/licensing/browser/playwright.p0418.config.ts";
 
     [P0418BrowserFact]
     [Trait("Category", "Browser")]
@@ -17,7 +17,7 @@ public sealed class P0418BrowserTests(LicensingPostgreSqlFixture database, ITest
         var evidence = Path.Combine(P0418Tests.EvidenceDirectory(), "browser-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(evidence);
         output.WriteLine("Browser evidence: {0}", evidence);
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         using var staged = new MerchantWebBuild(frontend);
         await using var fixture = await P0213Fixture.StartAsync(database, browser: true, prepareProvider: true,
             businessClock: new P0201Clock { Now = P0202Fixture.WholeSecondNow() });

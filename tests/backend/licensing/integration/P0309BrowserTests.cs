@@ -11,7 +11,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed class P0309BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
-    private const string Config = "../../tests/backend/licensing/browser/playwright.p0309.config.ts";
+    private const string Config = "../../../tests/backend/licensing/browser/playwright.p0309.config.ts";
 
     [P0309BrowserFact]
     [Trait("Category", "Browser")]
@@ -20,7 +20,7 @@ public sealed class P0309BrowserTests(LicensingPostgreSqlFixture database, ITest
         var evidence = Environment.GetEnvironmentVariable("P0309_EVIDENCE_DIR");
         Assert.False(string.IsNullOrWhiteSpace(evidence), "Set P0309_EVIDENCE_DIR.");
         Directory.CreateDirectory(evidence);
-        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend");
+        var frontend = Path.Combine(ProjectPaths.Root, "src/frontend/intelibill");
         await using var fixture = await StartAsync(database, March31, browser: true);
         var package = await fixture.PackageAsync(1, ["Fresh Term Shop"]);
         await P0309Tests.ApplyTrialAsync(fixture, package.Payer);
