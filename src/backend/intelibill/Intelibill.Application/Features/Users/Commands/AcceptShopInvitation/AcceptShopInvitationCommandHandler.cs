@@ -55,25 +55,14 @@ public sealed class AcceptShopInvitationCommandHandler(
         if (invitation is null)
             return Errors.Users.InvitationNotFound;
 
-        // Ownership of the account comes before ownership of the offer: the token alone proves
-        // nothing without the verified address the offer was sent to.
-        if (actor.Email is null || !actor.IsEmailVerified)
-            return Errors.Users.InvitationRequiresVerifiedEmail;
-
-        if (!string.Equals(actor.Email, invitation.Email, StringComparison.OrdinalIgnoreCase))
-            return Errors.Users.InvitationWrongAccount;
-
-        if (!invitation.IsPending(now) || !InvitationTokens.Matches(invitation.TokenHash, command.Token))
-            return Errors.Users.InvitationNotAcceptable;
+        if (InvitationRefusal(actor, invitation, command, now) is { } refusal)
+            return refusal;
 
         // An invitation is only as live as the authority that issued it. If the inviter has lost
         // ownership of the shop, or their membership has moved on since the offer was made, the
         // grant is stale rather than honoured.
         var inviter = await authority.LockMembershipAsync(invitation.ShopId, invitation.InvitedByUserId, cancellationToken);
-        if (inviter is null
-            || !inviter.IsActive
-            || inviter.Role != ShopRole.Owner
-            || inviter.AuthorityVersion != invitation.InviterAuthorityVersion)
+        if (!IsInviterAuthorityCurrent(inviter, invitation))
             return Errors.Users.InvitationNotAcceptable;
 
         if (licence.IsError) return licence.Errors;
@@ -97,6 +86,51 @@ public sealed class AcceptShopInvitationCommandHandler(
             && await SeatDenialAsync(licence.Value, invitation.ShopId, cancellationToken) is { } full)
             return full;
 
+        membership = await SeatMemberAsync(command, actor, invitation, membership, cancellationToken);
+
+        // Already-active members get an idempotent result: the offer is consumed, the membership
+        // is untouched, and no second row appears.
+        invitation.Accept(command.ActorUserId, decidedAt);
+
+        if (!await authority.CommitAsync(cancellationToken))
+            return Errors.Users.InvitationNotAcceptable;
+
+        return ToDto(actor, membership);
+    }
+
+    private static Error? InvitationRefusal(
+        User actor,
+        ShopInvitation invitation,
+        AcceptShopInvitationCommand command,
+        DateTimeOffset now)
+    {
+        // Ownership of the account comes before ownership of the offer: the token alone proves
+        // nothing without the verified address the offer was sent to.
+        if (actor.Email is null || !actor.IsEmailVerified)
+            return Errors.Users.InvitationRequiresVerifiedEmail;
+
+        if (!string.Equals(actor.Email, invitation.Email, StringComparison.OrdinalIgnoreCase))
+            return Errors.Users.InvitationWrongAccount;
+
+        if (!invitation.IsPending(now) || !InvitationTokens.Matches(invitation.TokenHash, command.Token))
+            return Errors.Users.InvitationNotAcceptable;
+
+        return null;
+    }
+
+    private static bool IsInviterAuthorityCurrent(ShopMembership? inviter, ShopInvitation invitation) =>
+        inviter is not null
+        && inviter.IsActive
+        && inviter.Role == ShopRole.Owner
+        && inviter.AuthorityVersion == invitation.InviterAuthorityVersion;
+
+    private async Task<ShopMembership> SeatMemberAsync(
+        AcceptShopInvitationCommand command,
+        User actor,
+        ShopInvitation invitation,
+        ShopMembership? membership,
+        CancellationToken cancellationToken)
+    {
         if (membership is null)
         {
             membership = ShopMembership.Create(invitation.ShopId, command.ActorUserId, invitation.Role, isDefault: false);
@@ -110,21 +144,17 @@ public sealed class AcceptShopInvitationCommandHandler(
             membership.Reinstate(invitation.Role);
         }
 
-        // Already-active members get an idempotent result: the offer is consumed, the membership
-        // is untouched, and no second row appears.
-        invitation.Accept(command.ActorUserId, decidedAt);
+        return membership;
+    }
 
-        if (!await authority.CommitAsync(cancellationToken))
-            return Errors.Users.InvitationNotAcceptable;
-
-        return new MembershipDto(
+    private static MembershipDto ToDto(User actor, ShopMembership membership) =>
+        new(
             membership.UserId,
             membership.ShopId,
             $"{actor.FirstName} {actor.LastName}".Trim(),
             MembershipAuthority.ToRoleLabel(membership.Role),
             membership.Status.ToString(),
             membership.AuthorityVersion);
-    }
 
     private async Task<bool> IsLiveAsync(AcceptShopInvitationCommand command, CancellationToken ct) =>
         command.Session is { } session && session.UserId == command.ActorUserId

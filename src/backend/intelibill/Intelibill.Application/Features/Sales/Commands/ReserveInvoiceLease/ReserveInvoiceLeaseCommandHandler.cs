@@ -54,6 +54,17 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
         if (profileOrError.IsError)
             return profileOrError.Errors;
 
+        var terms = BuildLeaseTerms(shop, profileOrError.Value, blockSize);
+
+        var reservation = await ReserveInTransactionAsync(command, shop, terms, cancellationToken);
+        if (reservation.IsError)
+            return reservation.Errors;
+
+        return ToDto(reservation.Value, terms.FiscalYear);
+    }
+
+    private LeaseTerms BuildLeaseTerms(Shop shop, InvoiceSellerProfile profile, int blockSize)
+    {
         var reservedAt = OfflinePermitContractV1.Instant(timeProvider.GetUtcNow());
         var fiscalYear = FiscalYear.ForDate(reservedAt);
 
@@ -62,66 +73,105 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
         var fullTerm = reservedAt.AddDays(InvoiceLeaseDefaults.LeaseDurationDays);
         var expiresAt = fullTerm < fiscalYear.NextStartsAt ? fullTerm : fiscalYear.NextStartsAt;
 
-        var profile = profileOrError.Value;
         var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, profile.SeriesCode, fiscalYear);
 
-        InvoiceLease lease;
-        InvoiceLeaseLicenceEvidenceDto? licenceEvidence = null;
+        return new LeaseTerms(series, fiscalYear, blockSize, profile, reservedAt, expiresAt);
+    }
+
+    private async Task<ErrorOr<LeaseReservation>> ReserveInTransactionAsync(
+        ReserveInvoiceLeaseCommand command,
+        Shop shop,
+        LeaseTerms terms,
+        CancellationToken cancellationToken)
+    {
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         var committed = false;
         try
         {
-            if (await licenceFence.ReadTradingDenialAsync(shop.Id, cancellationToken) is { } denied)
-                return denied;
-
-            var range = await invoiceNumberAllocator.ReserveRangeAsync(series, blockSize, cancellationToken);
-            if (range.IsError)
-                return range.Errors;
-
-            lease = InvoiceLease.Create(
-                shop.Id,
-                range.Value.SequenceId,
-                command.DeviceId,
-                fiscalYear.StartYear,
-                range.Value.Prefix,
-                range.Value.Start,
-                range.Value.End,
-                InvoiceNumberFormat.CounterPadding,
-                reservedAt,
-                expiresAt,
-                command.ActorUserId,
-                command.SessionId,
-                profile);
-
-            await invoiceLeaseRepository.AddAsync(lease, cancellationToken);
-            if (command.Session is not null)
-            {
-                var capture = await permitIssuer.CaptureGrantAsync(command.Session, lease, cancellationToken);
-                if (capture.IsError)
-                {
-                    if (await ClassifyCaptureErrorAsync(shop.Id, capture.FirstError, cancellationToken) is { } refusal)
-                        return refusal;
-                }
-                else
-                {
-                    licenceEvidence = new InvoiceLeaseLicenceEvidenceDto(
-                        OfflinePermitContractV1.Version,
-                        capture.Value.GrantId,
-                        OfflinePermitContractV1.Digest(capture.Value.SignedGrant),
-                        capture.Value.KeyId);
-                }
-            }
+            var staged = await StageLeaseAsync(command, shop, terms, cancellationToken);
+            if (staged.IsError)
+                return staged.Errors;
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await unitOfWork.CommitTransactionAsync(cancellationToken);
             committed = true;
+            return staged.Value;
         }
         finally
         {
             if (!committed)
                 await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
         }
+    }
 
+    /// <summary>
+    /// Runs inside the open transaction: trading fence first, then the number range, then the lease row
+    /// and its licence evidence.
+    /// </summary>
+    private async Task<ErrorOr<LeaseReservation>> StageLeaseAsync(
+        ReserveInvoiceLeaseCommand command,
+        Shop shop,
+        LeaseTerms terms,
+        CancellationToken cancellationToken)
+    {
+        if (await licenceFence.ReadTradingDenialAsync(shop.Id, cancellationToken) is { } denied)
+            return denied;
+
+        var range = await invoiceNumberAllocator.ReserveRangeAsync(terms.Series, terms.BlockSize, cancellationToken);
+        if (range.IsError)
+            return range.Errors;
+
+        var lease = InvoiceLease.Create(
+            shop.Id,
+            range.Value.SequenceId,
+            command.DeviceId,
+            terms.FiscalYear.StartYear,
+            range.Value.Prefix,
+            range.Value.Start,
+            range.Value.End,
+            InvoiceNumberFormat.CounterPadding,
+            terms.ReservedAt,
+            terms.ExpiresAt,
+            command.ActorUserId,
+            command.SessionId,
+            terms.Profile);
+
+        await invoiceLeaseRepository.AddAsync(lease, cancellationToken);
+
+        var evidence = await CaptureLicenceEvidenceAsync(command, shop.Id, lease, cancellationToken);
+        if (evidence.Refusal is { } refusal)
+            return refusal;
+
+        return new LeaseReservation(lease, evidence.Evidence);
+    }
+
+    private async Task<LicenceEvidenceOutcome> CaptureLicenceEvidenceAsync(
+        ReserveInvoiceLeaseCommand command,
+        Guid shopId,
+        InvoiceLease lease,
+        CancellationToken cancellationToken)
+    {
+        if (command.Session is null)
+            return new LicenceEvidenceOutcome(null, null);
+
+        var capture = await permitIssuer.CaptureGrantAsync(command.Session, lease, cancellationToken);
+        if (capture.IsError)
+        {
+            var refusal = await ClassifyCaptureErrorAsync(shopId, capture.FirstError, cancellationToken);
+            return new LicenceEvidenceOutcome(refusal, null);
+        }
+
+        var evidence = new InvoiceLeaseLicenceEvidenceDto(
+            OfflinePermitContractV1.Version,
+            capture.Value.GrantId,
+            OfflinePermitContractV1.Digest(capture.Value.SignedGrant),
+            capture.Value.KeyId);
+        return new LicenceEvidenceOutcome(null, evidence);
+    }
+
+    private static InvoiceLeaseDto ToDto(LeaseReservation reservation, FiscalYear fiscalYear)
+    {
+        var lease = reservation.Lease;
         return new InvoiceLeaseDto(
             lease.Id,
             lease.ShopId,
@@ -136,7 +186,7 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
             lease.ReservedAt,
             lease.ExpiresAt,
             lease.SellerProfile,
-            licenceEvidence);
+            reservation.Evidence);
     }
 
     /// <summary>
@@ -155,4 +205,16 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
 
         return error;
     }
+
+    private sealed record LeaseTerms(
+        InvoiceSeriesKey Series,
+        FiscalYear FiscalYear,
+        int BlockSize,
+        InvoiceSellerProfile Profile,
+        DateTimeOffset ReservedAt,
+        DateTimeOffset ExpiresAt);
+
+    private sealed record LeaseReservation(InvoiceLease Lease, InvoiceLeaseLicenceEvidenceDto? Evidence);
+
+    private sealed record LicenceEvidenceOutcome(Error? Refusal, InvoiceLeaseLicenceEvidenceDto? Evidence);
 }

@@ -98,6 +98,34 @@ public sealed class ReconciliationCaseMapper(
     {
         var events = await caseEventRepository.GetByCaseAsync(issue.ShopId, issue.Id, cancellationToken);
 
+        var people = CollectPeople(issue, events, submission);
+
+        var names = await userRepository.GetDisplayNamesAsync(issue.ShopId, people, cancellationToken);
+        var lease = await LoadOriginalLeaseAsync(issue, submission, cancellationToken);
+
+        var now = timeProvider.GetUtcNow();
+        var expiry = await VerifyExpiryReviewAsync(issue, submission, now, cancellationToken);
+
+        LicenseHistoryCaseEvaluation? historyEval = historyAssessment is null
+            ? null
+            : await historyAssessment.EvaluateAsync(issue, submission, lease, now, existingLicence, targetLinkedSaleId: null, cancellationToken);
+
+        var actions = AvailableActions(issue, submission, role, actorUserId, expiry, historyEval);
+        var candidates = await LinkCandidatesAsync(issue, submission, actions, historyEval, cancellationToken);
+
+        var late = submission?.SaleId is { } posted
+            ? await tillRepository.FindLatePostingAsync(issue.ShopId, submission.Id, posted, cancellationToken)
+            : null;
+
+        var dto = ToCaseDto(issue, submission, lease, names, events, actions, candidates, late, historyEval);
+        return (dto, historyEval?.Denial);
+    }
+
+    private static HashSet<Guid> CollectPeople(
+        ReconciliationIssue issue,
+        IReadOnlyList<ReconciliationCaseEvent> events,
+        OfflineSubmission? submission)
+    {
         var people = new HashSet<Guid> { issue.CreatedBy };
         if (issue.ResolvedBy is { } resolvedBy)
             people.Add(resolvedBy);
@@ -112,14 +140,29 @@ public sealed class ReconciliationCaseMapper(
                 people.Add(original);
         }
 
-        var names = await userRepository.GetDisplayNamesAsync(issue.ShopId, people, cancellationToken);
+        return people;
+    }
+
+    private async Task<InvoiceLease?> LoadOriginalLeaseAsync(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        CancellationToken cancellationToken)
+    {
         var lease = submission?.OriginalLeaseId is { } leaseId
             ? await invoiceLeaseRepository.GetByIdAsync(leaseId, cancellationToken)
             : null;
         if (lease is not null && lease.ShopId != issue.ShopId)
             lease = null;
 
-        var now = timeProvider.GetUtcNow();
+        return lease;
+    }
+
+    private async Task<ExpiryReviewState> VerifyExpiryReviewAsync(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var tillEligible = false;
         var expiryVerified = false;
         var expiryLinkVerified = false;
@@ -130,32 +173,50 @@ public sealed class ReconciliationCaseMapper(
                 !(await expiryAuthority.ValidateFrozenAsync(issue.ShopId, payload, now, cancellationToken)).IsError;
             tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
                 await tillEligibility.CanReconcileAsync(issue.ShopId, payload!, issuer, now, cancellationToken);
-            var expiryPosted = await saleRepository.GetByClientSaleIdAsync(issue.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
-            expiryLinkVerified = expiryPosted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, expiryPosted, cancellationToken);
+            var expiryPosted = await saleRepository.GetByClientSaleIdAsync(
+                issue.ShopId,
+                submission.DeviceId,
+                submission.ClientSaleId,
+                cancellationToken);
+            expiryLinkVerified = expiryPosted is not null
+                && await expiryAuthority.VerifiesPostedSaleAsync(submission, expiryPosted, cancellationToken);
         }
 
-        LicenseHistoryCaseEvaluation? historyEval = historyAssessment is null
-            ? null
-            : await historyAssessment.EvaluateAsync(issue, submission, lease, now, existingLicence, targetLinkedSaleId: null, cancellationToken);
+        return new ExpiryReviewState(tillEligible, expiryVerified, expiryLinkVerified);
+    }
 
-        var actions = historyEval?.Denial is not null
+    private static IReadOnlyList<ReconciliationAction> AvailableActions(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        ShopRole role,
+        Guid actorUserId,
+        ExpiryReviewState expiry,
+        LicenseHistoryCaseEvaluation? historyEval) =>
+        historyEval?.Denial is not null
             ? []
             : ReconciliationActionPolicy.AvailableActions(
                 issue,
                 submission,
                 role,
                 actorUserId,
-                expiryVerified,
-                expiryLinkVerified,
-                tillEligible,
+                expiry.ExpiryVerified,
+                expiry.ExpiryLinkVerified,
+                expiry.TillEligible,
                 historyEval?.HasSavedObservations ?? false,
                 historyEval?.RetryEligible ?? false,
                 historyEval?.LinkEligible ?? false);
-        var candidates = await LinkCandidatesAsync(issue, submission, actions, historyEval, cancellationToken);
 
-        var late = submission?.SaleId is { } posted ? await tillRepository.FindLatePostingAsync(issue.ShopId, submission.Id, posted, cancellationToken) : null;
-
-        var dto = new ReconciliationCaseDto(
+    private static ReconciliationCaseDto ToCaseDto(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        InvoiceLease? lease,
+        IReadOnlyDictionary<Guid, string> names,
+        IReadOnlyList<ReconciliationCaseEvent> events,
+        IReadOnlyList<ReconciliationAction> actions,
+        IReadOnlyList<ReconciliationLinkCandidateDto> candidates,
+        TillLatePosting? late,
+        LicenseHistoryCaseEvaluation? historyEval) =>
+        new(
             issue.Id,
             issue.Version,
             issue.InvoiceNumber,
@@ -193,12 +254,27 @@ public sealed class ReconciliationCaseMapper(
                     e.OccurredAt))
                 .ToList(),
             candidates,
-            late is null ? null : new(late.Id, late.OfflineSubmissionId, late.SaleId, late.CaseId, late.SessionId, late.CloseId,
-                late.SourceBusinessDate, late.OccurredAt, late.RecordedAt, late.CashierId, late.TenderLines, late.EvidenceStatus,
-                late.ManagerReason, late.IncludedInCount, late.EvidenceReason),
+            late is null
+                ? null
+                : new(
+                    late.Id,
+                    late.OfflineSubmissionId,
+                    late.SaleId,
+                    late.CaseId,
+                    late.SessionId,
+                    late.CloseId,
+                    late.SourceBusinessDate,
+                    late.OccurredAt,
+                    late.RecordedAt,
+                    late.CashierId,
+                    late.TenderLines,
+                    late.EvidenceStatus,
+                    late.ManagerReason,
+                    late.IncludedInCount,
+                    late.EvidenceReason),
             historyEval?.Dto);
-        return (dto, historyEval?.Denial);
-    }
+
+    private readonly record struct ExpiryReviewState(bool TillEligible, bool ExpiryVerified, bool ExpiryLinkVerified);
 
     /// <summary>
     /// What the caller's link actions may name, filtered by the action's own checks. Detail only: one
