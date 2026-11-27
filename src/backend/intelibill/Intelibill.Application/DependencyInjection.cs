@@ -63,6 +63,9 @@ public static class DependencyInjection
         services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptReversalPolicy>();
         services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptReversalService>();
         services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.SupplierReturnCreditPoster>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.SupplierReturnShipper>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptDetailReader>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptLotReverser>();
 
         services.AddScoped<IItemResolver, ItemResolver>();
         services.AddScoped<ISupplierResolver, SupplierResolver>();

@@ -19,13 +19,7 @@ namespace Intelibill.Application.Features.SupplierReturns.Services;
 public sealed class PurchaseReceiptReversalService(
     SupplierReturnAccess access,
     ISupplierReturnRepository returns,
-    IInventoryBatchRepository batches,
-    IInventoryRepository inventory,
-    IPurchaseReceiptValueRepository receipts,
     IPaymentReceiptRepository payments,
-    IStockTransactionRepository movements,
-    ISupplierLedgerEntryRepository ledger,
-    IPurchaseReceiptReversalRepository reversals,
     ISupplierReturnMutationLock locks,
     IPostingPeriodPolicy periods,
     IBusinessClock clock,
@@ -33,7 +27,7 @@ public sealed class PurchaseReceiptReversalService(
     IShopLicenceFence licence,
     IUnitOfWork uow,
     IMessageBus messageBus,
-    PurchaseReceiptReversalPolicy policy)
+    PurchaseReceiptLotReverser reverser)
 {
     private static Error Invalid(string code,string message) => Error.Validation($"SupplierReturn.{code}",message);
     private static Error Conflict(string code,string message) => Error.Conflict($"SupplierReturn.{code}",message);
@@ -101,12 +95,12 @@ public sealed class PurchaseReceiptReversalService(
                     token);
                 var results=new List<PurchaseReceiptReversalLotDto>();
                 var now=clock.UtcNow;
-                var context=new ReversalContext(actor,shopId,supplierId,group?targetId:null,reason,auth.Value,now);
+                var context=new PurchaseReceiptLotReverser.ReversalContext(actor,shopId,supplierId,group?targetId:null,reason,auth.Value,now);
                 foreach(var receipt in rows.OrderBy(x=>x.Id))
                 {
-                    var lot=await LoadReversibleLotAsync(shopId,receipt,lines,allocated,token);
+                    var lot=await reverser.LoadReversibleLotAsync(shopId,receipt,lines,allocated,token);
                     if(lot.IsError) return lot.Errors;
-                    var reversal=await ReverseLotAsync(context,receipt,lot.Value,token);
+                    var reversal=await reverser.ReverseLotAsync(context,receipt,lot.Value,token);
                     if(reversal.IsError) return reversal.Errors;
                     results.Add(MapReversal(reversal.Value));
                 }
@@ -161,104 +155,6 @@ public sealed class PurchaseReceiptReversalService(
         }
         return Result.Success;
     }
-    private async Task<ErrorOr<ReversibleLot>> LoadReversibleLotAsync(
-        Guid shopId,
-        PurchaseReceiptValue receipt,
-        IReadOnlyList<ReceiptReversalLineInput> lines,
-        IReadOnlyDictionary<Guid,decimal> allocated,
-        CancellationToken token)
-    {
-        var input=lines.Single(x=>x.ReceiptValueId==receipt.Id);
-        var batch=await batches.GetByIdAsync(receipt.InventoryBatchId,token);
-        if(batch is null) return Missing;
-        if(input.ExpectedReceiptVersion==0
-            || input.ExpectedBatchVersion==0
-            || input.ExpectedReceiptVersion!=receipt.Version
-            || input.ExpectedBatchVersion!=batch.Version)
-            return VersionConflict;
-        var reasons=await policy.GetReasonsAsync(receipt,batch,allocated.GetValueOrDefault(receipt.Id),token);
-        if(reasons.Count>0)
-            return Error.Conflict(reasons[0],"Receipt is ineligible for full reversal; review its stock and payment history.");
-        var stock=await inventory.GetByItemAsync(shopId,receipt.ItemId,token);
-        if(stock is null) return Missing;
-        return new ReversibleLot(batch,stock);
-    }
-    private async Task<ErrorOr<PurchaseReceiptReversal>> ReverseLotAsync(
-        ReversalContext context,
-        PurchaseReceiptValue receipt,
-        ReversibleLot lot,
-        CancellationToken token)
-    {
-        var (batch,stock)=lot;
-        var subtracted=stock.SubtractQuantity(receipt.ReceivedQuantity,context.Actor);
-        if(subtracted.IsError) return subtracted.Errors;
-        var reference=$"RR-{Guid.NewGuid():N}";
-        var movement=StockTransaction.Create(
-            context.ShopId,
-            receipt.ItemId,
-            batch.Id,
-            StockTransactionType.Reversal,
-            -receipt.ReceivedQuantity,
-            reference,
-            context.Reason,
-            context.Now,
-            context.Actor,
-            context.Actor).Value;
-        var entry=await PostReversalLedgerEntryAsync(context,receipt,batch,reference,token);
-        var reversal=PurchaseReceiptReversal.Create(
-            context.ShopId,
-            receipt.Id,
-            context.GroupId,
-            context.Actor,
-            context.Reason,
-            context.Now,
-            clock.Today(context.Shop.BusinessTimeZoneId),
-            context.Shop.BusinessTimeZoneId,
-            receipt.ReceivedQuantity,
-            receipt.EffectiveTotalCost,
-            movement.Id,
-            entry?.Id,
-            reference).Value;
-        await movements.AddAsync(movement,token);
-        await reversals.AddAsync(reversal,token);
-        batch.Void(context.Actor);
-        batches.Update(batch);
-        inventory.Update(stock);
-        receipts.Update(receipt);
-        return reversal;
-    }
-    private async Task<SupplierLedgerEntry?> PostReversalLedgerEntryAsync(
-        ReversalContext context,
-        PurchaseReceiptValue receipt,
-        InventoryBatch batch,
-        string reference,
-        CancellationToken token)
-    {
-        SupplierLedgerEntry? entry=null;
-        if(receipt.EffectiveTotalCost>0)
-        {
-            entry=SupplierLedgerEntry.Create(
-                context.ShopId,
-                context.SupplierId,
-                batch.Id,
-                SupplierLedgerEntryType.Reversal,
-                -receipt.EffectiveTotalCost,
-                clock.Today(context.Shop.BusinessTimeZoneId),
-                reference,
-                context.Actor).Value;
-            await ledger.AddAsync(entry,token);
-        }
-        return entry;
-    }
-    private sealed record ReversalContext(
-        Guid Actor,
-        Guid ShopId,
-        Guid SupplierId,
-        Guid? GroupId,
-        string Reason,
-        Shop Shop,
-        DateTimeOffset Now);
-    private sealed record ReversibleLot(InventoryBatch Batch,Intelibill.Domain.Entities.Inventory Stock);
     private static PurchaseReceiptReversalLotDto MapReversal(PurchaseReceiptReversal x) => new(
         x.Id,
         x.ReceiptValueId,
