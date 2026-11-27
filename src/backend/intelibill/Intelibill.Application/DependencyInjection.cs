@@ -55,6 +55,10 @@ public static class DependencyInjection
         services.AddScoped<Features.Tills.Services.TillLifecycleService>();
         services.AddScoped<Features.Tills.Services.TillSourceSettlementService>();
         services.AddScoped<Features.Tills.Services.TillReadService>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationCaseAuthorizer>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationExpiryReviewVerifier>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationStockCorrectionLinker>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationSaleLinker>();
 
         services.AddScoped<Common.Licensing.DefinitionCreationTransaction>();
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();

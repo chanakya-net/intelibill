@@ -792,24 +792,22 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             deviceId: envelope.DeviceId,
             syncedAt: Now);
 
-    private ResolveReconciliationCaseCommandHandler CreateHandler() =>
-        new(
-            _userRepository,
+    private ResolveReconciliationCaseCommandHandler CreateHandler()
+    {
+        var expiryAuthority = Substitute.For<IOfflineExpiryAuthority>();
+        return new(
+            new ReconciliationCaseAuthorizer(_userRepository, _issueRepository),
             _issueRepository,
             _eventRepository,
             _submissionRepository,
-            _adjustmentRepository,
-            _batchRepository,
-            _inventoryRepository,
-            _stockTransactionRepository,
-            _saleRepository,
-            _leaseRepository,
-            _discountRuleRepository,
-            _poster,
+            new ReconciliationStockCorrectionLinker(_issueRepository, _adjustmentRepository, _batchRepository, _inventoryRepository, _stockTransactionRepository, _saleRepository),
+            new ReconciliationSaleLinker(_submissionRepository, _saleRepository, _leaseRepository, _discountRuleRepository, _poster, expiryAuthority),
             new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>(), TimeProvider.System, TillEligibility()),
             _unitOfWork,
             _executor,
-            new FixedClock(Now), Substitute.For<IOfflineExpiryAuthority>(), TillEligibility());
+            new FixedClock(Now),
+            new ReconciliationExpiryReviewVerifier(_saleRepository, expiryAuthority, TillEligibility()));
+    }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
