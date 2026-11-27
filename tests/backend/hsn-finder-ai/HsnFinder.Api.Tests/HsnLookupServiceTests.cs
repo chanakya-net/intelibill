@@ -170,22 +170,82 @@ public sealed class HsnLookupServiceTests : IDisposable
         Assert.True(result.IsError);
         Assert.Equal("ai_provider_unavailable", result.FirstError.Code);
         Assert.Equal("AI provider is currently unavailable.", result.FirstError.Description);
+
+        var again = await sut.LookupAsync("Rice");
+
+        Assert.True(again.IsError);
+        Assert.Equal(6, chatClient.CallCount);
     }
 
     [Fact]
-    public async Task Lookup_Cancelled_PropagatesCancellation()
+    public async Task Lookup_Cancelled_PropagatesCancellationWithoutRetryOrCaching()
     {
-        var chatClient = new FakeChatClient((_, _, ct) =>
-        {
-            ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, RiceJson)));
-        });
-        var sut = CreateService(chatClient);
         using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
+        var calls = 0;
+        var chatClient = new FakeChatClient(async (_, _, _) =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                await cts.CancelAsync();
+                throw new OperationCanceledException(cts.Token);
+            }
+
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, RiceJson));
+        });
+        var pipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions { MaxRetryAttempts = 2, Delay = TimeSpan.Zero })
+            .Build();
+        var sut = CreateService(chatClient, pipeline: pipeline);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.LookupAsync("Rice", cts.Token));
-        Assert.True(chatClient.CallCount <= 1);
+        Assert.Equal(1, chatClient.CallCount);
+
+        var second = await sut.LookupAsync("Rice");
+
+        Assert.False(second.IsError);
+        Assert.Equal(2, chatClient.CallCount);
+    }
+
+    [Fact]
+    public async Task Lookup_ChatCompletionsApi_WithoutWebSearch_SendsNoToolsOrResponsesFields()
+    {
+        var handler = new StubResponsesHandler(RiceJson);
+        using var chatClient = handler.CreateChatCompletionsChatClient();
+        var settings = CreateAiSettings();
+        settings.Api = AiApi.ChatCompletions;
+        settings.Verbosity = "low";
+        var sut = CreateService(chatClient, settings);
+
+        var result = await sut.LookupAsync("rice");
+
+        Assert.False(result.IsError);
+        Assert.EndsWith("/chat/completions", handler.RequestUri!.AbsolutePath);
+        var body = JsonNode.Parse(handler.RequestBody!)!.AsObject();
+        Assert.False(body.ContainsKey("text"));
+        Assert.False(body.ContainsKey("tools"));
+        Assert.False(body.ContainsKey("web_search_options"));
+    }
+
+    [Fact]
+    public async Task Lookup_ChatCompletionsApi_WithWebSearch_SendsWebSearchOptionsOnly()
+    {
+        var handler = new StubResponsesHandler(RiceJson);
+        using var chatClient = handler.CreateChatCompletionsChatClient();
+        var settings = CreateAiSettings();
+        settings.Api = AiApi.ChatCompletions;
+        settings.ReasoningEffort = "low";
+        settings.WebSearch = new AiWebSearchSettings { Enabled = true, Country = "IN", ContextSize = "low" };
+        var sut = CreateService(chatClient, settings);
+
+        var result = await sut.LookupAsync("rice");
+
+        Assert.False(result.IsError);
+        var body = JsonNode.Parse(handler.RequestBody!)!.AsObject();
+        Assert.False(body.ContainsKey("text"));
+        Assert.False(body.ContainsKey("tools"));
+        Assert.Equal("low", body["reasoning_effort"]!.GetValue<string>());
+        var webSearch = Assert.IsType<JsonObject>(body["web_search_options"]);
+        Assert.Empty(webSearch);
     }
 
     private HsnLookupService CreateService(

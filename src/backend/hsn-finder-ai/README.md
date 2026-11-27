@@ -89,7 +89,8 @@ dotnet user-secrets set "Ai:Model" "<model name>" --project src/backend/hsn-find
 Change `Ai:Endpoint`, `Ai:ApiKey` and `Ai:Model` to the new provider's values; no code change is needed for any OpenAI-compatible API (for example Azure OpenAI v1, OpenRouter, Groq, Ollama).
 
 - For a provider without the Responses API, set `Ai:Api=ChatCompletions`.
-- For a provider without hosted web search, set `Ai:WebSearch:Enabled=false`. It is `true` in `appsettings.json`, and a bare web search tool is still sent under `ChatCompletions` while it is enabled. `Ai:Verbosity`, the web search country and the context size are sent only when `Ai:Api=Responses`.
+- For a provider without hosted web search, set `Ai:WebSearch:Enabled=false`. It is `true` in `appsettings.json`. Under `ChatCompletions` with it enabled the request carries an empty `web_search_options` object (the country and context size are not sent); `Ai:Verbosity`, the web search country and the context size are sent only when `Ai:Api=Responses`.
+- For a model or provider without reasoning support, clear `Ai:ReasoningEffort` (set it to empty). Under `ChatCompletions` it is sent as `reasoning_effort`, and `appsettings.json` ships `low`.
 - Without web search the answer comes from the model's own knowledge and may be out of date for GST rates.
 - A provider with a native, non-OpenAI-compatible API needs one more registration branch in `Configuration/AiServiceCollectionExtensions.cs`; the lookup service only depends on `IChatClient`.
 
@@ -110,7 +111,7 @@ Launch profiles listen on `http://localhost:5000` (and `https://localhost:5001` 
 dotnet test src/backend/hsn-finder-ai/Sankra.HsnFinder.sln
 ```
 
-`tests/backend/hsn-finder-ai/HsnFinder.Api.Tests` covers the lookup service (parsing, caching, retries, cancellation, the messages sent), the chat options built from settings, the OpenAI client wiring against a stubbed HTTP handler, startup validation of the `Ai` settings, and `POST /api/hsn` end to end (`401`, `200`, `400`, `503`) through `WebApplicationFactory`. No test calls a real provider, and the endpoint tests override configuration so a local `appsettings.secrets.json` does not affect them.
+`tests/backend/hsn-finder-ai/HsnFinder.Api.Tests` covers the lookup service (parsing, caching, retries, cancellation, the messages sent), the chat options built from settings, the OpenAI client wiring against a stubbed HTTP handler, startup validation of the `Ai` settings, and `POST /api/hsn` end to end (`401`, `200`, `400`, `503`) through `WebApplicationFactory`. No test calls a real provider. The endpoint tests override the whole `Ai` settings object (endpoint, key, model, API, reasoning effort, verbosity, web search), `Cache:TtlDays` and `ApiKey:Key` after all configuration sources, so a local `appsettings.secrets.json` or user secrets do not affect them.
 
 ## CI
 

@@ -30,10 +30,43 @@ internal sealed class StubResponsesHandler(string outputText = "ok") : HttpMessa
             .AsIChatClient(model);
 #pragma warning restore OPENAI001
 
+    public IChatClient CreateChatCompletionsChatClient(string model = "test-model")
+        => new OpenAIClient(
+                new ApiKeyCredential("test-key"),
+                new OpenAIClientOptions
+                {
+                    Endpoint = new Uri("https://ai.example.test/v1"),
+                    Transport = new HttpClientPipelineTransport(new HttpClient(this))
+                })
+            .GetChatClient(model)
+            .AsIChatClient();
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         RequestUri = request.RequestUri;
         RequestBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+
+        if (request.RequestUri!.AbsolutePath.EndsWith("/chat/completions", StringComparison.Ordinal))
+        {
+            var completion = new JsonObject
+            {
+                ["id"] = "chatcmpl_1",
+                ["object"] = "chat.completion",
+                ["created"] = 0,
+                ["model"] = "test-model",
+                ["choices"] = new JsonArray(new JsonObject
+                {
+                    ["index"] = 0,
+                    ["finish_reason"] = "stop",
+                    ["message"] = new JsonObject { ["role"] = "assistant", ["content"] = outputText }
+                })
+            };
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(completion.ToJsonString(), Encoding.UTF8, "application/json")
+            };
+        }
 
         var response = new JsonObject
         {

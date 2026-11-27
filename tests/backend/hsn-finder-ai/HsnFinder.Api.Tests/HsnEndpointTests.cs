@@ -19,7 +19,8 @@ public sealed class HsnEndpointTests
         """{"name":"Basmati rice","HSN":"10063020","tax_scenarios":[{"condition":"Loose","tax_percentage":"0"}]}""";
 
     // PostConfigure runs after every configuration source, so a developer's local appsettings.secrets.json
-    // or user secrets cannot change what these tests see.
+    // or user secrets cannot change what these tests see. It overrides the whole AiSettings object
+    // (Endpoint, ApiKey, Model, Api, ReasoningEffort, Verbosity, WebSearch), CacheSettings.TtlDays and ApiKeySettings.Key.
     private static WebApplicationFactory<Program> CreateFactory(IChatClient chatClient, string aiModel = "test")
         => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -28,9 +29,15 @@ public sealed class HsnEndpointTests
             {
                 services.PostConfigure<AiSettings>(settings =>
                 {
+                    settings.Endpoint = "https://api.openai.com/v1";
                     settings.ApiKey = "test";
                     settings.Model = aiModel;
+                    settings.Api = AiApi.Responses;
+                    settings.ReasoningEffort = null;
+                    settings.Verbosity = null;
+                    settings.WebSearch = new AiWebSearchSettings();
                 });
+                services.PostConfigure<CacheSettings>(settings => settings.TtlDays = 30);
                 services.PostConfigure<ApiKeySettings>(settings => settings.Key = "secret");
 
                 services.RemoveAll<IChatClient>();

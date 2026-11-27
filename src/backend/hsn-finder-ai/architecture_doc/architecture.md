@@ -34,7 +34,7 @@ Pipeline order in `Program.cs`: HTTPS redirection, API key middleware, rate limi
 - **OpenAI-compatible AI endpoint** — the only source of HSN and tax data. `Ai:Endpoint` defaults to `https://api.openai.com/v1`; the model, reasoning effort, verbosity and hosted web search are chosen by `Ai:*` configuration, and the instructions are the `SystemInstructions` constant in this repository (they used to live in an Azure AI Foundry agent). The key is read from `Ai:ApiKey`; there is no cloud identity.
 - **Hosted web search** — optional (`Ai:WebSearch:Enabled`). It only works where the provider implements it. Elsewhere set it to `false`; answers then come from the model's knowledge and can be stale for GST rates.
 
-Client libraries: `Microsoft.Extensions.AI` (`IChatClient`) and `Microsoft.Extensions.AI.OpenAI` over the official `OpenAI` SDK, pinned in the csproj. `Ai:Api` selects the Responses client (default) or the Chat Completions client. `text.verbosity` is set through an experimental `OpenAI` SDK hook (`JsonPatch` on the response text options). Web search country and context size, and verbosity, are sent only when `Ai:Api=Responses`; a bare hosted web search tool is still sent under `ChatCompletions` while `Ai:WebSearch:Enabled=true`.
+Client libraries: `Microsoft.Extensions.AI` (`IChatClient`) and `Microsoft.Extensions.AI.OpenAI` over the official `OpenAI` SDK, pinned in the csproj. `Ai:Api` selects the Responses client (default) or the Chat Completions client. `text.verbosity` is set through an experimental `OpenAI` SDK hook (`JsonPatch` on the response text options). Web search country and context size, and verbosity, are sent only when `Ai:Api=Responses`; under `ChatCompletions` with `Ai:WebSearch:Enabled=true` the request carries an empty `web_search_options` object (no country or context size), and reasoning effort is sent as `reasoning_effort`.
 
 ## Configuration
 
@@ -53,7 +53,7 @@ Bound in `Program.cs` from the sections `Ai`, `ApiKey`, `Cache` and `RateLimit`.
 
 ## Error handling
 
-All controller responses use `ApiResponse<T>` (`success`, `data`, `error`). The service returns `ErrorOr<HsnLookupResponse>` and does not throw to the controller.
+All controller responses use `ApiResponse<T>` (`success`, `data`, `error`). The service returns `ErrorOr<HsnLookupResponse>` and does not throw to the controller, except that `OperationCanceledException` propagates when the caller cancels.
 
 | Situation | Status | Body |
 |---|---|---|
@@ -76,7 +76,7 @@ Logging uses the default ASP.NET Core logging providers. The service logs the pr
 - `HsnLookupService`: parsing (plain, wrapped, array HSN), caching, the system and user messages, retries, `ai_provider_unavailable`, `deserialization_failed`, and cancellation, using a `FakeChatClient`.
 - `AiChatOptionsFactory`, and the real OpenAI client against a stubbed HTTP handler (request shape for the Responses API).
 - `AddAiChatClient` validation (missing key, model, bad endpoint, bad reasoning effort) and the singleton registration.
-- `POST /api/hsn` through `WebApplicationFactory<Program>` with the chat client replaced: `401`, `200`, `400`, `503`, and a host that fails to start without `Ai:Model`. The endpoint tests set the `Ai` and `ApiKey` options after all configuration sources, so a developer's local `appsettings.secrets.json` or user secrets cannot change them.
+- `POST /api/hsn` through `WebApplicationFactory<Program>` with the chat client replaced: `401`, `200`, `400`, `503`, and a host that fails to start without `Ai:Model`. The `ChatCompletions` request shape is checked against a stubbed HTTP transport (the DI registration has no transport seam, so that test builds the client the same way as the wire test). The endpoint tests override the whole `AiSettings` object (endpoint, key, model, API, reasoning effort, verbosity, web search), `CacheSettings.TtlDays` and `ApiKeySettings.Key` after all configuration sources, so a developer's local `appsettings.secrets.json` or user secrets cannot change them.
 
 No test makes a network call.
 
@@ -84,6 +84,6 @@ No test makes a network call.
 
 - The cache is in-process: it is lost on restart and not shared between instances. The same applies to rate-limit counters.
 - The `OpenAI` SDK has its own built-in retries. They stack with the service's Polly retry (2 retries, exponential), so a failing provider can be called more than 3 times per lookup.
-- An uncached lookup takes several seconds (a live run with a reasoning model and web search took 6 to 8 seconds); cache hits are immediate.
+- An uncached lookup takes several seconds (a live run with a reasoning model and web search took about 6 to 9 seconds); cache hits are immediate.
 - Answers come from an AI model and are returned as received once they parse; the service does not validate HSN codes or tax percentages against any reference data.
 - Package versions live in the csproj; the local `Directory.Build.props` / `Directory.Packages.props` keep the root build settings and Central Package Management out. Do not add this service's packages to the root `Directory.Packages.props`.
