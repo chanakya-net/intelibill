@@ -1,12 +1,8 @@
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.Login;
-using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
-using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
-using Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.Commands.ResetPassword;
 using Intelibill.Application.Features.Auth.Commands.RevokeToken;
@@ -20,55 +16,7 @@ namespace Intelibill.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(IMessageBus bus) : ControllerBase
 {
-    // ── Registration ─────────────────────────────────────────────────────────
-
-    [HttpPost("register/email")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Destination, FailClosed = true)]
-    [LicenceAction(LicenceAction.Authentication)]
-    public async Task<IActionResult> RegisterWithEmail(
-        [FromBody] RegisterWithEmailRequest request,
-        CancellationToken cancellationToken)
-    {
-        var service = HttpContext.RequestServices.GetRequiredService<IEmailOwnershipService>();
-        var result = await service.RequestAsync(request.Email, cancellationToken);
-        if (result.IsError && result.FirstError.Type == ErrorOr.ErrorType.Failure)
-            return Problem(statusCode: 503, title: result.FirstError.Code, detail: result.FirstError.Description);
-        return result.ToActionResult(_ => Accepted(new { message = "If this address is eligible, a verification email will arrive shortly." }));
-    }
-
-    [HttpPost("register/phone")]
-    [LicenceAction(LicenceAction.Authentication)]
-    public async Task<IActionResult> RegisterWithPhone(
-        [FromBody] RegisterWithPhoneRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new RegisterWithPhoneCommand(request.PhoneNumber, request.FirstName, request.LastName),
-            cancellationToken);
-
-        // The route is closed, and a closed route answers with its own stable code rather than a
-        // 500 from the default Failure mapping.
-        if (result.IsError && result.FirstError.Type == ErrorOr.ErrorType.Failure)
-            return result.FirstError.ToUnavailableResult();
-
-        return result.ToActionResult(auth => CreatedAtAction(nameof(RegisterWithPhone), auth));
-    }
-
     // ── Login ────────────────────────────────────────────────────────────
-
-    [HttpPost("login/email")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Account, FailClosed = true)]
-    [LicenceAction(LicenceAction.Authentication)]
-    public async Task<IActionResult> LoginWithEmail(
-        [FromBody] LoginWithEmailRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new LoginCommand(request.Email, request.Password),
-            cancellationToken);
-
-        return result.ToActionResult(auth => Ok(auth));
-    }
 
     [HttpPost("login")]
     [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Account, FailClosed = true)]
@@ -146,22 +94,6 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
 }
 
 // ── Request models ─────────────────────────────────────────────────────────────
-
-public sealed record RegisterWithEmailRequest(
-    string Email,
-    string? Password = null,
-    string? FirstName = null,
-    string? LastName = null,
-    string? PhoneNumber = null) : IRateLimitSubject
-{
-    string? IRateLimitSubject.Subject => Email;
-}
-
-public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
-public sealed record LoginWithEmailRequest(string Email, string Password) : IRateLimitSubject
-{
-    string? IRateLimitSubject.Subject => Email;
-}
 
 public sealed record LoginRequest(string Identifier, string Password) : IRateLimitSubject
 {

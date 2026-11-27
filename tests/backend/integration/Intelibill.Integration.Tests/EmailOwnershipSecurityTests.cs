@@ -70,13 +70,12 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
     public async Task Confirmation_UsesPasswordChosenByMailboxOwner_AndRejectsReplay()
     {
         using var client = Client(); var email = Email();
-        var request = await client.PostAsJsonAsync("/api/auth/register/email", new { email, password = "AttackerPassword!1", firstName = "Attacker", lastName = "Name", phoneNumber = "+919876543210" });
+        var request = await client.PostAsJsonAsync("/api/auth/enrollment/email/request", new { email });
         Assert.Equal(HttpStatusCode.Accepted, request.StatusCode);
         var (id, token) = await IdentityTestMailbox.ReadAsync(_factory, email);
         var confirmation = new { challengeId = id, token, password = "OwnersPassword!1", firstName = "Real", lastName = "Owner" };
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/enrollment/email/confirm", confirmation)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/enrollment/email/confirm", confirmation)).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "AttackerPassword!1" })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "OwnersPassword!1" })).StatusCode);
     }
     [Fact]
@@ -110,30 +109,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/enrollment/email/confirm", new { challengeId = old.Id, token = old.Token, password = "OwnersPassword!1", firstName = "Real", lastName = "Owner" })).StatusCode);
     }
     [Fact]
-    public async Task ClaimLegacyUnverifiedAccount_InvalidatesOldCredentials()
-    {
-        using var client = Client(); var email = Email(); Guid userId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("AttackerPassword!1"), "Attacker", "Name");
-            userId = user.Id; db.Users.Add(user);
-            // A live device the squatter is signed in on, with a refresh credential that would
-            // renew right now: the claim has to end it, not merely find it already unusable.
-            var device = AuthSession.Start(user.Id, user.SecurityVersion, "1", null, Intelibill.Domain.ValueObjects.DeviceMetadata.Unknown, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1));
-            db.AuthSessions.Add(device);
-            db.RefreshTokens.Add(RefreshToken.Issue(user.Id, device.Id, user.SecurityVersion, Intelibill.Application.Common.Security.RefreshTokenSecrets.Hash("attacker-refresh"), DateTimeOffset.UtcNow.AddDays(1)));
-            await db.SaveChangesAsync();
-        }
-        await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });
-        var (id, token) = await IdentityTestMailbox.ReadAsync(_factory, email, "claim");
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/confirm", new { challengeId = id, token, password = "OwnersPassword!1", firstName = "Real", lastName = "Owner" })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken = "attacker-refresh" })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "AttackerPassword!1" })).StatusCode);
-        using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.True((await database.Users.SingleAsync(x => x.Id == userId)).IsEmailVerified);
-    }
-    [Fact]
     public async Task EmailChange_ConcurrentConfirm_OnlyOneWins_AndRevokesEverySession()
     {
         using var client = Client(); var email = Email(); var destination = Email();
@@ -153,37 +128,13 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         Assert.Equal(2, await db.Set<IdentityMail>().CountAsync(x => x.ChallengeId == null));
     }
     [Fact]
-    public async Task LegacyBusinessAccount_DeletedMembershipStillRequiresSupport()
-    {
-        using var client = Client(); var email = Email(); Guid id;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var user = User.CreateWithEmail(email, "untrusted", "Legacy", "Owner"); id = user.Id;
-            var shop = Shop.Create("Existing business", "Address", "City", "State", "560001", null, null, null);
-            db.Users.Add(user); db.Shops.Add(shop);
-            db.ShopMemberships.Add(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
-            await db.SaveChangesAsync();
-            await db.ShopMemberships.Where(x => x.UserId == id).ExecuteDeleteAsync();
-        }
-        await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });
-        var challenge = await IdentityTestMailbox.ReadAsync(_factory, email, "claim");
-        var response = await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/confirm", new { challengeId = challenge.Id, token = challenge.Token, password = "OwnersPassword!1", firstName = "Real", lastName = "Owner" });
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("Auth.RecoverySupportRequired", await response.Content.ReadAsStringAsync());
-        using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.Equal(1, await database.Shops.CountAsync());
-        Assert.False((await database.Users.SingleAsync(x => x.Id == id)).IsEmailVerified);
-    }
-    [Fact]
     public async Task PhoneOnlyAccount_CanEditProfileWithoutEmail()
     {
         using var client = Client();
-        // Seeded rather than registered: the public phone route is closed, and this test is about
-        // how an account created by it before then behaves, not about creating one now.
-        var session = await IdentityTestPhone.SeedLegacyPhoneSessionAsync(_factory, "+9199" + Random.Shared.Next(10000000, 99999999));
+        var phone = "+9199" + Random.Shared.Next(10000000, 99999999);
+        var session = await IdentityTestPhone.SeedPhoneSessionAsync(_factory, phone);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
-        var profile = await client.PutAsJsonAsync("/api/users/me", new { email = (string?)null, phoneNumber = (string?)null, firstName = "Updated", lastName = "User", language = "en-IN" });
+        var profile = await client.PutAsJsonAsync("/api/users/me", new { email = (string?)null, phoneNumber = phone, firstName = "Updated", lastName = "User", language = "en-IN" });
         Assert.Equal(HttpStatusCode.OK, profile.StatusCode);
     }
     [Fact]
@@ -336,11 +287,11 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
     }
 
     [Fact]
-    public async Task BusinessHistory_StaleWholeEntityWrite_CannotEraseClaimRestriction()
+    public async Task BusinessHistory_StaleWholeEntityWrite_CannotEraseRecoveryMarker()
     {
-        using var client = Client(); var email = Email();
+        var email = Email();
         using var staleScope = _factory.Services.CreateScope(); var staleDb = staleScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var user = User.CreateWithEmail(email, "untrusted", "Legacy", "Owner"); staleDb.Add(user); await staleDb.SaveChangesAsync();
+        var user = User.CreateWithEmail(email, "untrusted", "Stale", "Owner"); user.VerifyEmail(email); staleDb.Add(user); await staleDb.SaveChangesAsync();
         Assert.False(user.RequiresOperatorRecovery);
         using (var other = _factory.Services.CreateScope())
         {
@@ -350,41 +301,8 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
             await db.ShopMemberships.Where(x => x.UserId == user.Id).ExecuteDeleteAsync();
         }
         user.UpdateProfile(email, null, "Stale", "Profile", "en-IN"); staleDb.Update(user); await staleDb.SaveChangesAsync();
-        using (var verify = _factory.Services.CreateScope())
-            Assert.True((await verify.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.SingleAsync()).RequiresOperatorRecovery);
-        await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });
-        var challenge = await IdentityTestMailbox.ReadAsync(_factory, email, "claim");
-        var response = await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/confirm", new { challengeId = challenge.Id, token = challenge.Token, password = "OwnersPassword!1", firstName = "New", lastName = "Owner" });
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Claim_ConcurrentMembershipHistory_IsCheckedAfterStaleUserRead()
-    {
-        using var client = Client(); var email = Email(); Guid userId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var user = User.CreateWithEmail(email, "untrusted", "Legacy", "Owner"); userId = user.Id;
-            db.Add(user); await db.SaveChangesAsync();
-        }
-        await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });
-        var challenge = await IdentityTestMailbox.ReadAsync(_factory, email, "claim");
-        var barrier = _factory.Services.GetRequiredService<ReadBarrier>(); barrier.AfterEmail = true;
-        var pending = client.PostAsJsonAsync("/api/auth/enrollment/email/claim/confirm", new { challengeId = challenge.Id, token = challenge.Token, password = "OwnersPassword!1", firstName = "New", lastName = "Owner" });
-        await barrier.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20));
-        using (var other = _factory.Services.CreateScope())
-        {
-            var db = other.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var shop = Shop.Create("History", "Address", "City", "State", "560001", null, null, null);
-            db.Add(shop); db.Add(ShopMembership.Create(shop.Id, userId, ShopRole.Owner, true)); await db.SaveChangesAsync();
-            await db.ShopMemberships.Where(x => x.UserId == userId).ExecuteDeleteAsync();
-        }
-        barrier.Release.TrySetResult();
-        Assert.Equal(HttpStatusCode.Conflict, (await pending).StatusCode);
-        using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False((await database.Users.SingleAsync()).IsEmailVerified);
-        Assert.Null((await database.Set<EmailOwnershipChallenge>().SingleAsync(x => x.Id == challenge.Id)).ConsumedAt);
+        using var verify = _factory.Services.CreateScope();
+        Assert.True((await verify.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.SingleAsync(x => x.Id == user.Id)).RequiresOperatorRecovery);
     }
 
     [Theory]

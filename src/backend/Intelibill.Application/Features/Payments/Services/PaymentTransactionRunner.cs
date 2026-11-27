@@ -7,10 +7,11 @@ using Intelibill.Domain.Interfaces;
 namespace Intelibill.Application.Features.Payments.Services;
 
 /// <summary>
-/// Runs a payment mutation in one transaction: through <see cref="IFinancialOperationExecutor"/>
-/// when the caller sent an operation key (replay serialization comes before any business lock), or
-/// in a plain transaction for a legacy unkeyed request. A lock not granted in its budget, or a
-/// deadlock, ends with <c>Payment.Busy</c> and nothing kept.
+/// Runs a payment action in one transaction: through <see cref="IFinancialOperationExecutor"/>
+/// when it has an operation scope (replay serialization comes before any business lock), or in a
+/// plain transaction otherwise (a locked read, or a write with no operation key such as an
+/// allocation or an expense posted outside a till). A lock not granted in its budget, or a deadlock,
+/// ends with <c>Payment.Busy</c> and nothing kept.
 /// </summary>
 public interface IPaymentTransactionRunner
 {
@@ -53,7 +54,7 @@ internal sealed class PaymentTransactionRunner(
                     cancellationToken);
             }
 
-            return await RunUnkeyedAsync(action, cancellationToken);
+            return await RunInTransactionAsync(action, cancellationToken);
         }
         // A unique index (one reversal per receipt, one receipt per ledger entry) refusing a write
         // that slipped past the locks is the same answer: someone else changed it; refresh and retry.
@@ -64,7 +65,7 @@ internal sealed class PaymentTransactionRunner(
         }
     }
 
-    private async Task<ErrorOr<T>> RunUnkeyedAsync<T>(
+    private async Task<ErrorOr<T>> RunInTransactionAsync<T>(
         Func<CancellationToken, Task<ErrorOr<T>>> action,
         CancellationToken cancellationToken)
     {

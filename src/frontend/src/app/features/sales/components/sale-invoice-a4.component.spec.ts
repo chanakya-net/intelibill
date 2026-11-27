@@ -1590,6 +1590,7 @@ describe('SaleInvoiceA4Component', () => {
           },
         ],
         totals: {
+          subtotalBeforeDiscount: 100.06,
           totalBeforeDiscount: 100.06,
           totalDiscount: 0.01,
           totalTax: 18.01,

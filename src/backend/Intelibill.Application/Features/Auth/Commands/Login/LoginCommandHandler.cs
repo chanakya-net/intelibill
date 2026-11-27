@@ -30,9 +30,6 @@ public sealed class LoginCommandHandler(
         if (!user.IsLoginEnabled)
             return Errors.Auth.UserLoginDisabled;
 
-        if (user.Email is not null && !user.IsEmailVerified)
-            return Error.Conflict("Auth.EmailVerificationRequired", "Use mailbox recovery to verify your email before signing in.");
-
         // The proof names the account version the password was actually checked against. Password
         // verification is deliberately slow, so a reset or a disablement can commit while it runs;
         // session creation re-reads the account under its lock and refuses a proof that has been

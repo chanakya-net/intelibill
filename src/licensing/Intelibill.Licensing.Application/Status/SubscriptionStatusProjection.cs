@@ -13,6 +13,9 @@ public static class SubscriptionStatusProjection
 {
     public static SubscriptionAccessFacts ToFacts(TermFactsRow row)
     {
+        if (row.TransferAllocationId == row.TermId && row.Basis == "Paid" && row.PricePaise is null &&
+            row.HandoffEndsAt == row.EndsAt && row.StartsAt < row.EndsAt && row.MemberAllowance > 0)
+            return new(row.StartsAt, row.EndsAt, TermEvidenceState.Complete, SubscriptionBasis.Paid, HandoffEndsAt: row.EndsAt);
         if (row.Cancellation is { } change && (row.Basis != nameof(SubscriptionBasis.Paid)
             || change.EffectiveAt != row.EndsAt || change.PolicyVersion != SubscriptionCancellationsV1.Policy
             || change.ChangeId == Guid.Empty || !ValidRevision(change) || change.ShopCount <= 0 || change.ShopCount > row.Capacity
@@ -43,12 +46,15 @@ public static class SubscriptionStatusProjection
             return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, TermEvidenceState.NeedsReview);
 
         var anchor = new BillingAnchor(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zone, period);
-        // A renewed chain is continuous paid access from its first period to its latest end; grace follows only that end.
-        var starts = basis == SubscriptionBasis.Paid && row.PaidFrom is { } from && from < row.StartsAt ? from : row.StartsAt;
+        // A renewed chain or mid-term slot join reports the shop's continuous paid start while preserving row.StartsAt for anchor checks.
+        var starts = basis == SubscriptionBasis.Paid && row.PaidFrom is { } from && from < row.EndsAt ? from : row.StartsAt;
         return new SubscriptionAccessFacts(starts, row.EndsAt, Agrees(row, basis, anchor, ordinal)
             ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, basis, anchor, ordinal,
             row.Cancellation is { } saved ? new ScheduledCancellation(saved.EffectiveAt, saved.WithdrawnAt) : null,
-            RenewedAtEnd: row.RenewedAtEnd);
+            RenewedAtEnd: row.RenewedAtEnd,
+            RefundBoundary: basis == SubscriptionBasis.Paid && row.RefundBoundary is { } decided
+                ? new RefundAccessBoundary(decided.PaidThrough, decided.AccessEndsAt) : null,
+            HandoffEndsAt: basis == SubscriptionBasis.Paid ? row.HandoffEndsAt : null);
     }
 
     // A scheduled cancellation is an odd revision; a withdrawal is the next even one, recorded before the boundary.
@@ -95,7 +101,7 @@ public static class SubscriptionStatusProjection
             complete ? row.Trial?.MemberCap ?? row.Complimentary?.MemberAllowance ?? row.MemberAllowance : null,
             row.Trial?.ComputationVersion ?? row.Complimentary?.PolicyVersion ?? row.SourceReference,
             row.Trial?.DevelopmentFixture ?? row.DevelopmentFixture == true,
-            commercial && row.Basis is not null && row.Trial is null && row.Complimentary is null
+            commercial && row.TransferAllocationId is null && row.Basis is not null && row.Trial is null && row.Complimentary is null
                 ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null,
             complete && ActiveCancellation(row) is { } saved
                 ? new(saved.ChangeId, saved.Version, saved.EffectiveAt, saved.PolicyVersion) : null);

@@ -55,17 +55,26 @@ public sealed class CustomerCreditPolicyTests(PostgreSqlTestFixture fixture) : I
     }
 
     [Fact]
-    public async Task Existing_style_customer_without_policy_is_legacy_advisory_and_unblocked()
+    public async Task Customer_create_and_edit_without_a_policy_are_refused()
     {
         using var shop = await OpenShopAsync();
-        var customerId = await AddCustomerAsync(shop, 100m, policy: null);
+        var customerId = await AddCustomerAsync(shop, 100m, "Enforced");
 
-        using var response = await SellServiceAsync(shop, customerId, price: 300m, due: 300m, expectCreated: false);
+        using var create = await SendAsync(shop, HttpMethod.Post, "/api/customers", new
+        {
+            name = "No policy", phoneNumber = "+919812300000", address = (string?)null, isActive = true, creditLimit = 100m,
+        });
+        using var edit = await SendAsync(shop, HttpMethod.Put, $"/api/customers/{customerId}", new
+        {
+            name = "No policy", phoneNumber = "+919812300001", address = (string?)null, isActive = true, creditLimit = 100m,
+        });
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        // The validation middleware names the refused field.
+        await AssertRefusedAsync(create, HttpStatusCode.BadRequest, "\"code\":\"CreditPolicyMode\"");
+        await AssertRefusedAsync(edit, HttpStatusCode.BadRequest, "\"code\":\"CreditPolicyMode\"");
         var account = await GetAccountAsync(shop, customerId);
-        Assert.Equal("LegacyAdvisory", account.GetProperty("creditPolicyMode").GetString());
-        Assert.Equal(JsonValueKind.Null, account.GetProperty("availableCredit").ValueKind);
+        Assert.Equal("Enforced", account.GetProperty("creditPolicyMode").GetString());
+        Assert.Equal(100m, account.GetProperty("availableCredit").GetDecimal());
     }
 
     [Fact]
@@ -261,7 +270,7 @@ public sealed class CustomerCreditPolicyTests(PostgreSqlTestFixture fixture) : I
         return await shop.Client.SendAsync(request);
     }
 
-    private static async Task<Guid> AddCustomerAsync(Shop shop, decimal creditLimit, string? policy, int? termsDays = null, bool isActive = true)
+    private static async Task<Guid> AddCustomerAsync(Shop shop, decimal creditLimit, string policy, int? termsDays = null, bool isActive = true)
     {
         using var response = await SendAsync(shop, HttpMethod.Post, "/api/customers", new
         {

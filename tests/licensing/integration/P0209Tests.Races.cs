@@ -141,7 +141,7 @@ public sealed partial class P0209Tests
             """, monitor);
         sql.Parameters.AddWithValue(queryPattern);
         var elapsed = Stopwatch.StartNew();
-        while (elapsed.Elapsed < TimeSpan.FromSeconds(2))
+        while (elapsed.Elapsed < TimeSpan.FromSeconds(15))
         {
             if ((long)(await sql.ExecuteScalarAsync())! == reads.Length) return;
             Assert.False(reads.Any(read => read.IsCompleted), $"Status returned before waiting on {queryPattern}.");

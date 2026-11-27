@@ -269,7 +269,7 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         {
             var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var receipt=await db.PurchaseReceiptValues.SingleAsync(r=>r.Id==x.Receipt);var membership=await db.ShopMemberships.SingleAsync(m=>m.ShopId==receipt.ShopId);membership.SetRole(ShopRole.Manager);email=(await db.Users.SingleAsync(u=>u.Id==membership.UserId)).Email;await db.SaveChangesAsync();
         }
-        var login=await JsonAsync(await client.PostAsJsonAsync("/api/auth/login/email",new{email,password="Pass123!Aa"}));client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",login.GetProperty("accessToken").GetString());
+        var login=await JsonAsync(await client.PostAsJsonAsync("/api/auth/login",new{identifier = email,password="Pass123!Aa"}));client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",login.GetProperty("accessToken").GetString());
         var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));var key=Guid.NewGuid().ToString();var pending=Shipment(detail,x.Supplier,x.Receipt,key);
         Assert.Equal(HttpStatusCode.Forbidden,(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString(),accepted:true))).StatusCode);
         var result=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",pending));
@@ -314,11 +314,10 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
     }
 
     [Theory]
-    [InlineData(false,false,false)]
-    [InlineData(true,false,false)]
-    [InlineData(false,true,false)]
-    [InlineData(false,false,true)]
-    public async Task GroupReversal_ExactLotsAtomic_AndPoReceivedRemainsHistorical(bool shipFirst,bool missingSource,bool quarantineHistory)
+    [InlineData(false,false)]
+    [InlineData(true,false)]
+    [InlineData(false,true)]
+    public async Task GroupReversal_ExactLotsAtomic_AndPoReceivedRemainsHistorical(bool shipFirst,bool quarantineHistory)
     {
         var x=await SetupAsync();using var client=x.Client;
         Guid itemId;string barcode;
@@ -328,7 +327,6 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         object Lot(int quantity)=>new{clientLineId=Guid.NewGuid(),purchaseOrderLineId=poLineId,barcode,batchNumber=$"PO-{Guid.NewGuid():N}",quantity,totalPurchaseCost=quantity*100,mrp=150,salesPrice=120,taxRatePercent=0,taxIncluded=false,purchaseTaxIncluded=false,expiryDate=quarantineHistory?(DateOnly?)BusinessDates.Today.AddDays(-1):null};
         await JsonAsync(await client.PostAsJsonAsync($"/api/purchase-orders/{poId}/receipts",new{operationId=Guid.NewGuid(),lines=new[]{Lot(4),Lot(6)}}));
         var po=await JsonAsync(await client.GetAsync($"/api/purchase-orders/{poId}"));var group=po.GetProperty("receipts")[0];var groupId=group.GetProperty("receiptId").GetGuid();var sourceIds=group.GetProperty("lines").EnumerateArray().Select(l=>l.GetProperty("receiptValueId").GetGuid()).ToArray();Assert.Equal(2,sourceIds.Length);
-        if(missingSource){using var scope=_factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var missing=await db.PurchaseReceiptValues.SingleAsync(r=>r.Id==sourceIds[1]);db.PurchaseReceiptValues.Remove(missing);await db.SaveChangesAsync();sourceIds=sourceIds.Take(1).ToArray();}
         if(shipFirst){var first=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{sourceIds[0]}"));var document=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(first,x.Supplier,sourceIds[0],Guid.NewGuid().ToString(),1,100)));Assert.NotEqual(JsonValueKind.Null,document.GetProperty("lines")[0].GetProperty("purchaseOrderReceiptLineId").ValueKind);}
         if (quarantineHistory)
         {
@@ -339,7 +337,7 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         var details=await Task.WhenAll(sourceIds.Select(async id=>await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{id}"))));
         var payload=new{operationKey=Guid.NewGuid().ToString(),reason="Entire delivery entered incorrectly",lines=details.Select(d=>new{receiptValueId=d.GetProperty("receiptValueId").GetGuid(),expectedReceiptVersion=d.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=d.GetProperty("batchVersion").GetUInt32()}).ToArray()};
         var result=await client.PostAsJsonAsync($"/api/purchase-order-receipts/{groupId}/reversal",payload);
-        if(shipFirst||missingSource||quarantineHistory){Assert.Equal(missingSource?HttpStatusCode.NotFound:HttpStatusCode.Conflict,result.StatusCode);foreach(var id in sourceIds){var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{id}"));Assert.False(after.GetProperty("isVoided").GetBoolean());Assert.Empty(after.GetProperty("reversals").EnumerateArray());}}
+        if(shipFirst||quarantineHistory){Assert.Equal(HttpStatusCode.Conflict,result.StatusCode);foreach(var id in sourceIds){var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{id}"));Assert.False(after.GetProperty("isVoided").GetBoolean());Assert.Empty(after.GetProperty("reversals").EnumerateArray());}}
         else{var reversed=await JsonAsync(result);Assert.Equal(2,reversed.GetProperty("lots").GetArrayLength());var after=await JsonAsync(await client.GetAsync($"/api/purchase-orders/{poId}"));Assert.Equal(10,after.GetProperty("receivedQuantity").GetInt32());Assert.Equal(0,after.GetProperty("netRetainedQuantity").GetDecimal());Assert.Equal("Received",after.GetProperty("status").GetString());}
     }
 
@@ -378,7 +376,7 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
     {
         var x=await SetupAsync();using var client=x.Client;var sale=await JsonAsync(await client.PostAsJsonAsync("/api/sales",await SalePayload(x.Batch,1)));
         Guid saleItemId;using(var scope=_factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();saleItemId=(await db.SaleItems.SingleAsync(si=>si.SaleId==sale.GetProperty("saleId").GetGuid())).Id;}
-        await JsonAsync(await client.PostAsJsonAsync($"/api/sales/{sale.GetProperty("saleId").GetGuid()}/returns",new{payoutMethod=1,items=new[]{new{saleItemId,quantity=1,condition=(int)SaleReturnCondition.Restockable,approvedRefundAmount=120,notes="Returned in full"}}}));
+        await JsonAsync(await client.PostAsJsonAsync($"/api/sales/{sale.GetProperty("saleId").GetGuid()}/returns",new{payoutDestination=(int)ReturnPayoutDestination.Refund,items=new[]{new{saleItemId,quantity=1,condition=(int)SaleReturnCondition.Restockable,approvedRefundAmount=120,notes="Returned in full"}}}));
         var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(10,detail.GetProperty("availableQuantity").GetDecimal());Assert.NotEmpty(detail.GetProperty("reversalEligibilityReasons").EnumerateArray());
         Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync($"/api/purchase-receipts/{x.Receipt}/reversal",new{operationKey=Guid.NewGuid().ToString(),reason="Erroneous receipt",expectedReceiptVersion=detail.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=detail.GetProperty("batchVersion").GetUInt32()})).StatusCode);
     }
@@ -434,14 +432,6 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(7,after.GetProperty("availableQuantity").GetDecimal());Assert.Equal(1000,after.GetProperty("netPayableAmount").GetDecimal());Assert.Single(after.GetProperty("returns").EnumerateArray());Assert.Empty(after.GetProperty("reversals").EnumerateArray());
     }
 
-    [Fact]
-    public async Task OldVoid_UnresolvedSourceCannotInventPayableReversal()
-    {
-        var x=await SetupAsync();using var client=x.Client;
-        using(var scope=_factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();await db.Database.ExecuteSqlAsync($"UPDATE purchase_receipt_values SET status='LEGACY_UNRESOLVED',original_total_cost=NULL,effective_total_cost=NULL WHERE id={x.Receipt}");}
-        var response=await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void",new{});Assert.Equal(HttpStatusCode.Conflict,response.StatusCode);Assert.Contains("PurchaseReceipt.EvidenceMissing",await response.Content.ReadAsStringAsync(),StringComparison.Ordinal);
-        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(10,after.GetProperty("availableQuantity").GetDecimal());Assert.Empty(after.GetProperty("reversals").EnumerateArray());
-    }
     [Fact]
     public async Task OldVoid_ResolvedReceiptDetailShowsZeroPayableWithHistoricalCost()
     {
@@ -680,7 +670,7 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
 
             await ExecuteAsync("UPDATE inventory SET quantity = quantity WHERE item_id = (SELECT item_id FROM inventory_batches WHERE id = @id)", _batch);
             await ExecuteAsync("UPDATE inventory_batches SET quantity = quantity WHERE id = @id", _batch);
-            await ExecuteAsync("UPDATE purchase_receipt_values SET status = status WHERE id = @id", _receipt);
+            await ExecuteAsync("UPDATE purchase_receipt_values SET received_quantity = received_quantity WHERE id = @id", _receipt);
             await _transaction.CommitAsync();
         }
 

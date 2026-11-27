@@ -15,7 +15,7 @@ internal sealed class DevicePermitObservationReader(LicensingDbContext db) : IDe
         (Guid Shop, string Device)? after, int take, CancellationToken ct)
     {
         if (shop is { } named && !await db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.shop_affiliations WHERE account_id = {account} AND shop_id = {named}) AS "Value"
+            SELECT EXISTS (SELECT FROM public.current_shop_affiliations WHERE account_id = {account} AND shop_id = {named}) AS "Value"
             """).SingleAsync(ct))
             return null;
 
@@ -24,7 +24,7 @@ internal sealed class DevicePermitObservationReader(LicensingDbContext db) : IDe
         var rows = await db.Database.SqlQuery<DevicePermitRow>($"""
             WITH bound AS (
                 SELECT o.*, a.shop_name FROM public.offline_device_observations o
-                JOIN public.shop_affiliations a ON a.account_id = o.account_id AND a.shop_id = o.shop_id
+                JOIN public.current_shop_affiliations a ON a.account_id = o.account_id AND a.shop_id = o.shop_id
                     AND a.request_id = o.affiliation_request_id
                 WHERE o.account_id = {account} AND ({shop}::uuid IS NULL OR o.shop_id = {shop}::uuid)
                     AND ({afterShop}::uuid IS NULL OR (o.shop_id, o.device_ref) > ({afterShop}::uuid, {afterDevice}::text))

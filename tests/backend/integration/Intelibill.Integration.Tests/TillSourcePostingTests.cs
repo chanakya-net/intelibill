@@ -93,7 +93,8 @@ public sealed class TillSourcePostingTests(PostgreSqlTestFixture fixture)
     public async Task AllDueSale_AttributedWithoutCash()
     {
         await using var setup = await ArrangeAsync();
-        var customer = Customer.Create(setup.Shop, "Credit customer", "+919222222222", null, true);
+        var customer = Customer.Create(setup.Shop, "Credit customer", "+919222222222", null, true, 1_000_000m);
+        Success(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null));
         setup.App.Db.Customers.Add(customer);
         await setup.App.Db.SaveChangesAsync();
         var request = setup.Request();

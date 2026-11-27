@@ -17,7 +17,6 @@ public sealed partial class P0418LicensingTests
     [InlineData("item-reactivate")]
     [InlineData("barcode-generate")]
     [InlineData("batch-prices")]
-    [InlineData("legacy-batch-prices")]
     public async Task Sources_operational_capacity_writes_refuse_after_expiry(string route)
     {
         using var host = CreateHost();
@@ -130,15 +129,6 @@ public sealed partial class P0418LicensingTests
                     reason = "Price change after expiry",
                 }, Ct);
             }
-            case "legacy-batch-prices":
-            {
-                var batch = await SeedGoodsAsync(client, $"Fixture stock {Guid.NewGuid():N}");
-                return () => client.PutAsJsonAsync($"/api/inventory/batches/{batch}", new
-                {
-                    quantity = 10m, costPrice = 1m, mrp = 5m, salesPrice = 5m, taxRatePercent = 0m,
-                    taxIncluded = false, notes = "New retail terms",
-                }, Ct);
-            }
             case "supplier-delete":
             {
                 var supplier = await ReadSuccessAsync(await client.PostAsJsonAsync("/api/suppliers", new
@@ -185,7 +175,7 @@ public sealed partial class P0418LicensingTests
             case "customer-create":
                 return () => client.PostAsJsonAsync("/api/customers", new
                 {
-                    name = "Fenced customer", phoneNumber = "+919111111111", isActive = true, creditLimit = 0m,
+                    name = "Fenced customer", phoneNumber = "+919111111111", isActive = true, creditLimit = 0m, creditPolicyMode = "NoCredit",
                 }, Ct);
             default:
                 throw new ArgumentOutOfRangeException(nameof(route), route, null);

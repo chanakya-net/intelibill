@@ -85,7 +85,7 @@ public sealed class ExportProfitLossQueryHandler(
                 row.RevenueAfterTax,
                 row.ProfitBeforeTax,
                 row.ProfitAfterTax,
-                row.MarginPercent, row.Economics, row.IsReversal, row.NeedsAccountingReview)).ToList());
+                row.MarginPercent, row.Economics, row.IsReversal)).ToList());
 
         return await excelRenderer.RenderAsync(dataset, cancellationToken);
     }

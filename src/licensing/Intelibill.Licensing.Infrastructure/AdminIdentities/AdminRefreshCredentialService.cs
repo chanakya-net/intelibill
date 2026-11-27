@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Audit;
 using System.Security.Cryptography;
 using System.Text;
@@ -53,7 +54,7 @@ internal sealed class AdminRefreshCredentialService(LicensingDbContext context, 
 
     private async Task<LockedCredential?> LockCredentialAsync(string digest, CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Brief, cancellationToken);
         var owner = await FindOwnerAsync(digest, cancellationToken);
         if (owner is null) return null;
 

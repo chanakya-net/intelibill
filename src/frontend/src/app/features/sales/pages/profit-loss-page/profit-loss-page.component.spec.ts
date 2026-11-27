@@ -300,7 +300,7 @@ describe('ProfitLossPageComponent', () => {
     expect(formatLocalIsoDate(component.toDate())).toBe(formatLocalIsoDate(expectedTo));
   });
 
-  it.each(['FilteredActivity', 'UnclassifiedExpenses', 'AccountingReview', 'ServiceCostsUnmodeled'] as const)(
+  it.each(['FilteredActivity', 'UnclassifiedExpenses', 'ServiceCostsUnmodeled'] as const)(
     'keeps trading visible and explains unavailable operating profit: %s', (status) => {
       summarySignal.set({ netProfitAfterTax: 999, revenueIncludingTax: 999, totalCost: 999, averageMarginPercent: 999, invoiceCount: 1, returnCount: 0, adjustmentCount: 0,
         economics: { version: 2, costBasis: 'recorded-sale-cost/1', netSalesExcludingTax: 200, cogs: 100, stockLoss: 0,

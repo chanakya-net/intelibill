@@ -432,7 +432,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             fixture.Shop.Id,
             "INV-SRV-001",
             customerId: null,
@@ -495,7 +495,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             fixture.Shop.Id,
             "INV-MIX-01",
             customerId: null,
@@ -568,7 +568,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-SRV-DUE",
             customerId,
@@ -645,7 +645,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             fixture.Shop.Id,
             "INV-SRV-COND",
             customerId: null,
@@ -712,7 +712,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             fixture.Shop.Id,
             "INV-002",
             customerId: null,
@@ -1146,7 +1146,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var totalAmount = saleItem.TotalAmount;
         var totalTaxAmount = saleItem.TaxAmount;
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             customerId,

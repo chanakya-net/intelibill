@@ -102,8 +102,14 @@ public sealed partial class P0505LicensingTests
     {
         await using var db = Open(Migrator);
         var year = FiscalYear.ForDate(soldAt);
-        var sequence = InvoiceSequence.Create(actor.Shop, year);
-        db.InvoiceSequences.Add(sequence);
+        var sequence = await db.InvoiceSequences.FirstOrDefaultAsync(
+            s => s.ShopId == actor.Shop && s.FiscalYearStart == year.StartYear && s.SeriesCode == "A", Ct);
+        if (sequence is null)
+        {
+            var shop = await db.Shops.SingleAsync(s => s.Id == actor.Shop, Ct);
+            sequence = InvoiceSequence.Open(actor.Shop, shop.SellerRegistrationKey, "A", year);
+            db.InvoiceSequences.Add(sequence);
+        }
         var lease = InvoiceLease.Create(actor.Shop, sequence.Id, Device, year.StartYear, "A/2627/", 1, 25, 6,
             soldAt.AddHours(-1), soldAt.AddDays(1), actor.User, actor.Session);
         db.InvoiceLeases.Add(lease);
@@ -112,7 +118,7 @@ public sealed partial class P0505LicensingTests
         var invoice = new OfflineSaleSyncCommand(Guid.NewGuid().ToString("N"), "A/2627/000001", soldAt, null, null, null,
             PaymentMethod.Cash, 2m, 0m, 2m, 2m, 0m, 0m, 2m, InstantDiscountType.None, 0m, null, null, null, null,
             [new(item.Barcode, "LOT", item.Name, 1m, 1m, 2m, 2m, 0m, false, batch.Id,
-                2m, 0m, 0m, 2m, 0m, 2m, null, null, InstantDiscountType.None, 0m, null)], IssuedByUserId: assertedIssuer);
+                2m, 0m, 0m, 2m, 0m, 2m, null, null, InstantDiscountType.None, 0m, null)], CalculationVersion: 1, IssuedByUserId: assertedIssuer);
         var envelope = OfflineSubmission.Record(actor.Shop, Device, invoice.ClientSaleId, invoice.InvoiceNumber,
             OfflineSaleSyncIdempotencyHasher.ComputeHash(actor.Shop, Device, invoice), OfflineSubmissionPayload.Serialize(invoice),
             soldAt, soldAt, OfflineSubmissionSource.Recovery, actor.User, assertedIssuer, verifiedIssuer, lease.Id, "fixture-recovery");

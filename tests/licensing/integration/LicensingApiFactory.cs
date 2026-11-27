@@ -1,3 +1,4 @@
+using Intelibill.Tests.Integration;
 using System.Globalization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -20,11 +21,13 @@ internal sealed class LicensingApiFactory(
         builder.ConfigureTestServices(services =>
         {
             if (clock is not null) services.AddSingleton(clock);
+            TestHostResources.Configure(services);
             configure?.Invoke(services);
         });
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(DatabaseSettings("LicensingDatabase", runtime));
+            configuration.AddInMemoryCollection(TestDatabaseBudgets.Licensing);
             if (migrator is not null)
                 configuration.AddInMemoryCollection(DatabaseSettings("LicensingMigrationDatabase", migrator));
             if (settings is not null) configuration.AddInMemoryCollection(settings);

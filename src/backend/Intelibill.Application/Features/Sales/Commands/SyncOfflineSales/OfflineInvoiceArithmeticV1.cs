@@ -16,7 +16,7 @@ internal sealed record OfflineExpectedAmounts(
     IReadOnlyList<OfflineExpectedLine> Lines,
     decimal EligibleSubtotal,
     decimal SubtotalBeforeDiscount,
-    IReadOnlyList<decimal> AcceptedTotalsBeforeDiscount,
+    decimal TotalBeforeDiscount,
     decimal TotalDiscountAmount,
     decimal TotalTaxAmount,
     decimal TotalAmount);
@@ -90,7 +90,7 @@ internal static class OfflineInvoiceArithmeticV1
             lines.Add(new OfflineExpectedLine(Money(preTax[i]), Money(itemDiscount[i]), Money(beforeSale[i]), Money(allocation[i]), Money(taxable), Money(tax), Money(total)));
         }
 
-        return new OfflineExpectedAmounts(lines, Money(eligible), Money(subtotal), [Money(totals + discounts)], Money(discounts), Money(taxes), Money(totals));
+        return new OfflineExpectedAmounts(lines, Money(eligible), Money(subtotal), Money(totals + discounts), Money(discounts), Money(taxes), Money(totals));
     }
 
     internal static bool FitsScale(decimal value, int scale) => decimal.Round(value, scale) == value;

@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Billing;
@@ -41,7 +42,7 @@ internal sealed partial class MerchantClosureConsentStore(ApplicationDbContext d
         var lease = await fence.EnterAsync(shop, LicenceAction.History, ct);
         if (lease.IsError)
             return lease.Errors;
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         var owner = await authority.LockOwnerAsync(caller, shop, ct);
         if (owner is null)
             return ShopAffiliationConsentErrors.OwnerRequired;

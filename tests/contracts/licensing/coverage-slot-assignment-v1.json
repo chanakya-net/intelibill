@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "actions": [
+    "billing.slot-assignment.read",
+    "billing.slot-assignment.request",
+    "billing.slot-assignment.recover",
+    "billing.slot-assignment.owner-read"
+  ],
+  "receiptPath": "/internal/licensing/v1/merchant-events/coverage-slot-consent",
+  "receiptKind": "CoverageSlotConsent",
+  "pageSize": 50,
+  "request": {
+    "operationKey": "757620d3-10c8-4041-8290-b40e6944ac1d",
+    "shopId": "314cb023-6b83-43b5-938a-51266dd33d2c",
+    "observedCapacity": 3,
+    "observedPaidThrough": "2028-02-29T04:30:00Z",
+    "acknowledgedSharedEnd": true,
+    "acknowledgedNoNewFee": true
+  }
+}

@@ -9,9 +9,6 @@ using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
 using Intelibill.Shared.Web.Delivery;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Application.Common.Licensing.LicenceOutcome;
 
 namespace Intelibill.Integration.Tests;
@@ -50,67 +47,6 @@ public sealed partial class P0402LicensingTests
         _clock.Now = coherent;
         await PostSnapshotAsync(afterRestart, signer, SnapshotBody(binding, coherent, receivedAt.AddDays(10), revision: 2));
         await AssertTradingAsync(binding, coherent, Allowed);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Higher_revision_recovers_before_the_bad_stamp(bool firstGrantForSibling)
-    {
-        _clock.Now = EntitlementSnapshotsV1.Instant(TimeProvider.System);
-        using var signer = RSA.Create(2048);
-        using var host = MerchantHost(signer, new());
-        await host.InitializeAsync();
-        using var client = CreateClient(host);
-        var (shop, _) = await EnrollShopAsync(client);
-        var original = await BindShopAsync(shop);
-        var received = _clock.Now;
-        var end = received.AddDays(10);
-        var badBody = SnapshotBody(original, received.AddDays(1), end);
-        await using var migrator = CreateDb(owner: true);
-        await migrator.GetService<IMigrator>().MigrateAsync("20261118090000_BoundMerchantEntitlementReconciliation", Ct);
-        // The pre-upgrade API runs with the projection shape deployed on the older schema.
-        using var legacyHost = MerchantHost(signer, new(), configure: services =>
-            services.ConfigureDbContext<ApplicationDbContext>(options =>
-                options.ReplaceService<IModelCustomizer, LegacyProjectionModel>()));
-        using var legacyClient = CreateClient(legacyHost);
-        var receipt = await PostSnapshotAsync(legacyClient, signer, badBody);
-        await migrator.Database.MigrateAsync(Ct);
-        await AssertAuthorityCodeAsync(client, shop, HttpStatusCode.ServiceUnavailable, Unavailable);
-
-        var target = firstGrantForSibling ? await SeedAsync(original.AccountId) : original;
-        var corrected = received.AddMinutes(1);
-        _clock.Now = corrected;
-        // A less distant but still impossible stamp cannot repair the retained one.
-        await PostSnapshotAsync(client, signer, SnapshotBody(target, corrected.AddHours(1), end, revision: 2), "NeedsReview");
-        await PostSnapshotAsync(client, signer, SnapshotBody(target, corrected, end, revision: 2));
-        // A valid head once again provides a monotonic floor for later revisions.
-        await PostSnapshotAsync(client, signer, SnapshotBody(target, received, end, revision: 3), "NeedsReview");
-        Assert.Equal(receipt, await PostSnapshotAsync(client, signer, badBody));
-        var proof = await ReadProofAsync(target);
-        Assert.Equal(corrected, proof.AccountAt);
-        Assert.Equal(corrected, proof.ShopAt);
-        await AssertTradingAsync(target, corrected, Allowed);
-        if (firstGrantForSibling)
-            await AssertTradingAsync(original, corrected, Blocked, Unavailable);
-        await AssertTradingAsync(target, corrected.AddHours(48).AddMicroseconds(-1), Allowed);
-        await AssertTradingAsync(target, corrected.AddHours(48), Blocked, Unavailable);
-    }
-
-    private sealed class LegacyProjectionModel : ModelCustomizer
-    {
-        public LegacyProjectionModel(ModelCustomizerDependencies dependencies) : base(dependencies) { }
-
-        public override void Customize(ModelBuilder builder, DbContext context)
-        {
-            base.Customize(builder, context);
-            builder.Entity<AccountLicenseRestriction>()
-                .Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation)
-                .Ignore(row => row.PreviousReleaseRevision);
-            builder.Entity<ShopLicenseState>()
-                .Ignore(row => row.SuspensionMode).Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation)
-                .Ignore(row => row.ReleasedRevision).Ignore(row => row.ReopenedRevision).Ignore(row => row.ClosureRevision);
-        }
     }
 
     [Theory]
@@ -224,7 +160,8 @@ public sealed partial class P0402LicensingTests
                 EXECUTE format('ALTER TABLE %s OWNER TO p0402_schema_owner', policy.relation);
             END LOOP;
         END $$;
-        GRANT SELECT ON public.shop_affiliation_consent_events TO p0402_schema_owner;
+        GRANT SELECT ON public.shop_affiliation_consent_events, public.merchant_transfer_decisions TO p0402_schema_owner;
+        ALTER FUNCTION public.original_licence_proof_issuance(uuid) OWNER TO p0402_schema_owner;
         ALTER FUNCTION public.merchant_licence_proof_issuance(uuid) OWNER TO p0402_schema_owner;
         """;
 

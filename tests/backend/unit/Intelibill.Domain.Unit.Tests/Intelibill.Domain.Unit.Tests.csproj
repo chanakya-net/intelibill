@@ -27,4 +27,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../../shared/TestSales.cs" Link="TestSales.cs" />
+    <Using Include="Intelibill.Tests.Fixtures" />
+  </ItemGroup>
+
 </Project>

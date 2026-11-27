@@ -20,10 +20,6 @@ public sealed record AuthenticationProof(
     public static AuthenticationProof FromPassword(Guid userId, long verifiedSecurityVersion, DateTimeOffset verifiedAt) =>
         new(userId, CredentialKind.Password, verifiedSecurityVersion, verifiedAt);
 
-    /// <summary>A single-use mailbox proof, bound to the challenge that authorised it.</summary>
-    public static AuthenticationProof FromEmailOwnership(Guid userId, long verifiedSecurityVersion, Guid challengeId, DateTimeOffset verifiedAt) =>
-        new(userId, CredentialKind.EmailOwnership, verifiedSecurityVersion, verifiedAt, challengeId);
-
     /// <summary>A single-use phone proof, bound to the challenge that authorised it.</summary>
     public static AuthenticationProof FromPhoneOwnership(Guid userId, long verifiedSecurityVersion, Guid challengeId, DateTimeOffset verifiedAt) =>
         new(userId, CredentialKind.PhoneOwnership, verifiedSecurityVersion, verifiedAt, challengeId);
@@ -39,7 +35,6 @@ public sealed record AuthenticationProof(
 public enum CredentialKind
 {
     Password = 1,
-    EmailOwnership = 2,
     Registration = 3,
     PhoneOwnership = 4,
 }

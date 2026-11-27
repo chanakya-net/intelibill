@@ -184,6 +184,7 @@ describe('InventoryService', () => {
 
     service
       .addInventoryBatch({
+        operationKey: 'intake-1',
         items: [
           {
             clientRowId: 'row-1',
@@ -338,6 +339,7 @@ describe('InventoryService', () => {
 
     service
       .addInventoryBatch({
+        operationKey: 'intake-1',
         items: [
           {
             clientRowId: 'row-1',

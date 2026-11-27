@@ -16,7 +16,6 @@ public class PaymentReceiptTests
         var receipt = Receipt();
         Assert.Equal("UPI-1", receipt.ExternalReference);
         Assert.Null(receipt.Notes);
-        Assert.False(receipt.IsLegacy);
         Assert.Equal(PaymentAllocationTargetType.CustomerInvoice, receipt.AllocationTargetType);
     }
 

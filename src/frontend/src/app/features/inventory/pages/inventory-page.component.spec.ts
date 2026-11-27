@@ -63,7 +63,6 @@ describe('InventoryPageComponent', () => {
       defaultTaxIncluded: false,
       unitCode: null,
       quantityScale: 0,
-      unitReviewRequired: false,
     },
   ]);
   const submittingSignal = signal(false);
@@ -180,7 +179,6 @@ describe('InventoryPageComponent', () => {
         defaultTaxIncluded: false,
         unitCode: null,
         quantityScale: 0,
-        unitReviewRequired: false,
       },
     ]);
     submittingSignal.set(false);

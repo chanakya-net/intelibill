@@ -17,7 +17,7 @@ public enum ReturnAdjustmentEntryKind
 /// and the P&amp;L read these and nothing else for return figures, so they cannot disagree.
 /// Amounts are signed: a void reversal carries the negatives of its return.
 /// <see cref="DocumentTaxComponents"/> is the returned tax split the way the sale's issued document
-/// split it (CGST and SGST/UTGST, or IGST); null for a sale issued before documents existed.
+/// split it (CGST and SGST/UTGST, or IGST); null for an offline sale posted without a document.
 /// </summary>
 public sealed record ReturnAdjustmentEntry(
     ReturnAdjustmentEntryKind Kind,
@@ -32,14 +32,12 @@ public sealed record ReturnAdjustmentEntry(
     DateTimeOffset InvoiceDate,
     DateOnly InvoiceBusinessDate,
     string? CustomerName,
-    ReturnAccountingStatus Status,
-    string? PolicyVersion,
-    string? ReviewReason,
+    string PolicyVersion,
     decimal OriginalReturnedGross,
     decimal FinancialAdjustment,
-    decimal? TaxableAdjustment,
-    decimal? TaxAdjustment,
-    decimal? NonTaxAdjustment,
+    decimal TaxableAdjustment,
+    decimal TaxAdjustment,
+    decimal NonTaxAdjustment,
     IReadOnlyList<ReturnAdjustmentTaxComponent> TaxComponents,
     IReadOnlyList<ReturnAdjustmentSettlement> Settlements,
     IReadOnlyList<ReturnAdjustmentLine> Lines,
@@ -51,8 +49,8 @@ public sealed record ReturnAdjustmentEntry(
     /// <summary>The return number, marked when this is its void's reversal.</summary>
     public string Label => IsReversal ? $"{ReturnNumber} (void)" : ReturnNumber;
 
-    /// <summary>Balanced and moving money: only these become vouchers. A zero refund keeps its stock fact only.</summary>
-    public bool HasVoucher => Status == ReturnAccountingStatus.Balanced && FinancialAdjustment != 0m;
+    /// <summary>Moving money: only these become vouchers. A zero refund keeps its stock fact only.</summary>
+    public bool HasVoucher => FinancialAdjustment != 0m;
 
     public decimal SettledBy(ReturnSettlementKind kind) =>
         Settlements.Where(s => s.Kind == kind).Sum(s => s.Amount);
@@ -80,6 +78,6 @@ public sealed record ReturnAdjustmentLine(
     decimal OriginalCostPrice,
     decimal OriginalReturnedGross,
     decimal TaxRatePercent,
-    decimal? TaxableAdjustment,
-    decimal? TaxAdjustment,
-    decimal? NonTaxAdjustment);
+    decimal TaxableAdjustment,
+    decimal TaxAdjustment,
+    decimal NonTaxAdjustment);

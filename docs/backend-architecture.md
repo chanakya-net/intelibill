@@ -95,21 +95,10 @@ no replayable copy of a successor is kept. If a renewal reached the server but i
 ends that device's session; the person signs in again. The same happens if a copy of the credential is
 used elsewhere — which is the point. Other devices on the account are unaffected.
 
-**Schema rollout.** `20261101090000_HashRefreshTokensAndChainRotations` is the expand step: `token`
-stays (nullable, emptied) and `is_revoked` stays in step with `revoked_at` while the previous revision
-serves. Every pre-existing credential and live session is revoked, so everyone signs in once. The
-contract migration (separate change) re-runs the hash-and-revoke step for rows the previous revision
-wrote during the deploy window, ends the sessions that hold no hashed credential, drops `token` and its
-index, and makes `token_hash` required.
-
 ## Verified Phone Credentials
 
-Phone sign-in is off unless a deployment sets `PhoneAuth:Enabled`. The legacy
-`POST /api/auth/register/phone` is closed outright: it granted a session on a number nobody had
-proved, so a registrant could not sign in again once the session was gone, and anyone could reserve
-someone else's number. It still answers, with `503 Auth.PhoneEnrollmentUnavailable`, so an
-un-updated client gets a documented refusal rather than a 404. Accounts it created keep their data
-and their sessions.
+Phone sign-in is off unless a deployment sets `PhoneAuth:Enabled`. Enrollment and sign-in run only
+on proved challenges; no route grants a session on an unproved number.
 
 **Challenges.** `phone_challenges` holds one purpose-bound proof — `enrollment`, `login` or
 `phone-change` — carrying a keyed HMAC-SHA256 of a six-digit code under `Identity:PhoneCodeKey`,
@@ -230,7 +219,7 @@ or not, and never reach headers: `X-RateLimit-*` describe the request budget onl
 answers the existing 429 body with `Retry-After` capped at a day. Sign-in, reset confirmation,
 reauthentication and password change are Account endpoints; every endpoint that sends mail or SMS —
 including shop invitations — is a Destination endpoint, so one mailbox shares one allowance across
-registration, reset, claim, change and invitation.
+registration, reset, change and invitation.
 Per-challenge attempts stay with the challenge (`PhoneAuth:MaxAttempts`).
 
 **Ordering.** The filter is registered at order -3000, ahead of `ModelStateInvalidFilter`
@@ -357,9 +346,10 @@ executor; `GET /api/financial-operations/{type}/{key}` (`OwnerOrManager`) checks
 membership and role before reading. A 404 `Operation.NotFound` means nothing committed is visible
 yet, never that a timed-out request failed — resending the identical request is what converges.
 
-**Compatibility.** `operationKey` is optional until every client sends one; an unkeyed payment
-still posts and logs `Legacy unkeyed financial command`. Receipts are retained financial records
-and are never deleted.
+**Required key.** Customer and supplier payments and bulk stock intake require `operationKey`; a
+request without one is refused with a 400 validation error on `OperationKey` (bulk intake:
+`Inventory.BatchOperationKeyInvalid`) and posts nothing. Receipts are retained financial records and
+are never deleted.
 
 **Web.** `FinancialOperationIntentService` (`core/services`) writes the frozen payload and a fresh
 key to `localStorage` before sending (a failed write sends nothing), replays only that payload, keeps
@@ -375,18 +365,18 @@ DI scope per row — its own `DbContext`, tracker and item/inventory caches — 
 item, batch, IN movement, inventory and payable together. A rejected row leaves no write; rows commit
 in order, so a later duplicate of an item + batch answers `Inventory.BatchNumberAlreadyExists`.
 
-**Keys.** With `operationKey` (1–60 chars) the handler first commits a `BulkIntakeManifest` receipt
+**Keys.** With the required `operationKey` (1–60 chars) the handler first commits a `BulkIntakeManifest` receipt
 whose hash covers every `clientRowId` (required, ≤ 64, unique) and row hash in order, then runs each
 row under a `BulkIntakeRow` receipt keyed `{len}:{operationKey}:{clientRowId}`. Resending the same
 request replays committed rows verbatim and runs the rest; any changed, added or removed row answers
 409 `Operation.PayloadMismatch` before a row runs. Rejected rows are not recorded and are evaluated
 again on a resend. Bulk receipts have no lookup slug: resending is the recovery path.
 
-**Failures.** For a keyed row, an unplanned failure while the row is staged and saved (connection
-loss, lost unique-index race) happens inside the executor's open transaction, so it is rolled back
-and reported as `retryable: true` / `Inventory.RowRetryable`; the remaining rows still run. A failure
-that may follow a commit (completing or committing the receipt, replaying it) and any failure of an
-unkeyed row propagate as a 500 instead, because "nothing was saved" cannot be promised. Cancellation
+**Failures.** An unplanned failure while a row is staged and saved (connection loss, lost
+unique-index race) happens inside the executor's open transaction, so it is rolled back and reported
+as `retryable: true` / `Inventory.RowRetryable`; the remaining rows still run. A failure that may
+follow a commit (completing or committing the receipt, replaying it) propagates as a 500 instead,
+because "nothing was saved" cannot be promised. Cancellation
 is never swallowed, so a cut request returns no summary that looks complete.
 
 **Free receipts.** A receipt whose rounded value is zero (sample, bonus stock) creates stock without a
@@ -427,16 +417,13 @@ the web closes the dialog, refreshes and asks for a recount. Counts never touch 
 **Voids.** `POST inventory/batches/{batchId}/void` (owner) reverses an unconsumed receipt: one
 `Reversal(-quantity)`, the same off the aggregate and a `REVERSAL` payable entry, in one save. A
 receipt that was sold from, returned to or adjusted (live adjustment, or any OUT/RET/REJ/DMG/STOL
-movement other than a voided adjustment's or a legacy correction's own) answers 409
+movement other than a voided adjustment's own) answers 409
 `Inventory.BatchConsumed`; remaining stock is removed by counting it to zero, which leaves the
 original payable owed. Supplier returns are a separate flow.
 
-**Legacy correction.** `PUT inventory/batches/{batchId}` no longer voids and recreates the batch. It
-applies prices and lot details in place exactly like `PUT .../prices` (below) and refuses what would
-move stock or money with a code naming the action that does it now: a quantity change answers 400
-`Inventory.BatchQuantityEditMoved` (count), a cost change `Inventory.BatchCostEditMoved` (receipt cost
-correction) and a supplier change `Inventory.BatchSupplierEditMoved` (reassign). An `expectedVersion`
-older than the batch answers 409 `Inventory.BatchVersionConflict`. Adjustment quantities are stored to
+**No whole-batch edit.** There is no `PUT inventory/batches/{batchId}`: stock moves only through a
+count or adjustment, cost through a receipt cost correction, the supplier through reassignment, and
+retail prices and lot details through `PUT .../prices` (below). Adjustment quantities are stored to
 three places, like stock.
 
 ## Purchase Receipts, Price Revisions and Cost Corrections
@@ -444,8 +431,8 @@ three places, like stock.
 **Lot vs receipt.** `InventoryBatch.Id` is the physical lot for its whole life; no flow replaces a
 batch, so sales, returns and counts always find their lot. Each receipt also writes one
 `purchase_receipt_values` row (single, bulk and PO intake, all in the same save as the batch):
-received quantity, supplier, source (`DIRECT_INBOUND` / `PURCHASE_ORDER` with the receipt-line link /
-`LEGACY_BACKFILL`), `original_total_cost` (the rounded total the payable was posted with, so the
+received quantity, supplier, source (`DIRECT_INBOUND` / `PURCHASE_ORDER` with the receipt-line link),
+`original_total_cost` (the rounded total the payable was posted with, so the
 per-unit rounding remainder is not lost) and `effective_total_cost` (original plus corrections). Its
 `xmin` is the receipt version. `GET inventory/batches` returns `receiptValueId`, `receiptStatus`,
 `receiptOriginalTotalCost`, `receiptTotalCost` and `receiptVersion`.
@@ -515,23 +502,11 @@ current supplier and skips the lock for a batch with no receipt row. Whichever c
 still fails its row-version check. Pinned by `SupplierReturnWorkflowTests.*_Behind*Locks_*`, which
 hold a shipment's or reversal's locks in a plain session so the collision happens every time.
 
-**Voids and reassignment.** A void reverses the receipt's effective total to the receipt's supplier
-(falling back to `original quantity × unit cost` and the batch supplier only for batches without a
-resolved receipt value), so a corrected, unconsumed receipt nets to zero. Reassigning a batch from the
+**Voids and reassignment.** A void reverses the receipt's effective total to the receipt's supplier,
+so a corrected, unconsumed receipt nets to zero; a batch without a receipt value answers 409
+`PurchaseReceipt.EvidenceMissing`. Reassigning a batch from the
 placeholder supplier moves the goods-received entry, every cost-adjustment entry and the receipt value
 together; a voided batch cannot be reassigned, and a lost race answers 409 `Inventory.ConcurrentChange`.
-
-**Legacy evidence.** The migration backfills receipt values for active batches that have none;
-`scripts/db/backfill-purchase-receipt-values.sql` is the same idempotent statement, to re-run as the
-migrator role once every API instance runs the new version (an old instance can create batches
-between the migration job and the rollout). A receipt is
-`RESOLVED` only with an opening `IN` movement of the full received quantity that is not a legacy
-`Batch Correction`, at most one goods-received payable, and agreement with its PO line when present.
-Everything else is `LEGACY_UNRESOLVED` with null amounts — never estimated from remaining stock — and
-a correction answers 400 `PurchaseReceipt.EvidenceMissing`. Sales from batches the old PUT already
-replaced still point at the voided batch and cannot be restocked; choosing a destination lot for
-those returns is a pending policy decision. Rollback: disable correction writes; never drop the
-append-only rows or restore destructive replacement.
 
 ## Sale Return Serialization
 
@@ -587,10 +562,11 @@ payable of a resolved, unvoided receipt − active allocations. An allocation is
 has no reversal. The account ledger balance equals Σ invoice outstanding − unallocated credit
 (`PaymentAllocationTests.AssertBalancesReconcileAsync`).
 
-**Commands.** `POST customers/{id}/payments` and `suppliers/{id}/payments` take optional `method`,
-`bankAccountId`, `externalReference` and `allocations`; an omitted method is `UnknownRecordedMethod`,
-never cash. A request without those fields hashes exactly as before, so a pre-release retry still
-replays. `POST payments/{id}/allocations` (owner/manager, optional `operationKey`) applies more of a
+**Commands.** `POST customers/{id}/payments` and `suppliers/{id}/payments` take a required
+`operationKey` and optional `method`, `bankAccountId`, `externalReference`, `allocations` and `till`;
+an omitted method is `UnknownRecordedMethod`, never cash. The request hash covers those business
+fields and the till context but not the actor, so another owner or manager resending the key
+reconciles the same payment. `POST payments/{id}/allocations` (owner/manager, optional `operationKey`) applies more of a
 receipt; `POST payments/{id}/reversal` (owner only, reason 3–255, required `operationKey`) reverses the
 whole receipt once: a linked `PAYMENT_REVERSAL` (customer) or `REVERSAL` (supplier) ledger entry puts
 the amount back, the supplier expense is voided, the allocations stop counting, the receipt row is never
@@ -598,7 +574,8 @@ edited, and `payment_reversals.receipt_id` is unique. `GET payments/{id}` and `G
 serve the printable detail and the open documents.
 
 **Locks.** `IPaymentTransactionRunner` runs keyed requests inside `IFinancialOperationExecutor` (replay
-serialization first) and unkeyed ones in a plain transaction; the action then takes the party row and
+serialization first) and anything without an operation scope (locked reads, an unkeyed allocation)
+in a plain transaction; the action then takes the party row and
 its target rows sorted by id, `FOR NO KEY UPDATE` with a 5 s budget
 (`IPaymentReceiptRepository.LockPartyAndTargetsAsync`), the same customer → sale order a return uses.
 A lock timeout or deadlock answers 409 `Payment.Busy`. Allocation rules read outstanding under the lock
@@ -612,22 +589,13 @@ purchase receipt with active allocations refuses void and supplier reassignment 
 `Payment.DocumentHasAllocations`) and a cost correction below the allocated amount (409
 `Payment.CorrectionBelowAllocated`); those checks read before the write without the payment lock.
 
-**Legacy.** The `AddPaymentReceiptsAndAllocations` migration gives every existing ledger payment a
-receipt (`is_legacy`, `UNKNOWN_RECORDED_METHOD`, linked expense for suppliers, no allocation), shop by
-shop because the migrator is not BYPASSRLS. Re-run `scripts/db/backfill-payment-receipts.sql` once after
-rollout for payments an older instance recorded during the deploy. Rollback = stop calling allocation and
-reversal; receipt facts stay.
-
 ## Customer Credit Policy
 
-**Settings.** Every customer has a `CreditPolicyMode` (`customers.credit_policy_mode`): `NoCredit` (no
-new due), `Enforced` (new due refused once the account would exceed `credit_limit`; needs a limit above
-zero, so 0 never means "unlimited") or `LegacyAdvisory` (recorded before policies existed: the limit is
-shown, labelled, never enforced). The `AddCustomerCreditPolicyAndSaleDueDates` migration sets every
-existing customer to `LegacyAdvisory`; an API create without a mode is `LegacyAdvisory` too (an
-ambiguous request stays visibly unenforced), an edit without one keeps the stored mode and terms. The
-web app always sends an explicit mode and offers `LegacyAdvisory` only to keep it. Optional
-`credit_terms_days` (0–365). Only owners and managers may set or change limit, mode or terms, or
+**Settings.** Every customer has a `CreditPolicyMode` (`customers.credit_policy_mode`, no column
+default): `NoCredit` (no new due) or `Enforced` (new due refused once the account would exceed
+`credit_limit`; needs a limit above zero, so 0 never means "unlimited"). Create and edit both require a
+mode (absent → 400 `Customer.CreditPolicyModeInvalid`); an edit saves every field as sent, so an absent
+GSTIN, state or terms records none. Optional `credit_terms_days` (0–365). Only owners and managers may set or change limit, mode or terms, or
 reactivate a customer whose policy allows credit (`Customer.CreditSettingsChangeNotPermitted`, 403); a
 staff-created customer starts at `NoCredit`, and the web overlays show those fields read-only to staff.
 
@@ -637,8 +605,7 @@ credit has negative exposure). No new due → allowed. Inactive → 409 `Custome
 `NoCredit` → 409 `Customer.CreditNotExtended` (neither can be overridden). `Enforced` over the limit →
 409 `Customer.CreditLimitExceeded` unless an override `{reason, observedExposure}` from an owner or
 manager approves it: staff → 403 `Customer.CreditOverrideNotPermitted`; exposure grown past what the
-approver saw → 409 `Customer.CreditOverrideStale`. `LegacyAdvisory` posts with a sale warning when it
-exceeds a positive limit.
+approver saw → 409 `Customer.CreditOverrideStale`.
 
 **Serialization.** `RecordSale` takes the customer row (`ICustomerRepository.LockForCreditAsync`,
 `FOR NO KEY UPDATE`, 5 s budget that is reset with `SET LOCAL lock_timeout TO DEFAULT` once granted) as
@@ -659,7 +626,7 @@ and due date before the as-of business date; without a due date the debt is outs
 overdue. `IInvoiceBalanceReader` returns the due date per invoice.
 
 **Statement.** `GET customers/{id}/account?from=&to=` adds `creditLimit` (saved, exactly), `isActive`,
-`creditPolicyMode`, `creditTermsDays`, `availableCredit` (null when advisory), `openingBalance` (signed
+`creditPolicyMode`, `creditTermsDays`, `availableCredit` (0 unless an active customer has an enforced limit), `openingBalance` (signed
 entries before `from`), `closingBalance` (opening + window entries), `asOfBusinessDate`, `overdueAmount`
 (capped at what the account owes, since unallocated payments still pay it down; `from > to` → 400
 `Customer.StatementWindowInvalid`);
@@ -678,8 +645,7 @@ entry between 00:00 and 05:30 IST falls on the previous statement day (pre-exist
 **Snapshot.** Recording a return posts its accounting in the same save
 (`SaleReturn.PostAccounting(ReturnAccountingSnapshot)`): per line `adjustment_taxable_amount`,
 `adjustment_tax_amount` and `adjustment_non_tax_amount` (summing to the approved refund), their totals
-on the return, `accounting_status` (`BALANCED` / `NEEDS_REVIEW` with `accounting_review_reason`), the
-policy version, and one `sale_return_settlements` row per leg, in order: `RECEIVABLE_REDUCTION` (the
+on the return, `accounting_status` `BALANCED`, the policy version, and one `sale_return_settlements` row per leg, in order: `RECEIVABLE_REDUCTION` (the
 due reduction, with the customer's `RETURN_CREDIT` ledger entry; none for a walk-in sale),
 `STORE_CREDIT_ISSUED` (the credit note issued) or `EXTERNAL_REFUND` (a refund paid outside the books;
 the tender is not recorded, so it is never guessed). The legs always sum to the approved refund. The
@@ -706,36 +672,20 @@ per rate and Sales Return Adjustments debited, each leg credited to the customer
 Customer), Credit Note Liability or Customer Refunds Clearing. A void is a `Journal` voucher
 `{return number}-VOID`, sides swapped, referencing the credit note. A zero refund posts no voucher
 (the stock fact stays in XLSX/PDF). `IAccountingVoucherValidator` checks every voucher (≥ 2 lines,
-named ledgers, positive two-place amounts, debits = credits); a return needing review or an invalid
-voucher refuses the whole Tally export with 409 `Export.ReturnNeedsAccountingReview`,
-`Export.VoucherUnbalanced` or `Export.VoucherInvalid`, every diagnostic listed. XLSX adds a Return
-Adjustments sheet (settlement split, status, reason) and PDF a return adjustments table; both still
-render returns needing review, flagged. P&L return rows use the snapshot's tax split, and
-`isReversal` / `needsAccountingReview` mark voids and unreviewed returns. A Credit Note voucher's
+named ledgers, positive two-place amounts, debits = credits); an invalid voucher refuses the whole
+Tally export with 409 `Export.VoucherUnbalanced` or `Export.VoucherInvalid`, every diagnostic listed.
+XLSX adds a Return Adjustments sheet (settlement split, policy) and PDF a return adjustments table.
+Every saved return carries its snapshot; the projector refuses one without it rather than guess.
+P&L return rows use the snapshot's tax split, and `isReversal` marks voids. A Credit Note voucher's
 reference date is the invoice date; a reversal's is the return date. The P&L reduces revenue by the
 whole refund, while Tally books a non-tax excess to Sales Return Adjustments: net profit agrees,
 revenue lines differ by that excess.
 
-**Legacy evidence.** The migration backfills every return without a snapshot;
-`scripts/db/backfill-sale-return-accounting.sql` is the same idempotent statement (a second run
-changes nothing), to re-run as the migrator role once every API instance runs the new version. It
-loops over shops with `app.active_shop_id` set, because FORCE row-level security binds the migrator
-as table owner; the integration tests run it as the restricted runtime role to prove that. Lines
-are split by the same policy (recorded as `backfill:proportional-line-tax/1`). A return is `BALANCED`
-only when every line is classifiable, its lines add up to its total and its payout is evidenced — a
-refund destination, or exactly one credit note of the payout amount issued for it; the receivable leg
-links its ledger entry when exactly one matches. Anything else is `NEEDS_REVIEW` with its reason and
-no legs: a settlement is never inferred. A return an old instance records after the migration has no
-snapshot and exports as needing review until the script runs. A `NEEDS_REVIEW` return cannot yet be
-resolved in the app, so its periods stay refused for Tally until one is posted. Rollback: keep snapshots readable and
-refuse Tally return export; never restore the unbalanced voucher builder.
-
 ## Offline Invoice Arithmetic
 
 **Contract per invoice.** Every offline sale is frozen in the browser under a calculation contract and
-synced with it. `calculationVersion` absent → `legacy`; `1` → `v1`; anything else answers NeedsReview
-with `Sale.OfflineCalculationVersionUnsupported`. The version is part of the request hash only when
-present, so an unversioned retry keeps the hash it was first synced with.
+synced with it; the web client always sends `calculationVersion: 1`. Any other value, or none, answers
+NeedsReview with `Sale.OfflineCalculationVersionUnsupported` (mismatch code `unsupported_version`).
 
 **Validation.** `OfflineInvoiceArithmeticValidator` recomputes each line (gross → pre-tax → item
 discount → allocated sale discount → taxable → tax → total) and the header (`subtotalBeforeDiscount`
@@ -747,8 +697,7 @@ after the structural and lease checks and before `ISaleLineValidator`, entity co
 consumption and ledger posting. Inputs are checked first: defined enum values, tax rate and
 percentages in [0, 100], non-negative prices and overrides, a rule id with its percentage, a met
 threshold, and money inputs and each line's gross (price × quantity) at most ₹100,000,000,000, which
-keeps every amount inside `numeric(18,2)` and the legacy replay at single-paise resolution; v1 also
-rejects inputs beyond its scales.
+keeps every amount inside `numeric(18,2)`; inputs beyond the contract's scales are rejected.
 
 - **v1** (`OfflineInvoiceArithmeticV1`, `offline-money.math.ts`): paise, thousandths and basis points
   as integers; every division rounds half away from zero. A tax-inclusive line uses the online identity
@@ -760,12 +709,6 @@ rejects inputs beyond its scales.
   definition, Σ(line total + discounts). `tests/contracts/offline-invoice-arithmetic-v1.json`
   (hand-written cases) and `…-v1-corpus.json` (random carts) carry expected amounts from an
   independent exact-rational reference and pin C# and TypeScript to the same results.
-- **legacy** (`OfflineInvoiceArithmeticLegacy`): an exact replay of the unversioned browser calculator,
-  which ran on IEEE doubles and rounded with `Number(x.toFixed(2))` (half away from zero on the exact
-  binary value, reproduced with `BigInteger`), with the final goods line taking the residual sale
-  discount. `totalBeforeDiscount` may be Σ pre-tax (what that browser sent) or the domain definition.
-  `tests/contracts/offline-invoice-arithmetic-legacy-corpus.json` holds payloads priced by that
-  calculator (commit `41015861565d`) and must keep replaying.
 
 **Quarantine.** A mismatch records one `ReconciliationIssue` (`ArithmeticConflict`, code
 `Sale.OfflineArithmeticMismatch`, an amounts-only summary within 1000 characters) and answers
@@ -777,10 +720,6 @@ resent or recalculated) and lists it on the sales page with the reason, differen
 Every NeedsReview result now carries its case id, and a resend that is held for the same reason
 returns the open case (`IReconciliationIssueRepository.FindOpenIssueIdAsync`) instead of filing
 another.
-
-**Posted sales.** `scripts/db/audit-offline-sale-arithmetic.sql` is a read-only report of posted
-offline sales whose header disagrees with their lines or whose lines break taxable + tax = total;
-it runs shop by shop under the tenant policies and changes nothing.
 
 ## Offline Reconciliation
 
@@ -806,14 +745,12 @@ fiscal year differs from the lease -> `IssueFiscalYearMismatch`; at/after expiry
 `IssuedAfterLeaseExpiry`; first receipt at/after expiry -> `HistoricalLeaseReviewRequired`; otherwise
 accepted. A plausible clock value never passes alone: only a first receipt before expiry is a trust
 signal. Posting is `IOfflineSalePoster` (stages, never saves); a held result files one case per
-envelope (`FindOpenIssueIdAsync(..., offlineSubmissionId)`). When the envelope has no open case but an
-open legacy case (no envelope) exists for the same shop, client sale id, device, type, code and message,
-`OfflineSaleVarianceAnalyzer` adopts it with `AttachEvidence(invoiceNumber, envelopeId)` instead of
-filing a duplicate (`FindOpenLegacyIssueAsync`).
+envelope (`FindOpenIssueIdAsync(..., offlineSubmissionId)`). Every case carries its envelope: a hold
+is filed with it, and post-sale variance cases attach it before they are saved.
 
-**Issuer and device history.** New queued payloads carry `issuedByUserId` (hashed only when present).
-Absent = legacy (attributed to the submitter, issuer "not recorded"); equal to the submitter =
-verified; different = held (`IssuerNotSubmitter`). `invoice_leases.reserved_by_user_id/session_id`
+**Issuer and device history.** Every queued payload carries `issuedByUserId`. Equal to the submitter =
+verified; different = held (`IssuerNotSubmitter`); absent = held (`ProvenanceUnknown`), never attributed
+to the submitter. `invoice_leases.reserved_by_user_id/session_id`
 record who reserved a range. For a recovery row an asserted issuer is verified for a device when they
 hold or held a membership (any status) and reserved a lease on it or synced from it. Never a member:
 row rejected (`Recovery.IssuerMismatch`). Member without device history, or no issuer: envelope kept,
@@ -831,15 +768,15 @@ Resolutions, in the order offered:
 | `AcknowledgeVariance` | Pricing / discount / customer variance, or a `ValidationConflict` with code `offline_sync.validation_variance` (keyed on the code: idempotency conflicts share the type) |
 | `LinkStockCorrection` | Stock variance with item, batch and an unresolved quantity above zero |
 | `RetryHistoricalLease` | The case has its envelope, the envelope has an attributable user, and the code is `HistoricalLeaseReviewRequired`, `RecoveryReviewRequired`, `IssuerNotSubmitter` or any timing code (`IssueTimeBeforeLease`, `IssueTimeInFuture`, `IssueFiscalYearMismatch`, `IssuedAfterLeaseExpiry`) |
-| `LinkExistingSale` | Any case with its envelope, whatever its type or status, unless the envelope is already linked to the case's own sale (a variance filed with the sale it describes); and legacy held cases with neither envelope nor sale (types InvoiceConflict, ValidationConflict, ArithmeticConflict, IssueTimingReview, ProvenanceReview, RecoveryReview) |
+| `LinkExistingSale` | Any case with its envelope, whatever its type or status, unless the envelope is already linked to the case's own sale (a variance filed with the sale it describes) |
 
 `LinkStockCorrection` needs an unvoided same-shop/item/batch `FoundStock` or `OtherGain` increase worth
 at least the unresolved quantity, not linked elsewhere (partial unique index); it writes one `Out`
 movement and leaves the sale untouched. `LinkExistingSale` checks the sale through
 `ReconciliationLinkRules.CheckSaleAsync`: with an envelope the sale must carry the envelope's device,
 client id and payload hash (for `Sale.IdempotencyConflict`, the case's own sale and an earlier envelope
-with that sale's hash); a legacy case without an envelope is checked on identity only (same device and
-client sale id as the case). `RetryHistoricalLease` replays the frozen envelope with its claimed
+with that sale's hash); a case whose envelope cannot be loaded is refused (`Reconciliation.EnvelopeMissing`).
+`RetryHistoricalLease` replays the frozen envelope with its claimed
 `soldAt` unchanged (the reason is mandatory and the console shows the claimed time, first receipt and
 lease window): it links an identical existing sale, refuses a reused invoice number, or posts through
 `IOfflineSalePoster` and commits sale, envelope link and resolution together; a held outcome answers 409
@@ -888,12 +825,8 @@ reads it, on the India business calendar), so a lease never spans a fiscal-year 
 billed on 1 April or later under an old range is held for review rather than posted silently. Ranges
 come from the shop's fiscal series (see § Issued Invoice Documents and Fiscal Numbering).
 
-**Rollout and rollback.** Migration `AddOfflineSubmissionReconciliationAudit` only adds tables and
-columns; existing cases take `status` from `is_resolved` and have no envelope ("original envelope not
-recorded"). Legacy held cases can be closed with `LinkExistingSale` once the invoice posts, and a later
-sync of the same hold adopts them; the console offers a one-time "send to server for review" for local
-held invoices whose case kept no envelope. Rollback removes the routes and menu entry;
-envelopes, cases, events and leases stay and invoice ranges are never recycled.
+**Rollback.** Rollback removes the routes and menu entry; envelopes, cases, events and leases stay and
+invoice ranges are never recycled.
 
 **Out of scope.** A device-revocation registry, closed accounting periods (backlog 27), offline
 attestation of the issue time, and reprint polish (backlog 21).
@@ -942,8 +875,8 @@ full rate. Codes outside the domestic table (96, 97) are refused. Rounding adjus
 issue time, business date, fiscal year, series, number, seller and buyer blocks, place of supply,
 reverse charge (always false), lines with HSN/SAC, UOM (`NOS`/`NA` until per-item UOM), taxable value
 and components, totals, declarations and signature mode. `GET api/sales/{id}` returns it as
-`document`; `isLegacyDocument` marks sales issued before it (no snapshot, never backfilled from live
-master data). Print, reprint and Tally read the snapshot, not the shop or customer.
+`document`; `isLegacyDocument` marks a sale without one (an offline sale whose document the matrix
+refused, see Offline below). Print, reprint and Tally read the snapshot, not the shop or customer.
 
 **Numbering.** `IInvoiceNumberAllocator` is the one numbering authority. Numbers are
 `{series}/{yyyy}/{counter:D6}` (`A/2627/000001`), at most 16 characters (Rule 46); the counter's
@@ -956,9 +889,7 @@ pick a new series (`Invoice.SeriesRegistrationChanged`). The allocator inserts t
 always runs in one transaction and takes its number after pricing and customer checks, so concurrent
 postings serialize per series and a refused or failed posting rolls the counter back — no gaps.
 Offline ranges come from the same row (`ReserveRangeAsync`), so online and offline numbers never
-overlap; a range's unused tail stays unused. Idempotent replays return the original number. Legacy
-counters keep their `INV-yyyy-yy-` prefix under series `''` and key `legacy:{shop}` until their leases
-expire.
+overlap; a range's unused tail stays unused. Idempotent replays return the original number.
 
 **Business date.** `BusinessCalendar` reads instants in IST (fixed UTC+05:30). `FiscalYear.ForDate`
 uses it, so a sale at 00:30 IST on 1 April belongs to the new year; lease expiry caps at 1 April
@@ -974,16 +905,12 @@ why. Device-side printing still uses its local layout (backlog 21).
 
 **Exports.** Tally sales vouchers post the snapshot's components (`Output CGST 9%`, `Output SGST 9%`,
 `Output UTGST 9%`, `Output IGST 18%`, all under Tax Payable; component rates keep every digit, so
-half of 0.25% is `0.125%`); legacy sales keep `Output GST {rate}%`. A return of a documented sale
+half of 0.25% is `0.125%`); a sale without a document keeps `Output GST {rate}%`. A return of a documented sale
 reverses into the same component ledgers: `ReturnAdjustmentEntry.DocumentTaxComponents` splits the
 returned tax per rate with the document's place of supply and `component-split/1`. Credit-note
 documents themselves are unchanged (backlog 17).
 
-**Rollout and rollback.** Migration `AddIssuedInvoiceSnapshotsAndFiscalSeries` adds columns, backfills
-legacy counter keys shop by shop (FORCE RLS) and replaces the per-shop-year index. Owners must declare a
-profile before their next sale or lease. Rolling back the API leaves snapshots as readable data; the
-migration's `Down` fails once a shop has opened a fiscal series beside its legacy counter, so roll
-forward. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess,
+**Scope.** Owners must declare a profile before their first sale or lease. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess,
 device-side GST printing, credit-note documents. (Per-item units now live in § Quantity Precision.)
 
 ## Business Dates and Posting Periods
@@ -1071,28 +998,17 @@ the replay re-runs the fence, so it succeeds (original number, original `sold_at
 date) only after an owner reopens the month, and answers 409 while closed. A busy fence rejects the
 invoice for a plain resend.
 
-**Rollout.** Migration `AddBusinessDatesAndShopTimeZone`, in this order: adds `shops.business_time_zone`
-(NOT NULL, default) and the nullable `business_date` / `business_time_zone` / `voided_business_date`
-columns, backfills existing rows (Asia/Kolkata) shop by shop, sets NOT NULL, installs
-`BEFORE INSERT OR UPDATE` triggers that date rows written by pods that predate the columns (rolling
-deploy), then adds the indexes; `AddPostingPeriods` adds the two tables. The whole migration is one
-transaction: the `ADD COLUMN` takes ACCESS EXCLUSIVE on `sales` and `sale_returns` and the backfill
-`UPDATE` runs under it, so sale and return writes block for the duration (fine at launch sizes). Deploy
-migrations, then pods. **Do not close any posting period until every pod runs this build:** pods of the
-previous build have no fence and would keep posting into a closed month. Afterwards run `scripts/db/backfill-business-dates.sql` (shop by shop under RLS,
-idempotent, a no-op when nothing is NULL). Nothing closes automatically; owners close months after review.
-Reports that straddled UTC/IST midnight may differ from previously published ones by early-morning sales:
-say so in release notes.
-
-**Rollback.** Old code ignores the new columns and tables. Never recompute stored dates with the UTC
-convention; dropping the migrations drops the columns and tables, the instants are untouched.
+**Schema.** `sales.business_date` / `business_time_zone` and `sale_returns.business_date` /
+`business_time_zone` are NOT NULL and written by every insert path (`BusinessDay` is a required factory
+argument); `voided_business_date` is written by `SaleReturn.Void`. No trigger fills them. Nothing closes
+automatically; owners close months after review.
 
 **Deferred.** A web UI for period close (API only for now), mobile, and per-shop zone selection. Till/session close now takes the original posting-period fence before its session lock; see Till Sessions and Counted Close.
 
 ## Quantity Precision
 
-- **The item owns its unit and scale.** `Item` carries `UnitCode`, `QuantityScale` (0 to 3) and
-  `UnitReviewRequired`. `QuantityUnits` (`Domain/ValueObjects`) is the catalog pinned by
+- **The item owns its unit and scale.** `Item` carries `UnitCode` and `QuantityScale` (0 to 3).
+  `QuantityUnits` (`Domain/ValueObjects`) is the catalog pinned by
   `tests/contracts/quantity-units-v1.json`: a label (trimmed, upper-cased) matching an alias resolves to a
   code with a fixed scale and document unit (UQC), for example `KG` is scale 3 and `KGS`, `PCS` is scale 0
   and `NOS`, `G`, `ML` and `CM` are whole-number units. A custom label stores `UnitCode` null and the
@@ -1110,38 +1026,16 @@ convention; dropping the migrations drops the columns and tables, the instants a
   fractional line stays returnable even when the item is now classified whole-unit.
 - **Unit changes.** `Item.ChangeUnit(uom, quantityScale, history)` takes an `ItemStockHistory`
   (movements, batches or sale lines exist). With history, changing the unit or scale is refused with 409
-  `Item.UnitChangeWithHistory`; a relabel that keeps code and scale (`kg` to `KGS`) is allowed. A legacy
-  item flagged `UnitReviewRequired` may be classified once to a scale that covers its on-hand
-  stock, which clears the flag. Saving a flagged item at the unit and scale it already has clears the flag
-  when that scale covers the stock on hand (otherwise the flag stays and the other edits save). An item
-  nobody has classified yet (`UnitCode` null) saved with a label naming the same catalog unit as its
-  stored label, at a catalog scale that covers the stock on hand, is classified, not changed: no 409.
-  The update handler loads the stock history for a flagged item too.
+  `Item.UnitChangeWithHistory`; a relabel that keeps code and scale (`kg` to `KGS`) is allowed.
 - **Documents.** `InvoiceDocumentBuilder` prints the item's document unit on each goods line (`KGS`,
   `MTR`, `NOS`), and a service line still prints `NA`. Offline sync takes the document unit from the live
-  `Item.DocumentUnit` at sync time, not the device's frozen value. The only case where a reprint can
-  differ from the device copy is a review-flagged legacy item reclassified between the offline sale and
-  its sync.
+  `Item.DocumentUnit` at sync time, not the device's frozen value.
 - **Out of scope.** Purchase-order quantities stay integer (backlog 30); receiving a purchase order still
   passes the item policy. Carton to piece conversion, scale integration and barcode-embedded weight
   (backlog 28) are not advertised.
 
-**Rollout and rollback.** Migration `20261105155114_AddItemQuantityPrecision` adds `unit_code`,
-`quantity_scale` and `unit_review_required`, maps known labels through the catalog and flags an item
-classified whole-unit whose recorded quantities carry decimals. Defaults keep old instances working. Once
-every API instance runs the new version, run `scripts/db/backfill-item-quantity-precision.sql` once as
-the migrator role for items an old instance created in between (idempotent: an item with a `unit_code`
-is never touched). Both the migration and the script run shop by shop with `app.active_shop_id` set,
-because FORCE row level security binds the migrator as table owner; a backfill without a shop context
-updates no rows. `ItemQuantityPrecisionUpgradeTests` applies the migration and the script as a
-`NOSUPERUSER NOBYPASSRLS` owner role to prove it. Rollout window caveat: an old instance that relabels an
-already-mapped item (for example `kg` to `pcs`) updates `uom` but not `unit_code`, and the script skips the
-row because `unit_code` is set. Spot such rows with
-`SELECT id, uom, unit_code FROM items WHERE unit_code IS NOT NULL` compared against the catalog (a
-label that no longer resolves to its `unit_code`), and fix them by clearing `unit_code`, `quantity_scale`
-and `unit_review_required` on those rows (per shop context) before re-running the script; stocked items
-should be reviewed by the merchant rather than silently remapped. Rolling back means deploying the previous API: it ignores the new columns, fractional
-data stays valid in `numeric(18,3)`, and no quantity is downgraded.
+**Schema.** `ck_items_quantity_scale` bounds `quantity_scale` to the storage ceiling;
+`ItemQuantityPrecisionUpgradeTests` proves it as a `NOSUPERUSER NOBYPASSRLS` owner role.
 
 ## Test Structure
 
@@ -1158,9 +1052,16 @@ Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainer
 ### Integration test databases and parallelism
 
 One PostgreSQL container serves the whole run (`SharedPostgres`, durability off, data
-directory in memory). The migration chain is applied once, to `integration_template`; every
+directory in memory). Migrations are applied once, to `integration_template`; every
 test database is a `CREATE DATABASE … TEMPLATE` copy of it, so a test never replays
 migrations. The copy carries the runtime role's privileges.
+
+API hosts under test raise the database wait budgets (`TestDatabaseBudgets` in
+`tests/shared/IntegrationTestRuntime.cs`): `DatabaseLocks:Brief`/`Standard` become 20 s / 25 s
+instead of production's 3 s / 5 s, and the licensing command timeout 30 s. Concurrency tests
+queue several requests behind a held lock; on a loaded runner the next request could take longer
+than 3 s to arrive, the first waiter gave up, and the test saw an outage instead of contention.
+Contexts a test builds itself keep the production defaults.
 
 `[Collection("Integration Tests")]` means one collection per class
 (`IntegrationCollectionFactory`): each class gets its own `PostgreSqlTestFixture`, hence its
@@ -1174,9 +1075,12 @@ Every test starts its own API host. A plain `dotnet test` lets each host compile
 handlers at run time. `scripts/dev/test-integration.sh` and CI instead run `codegen write`,
 build, and set `INTEGRATION_TEST_PREGENERATED_HANDLERS=1`, so hosts load the pre-built handler
 classes in `Static` mode, as the deployed image does: roughly half the time and a quarter of
-the memory. The switch is only ever set right after regenerating, and the script deletes
-`Internal/Generated` afterwards, so pre-built handlers are never stale. Never commit that
-folder.
+the memory. The switch is only ever set right after the handlers are put in place, and the
+script deletes `Internal/Generated` afterwards, so pre-built handlers are never stale. Never
+commit that folder. The script caches generation output in `.cache/wolverine-codegen/` (git
+ignored), keyed by a hash of every merchant and shared backend source, project, package and SDK
+file, and reuses it while that hash is unchanged; `INTEGRATION_CODEGEN_CACHE=0` forces a fresh
+`codegen write`.
 
 Rules for a new test class:
 
@@ -1223,7 +1127,8 @@ period economics summary and its own `GrossTradingProfitChangePercent`; old `Net
 Expenses carry immutable `ExpenseTreatment`: Unclassified(0), Operating(1), SupplierSettlement(2),
 CapitalOrOtherExcluded(3). Omitted ordinary request treatment defaults to Unclassified; corrections
 inherit omission. Generic requests cannot assert supplier settlement. Supplier-payment provenance
-stamps settlement, and correction descendants retain both treatment and supplier ledger link.
+stamps settlement; such an expense is never corrected on its own, only reversed with its payment
+receipt.
 A differing supplier treatment is refused; normal classification changes use the existing audited
 replacement correction and both-month posting fences. Voided original expenses are excluded;
 the replacement contributes on its own `ExpenseDate`. Category names establish no treatment.
@@ -1238,15 +1143,6 @@ individual invoice. Unclassified counts/amounts are period-wide diagnostics. A c
 with no activity returns real zero amounts and null ratios. These recorded-cost trading metrics
 are not a general ledger or audited/after-income-tax profit; purchase-tax recoverability, modeled
 service costs and receipt-cost revaluation remain explicit limitations.
-
-Rollout: apply `20261107050412_AddExpenseTreatment` with the schema migrator before the API/web.
-Its safe default is `0`. It backfills supplier-linked roots and same-shop correction ancestry using
-cycle-safe recursive UNION, setting each shop context under FORCE RLS. The idempotent
-`scripts/db/backfill-expense-treatment.sql` can be rerun; it restores the caller's shop context.
-Remaining ordinary expenses require explicit operator classification. Deploy additive API fields
-before the web and compare a representative closed period: labels/completeness and restored dated
-loss/void history can differ, while frozen invoices/costs remain unchanged. Rollback can retain
-additive columns and legacy readers; never restore the unsafe tax-inclusive discount capacity.
 
 Fractional return costs in version2 replay the full affected sale-line history, including postings
 outside the report window. A line's original rounded sale cost is allocated cumulatively across
@@ -1409,3 +1305,35 @@ is bounded to 32 entries. Binding writes remain asynchronous in the authorized t
 Follow-up: when retiring the legacy synchronous `ForNewAttempts` bootstrap seam, make the
 resolver and binding reads asynchronous end to end, preserving exact historical pins and
 fail-closed routing. This slice retains the existing port and adds no refund workflow.
+
+## Migration baselines
+
+The product has not shipped, so each database starts from a single migration:
+`20261127074700_Baseline` (merchant) and `20261127074702_Baseline` (licensing). Each runs an
+embedded SQL script next to it, generated from `pg_dump --no-owner --column-inserts` of a
+database built by the former chain (91 merchant and 59 licensing migrations) plus the pre-release removal
+of legacy-only columns, constraints, triggers and functions. The chain's
+policies named the migrating role through `format(..., current_user)`; the script wraps those
+policies so they bind to whichever role applies the baseline (test owner, `id-migrator-dev`, …).
+
+Verification before the chain was deleted, on PostgreSQL 17 with a hyphenated migrator role:
+a database migrated by the old chain, round-tripped through the same dump and restore, and a
+database migrated by the new baseline through EF produced byte-identical `pg_dump` output
+(schema, functions, triggers, policies, grants, owners and seed rows). The only differences from
+the un-round-tripped chain are PostgreSQL's normal re-deparse of CHECK and policy expressions on
+restore. The EF model snapshots regenerated byte-identical. The same check was repeated after the legacy cleanup
+(baseline plus a cleanup migration versus the regenerated baseline): zero differences.
+
+Rules from here on: never edit a `*_Baseline.sql` script; add schema changes as new migrations;
+the baselines' `Down` throws, so recreate a database rather than reverting it. A database that
+recorded the former chain in `__EFMigrationsHistory` (for example an existing dev environment)
+must be dropped and recreated before the new migration job runs.
+
+## Database lock budgets
+
+`lock_timeout` comes from `DatabaseLockOptions` (`DatabaseLocks:Brief`, default 3 s, for fences,
+budgets and single-row claims; `DatabaseLocks:Standard`, default 5 s, for financial and stock
+mutations), read through `DatabaseLockTimeouts` in `Intelibill.Shared.Web`. Use
+`db.SetLockTimeoutAsync(LockWait.Brief, ct)` or `DatabaseLockTimeouts.Value(db, wait)` inside SQL;
+do not hard-code a timeout. The licensing admin bootstrap budget still sets 3 s on its raw
+connection.

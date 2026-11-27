@@ -40,7 +40,10 @@ internal sealed class MakeSupplierPaymentCommandValidator : AbstractValidator<Ma
             .WithMessage(Errors.Payment.AllocationAmountInvalid.Description);
 
         RuleFor(x => x.OperationKey)
-            .Must(key => key is null || key.Trim().Length is >= 1 and <= OperationReceipt.MaxKeyLength)
+            .Must(key => !string.IsNullOrWhiteSpace(key))
+            .WithErrorCode(Errors.Payment.OperationKeyRequired.Code)
+            .WithMessage(Errors.Payment.OperationKeyRequired.Description)
+            .Must(key => key is null || key.Trim().Length <= OperationReceipt.MaxKeyLength)
             .WithErrorCode(Errors.Operation.InvalidKey.Code)
             .WithMessage(Errors.Operation.InvalidKey.Description);
     }

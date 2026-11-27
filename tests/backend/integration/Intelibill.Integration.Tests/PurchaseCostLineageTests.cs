@@ -133,7 +133,6 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         var saleId = await SellAsync(client, shop.OwnerToken, receipt, 4m);
         var soldCost = await SoldCostAsync(saleId);
         var batch = await BatchAsync(client, shop.OwnerToken, receipt.BatchId);
-        Assert.Equal("Resolved", batch.ReceiptStatus);
         Assert.Equal(1000m, batch.ReceiptTotalCost);
 
         var response = await CorrectCostAsync(client, shop.OwnerToken, batch.ReceiptValueId!.Value, batch.ReceiptVersion!.Value, 1100m, "Supplier invoice was ₹1100");
@@ -190,27 +189,6 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal(1, await db.InventoryBatches.CountAsync(b => b.ShopId == shop.ShopId));
         Assert.Equal(6m, (await db.InventoryBatches.SingleAsync(b => b.Id == receipt.BatchId)).Quantity);
         await AssertPayableAsync(receipt.BatchId, 1050m);
-    }
-
-    [Fact]
-    public async Task MissingLegacyReceiptEvidence_BlocksFinancialCorrection()
-    {
-        using var client = CreateClient();
-        var shop = await CreateShopAsync(client);
-        var receipt = await ReceiveAsync(client, shop.OwnerToken, 10m, 1000m);
-        await MarkLegacyUnresolvedAsync(receipt.BatchId);
-        var batch = await BatchAsync(client, shop.OwnerToken, receipt.BatchId);
-        Assert.Equal("LegacyUnresolved", batch.ReceiptStatus);
-        Assert.Null(batch.ReceiptTotalCost);
-
-        var response = await CorrectCostAsync(client, shop.OwnerToken, batch.ReceiptValueId!.Value, batch.ReceiptVersion!.Value, 1100m, "Invoice");
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("PurchaseReceipt.EvidenceMissing", await TitleAsync(response));
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False(await db.PurchaseReceiptCostAdjustments.AnyAsync(a => a.InventoryBatchId == receipt.BatchId));
-        await AssertPayableAsync(receipt.BatchId, 1000m);
     }
 
     [Fact]
@@ -314,68 +292,11 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal("Inventory.PriceVersionRequired", await TitleAsync(response));
     }
 
-    [Fact]
-    public async Task Backfill_ResolvesClearReceiptsAndLeavesLegacyCorrectionsUnresolved()
-    {
-        using var client = CreateClient();
-        var shop = await CreateShopAsync(client);
-        var clear = await ReceiveAsync(client, shop.OwnerToken, 3m, 100m);
-        var replaced = await ReceiveAsync(client, shop.OwnerToken, 6m, 660m);
-
-        await using (var scope = _factory.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-            // Both as they stood before receipt values; the second as the old destructive PUT left a
-            // replacement batch: its only movement is the correction's own.
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM purchase_receipt_values WHERE inventory_batch_id IN ({clear.BatchId}, {replaced.BatchId})");
-            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE stock_transactions SET reference_number = 'Batch Correction' WHERE inventory_batch_id = {replaced.BatchId}");
-
-            var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), "scripts", "db", "backfill-purchase-receipt-values.sql"));
-            await db.Database.ExecuteSqlRawAsync(script);
-            Assert.Equal(0, await db.Database.ExecuteSqlRawAsync(script));
-        }
-
-        await using var verify = _factory.Services.CreateAsyncScope();
-        var stored = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var resolved = await stored.PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == clear.BatchId);
-        Assert.Equal(PurchaseReceiptValueStatus.Resolved, resolved.Status);
-        Assert.Equal(PurchaseReceiptSource.LegacyBackfill, resolved.Source);
-        Assert.Equal(100m, resolved.OriginalTotalCost);
-        Assert.Equal(clear.SupplierId, resolved.SupplierId);
-
-        var unresolved = await stored.PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == replaced.BatchId);
-        Assert.Equal(PurchaseReceiptValueStatus.LegacyUnresolved, unresolved.Status);
-        Assert.Null(unresolved.OriginalTotalCost);
-        Assert.Null(unresolved.EffectiveTotalCost);
-    }
-
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
-            directory = directory.Parent;
-
-        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
-    }
-
     private async Task<decimal> SoldCostAsync(Guid saleId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return (await db.Sales.Include(s => s.Items).SingleAsync(s => s.Id == saleId)).Items.Single().CostPrice;
-    }
-
-    private async Task MarkLegacyUnresolvedAsync(Guid batchId)
-    {
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var updated = await db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE purchase_receipt_values
-            SET status = 'LEGACY_UNRESOLVED', source = 'LEGACY_BACKFILL', original_total_cost = NULL, effective_total_cost = NULL
-            WHERE inventory_batch_id = {batchId}
-            """);
-        Assert.Equal(1, updated);
     }
 
     private async Task AssertPayableAsync(Guid batchId, decimal expected)
@@ -439,12 +360,11 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         return new BatchView(
             batch.GetProperty("version").GetUInt32(),
             batch.GetProperty("receiptValueId").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptValueId").GetGuid(),
-            batch.GetProperty("receiptStatus").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptStatus").GetString(),
             batch.GetProperty("receiptTotalCost").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptTotalCost").GetDecimal(),
             batch.GetProperty("receiptVersion").ValueKind == JsonValueKind.Null ? null : batch.GetProperty("receiptVersion").GetUInt32());
     }
 
-    private sealed record BatchView(uint Version, Guid? ReceiptValueId, string? ReceiptStatus, decimal? ReceiptTotalCost, uint? ReceiptVersion);
+    private sealed record BatchView(uint Version, Guid? ReceiptValueId, decimal? ReceiptTotalCost, uint? ReceiptVersion);
 
     private sealed record ShopContext(Guid ShopId, Guid OwnerId, string OwnerToken);
 
@@ -577,7 +497,7 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         using var request = Authorized(HttpMethod.Post, $"/api/sales/{saleId}/returns", token);
         request.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Customer returned one",
@@ -616,7 +536,7 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         var response = await client.SeedVerifiedStaffAsync(request);
         response.EnsureSuccessStatusCode();
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password });
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         loginResponse.EnsureSuccessStatusCode();
         return (await loginResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
     }

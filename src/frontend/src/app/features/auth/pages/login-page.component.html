@@ -15,11 +15,6 @@
         <h2>{{ 'auth.loginNow' | transloco }}</h2>
       </header>
 
-      @if (serverError() === 'identity.verificationRequired') {
-        <p>
-          <a routerLink="/register">{{ 'identity.claimLegacy' | transloco }}</a>
-        </p>
-      }
       <form
         [formGroup]="form"
         (ngSubmit)="onSubmit()"

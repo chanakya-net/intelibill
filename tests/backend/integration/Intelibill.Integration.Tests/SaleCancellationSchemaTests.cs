@@ -1,11 +1,9 @@
-using System.Text.Json.Nodes;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Npgsql;
 
 namespace Intelibill.Integration.Tests;
@@ -116,55 +114,6 @@ public sealed class SaleCancellationSchemaTests(PostgreSqlTestFixture fixture)
         await db.Entry(sale).ReloadAsync();
         Assert.Equal(SaleStatus.Cancelled, sale.Status);
         Assert.NotEqual(facts.Sale.Version, sale.Version);
-    }
-
-    [Fact]
-    public async Task Migration_ExistingSaleBecomesPostedWithSystemXmin()
-    {
-        var facts = await SeedAsync();
-        await using var admin = new NpgsqlConnection(fixture.MigratorConnectionString);
-        await admin.OpenAsync();
-        async Task<string> SnapshotAsync(string table, Guid id)
-        {
-            await using var read = new NpgsqlCommand($"select row_to_json(t)::text from {table} t where id=@id", admin);
-            read.Parameters.AddWithValue("id", id);
-            return Assert.IsType<string>(await read.ExecuteScalarAsync());
-        }
-        var shopJson = await SnapshotAsync("shops", facts.Shop.Id);
-        var saleJson = JsonNode.Parse(await SnapshotAsync("sales", facts.Sale.Id))!.AsObject();
-        saleJson.Remove("status");
-        saleJson["customer_id"] = null;
-        var databaseName = $"cancellation_upgrade_{Guid.NewGuid():N}";
-        await using (var create = new NpgsqlCommand($"create database {databaseName}", admin))
-            await create.ExecuteNonQueryAsync();
-        try
-        {
-            var connectionString = new NpgsqlConnectionStringBuilder(fixture.MigratorConnectionString) { Database = databaseName, Pooling = false }.ConnectionString;
-            await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseNpgsql(connectionString).UseSnakeCaseNamingConvention().Options);
-            var migrator = db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
-            await migrator.MigrateAsync("20261107190743_AddSupplierReturnLotSnapshots");
-            await using (var connection = new NpgsqlConnection(connectionString))
-            {
-                await connection.OpenAsync();
-                await using var insert = new NpgsqlCommand("insert into shops select * from json_populate_record(null::shops, @shop::json); insert into sales select * from json_populate_record(null::sales, @sale::json)", connection);
-                insert.Parameters.AddWithValue("shop", shopJson);
-                insert.Parameters.AddWithValue("sale", saleJson.ToJsonString());
-                await insert.ExecuteNonQueryAsync();
-            }
-            await migrator.MigrateAsync();
-            var sale = await db.Sales.SingleAsync(x => x.Id == facts.Sale.Id);
-            Assert.Equal(SaleStatus.Posted, sale.Status);
-            Assert.NotEqual(0u, sale.Version);
-            Assert.Equal(200m, sale.TotalAmount);
-            Assert.Equal(80m, sale.PaidAmount);
-            Assert.Equal(120m, sale.DueAmount);
-        }
-        finally
-        {
-            await using var drop = new NpgsqlCommand($"drop database {databaseName} with (force)", admin);
-            await drop.ExecuteNonQueryAsync();
-        }
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 using Intelibill.Application.Features.Exports.Sales.Services;
+using Intelibill.Application.Unit.Tests.Features.Exports.Accounting;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -120,7 +121,7 @@ public class SalesExportDatasetBuilderTests
             taxAmount: 45.76m,
             totalAmount: 300m);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             null, "Customer", null,
@@ -193,7 +194,7 @@ public class SalesExportDatasetBuilderTests
             taxAmount: 45.76m,
             totalAmount: 300m);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             null, "Customer", null,
@@ -236,7 +237,7 @@ public class SalesExportDatasetBuilderTests
             22.88m,
             null,
             null,
-            new List<SaleReturnLineInput> { returnLine }).Value;
+            new List<SaleReturnLineInput> { returnLine }).Value.Posted();
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
             .Returns(new List<Sale> { sale });
@@ -297,7 +298,7 @@ public class SalesExportDatasetBuilderTests
             taxAmount: 76.27m,
             totalAmount: 500m);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-SRV-001",
             null,

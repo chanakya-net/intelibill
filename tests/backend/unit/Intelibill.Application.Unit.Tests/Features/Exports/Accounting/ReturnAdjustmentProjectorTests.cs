@@ -24,7 +24,6 @@ public class ReturnAdjustmentProjectorTests
         var entry = Assert.Single(Project([saleReturn], sale, June1, June30));
 
         Assert.Equal(ReturnAdjustmentEntryKind.Return, entry.Kind);
-        Assert.Equal(ReturnAccountingStatus.Balanced, entry.Status);
         Assert.Equal("proportional-line-tax/1", entry.PolicyVersion);
         Assert.Equal(118m, entry.OriginalReturnedGross);
         Assert.Equal(50m, entry.FinancialAdjustment);
@@ -82,20 +81,12 @@ public class ReturnAdjustmentProjectorTests
     }
 
     [Fact]
-    public void Project_LegacyWithoutSnapshot_NeedsReview()
+    public void Project_UnpostedReturn_Throws()
     {
         var sale = Sale(ShopId);
         var saleReturn = Return(sale, approved: 118m, taxable: 100m, tax: 18m, post: false);
 
-        var entry = Assert.Single(Project([saleReturn], sale, June1, June30));
-
-        Assert.Equal(ReturnAccountingStatus.NeedsReview, entry.Status);
-        Assert.Equal(ReturnAdjustmentProjector.MissingSnapshotReason, entry.ReviewReason);
-        Assert.Null(entry.TaxableAdjustment);
-        Assert.Empty(entry.TaxComponents);
-        Assert.Empty(entry.Settlements);
-        Assert.False(entry.HasVoucher);
-        Assert.Equal(118m, entry.FinancialAdjustment);
+        Assert.Throws<InvalidOperationException>(() => Project([saleReturn], sale, June1, June30));
     }
 
     [Fact]
@@ -106,7 +97,6 @@ public class ReturnAdjustmentProjectorTests
 
         var entry = Assert.Single(Project([saleReturn], sale, June1, June30));
 
-        Assert.Equal(ReturnAccountingStatus.Balanced, entry.Status);
         Assert.Equal(0m, entry.FinancialAdjustment);
         Assert.Equal(118m, entry.OriginalReturnedGross);
         Assert.Empty(entry.TaxComponents);
@@ -163,7 +153,7 @@ public class ReturnAdjustmentProjectorTests
     {
         var fivePercent = SaleItem.CreateGoods(ShopId, Guid.NewGuid(), Guid.NewGuid(), "Tea", "TEA-1", 1m, 40m, 100m, 120m, 5m, false, false);
         var eighteenPercent = SaleItem.CreateGoods(ShopId, Guid.NewGuid(), Guid.NewGuid(), "Soap", "SOAP-1", 1m, 60m, 100m, 120m, 18m, false, false);
-        var sale = Domain.Entities.Sale.Create(
+        var sale = TestSales.Create(
             ShopId, "INV-MULTI", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 6, 10, 9, 0, 0, TimeSpan.Zero),
             223m, 0m, 223m, 23m, [fivePercent, eighteenPercent]);
         var saleReturn = SaleReturn.Record(
@@ -211,7 +201,7 @@ public class ReturnAdjustmentProjectorTests
     }
 
     [Fact]
-    public void Project_LegacySale_HasNoDocumentComponents()
+    public void Project_SaleWithoutDocument_HasNoDocumentComponents()
     {
         var sale = Sale(ShopId);
 

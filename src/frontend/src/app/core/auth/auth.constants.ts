@@ -6,8 +6,6 @@ export const HUB_BASE_URL = environment.hubBaseUrl;
 export const AUTH_ENDPOINTS = {
   requestEmailEnrollment: `${API_BASE_URL}/auth/enrollment/email/request`,
   confirmEmailEnrollment: `${API_BASE_URL}/auth/enrollment/email/confirm`,
-  requestEmailClaim: `${API_BASE_URL}/auth/enrollment/email/claim/request`,
-  confirmEmailClaim: `${API_BASE_URL}/auth/enrollment/email/claim/confirm`,
   reauthenticate: `${API_BASE_URL}/auth/reauthenticate`,
   requestEmailChange: `${API_BASE_URL}/auth/email-change/request`,
   confirmEmailChange: `${API_BASE_URL}/auth/email-change/confirm`,
@@ -19,9 +17,7 @@ export const AUTH_ENDPOINTS = {
   confirmPhoneLogin: `${API_BASE_URL}/auth/phone/login/confirm`,
   requestPhoneChange: `${API_BASE_URL}/auth/phone/change/request`,
   confirmPhoneChange: `${API_BASE_URL}/auth/phone/change/confirm`,
-  registerWithEmail: `${API_BASE_URL}/auth/register/email`,
   login: `${API_BASE_URL}/auth/login`,
-  loginWithEmail: `${API_BASE_URL}/auth/login`,
   refreshToken: `${API_BASE_URL}/auth/token/refresh`,
   revokeToken: `${API_BASE_URL}/auth/token/revoke`,
   requestPasswordReset: `${API_BASE_URL}/auth/password-reset/request`,
@@ -61,8 +57,6 @@ export const SESSION_ENDPOINTS = {
 
 export const USER_ENDPOINTS = {
   list: `${API_BASE_URL}/users`,
-  add: `${API_BASE_URL}/users`,
-  update: (userId: string) => `${API_BASE_URL}/users/${userId}`,
   me: `${API_BASE_URL}/users/me`,
   changePassword: `${API_BASE_URL}/users/me/change-password`,
 } as const;

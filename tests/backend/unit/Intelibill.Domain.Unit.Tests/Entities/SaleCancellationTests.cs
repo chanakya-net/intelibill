@@ -123,7 +123,7 @@ public class SaleCancellationTests
     [Fact]
     public void MarkCancelled_PreservesOriginalIssueFactsAndIsTerminal()
     {
-        var sale = Sale.Create(ShopId, "A/2627/000001", null, "Buyer", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 80m, 120m, 200m, 0m, []);
+        var sale = TestSales.Create(ShopId, "A/2627/000001", null, "Buyer", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 80m, 120m, 200m, 0m, []);
         sale.AttachInvoiceDocument(new IssuedInvoiceSnapshot(2, InvoiceDocumentType.Receipt, sale.SoldAt, sale.BusinessDate, 2026, "A", sale.InvoiceNumber, Seller, Buyer,
             "29", "Karnataka", false, false, [], new(0m, 200m, [], 0m, 0m, 200m), [], InvoiceSignatureMode.AuthorisedSignatory, "component-split/1"));
         var before = JsonSerializer.Serialize(sale);

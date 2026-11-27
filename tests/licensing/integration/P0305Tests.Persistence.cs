@@ -2,9 +2,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Serilog.Core;
@@ -107,20 +104,11 @@ public sealed partial class P0305Tests
     }
 
     [Fact]
-    public async Task EmptyMigrationRoundTripsAndRetainedEvidencePreventsDowngradeOrRuntimeAccess()
+    public async Task RetainedEvidencePreventsRewriteOrRuntimeAccess()
     {
         await using var rig = await StartAsync();
         var owner = rig.Fixture.Hosts.LicensingOwner;
         var runtime = rig.Fixture.Hosts.Fixture.Runtime;
-        await using var context = rig.Fixture.Hosts.Fixture.OpenMigrationContext();
-        var migrator = context.GetService<IMigrator>();
-        const string previous = "20261117140000_PaymentResumeConfirmation";
-        await migrator.MigrateAsync(previous);
-        Assert.True(Assert.IsType<bool>(await LicensingPostgreSqlFixture.ReadScalarAsync(owner,
-            "SELECT to_regclass('public.gateway_inbox_events') IS NULL")));
-        await migrator.MigrateAsync();
-        Assert.False(context.Database.HasPendingModelChanges());
-        await LicensingPostgreSqlFixture.ExecuteAsync(owner, P0302Fixture.RuntimeGrant);
         using var client = rig.Fixture.Hosts.Licensing.CreateClient();
         await DeliverAsync(client, Body(rig, "order_unknown", "pay_unknown"), "retained");
 
@@ -135,8 +123,6 @@ public sealed partial class P0305Tests
             var denied = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(owner, sql));
             Assert.Equal("55000", denied.SqlState);
         }
-        var downgrade = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(previous));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(downgrade.InnerException).SqlState);
         Assert.Equal(1L, await rig.Fixture.CountAsync("gateway_inbox_events"));
     }
 

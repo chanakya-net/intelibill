@@ -237,7 +237,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
     }
 
     [Theory]
-    [InlineData("legacy", "LegacySnapshotBlocked")]
+    [InlineData("no-document", "SnapshotMismatch")]
     [InlineData("tax", "TaxInvoiceBlocked")]
     [InlineData("offline", "OfflineOriginBlocked")]
     [InlineData("old-month", "OtherMonthBlocked")]
@@ -251,7 +251,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            if (variant == "legacy") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set invoice_document=null where id={s.Sale.Id}");
+            if (variant == "no-document") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set invoice_document=null where id={s.Sale.Id}");
             if (variant == "tax") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set invoice_document=jsonb_set(invoice_document,'{{documentType}}','\"TaxInvoice\"') where id={s.Sale.Id}");
             if (variant == "offline") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set source=2 where id={s.Sale.Id}");
             if (variant == "old-month") await db.Database.ExecuteSqlInterpolatedAsync($"update sales set business_date=business_date - interval '1 month' where id={s.Sale.Id}");
@@ -328,7 +328,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
             (await db.ShopMemberships.SingleAsync(x => x.ShopId == s.ShopId)).SetRole(ShopRole.Staff); await db.SaveChangesAsync();
             var email = (await db.Users.SingleAsync(x => x.Id == s.ActorId)).Email;
             s.Client.DefaultRequestHeaders.Authorization = null;
-            var login = await s.Client.PostAsJsonAsync("/api/auth/login/email", new { email, password = "Pass123!Aa" });
+            var login = await s.Client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
             login.EnsureSuccessStatusCode();
             var token = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
             s.Client.DefaultRequestHeaders.Authorization = new("Bearer", token);
@@ -562,7 +562,8 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
         var original = s.Sale;
         var payload = new OfflineSaleSyncCommand("defensive-client", original.InvoiceNumber, original.SoldAt, original.CustomerId, original.CustomerName, original.CustomerPhone,
             PaymentMethod.Cash, 200m, 0m, 200m, 200m, 0m, 0m, 200m, InstantDiscountType.None, 0m, null, null, null, null,
-            [new("SUGAR", "LOT", "Frozen sugar", 2m, 60m, 100m, 100m, 0m, false, s.BatchId, 200m, 0m, 0m, 200m, 0m, 200m, null, null, InstantDiscountType.None, 0m, null)]);
+            [new("SUGAR", "LOT", "Frozen sugar", 2m, 60m, 100m, 100m, 0m, false, s.BatchId, 200m, 0m, 0m, 200m, 0m, 200m, null, null, InstantDiscountType.None, 0m, null)],
+            CalculationVersion: 1, IssuedByUserId: s.ActorId);
         var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(s.ShopId, device, payload);
         await using (var scope = factory.Services.CreateAsyncScope())
         {

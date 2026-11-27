@@ -23,7 +23,7 @@ public sealed partial class P0415LicensingTests(PostgreSqlTestFixture fixture)
     private readonly TestClock _clock = new(EntitlementSnapshotsV1.Instant(TimeProvider.System));
     private static CancellationToken Ct => CancellationToken.None;
 
-    private ApiWebApplicationFactory CreateHost(RSA key, Action<IServiceCollection>? configure = null) =>
+    private ApiWebApplicationFactory CreateHost(RSA key, Action<IServiceCollection>? configure = null, bool productionLockBudgets = false) =>
         new(fixture, services =>
         {
             services.RemoveAll<TimeProvider>();
@@ -41,7 +41,7 @@ public sealed partial class P0415LicensingTests(PostgreSqlTestFixture fixture)
                  x.ImplementationType == typeof(TrialActivationDeliveryWorker))).ToList())
                 services.Remove(worker);
             configure?.Invoke(services);
-        }, runtimeIdentityOutsideRequests: true);
+        }, runtimeIdentityOutsideRequests: true, productionLockBudgets: productionLockBudgets);
 
     private static HttpClient CreateClient(ApiWebApplicationFactory host) =>
         host.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new("https://localhost"), AllowAutoRedirect = false });

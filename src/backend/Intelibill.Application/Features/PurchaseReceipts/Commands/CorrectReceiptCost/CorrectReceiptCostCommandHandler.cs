@@ -203,8 +203,6 @@ public sealed class CorrectReceiptCostCommandHandler(
     {
         if (receipt.HasSupplierReturns)
             return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments; its cost cannot change.");
-        if (!receipt.IsResolved || receipt.OriginalTotalCost is null || receipt.EffectiveTotalCost is null)
-            return Errors.PurchaseReceipt.EvidenceMissing;
         return null;
     }
 
@@ -226,7 +224,7 @@ public sealed class CorrectReceiptCostCommandHandler(
         DateOnly date, CancellationToken cancellationToken)
     {
         var (receipt, batch, supplierId) = source;
-        var priorTotal = receipt.EffectiveTotalCost!.Value;
+        var priorTotal = receipt.EffectiveTotalCost;
         // Payments already allocated to this receipt settled part of its payable; the payable cannot
         // fall below them, or the supplier would show as overpaid on a receipt that was settled.
         var allocated = (await paymentReceiptRepository.GetActiveAllocatedByTargetAsync(

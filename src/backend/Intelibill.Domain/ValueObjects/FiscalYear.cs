@@ -16,9 +16,6 @@ public readonly record struct FiscalYear(int StartYear)
     /// <summary>The four-digit form used inside invoice numbers: 2026-27 is <c>2627</c>.</summary>
     public string ShortLabel => string.Create(CultureInfo.InvariantCulture, $"{StartYear % 100:00}{EndYear % 100:00}");
 
-    /// <summary>The prefix of offline ranges reserved before fiscal series existed; kept only for those leases.</summary>
-    public string InvoicePrefix => $"INV-{Label}-";
-
     public DateTimeOffset StartsAt => BusinessCalendar.StartOf(new DateOnly(StartYear, InvoiceLeaseDefaults.FiscalYearStartMonth, 1));
 
     public DateTimeOffset NextStartsAt => BusinessCalendar.StartOf(new DateOnly(EndYear, InvoiceLeaseDefaults.FiscalYearStartMonth, 1));

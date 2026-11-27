@@ -1,3 +1,4 @@
+import { BillingDocumentLinksComponent } from '../documents/billing-document-links.component';
 import { PaymentConfirmationLinksComponent } from '../payments/payment-confirmation-links.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
@@ -58,7 +59,7 @@ function draftAhead(state: PaymentDraftState | undefined, payment: CheckoutPayme
 
 @Component({
   selector: 'app-checkout-payment',
-  imports: [PaymentConfirmationLinksComponent, ButtonDirective, TranslocoPipe, DevelopmentSimulatorLauncherComponent, RazorpayLauncherComponent],
+  imports: [PaymentConfirmationLinksComponent, BillingDocumentLinksComponent, ButtonDirective, TranslocoPipe, DevelopmentSimulatorLauncherComponent, RazorpayLauncherComponent],
   templateUrl: './checkout-payment.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(window:storage)': 'onStorage($event)' },
@@ -114,7 +115,7 @@ export class CheckoutPaymentComponent {
 
   blocksNewQuote(): boolean {
     const status = this.payment();
-    return this.busy() || this.pending() || !status || status.payment === 'AwaitingPayment' || status.fulfilment === 'NeedsReview';
+    return this.busy() || this.pending() || !status || status.payment === 'AwaitingPayment' || status.fulfilment === 'Pending' || status.fulfilment === 'NeedsReview';
   }
 
   canReviewNewQuote(): boolean {
@@ -293,7 +294,7 @@ export class CheckoutPaymentComponent {
 
   private refresh() {
     if (this.busy() || document.visibilityState !== 'visible' || this.polls >= POLL_LIMIT) return;
-    if (!this.pending() && this.payment()?.access !== 'Applying') return;
+    if (!this.pending() && this.payment()?.access !== 'Applying' && this.payment()?.fulfilment !== 'Pending') return;
     if (++this.ticks < (this.payment()?.access === 'Applying' ? 1 : Math.min(8, 2 ** this.polls))) return;
     this.ticks = 0;
     this.polls++;

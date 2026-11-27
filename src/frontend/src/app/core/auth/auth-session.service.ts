@@ -109,23 +109,14 @@ export class AuthSessionService {
     );
   }
 
-  registerWithEmail(email: string, claim = false): Observable<AcceptedMessage> {
+  registerWithEmail(email: string): Observable<AcceptedMessage> {
     const payload: RegisterWithEmailRequest = { email: email.trim() };
-    return this.http.post<AcceptedMessage>(
-      claim ? AUTH_ENDPOINTS.requestEmailClaim : AUTH_ENDPOINTS.requestEmailEnrollment,
-      payload,
-    );
+    return this.http.post<AcceptedMessage>(AUTH_ENDPOINTS.requestEmailEnrollment, payload);
   }
 
-  confirmEmailEnrollment(
-    payload: ConfirmEmailEnrollmentRequest,
-    claim = false,
-  ): Observable<AuthSession> {
+  confirmEmailEnrollment(payload: ConfirmEmailEnrollmentRequest): Observable<AuthSession> {
     return this.http
-      .post<AuthResult>(
-        claim ? AUTH_ENDPOINTS.confirmEmailClaim : AUTH_ENDPOINTS.confirmEmailEnrollment,
-        payload,
-      )
+      .post<AuthResult>(AUTH_ENDPOINTS.confirmEmailEnrollment, payload)
       .pipe(
         map((result) => this.toSession(result, false)),
         tap((session) => this.setSession(session)),

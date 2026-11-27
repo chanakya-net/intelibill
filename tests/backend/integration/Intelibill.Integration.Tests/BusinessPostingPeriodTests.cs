@@ -35,7 +35,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         services.RemoveAll<TimeProvider>();
         services.AddSingleton<SettableClock>();
         services.AddSingleton<TimeProvider>(sp => sp.GetRequiredService<SettableClock>());
-    });
+    }, productionLockBudgets: true);
 
     private SettableClock Clock => _factory.Services.GetRequiredService<SettableClock>();
 
@@ -515,10 +515,6 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
         }
 
-        using (var unkeyed = await SendAsync(shop, HttpMethod.Post, $"/api/customers/{customerId}/payments",
-            new { amount = 50m, paymentDate = "2026-06-25", notes = (string?)null }))
-            Assert.Equal(HttpStatusCode.Conflict, unkeyed.StatusCode);
-
         Assert.Equal(expensesBefore, await ScalarAsync<long>("SELECT count(*) FROM expenses WHERE shop_id = @shop", ("shop", shop.ShopId)));
         Assert.Equal(receiptsBefore, await ScalarAsync<long>("SELECT count(*) FROM payment_receipts WHERE shop_id = @shop", ("shop", shop.ShopId)));
 
@@ -665,7 +661,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         var lease = await reserved.Content.ReadFromJsonAsync<JsonElement>();
         var invoice = $"{lease.GetProperty("prefix").GetString()}{lease.GetProperty("rangeStart").GetInt32().ToString($"D{lease.GetProperty("numberPadding").GetInt32()}", CultureInfo.InvariantCulture)}";
         var soldAt = Utc(2026, 6, 30, 17, 30);
-        var payload = OfflinePayload("late-1", invoice, stock, soldAt);
+        var payload = OfflinePayload("late-1", invoice, stock, soldAt, shop.UserId);
 
         // June closes on 2 July, before the device syncs (still inside the lease and the skew rules).
         Clock.Set(Utc(2026, 7, 2, 6, 0));
@@ -885,7 +881,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         },
     };
 
-    private static object OfflinePayload(string clientSaleId, string invoiceNumber, Stock stock, DateTimeOffset soldAt) => new
+    private static object OfflinePayload(string clientSaleId, string invoiceNumber, Stock stock, DateTimeOffset soldAt, Guid issuer) => new
     {
         clientSaleId,
         invoiceNumber,
@@ -900,6 +896,8 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         totalAmount = 118m,
         saleDiscountOverrideType = (int)InstantDiscountType.None,
         saleDiscountOverrideValue = 0m,
+        calculationVersion = 1,
+        issuedByUserId = issuer,
         items = new[]
         {
             new
@@ -953,7 +951,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
 
     private static async Task<Shop> SwitchTokenAsync(Shop shop)
     {
-        using var login = await shop.Client.PostAsJsonAsync("/api/auth/login/email", new { email = shop.Email, password = "Pass123!Aa" });
+        using var login = await shop.Client.PostAsJsonAsync("/api/auth/login", new { identifier = shop.Email, password = "Pass123!Aa" });
         var loginBody = await login.Content.ReadAsStringAsync();
         Assert.True(login.StatusCode == HttpStatusCode.OK, loginBody);
         var signedIn = shop with { Token = JsonDocument.Parse(loginBody).RootElement.GetProperty("accessToken").GetString()! };
@@ -1228,6 +1226,8 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             phoneNumber = "+919812345678",
             address = (string?)null,
             isActive = true,
+            creditLimit = 1_000_000m,
+            creditPolicyMode = "Enforced",
         });
         customer.EnsureSuccessStatusCode();
         return (await customer.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("customerId").GetGuid();

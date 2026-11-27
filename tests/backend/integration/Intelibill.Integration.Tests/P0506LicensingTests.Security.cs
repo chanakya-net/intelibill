@@ -51,7 +51,7 @@ public sealed partial class P0506LicensingTests
 
         //    - Sync on authentic 7ff1de03f lease (null ReservedByUserId) -> LicenseHistoryReview / LeaseReserverUnproven!
         var beforeSync = await ReadEconomicFactsAsync(actor.Shop);
-        var held7ff1 = await SyncInvoiceAsync(owner, v7SyncNode.DeepClone(), LegacyDevice);
+        var held7ff1 = await SyncInvoiceAsync(owner, AsCurrentInvoice(v7SyncNode, actor.User), LegacyDevice);
         Assert.Equal("NeedsReview", held7ff1.GetProperty("status").GetString());
         var held7ff1Detail = await GetCaseDetailAsync(owner, held7ff1.GetProperty("reviewCaseId").GetGuid());
         Assert.Equal(("LicenseHistoryReview", "LeaseReserverUnproven"),
@@ -150,7 +150,7 @@ public sealed partial class P0506LicensingTests
     private async Task VerifySyntheticPostReserverSyncAndLinkAsync(HttpClient owner, Actor actor, JsonNode v7SyncNode, DateTimeOffset verifiedAt)
     {
         await SeedUnanchoredLeaseAsync(actor, "post-reserver-dev", At("2027-01-20T11:00:00Z"), verifiedAt.AddDays(3), 50, "INV-2026-27-", withReserver: true);
-        var controlNode = CloneWithIdentity(v7SyncNode, "synthetic-post-reserver-0001", "INV-2026-27-000050");
+        var controlNode = AsCurrentInvoice(CloneWithIdentity(v7SyncNode, "synthetic-post-reserver-0001", "INV-2026-27-000050"), actor.User);
         var synced = await SyncInvoiceAsync(owner, controlNode, "post-reserver-dev");
         Assert.Equal("created", synced.GetProperty("status").GetString());
         var saleId = synced.GetProperty("saleId").GetGuid();

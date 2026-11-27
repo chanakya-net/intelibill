@@ -341,15 +341,6 @@ public sealed class ExpiryDispositionTests(PostgreSqlTestFixture fixture) : Expi
         Assert.Equal(crossShop ? Npgsql.PostgresErrorCodes.ForeignKeyViolation : Npgsql.PostgresErrorCodes.CheckViolation,exception.SqlState);
     }
     [Fact]
-    public void DispositionMigration_RefusesDestructiveDownBeforeAnyOperation()
-    {
-        var migration = new Intelibill.Infrastructure.Migrations.AddBatchDispositionEvidence();
-        var builder = new Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
-        var down = migration.GetType().GetMethod("Down",System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration,[builder]));
-        Assert.IsType<NotSupportedException>(error.InnerException); Assert.Empty(builder.Operations);
-    }
-    [Fact]
     public async Task MissingDateDisposal_DoesNotRelabelUnknownDatesAsExpired()
     {
         using var shop = await OpenShopAsync(); var sale = await SellGoodsAsync(shop, quantity: 5m, missingDate: true);

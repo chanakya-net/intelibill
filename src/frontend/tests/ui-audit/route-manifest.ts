@@ -60,6 +60,9 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   shellRoute('billing/accounts/:accountId/checkout', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),
+  shellRoute('billing/accounts/:accountId/refunds', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+  })),
   shellRoute('billing/accounts/:accountId/status', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),
@@ -72,6 +75,45 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   })),
   shellRoute('billing/accounts/:accountId/members', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
+  })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/transfers', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/accounts/:accountId/transfers', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+  })),
+  shellRoute('billing/transfer-consent/:accountId/:shopId/:transferId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    transferId: '00000000-0000-4000-8000-000000000004',
+  })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/early-replacements', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/early-replacement-consent/:accountId/:shopId/:exceptionId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    exceptionId: '00000000-0000-4000-8000-000000000003',
+  })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/replacements', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/replacement-consent/:accountId/:shopId/:replacementId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    replacementId: '00000000-0000-4000-8000-000000000003',
+  })),
+  shellRoute('billing/accounts/:accountId/subscriptions/:termId/slots', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    termId: '00000000-0000-4000-8000-000000000002',
+  })),
+  shellRoute('billing/slot-consent/:accountId/:shopId/:assignmentId', ['owner'], () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+    shopId: 'ui-audit-shop',
+    assignmentId: '00000000-0000-4000-8000-000000000003',
   })),
   shellRoute('billing/accounts/:accountId/coverage', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',

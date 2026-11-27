@@ -2,8 +2,48 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'accounts/:accountId/subscriptions/:termId/transfers',
+    loadComponent: () => import('./coverage/coverage-transfer-page.component').then(m => m.CoverageTransferPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/transfers',
+    loadComponent: () => import('./coverage/coverage-transfer-page.component').then(m => m.CoverageTransferPageComponent),
+  },
+  {
+    path: 'transfer-consent/:accountId/:shopId/:transferId',
+    loadComponent: () => import('./coverage/coverage-transfer-page.component').then(m => m.CoverageTransferPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/subscriptions/:termId/early-replacements',
+    loadComponent: () => import('./coverage-exceptions/coverage-exception-page.component').then(m => m.CoverageExceptionPageComponent),
+  },
+  {
+    path: 'early-replacement-consent/:accountId/:shopId/:exceptionId',
+    loadComponent: () => import('./coverage-exceptions/coverage-exception-page.component').then(m => m.CoverageExceptionPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/subscriptions/:termId/replacements',
+    loadComponent: () => import('./coverage/coverage-replacement-page.component').then(m => m.CoverageReplacementPageComponent),
+  },
+  {
+    path: 'replacement-consent/:accountId/:shopId/:replacementId',
+    loadComponent: () => import('./coverage/coverage-replacement-page.component').then(m => m.CoverageReplacementPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/subscriptions/:termId/slots',
+    loadComponent: () => import('./coverage/coverage-slot-page.component').then(m => m.CoverageSlotPageComponent),
+  },
+  {
+    path: 'slot-consent/:accountId/:shopId/:assignmentId',
+    loadComponent: () => import('./coverage/coverage-slot-page.component').then(m => m.CoverageSlotPageComponent),
+  },
+  {
     path: 'accounts/:accountId/checkout',
     loadComponent: () => import('./checkout/checkout-page.component').then(m => m.CheckoutPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/refunds',
+    loadComponent: () => import('./refunds/refund-requests-page.component').then(m => m.RefundRequestsPageComponent),
   },
   {
     path: 'trial',

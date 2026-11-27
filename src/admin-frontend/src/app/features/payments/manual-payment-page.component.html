@@ -195,7 +195,11 @@
             </div>
           }
         </div>
-        @if (review.reviewReason) {
+        @if (review.reviewReason === 'CapacityPending') {
+          <p class="adm-callout">After full receipt verification, the shops must confirm the increase. The original paid-through date stays in effect.</p>
+        } @else if (review.reviewReason === 'ReductionPending') {
+          <p class="adm-callout">After full receipt verification, this payment funds the scheduled reduction for renewal. Current paid access stays unchanged until the existing paid-through date.</p>
+        } @else if (review.reviewReason) {
           <p class="adm-callout adm-callout--warn">This receipt will be recorded for review · {{ review.reviewReason }}.</p>
         }
         <label class="adm-choice-card">

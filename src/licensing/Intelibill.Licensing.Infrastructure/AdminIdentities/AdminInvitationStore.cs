@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Audit;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Domain.Entities;
@@ -32,7 +33,7 @@ internal sealed class AdminInvitationStore(LicensingDbContext context, AuditEvid
     public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Brief, cancellationToken);
         var result = await operation(cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

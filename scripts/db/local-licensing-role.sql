@@ -175,6 +175,12 @@ DO $$ BEGIN
   IF to_regprocedure('public.due_entitlement_verification(timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO intelibill_licensing_app;
   END IF;
+  IF to_regprocedure('public.due_transfer_applications(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_transfer_applications(timestamptz) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.due_scheduled_capacity_reductions(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO intelibill_licensing_app;
+  END IF;
   IF to_regprocedure('public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO intelibill_licensing_app;
   END IF;
@@ -186,6 +192,11 @@ DO $$ BEGIN
   END IF;
   IF to_regprocedure('public.finish_gateway_inbox_event(uuid,uuid,timestamptz,text,text,boolean)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.finish_gateway_inbox_event(uuid,uuid,timestamptz,text,text,boolean) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.claim_refund(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_refund(timestamptz,uuid), public.start_refund_send(uuid,timestamptz), public.finish_refund(uuid,timestamptz,text,text,text),
+            public.refund_outcome(uuid,uuid), public.refund_finance_observation(uuid,uuid), public.recheck_refund(uuid,uuid,timestamptz,text),
+            public.receive_refund_hint(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO intelibill_licensing_app;
   END IF;
   IF to_regprocedure('public.claim_pending_payment(timestamptz,uuid)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO intelibill_licensing_app;

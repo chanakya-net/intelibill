@@ -46,6 +46,7 @@ describe('scope transitions against the real store', () => {
             address: null,
             isActive: true,
             creditLimit: 0,
+            creditPolicyMode: 'NoCredit',
             purchaseCount: 3,
             lifetimeRevenue: 1500,
             currentMonthRevenue: 500,

@@ -32,6 +32,18 @@ internal sealed partial class RazorpayGateway
         if (Text(root, "entity") != "event" || Text(root, "account_id") != account ||
             Text(root, "event") is not { Length: > 0 and <= 80 } name)
             return null;
+        if (name is "refund.created" or "refund.processed" or "refund.failed" or "refund.speed_changed")
+        {
+            var entity = Property(Property(Property(root, "payload"), "refund"), "entity");
+            var paymentId = Text(entity, "payment_id");
+            var refundId = Text(entity, "id");
+            var receipt = Text(entity, "receipt");
+            if (Text(entity, "entity") != "refund" || !WebhookSignature.Identifier(paymentId, 120) ||
+                !WebhookSignature.Identifier(refundId, 120) || receipt?.Length > 120)
+                return null;
+            return new(Pin, id, GatewayEventKinds.RefundChanged, null, name, account,
+                Refund: new(paymentId!, refundId!, receipt));
+        }
         var kind = name switch
         {
             "payment.captured" or "order.paid" => GatewayEventKinds.PaymentCaptured,

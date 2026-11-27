@@ -60,7 +60,7 @@ export class VerifyEmailPageComponent implements OnInit {
       const params = new URLSearchParams(fragment);
       const purpose = params.get('purpose');
       if (
-        ['enrollment', 'claim', 'email-change'].includes(purpose ?? '') &&
+        ['enrollment', 'email-change'].includes(purpose ?? '') &&
         params.getAll('token').length === 1 &&
         params.getAll('challengeId').length === 1 &&
         params.getAll('purpose').length === 1 &&
@@ -117,16 +117,13 @@ export class VerifyEmailPageComponent implements OnInit {
     this.busy.set(true);
     this.error.set('');
     this.auth
-      .confirmEmailEnrollment(
-        {
-          challengeId: this.proof.challengeId,
-          token: this.proof.token,
-          password,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-        },
-        this.proof.purpose === 'claim',
-      )
+      .confirmEmailEnrollment({
+        challengeId: this.proof.challengeId,
+        token: this.proof.token,
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      })
       .pipe(
         finalize(() => {
           this.busy.set(false);

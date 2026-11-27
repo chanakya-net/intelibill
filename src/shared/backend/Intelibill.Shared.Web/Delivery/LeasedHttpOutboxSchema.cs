@@ -47,19 +47,44 @@ public static class LeasedHttpOutboxSchema
         AND nullif(current_setting('app.entitlement_account_id', true), '') IS NULL
         """;
 
-    public static string Workers => $$"""
-        CREATE FUNCTION public.claim_entitlement_delivery(p_now timestamptz, p_lease uuid)
+    // The signed receipt atomically settles this outbox row. Until then, keep probing the same
+    // immutable command at the capped backoff, including when the final delivery lost its reply.
+    private const string DeadCapacity = """
+        OR o.status = 'DeadLetter' AND EXISTS (SELECT FROM public.entitlement_messages m
+            WHERE m.event_id = o.event_id AND m.kind IN ('CapacityReserve','CapacityConsume'))
+        """;
+
+    private const string DeadCapacityAndReduction = """
+        OR o.status = 'DeadLetter' AND EXISTS (SELECT FROM public.entitlement_messages m
+            WHERE m.event_id = o.event_id AND m.kind IN ('CapacityReserve','CapacityConsume','ReductionManifest','ReductionReserve','ReductionConsume'))
+        """;
+
+    private const string DeadCapacityReductionAndExceptions = """
+        OR o.status = 'DeadLetter' AND EXISTS (SELECT FROM public.entitlement_messages m
+            WHERE m.event_id = o.event_id AND m.kind IN ('CapacityReserve','CapacityConsume','ReductionManifest','ReductionReserve','ReductionConsume','CoverageExceptionPrepare','CoverageExceptionConsume','CoverageExceptionAbort'))
+        """;
+
+    private const string DeadTransfer = """
+        OR o.status = 'DeadLetter' AND EXISTS (SELECT FROM public.entitlement_messages m
+            WHERE m.event_id = o.event_id AND (m.kind IN ('TransferPrepare','TransferConsume','TransferAbort')
+                OR m.kind='Snapshot' AND EXISTS (SELECT FROM public.coverage_transfer_bindings b
+                    WHERE b.transfer_id=m.event_id AND b.destination_account_id=m.account_id AND b.shop_id=m.shop_id)))
+        """;
+
+    public static string Claim(bool recoverCapacity, bool recoverReductions = false, bool recoverExceptions = false, bool recoverTransfers = false) => $$"""
+        CREATE OR REPLACE FUNCTION public.claim_entitlement_delivery(p_now timestamptz, p_lease uuid)
         RETURNS TABLE (event_id uuid, kind text, payload bytea, attempts integer)
         LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
             WITH due AS MATERIALIZED (
-                SELECT o.event_id FROM public.entitlement_outbox o
-                WHERE o.status IN ('Pending', 'Leased', 'AwaitingAcknowledgement') AND o.next_attempt_at <= p_now AND {{Unscoped}}
+                SELECT o.event_id, (o.attempts < 12 OR o.status = 'DeadLetter') AS claimable FROM public.entitlement_outbox o
+                WHERE (o.status IN ('Pending', 'Leased', 'AwaitingAcknowledgement') {{(recoverTransfers ? DeadCapacityReductionAndExceptions + " " + DeadTransfer : recoverExceptions ? DeadCapacityReductionAndExceptions : recoverReductions ? DeadCapacityAndReduction : recoverCapacity ? DeadCapacity : "")}})
+                    AND o.next_attempt_at <= p_now AND {{Unscoped}}
                 ORDER BY o.next_attempt_at, o.event_id LIMIT 1 FOR UPDATE SKIP LOCKED
             ), claimed AS (
                 UPDATE public.entitlement_outbox o
-                SET status = CASE WHEN o.attempts >= 12 THEN 'DeadLetter' ELSE 'Leased' END,
-                    lease_token = CASE WHEN o.attempts < 12 THEN p_lease END,
-                    lease_expires_at = CASE WHEN o.attempts < 12 THEN p_now + interval '30 seconds' END,
+                SET status = CASE WHEN due.claimable THEN 'Leased' ELSE 'DeadLetter' END,
+                    lease_token = CASE WHEN due.claimable THEN p_lease END,
+                    lease_expires_at = CASE WHEN due.claimable THEN p_now + interval '30 seconds' END,
                     next_attempt_at = p_now + interval '30 seconds',
                     last_failure = CASE WHEN o.status = 'Leased' THEN 'LeaseExpired' ELSE o.last_failure END,
                     attempts = least(o.attempts + 1, 12)
@@ -69,9 +94,13 @@ public static class LeasedHttpOutboxSchema
             SELECT c.event_id, m.kind, m.payload, c.attempts FROM claimed c
             JOIN public.entitlement_messages m USING (event_id) WHERE c.status = 'Leased'
         $$;
-        CREATE FUNCTION public.finish_entitlement_delivery(p_event uuid, p_lease uuid, p_now timestamptz,
+        """;
+
+    public static string Finish(string beforeFinish = "") => $$"""
+        CREATE OR REPLACE FUNCTION public.finish_entitlement_delivery(p_event uuid, p_lease uuid, p_now timestamptz,
             p_success boolean, p_wait_ack boolean, p_failure text)
         RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
+            {{beforeFinish}}
             UPDATE public.entitlement_outbox
             SET status = CASE WHEN p_success AND NOT p_wait_ack THEN 'Delivered'
                     WHEN attempts >= 12 THEN 'DeadLetter'
@@ -82,6 +111,10 @@ public static class LeasedHttpOutboxSchema
                     WHEN p_success THEN NULL ELSE p_failure END
             WHERE event_id = p_event AND status = 'Leased' AND lease_token = p_lease AND lease_expires_at > p_now AND {{Unscoped}}
         $$;
+        """;
+
+    public static string Workers => Claim(false) + Finish() + """
+
         REVOKE ALL ON FUNCTION public.claim_entitlement_delivery(timestamptz, uuid) FROM PUBLIC;
         REVOKE ALL ON FUNCTION public.finish_entitlement_delivery(uuid, uuid, timestamptz, boolean, boolean, text) FROM PUBLIC;
         """;

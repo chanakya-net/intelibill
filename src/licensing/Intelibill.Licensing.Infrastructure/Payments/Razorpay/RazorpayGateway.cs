@@ -10,15 +10,14 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 
 /// <summary>
 /// Razorpay adapter: one server-created order per attempt with partial payment disabled, and funds proven only by an
-/// authenticated read of the order and its payments. A browser callback is at most an unverified hint. Refunds and
-/// webhooks are not part of this adapter yet and answer <see cref="GatewayOutcome.Unsupported"/>.
+/// authenticated read of the order and its payments. Refund reconciliation independently reads the original payment and refund.
 /// </summary>
 internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfiguration config, TimeProvider clock) : IPaymentGateway
 {
     internal const string ClientName = "razorpay-gateway";
 
     public PaymentProviderPin Pin => config.Pin;
-    public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: false, Webhooks: config.Webhook is not null);
+    public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: true, Webhooks: config.Webhook is not null);
 
     public IReadOnlyDictionary<string, string> LauncherParameters(string providerOrderReference, long amountPaise, string currency) =>
         new Dictionary<string, string>
@@ -31,6 +30,8 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
 
     public bool SupportsAmount(long amountPaise, string currency) =>
         currency == "INR" && amountPaise >= RazorpayConfiguration.MinAmountPaise && amountPaise <= config.MaxAmountPaise;
+
+    public long? MinimumAmountPaise(string currency) => currency == "INR" ? RazorpayConfiguration.MinAmountPaise : null;
 
     public async Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
@@ -159,9 +160,6 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
             ? GatewayResult.Success<IReadOnlyList<PaymentObservation>>([.. payments.Value!.Select(p => RazorpayWire.Observe(Pin, p))])
             : new(payments.Outcome, null);
     }
-
-    public Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct) =>
-        Task.FromResult(GatewayResult.Unsupported<RefundObservation>());
 
     public Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<RefundObservation>());

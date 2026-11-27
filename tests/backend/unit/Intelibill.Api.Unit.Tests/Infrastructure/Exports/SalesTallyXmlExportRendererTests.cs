@@ -355,31 +355,6 @@ public sealed class SalesTallyXmlExportRendererTests
     }
 
     [Fact]
-    public async Task RenderAsync_NeedsReview_RefusedWithDiagnostic()
-    {
-        var sale = Sale("INV-001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
-        var legacy = Return("RET-7", sale, financial: 118m, taxable: 0m, tax: 0m, nonTax: 0m) with
-        {
-            Status = ReturnAccountingStatus.NeedsReview,
-            ReviewReason = "Payout settlement is not evidenced.",
-            TaxableAdjustment = null,
-            TaxAdjustment = null,
-            NonTaxAdjustment = null,
-            TaxComponents = [],
-        };
-
-        var result = await _renderer.RenderAsync(Dataset([sale], [legacy]), CancellationToken.None);
-
-        Assert.True(result.IsError);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(ErrorType.Conflict, error.Type);
-        Assert.Equal("Export.ReturnNeedsAccountingReview", error.Code);
-        Assert.Contains("RET-7", error.Description, StringComparison.Ordinal);
-        Assert.Contains("INV-001", error.Description, StringComparison.Ordinal);
-        Assert.Contains("Payout settlement is not evidenced.", error.Description, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task RenderAsync_SalesAndReturns_EveryVoucherBalances()
     {
         var first = Sale("INV-001", "Asha", "Cash", paid: 78m, due: 40m, (18m, 100m, 18m));
@@ -500,9 +475,7 @@ public sealed class SalesTallyXmlExportRendererTests
             sale.Summary.SaleDate,
             sale.Summary.BusinessDate,
             sale.Summary.CustomerName,
-            ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",
-            null,
             OriginalReturnedGross: 118m,
             financial,
             taxable,

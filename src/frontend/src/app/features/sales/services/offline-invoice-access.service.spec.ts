@@ -94,12 +94,6 @@ describe('OfflineInvoiceAccessService', () => {
     await expect(setup().read('sale-1')).resolves.toEqual({ granted: false, reason: 'NOT_OWNER' });
   });
 
-  it('reads a legacy invoice that recorded no issuer on its own shop and device', async () => {
-    queueDb.getQueuedSale.mockResolvedValue(record({ issuedByUserId: undefined }));
-
-    await expect(setup().read('sale-1')).resolves.toMatchObject({ granted: true });
-  });
-
   describe('wrong_scope_denied', () => {
     const cases: [string, () => void, string, boolean][] = [
       ['no session', () => (session = null), 'NO_SESSION', false],

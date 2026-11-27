@@ -12,7 +12,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Customers.Commands.RecordCustomerPayment;
@@ -34,6 +33,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         _paymentReceiptRepository
             .LockPartyAndTargetsAsync(Arg.Any<Guid>(), Arg.Any<PaymentPartyType>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(RowLockOutcome.Acquired);
+        ExecutorRunsAction();
     }
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
@@ -43,8 +43,7 @@ public class RecordCustomerPaymentCommandHandlerTests
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
             BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
             Substitute.For<IShopLicenceFence>(), new PaymentCompletionPolicy(_balanceReader, Substitute.For<ICustomerLedgerEntryRepository>(),
-                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()),
-            NullLogger<RecordCustomerPaymentCommandHandler>.Instance);
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()));
 
     private void ExecutorRunsAction() =>
         _executor.ExecuteAsync(
@@ -85,7 +84,7 @@ public class RecordCustomerPaymentCommandHandlerTests
             fixture.customer.Id,
             120m,
             DateOnly.FromDateTime(DateTime.UtcNow),
-            "Received in cash");
+            "Received in cash", "pay-1");
 
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
@@ -114,7 +113,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var fixture = BuildFixture();
         var command = new RecordCustomerPaymentCommand(
             fixture.staff.Id, fixture.shop.Id, fixture.customer.Id,
-            120m, DateOnly.FromDateTime(DateTime.UtcNow), null);
+            120m, DateOnly.FromDateTime(DateTime.UtcNow), null, "pay-1");
 
         _userRepository.GetByIdWithDetailsAsync(fixture.staff.Id, Arg.Any<CancellationToken>()).Returns(fixture.staff);
 
@@ -130,7 +129,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var fixture = BuildFixture();
         var command = new RecordCustomerPaymentCommand(
             Guid.NewGuid(), fixture.shop.Id, fixture.customer.Id,
-            100m, DateOnly.FromDateTime(DateTime.UtcNow), null);
+            100m, DateOnly.FromDateTime(DateTime.UtcNow), null, "pay-1");
 
         _userRepository.GetByIdWithDetailsAsync(command.ActorUserId, Arg.Any<CancellationToken>())
             .Returns((User?)null);
@@ -148,7 +147,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var outsider = User.CreateWithEmail("outsider@test.com", "hash", "Out", "Sider");
         var command = new RecordCustomerPaymentCommand(
             outsider.Id, fixture.shop.Id, fixture.customer.Id,
-            100m, DateOnly.FromDateTime(DateTime.UtcNow), null);
+            100m, DateOnly.FromDateTime(DateTime.UtcNow), null, "pay-1");
 
         _userRepository.GetByIdWithDetailsAsync(outsider.Id, Arg.Any<CancellationToken>())
             .Returns(outsider);
@@ -165,7 +164,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var fixture = BuildFixture();
         var command = new RecordCustomerPaymentCommand(
             fixture.manager.Id, fixture.shop.Id, Guid.NewGuid(),
-            120m, DateOnly.FromDateTime(DateTime.UtcNow), null);
+            120m, DateOnly.FromDateTime(DateTime.UtcNow), null, "pay-1");
 
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, command.CustomerId, Arg.Any<CancellationToken>())
@@ -188,7 +187,6 @@ public class RecordCustomerPaymentCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
             .Returns(fixture.customer);
-        ExecutorRunsAction();
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
@@ -221,31 +219,12 @@ public class RecordCustomerPaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithoutOperationKey_PostsWithoutReceipt()
-    {
-        var fixture = BuildFixture();
-        var command = new RecordCustomerPaymentCommand(
-            fixture.manager.Id, fixture.shop.Id, fixture.customer.Id,
-            500m, new DateOnly(2026, 11, 1), null);
-
-        _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
-        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
-            .Returns(fixture.customer);
-
-        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Empty(_executor.ReceivedCalls());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task HandleAsync_PostsReceiptLinkedToLedgerEntryWithUnknownMethodByDefault()
     {
         var fixture = BuildFixture();
         var command = new RecordCustomerPaymentCommand(
             fixture.manager.Id, fixture.shop.Id, fixture.customer.Id,
-            250m, new DateOnly(2026, 11, 1), null);
+            250m, new DateOnly(2026, 11, 1), null, "pay-1");
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
             .Returns(fixture.customer);
@@ -262,8 +241,6 @@ public class RecordCustomerPaymentCommandHandlerTests
                 && r.Method == ReceiptTenderMethod.UnknownRecordedMethod
                 && r.Amount == 250m),
             Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).BeginTransactionAsync(Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -273,7 +250,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var saleId = Guid.NewGuid();
         var command = new RecordCustomerPaymentCommand(
             fixture.manager.Id, fixture.shop.Id, fixture.customer.Id,
-            500m, new DateOnly(2026, 11, 1), null,
+            500m, new DateOnly(2026, 11, 1), null, "pay-1",
             Method: ReceiptTenderMethod.Upi,
             ExternalReference: "UPI-123",
             Allocations: [new PaymentAllocationRequest(saleId, 400m)]);
@@ -289,7 +266,6 @@ public class RecordCustomerPaymentCommandHandlerTests
         Assert.Equal("Payment.AllocationExceedsOutstanding", result.FirstError.Code);
         await _customerLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -299,7 +275,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var foreignSale = Guid.NewGuid();
         var command = new RecordCustomerPaymentCommand(
             fixture.manager.Id, fixture.shop.Id, fixture.customer.Id,
-            100m, new DateOnly(2026, 11, 1), null,
+            100m, new DateOnly(2026, 11, 1), null, "pay-1",
             Allocations: [new PaymentAllocationRequest(foreignSale, 100m)]);
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
@@ -318,7 +294,7 @@ public class RecordCustomerPaymentCommandHandlerTests
     {
         var fixture = BuildFixture();
         var command = new RecordCustomerPaymentCommand(
-            fixture.manager.Id, fixture.shop.Id, fixture.customer.Id, 100m, new DateOnly(2026, 11, 1), null);
+            fixture.manager.Id, fixture.shop.Id, fixture.customer.Id, 100m, new DateOnly(2026, 11, 1), null, "pay-1");
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
             .Returns(fixture.customer);
@@ -332,17 +308,14 @@ public class RecordCustomerPaymentCommandHandlerTests
     }
 
     [Fact]
-    public void ComputeRequestHash_WithoutReceiptDetails_IsUnchangedFromLegacyHash()
+    public void ComputeRequestHash_IgnoresActorAndKey_ButCoversTenderAndTill()
     {
-        var customerId = Guid.NewGuid();
-        var legacy = new RecordCustomerPaymentCommand(Guid.NewGuid(), Guid.NewGuid(), customerId, 500m, new DateOnly(2026, 11, 1), " cash ");
-        var detailed = legacy with { Method = ReceiptTenderMethod.Cash };
+        var plain = new RecordCustomerPaymentCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new DateOnly(2026, 11, 1), " cash ", "pay-1");
+        var hash = RecordCustomerPaymentCommandHandler.ComputeRequestHash(plain, []);
 
-        var legacyHash = RecordCustomerPaymentCommandHandler.ComputeRequestHash(legacy, []);
-        var expected = FinancialOperationHasher.Compute(new { CustomerId = customerId, Amount = FinancialOperationHasher.NormalizeAmount(500m), PaymentDate = new DateOnly(2026, 11, 1), Notes = "cash" });
-
-        Assert.Equal(expected, legacyHash);
-        Assert.NotEqual(legacyHash, RecordCustomerPaymentCommandHandler.ComputeRequestHash(detailed, []));
+        Assert.Equal(hash, RecordCustomerPaymentCommandHandler.ComputeRequestHash(plain with { ActorUserId = Guid.NewGuid(), OperationKey = "pay-2", Notes = "cash", Amount = 500.00m }, []));
+        Assert.NotEqual(hash, RecordCustomerPaymentCommandHandler.ComputeRequestHash(plain with { Method = ReceiptTenderMethod.Cash }, []));
+        Assert.NotEqual(hash, RecordCustomerPaymentCommandHandler.ComputeRequestHash(plain with { Till = new(Guid.NewGuid()) }, []));
     }
 
     [Fact]
@@ -351,7 +324,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         var fixture = BuildFixture();
         var paymentDate = new DateOnly(2026, 6, 25);
         var command = new RecordCustomerPaymentCommand(
-            fixture.owner.Id, fixture.shop.Id, fixture.customer.Id, 120m, paymentDate, null);
+            fixture.owner.Id, fixture.shop.Id, fixture.customer.Id, 120m, paymentDate, null, "pay-1");
         _userRepository.GetByIdWithDetailsAsync(fixture.owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.owner);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
         _postingPeriods.AuthorizeForWriteAsync(fixture.shop.Id, paymentDate, Arg.Any<CancellationToken>())

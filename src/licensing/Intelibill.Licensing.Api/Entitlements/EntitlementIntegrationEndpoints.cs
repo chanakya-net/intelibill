@@ -12,6 +12,30 @@ internal static class EntitlementIntegrationEndpoints
 {
     internal static void MapEntitlementIntegration(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapPost(CoverageTransferApprovalsV1.ReceiptPath, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<TransferReceiptV1>(
+                context,transport,CoverageTransferApprovalsV1.ReceiptPath,events.TransferReceiptAsync)).AllowAnonymous();
+        endpoints.MapPost(CoverageTransfersV1.ConsentReceiptPath, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<CoverageTransferShopConsentV1>(
+                context, transport, CoverageTransfersV1.ConsentReceiptPath, events.CoverageTransferConsentAsync)).AllowAnonymous();
+        endpoints.MapPost(CoverageReplacementExceptionsV1.ConsentReceiptPath, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<CoverageReplacementExceptionConsentV1>(
+                context, transport, CoverageReplacementExceptionsV1.ConsentReceiptPath, events.CoverageExceptionConsentAsync)).AllowAnonymous();
+        endpoints.MapPost(CoverageReplacementExceptionsV1.DecisionReceiptPath, (HttpContext context,
+            LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<CoverageExceptionReceiptV1>(
+                context, transport, CoverageReplacementExceptionsV1.DecisionReceiptPath, events.CoverageExceptionReceiptAsync)).AllowAnonymous();
+        endpoints.MapPost(CoverageReplacementsV1.ReceiptPath, (HttpContext context, LicensingEntitlementTransport transport,
+            EntitlementMerchantEvents events) => ReceiveAsync<ReplacementConsentV1>(context, transport,
+                CoverageReplacementsV1.ReceiptPath, events.ReplacementConsentAsync)).AllowAnonymous();
+        endpoints.MapPost(CoverageSlotsV1.ReceiptPath, (HttpContext context, LicensingEntitlementTransport transport,
+            EntitlementMerchantEvents events) => ReceiveAsync<CoverageSlotConsentV1>(context, transport,
+                CoverageSlotsV1.ReceiptPath, events.SlotConsentAsync)).AllowAnonymous();
+        endpoints.MapPost(CapacityReservationV1.ReceiptPath, (HttpContext context, LicensingEntitlementTransport transport,
+            EntitlementMerchantEvents events) => ReceiveAsync<CapacityReceiptV1>(context, transport,
+                CapacityReservationV1.ReceiptPath, events.CapacityAsync)).AllowAnonymous();
+        endpoints.MapPost(ReductionTransportV1.ReceiptPath, (HttpContext context, LicensingEntitlementTransport transport,
+            EntitlementMerchantEvents events) => ReceiveAsync<ReductionReceiptV1>(context, transport,
+                ReductionTransportV1.ReceiptPath, events.ReductionAsync)).AllowAnonymous();
         endpoints.MapPost(EntitlementSnapshotsV1.AcknowledgementPath, (HttpContext context,
             LicensingEntitlementTransport transport, EntitlementMerchantEvents events) => ReceiveAsync<EntitlementAcknowledgementV1>(context,
                 transport, EntitlementSnapshotsV1.AcknowledgementPath, events.AcknowledgeAsync)).AllowAnonymous();

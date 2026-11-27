@@ -63,7 +63,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData(1)]
     public void Header_must_equal_lines(int? calculationVersion)
     {
@@ -89,7 +88,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData(1)]
     public void Inclusive_exclusive_fractional_parity(int? calculationVersion)
     {
@@ -123,37 +121,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Fact]
-    public void Legacy_final_line_residual_is_accepted_only_for_legacy_bills()
-    {
-        // The unversioned browser rounded each share and gave the last line the residual: 0.04 over three equal lines.
-        var legacyAllocation = ThreeEqualLinesWithSaleDiscount(0.04m, [0.01m, 0.01m, 0.02m], calculationVersion: null);
-        var version1Allocation = ThreeEqualLinesWithSaleDiscount(0.04m, [0.02m, 0.01m, 0.01m], calculationVersion: 1);
-
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(legacyAllocation).Mismatches);
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(version1Allocation).Mismatches);
-        Assert.NotEmpty(OfflineInvoiceArithmeticValidator.Validate(legacyAllocation with { CalculationVersion = 1 }).Mismatches);
-        Assert.NotEmpty(OfflineInvoiceArithmeticValidator.Validate(version1Allocation with { CalculationVersion = null }).Mismatches);
-    }
-
-    [Fact]
-    public void Legacy_corpus_from_the_unversioned_browser_calculator_replays_exactly()
-    {
-        // Payloads priced by the browser calculator as it was before calculation versions (commit 41015861565d).
-        using var corpus = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Contracts", "offline-invoice-arithmetic-legacy-corpus.json")));
-        var sales = corpus.RootElement.GetProperty("sales").Deserialize<List<OfflineSaleSyncCommand>>(CorpusOptions)!;
-
-        Assert.Equal(40, sales.Count);
-        Assert.All(sales, sale => Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(sale).Mismatches));
-        Assert.All(sales, sale =>
-        {
-            var items = sale.Items.ToList();
-            items[^1] = items[^1] with { TaxAmount = items[^1].TaxAmount + 0.01m, TotalAmount = items[^1].TotalAmount + 0.01m };
-            var tampered = sale with { Items = items, TotalTaxAmount = sale.TotalTaxAmount + 0.01m, TotalAmount = sale.TotalAmount + 0.01m };
-            Assert.NotEmpty(OfflineInvoiceArithmeticValidator.Validate(tampered).Mismatches);
-        });
-    }
-
-    [Fact]
     public void Version1_inclusive_line_totals_its_shelf_price()
     {
         // ₹100 inclusive at 18%: 84.75 taxable + 15.25 tax. Rounding the 15.255 tax up would bill ₹100.01, above the shelf price.
@@ -164,40 +131,7 @@ public class OfflineInvoiceArithmeticValidatorTests
         Assert.Contains(OfflineInvoiceArithmeticValidator.Validate(aboveShelfPrice).Mismatches, m => m.Path == "items[0].totalAmount" && m.Expected == 100m);
     }
 
-    [Fact]
-    public void Legacy_tofixed_midpoints_are_replayed_exactly()
-    {
-        // 6.70 x 15% = 1.005 exactly; the browser's double sat below the midpoint and printed 1.00.
-        var legacyTie = Sale([Line(1m, 6.7m, 15m, false, preTax: 6.7m, taxable: 6.7m, tax: 1m, total: 7.7m)], calculationVersion: null);
-        var legacyInclusive = Sale([Line(1m, 100m, 18m, true, preTax: 84.75m, taxable: 84.75m, tax: 15.25m, total: 100m)], calculationVersion: null);
-        var version1Tie = Sale([Line(1m, 6.7m, 15m, false, preTax: 6.7m, taxable: 6.7m, tax: 1.01m, total: 7.71m)], calculationVersion: 1);
-
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(legacyTie).Mismatches);
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(legacyInclusive).Mismatches);
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(version1Tie).Mismatches);
-
-        var legacyClaimingHalfAway = OfflineInvoiceArithmeticValidator.Validate(version1Tie with { CalculationVersion = null });
-        Assert.Contains(legacyClaimingHalfAway.Mismatches, m => m.Path == "items[0].taxAmount" && m.Expected == 1m && m.Supplied == 1.01m);
-
-        var version1ClaimingFloat = OfflineInvoiceArithmeticValidator.Validate(legacyTie with { CalculationVersion = 1 });
-        Assert.Contains(version1ClaimingFloat.Mismatches, m => m.Path == "items[0].taxAmount" && m.Expected == 1.01m && m.Supplied == 1m);
-    }
-
-    [Fact]
-    public void Legacy_accepts_either_known_total_before_discount_definition()
-    {
-        var preTaxDefinition = Sale([Line(1m, 100m, 18m, false, preTax: 100m, taxable: 100m, tax: 18m, total: 118m)], calculationVersion: null) with { TotalBeforeDiscount = 100m };
-        var domainDefinition = preTaxDefinition with { TotalBeforeDiscount = 118m };
-
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(preTaxDefinition).Mismatches);
-        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(domainDefinition).Mismatches);
-        Assert.Contains(
-            OfflineInvoiceArithmeticValidator.Validate(preTaxDefinition with { CalculationVersion = 1 }).Mismatches,
-            m => m.Path == "totalBeforeDiscount" && m.Expected == 118m);
-    }
-
     [Theory]
-    [InlineData(null)]
     [InlineData(1)]
     public void Discount_exceeds_basis(int? calculationVersion)
     {
@@ -215,7 +149,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData(1)]
     public void Tampered_discount_within_basis_is_amount_mismatch(int? calculationVersion)
     {
@@ -244,6 +177,15 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Fact]
+    public void Missing_version_is_unsupported()
+    {
+        var verdict = OfflineInvoiceArithmeticValidator.Validate(FromFixture("exclusive_single_line", calculationVersion: null));
+
+        Assert.True(verdict.IsUnsupportedVersion);
+        Assert.Equal(new OfflineArithmeticMismatch("calculationVersion", null, 1m, "unsupported_version"), Assert.Single(verdict.Mismatches));
+    }
+
+    [Fact]
     public void Version1_rejects_inputs_beyond_contract_scale()
     {
         var sale = FromFixture("exclusive_single_line", calculationVersion: 1);
@@ -256,7 +198,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData(1)]
     public void Line_gross_beyond_the_money_bound_is_unsupported(int? calculationVersion)
     {
@@ -272,7 +213,7 @@ public class OfflineInvoiceArithmeticValidatorTests
     [Fact]
     public void Undefined_enum_and_out_of_range_inputs_are_unsupported_values()
     {
-        var sale = FromFixture("exclusive_single_line", calculationVersion: null);
+        var sale = FromFixture("exclusive_single_line", calculationVersion: 1);
         var tampered = sale with
         {
             SaleDiscountOverrideType = (InstantDiscountType)7,
@@ -287,7 +228,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData(1)]
     public void Threshold_rule_must_be_met_by_eligible_subtotal(int? calculationVersion)
     {
@@ -335,20 +275,6 @@ public class OfflineInvoiceArithmeticValidatorTests
     {
         var taxable = line.PreTaxAmountBeforeDiscount - line.ItemDiscountAmount - saleDiscount;
         return line with { SaleDiscountAmount = saleDiscount, TaxableAmount = taxable, TotalAmount = taxable + line.TaxAmount };
-    }
-
-    private static OfflineSaleSyncCommand ThreeEqualLinesWithSaleDiscount(decimal saleDiscount, decimal[] allocation, int? calculationVersion)
-    {
-        var lines = allocation
-            .Select(share => Line(1m, 10m, 0m, false, preTax: 10m, taxable: 10m - share, tax: 0m, total: 10m - share) with { SaleDiscountAmount = share })
-            .ToList();
-        return Sale(lines, calculationVersion) with
-        {
-            SaleDiscountOverrideType = InstantDiscountType.Flat,
-            SaleDiscountOverrideValue = saleDiscount,
-            TotalDiscountAmount = saleDiscount,
-            TotalBeforeDiscount = 30m,
-        };
     }
 
     private static OfflineSaleSyncLineCommand Line(

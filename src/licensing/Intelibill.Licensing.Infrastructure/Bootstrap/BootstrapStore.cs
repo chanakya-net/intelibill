@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -15,7 +16,7 @@ internal sealed class BootstrapStore(LicensingDbContext context) : IBootstrapSto
         Func<InitialAdminBootstrap, CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Brief, cancellationToken);
         var rows = await context.Set<InitialAdminBootstrap>()
             .FromSqlRaw("SELECT *, xmin FROM public.initial_admin_bootstrap WHERE id = 1 FOR UPDATE")
             .ToListAsync(cancellationToken);

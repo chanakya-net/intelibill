@@ -50,15 +50,8 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
             new RequestDatabaseTelemetry(), HttpMethods.Get, "<unmatched>", StatusCodes.Status404NotFound);
 
         var registrationResponse = await client.PostAsJsonAsync(
-            "/api/auth/register/email",
-            new
-            {
-                email = $"telemetry-{Guid.NewGuid():N}@test.com",
-                password = "Pass123!Aa",
-                firstName = "Telemetry",
-                lastName = "Test",
-                phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}",
-            });
+            "/api/auth/enrollment/email/request",
+            new { email = $"telemetry-{Guid.NewGuid():N}@test.com" });
 
         Assert.Equal(HttpStatusCode.OK, pingResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unauthorizedResponse.StatusCode);
@@ -82,7 +75,7 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
             expectedCommandCount: 0);
 
         var registration = capture.SingleFor(
-            route: "api/auth/register/email",
+            route: "api/auth/enrollment/email/request",
             statusCode: StatusCodes.Status202Accepted);
         Assert.True(registration.DatabaseDurationSeconds >= 0);
         Assert.True(registration.CommandCount > 0);

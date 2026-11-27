@@ -3,7 +3,7 @@ import { isUuid } from './checkout.models';
 
 export type PaymentState = 'NotStarted' | 'AwaitingPayment' | 'PendingVerification' | 'Verified' | 'Failed';
 export type SimulatorOutcome = 'Captured' | 'Timeout' | 'Delayed' | 'Failed';
-export type FulfilmentState = 'NotFulfilled' | 'Fulfilled' | 'NeedsReview';
+export type FulfilmentState = 'NotFulfilled' | 'Pending' | 'Fulfilled' | 'NeedsReview';
 export type AccessState = 'NotApplicable' | 'Applying' | 'Applied' | 'NeedsReview';
 
 /** Provider-neutral launcher instruction; never a script URL or provider identifier. */
@@ -43,7 +43,7 @@ export interface CheckoutPayment {
 
 export const SIMULATOR_FLOW = 'development-simulator';
 const PAYMENTS: readonly string[] = ['NotStarted', 'AwaitingPayment', 'PendingVerification', 'Verified', 'Failed'];
-const FULFILMENTS: readonly string[] = ['NotFulfilled', 'Fulfilled', 'NeedsReview'];
+const FULFILMENTS: readonly string[] = ['NotFulfilled', 'Pending', 'Fulfilled', 'NeedsReview'];
 const ACCESS: readonly string[] = ['NotApplicable', 'Applying', 'Applied', 'NeedsReview'];
 
 export function isCheckoutPayment(value: unknown, account: string, order: string): value is CheckoutPayment {
@@ -53,6 +53,7 @@ export function isCheckoutPayment(value: unknown, account: string, order: string
     FULFILMENTS.includes(p.fulfilment) && ACCESS.includes(p.access) && Number.isSafeInteger(p.amountPaise) &&
     p.amountPaise > 0 && p.currency === 'INR' && Number.isInteger(p.shopsTotal) && Number.isInteger(p.shopsApplied) &&
     p.shopsApplied >= 0 && p.shopsApplied <= p.shopsTotal && typeof p.canStart === 'boolean' &&
+    (p.fulfilment !== 'Pending' || ((p.payment === 'Verified' || !!p.manualPayment) && !p.canStart && p.launch === null)) &&
     (!p.canStart || p.payment === 'NotStarted') &&
     (p.manualPayment != null || p.payment !== 'Failed' || (p.fulfilment === 'NotFulfilled' && p.access === 'NotApplicable' &&
       p.verifiedAt === null && p.termId === null)) &&

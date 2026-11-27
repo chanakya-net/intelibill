@@ -72,7 +72,6 @@ describe('OfflineReconciliationPageComponent', () => {
     awaitingIssuerSales,
     unsentSales,
     retryQueuedSale: vi.fn<OfflineSalesQueueSyncService['retryQueuedSale']>(),
-    resubmitForReview: vi.fn<OfflineSalesQueueSyncService['resubmitForReview']>(),
     refreshActiveStatusCounts: vi.fn<OfflineSalesQueueSyncService['refreshActiveStatusCounts']>(),
   };
   const queueDb = {
@@ -112,13 +111,6 @@ describe('OfflineReconciliationPageComponent', () => {
       syncedCount: 1,
       warningCount: 0,
       needsReviewCount: 0,
-      failedCount: 0,
-    });
-    queueSync.resubmitForReview.mockResolvedValue({
-      attemptedCount: 1,
-      syncedCount: 0,
-      warningCount: 0,
-      needsReviewCount: 1,
       failedCount: 0,
     });
     queueSync.refreshActiveStatusCounts.mockResolvedValue(visibleCounts());
@@ -468,85 +460,6 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.lease-window')?.textContent).toContain('No reservation recorded');
   });
 
-  it('offers a one-time send for review only where the server keeps no original invoice', async () => {
-    unsentSales.set([
-      record('no-case', 'NeedsReview'),
-      record('legacy-case', 'NeedsReview'),
-      record('kept-case', 'NeedsReview'),
-      record('other-issuer', 'NeedsReview', 'user-2'),
-    ]);
-    reviewSales.set([
-      reviewRow('no-case', null),
-      reviewRow('legacy-case', 'case-legacy'),
-      reviewRow('kept-case', 'case-kept'),
-      reviewRow('other-issuer', null),
-    ]);
-    reconciliation.getCase.mockImplementation((caseId) =>
-      of(
-        caseId === 'case-legacy'
-          ? caseDetail({ caseId, hasOriginalEnvelope: false, submission: null })
-          : caseDetail({ caseId }),
-      ),
-    );
-    await render();
-
-    const reviewRowEls = () => Array.from(el().querySelectorAll('.queue-group.review .queue-row'));
-    const offered = reviewRowEls()
-      .filter((row) => row.querySelector('.resubmit-btn'))
-      .map((row) => row.querySelector('.queue-invoice')?.textContent?.trim());
-    expect(offered).toEqual(['INV-no-case', 'INV-legacy-case']);
-    expect(reviewRowEls()[0].querySelector('.resubmit-hint')?.textContent).toContain(
-      'The server has no copy of this invoice as billed.',
-    );
-    expect(reconciliation.getCase).toHaveBeenCalledWith('case-legacy');
-    expect(reconciliation.getCase).toHaveBeenCalledWith('case-kept');
-
-    reviewRowEls()[0].querySelector<HTMLButtonElement>('button.resubmit-btn')!.click();
-    await settle();
-    expect(queueSync.resubmitForReview).toHaveBeenCalledWith('shop-1', 'device-1', 'no-case');
-    expect(queueSync.retryQueuedSale).not.toHaveBeenCalled();
-    expect(el().querySelector('.resubmit-error')).toBeNull();
-
-    queueSync.resubmitForReview.mockResolvedValueOnce({
-      attemptedCount: 1,
-      syncedCount: 0,
-      warningCount: 0,
-      needsReviewCount: 0,
-      failedCount: 1,
-    });
-    reviewRowEls()[1].querySelector<HTMLButtonElement>('button.resubmit-btn')!.click();
-    await settle();
-    expect(queueSync.resubmitForReview).toHaveBeenLastCalledWith(
-      'shop-1',
-      'device-1',
-      'legacy-case',
-    );
-    expect(el().querySelector('.resubmit-error')?.textContent).toContain(
-      'Invoice INV-legacy-case could not be sent.',
-    );
-  });
-
-  it('drops the resend button once the server holds an envelope after a successful resend', async () => {
-    unsentSales.set([record('legacy-case', 'NeedsReview')]);
-    reviewSales.set([reviewRow('legacy-case', 'case-legacy')]);
-    let hasEnvelope = false;
-    reconciliation.getCase.mockImplementation((caseId) =>
-      of(caseDetail({ caseId, hasOriginalEnvelope: hasEnvelope, submission: null })),
-    );
-    await render();
-
-    const button = () => el().querySelector('button.resubmit-btn');
-    expect(button()).not.toBeNull();
-
-    hasEnvelope = true;
-    button()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await settle();
-
-    expect(queueSync.resubmitForReview).toHaveBeenCalledWith('shop-1', 'device-1', 'legacy-case');
-    expect(button()).toBeNull();
-    expect(el().querySelector('.resubmit-hint')).toBeNull();
-  });
-
   it('reloads on 409 version conflict without showing success', async () => {
     reconciliation.getCase
       .mockReturnValueOnce(of(caseDetail({ version: 7, availableActions: ['Escalate'] })))
@@ -604,11 +517,10 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(operationIds[2]).not.toBe(operationIds[0]);
   });
 
-  it('names people, unknown users and legacy cases without an envelope', async () => {
+  it('names people and unknown users', async () => {
     reconciliation.getCase.mockReturnValue(
       of(
         caseDetail({
-          hasOriginalEnvelope: true,
           saleId: 'sale-77',
           submission: submission({
             submittedBy: { userId: 'user-9', displayName: '' },
@@ -643,15 +555,6 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector<HTMLAnchorElement>('.linked-sale a')?.getAttribute('href')).toBe(
       '/sales/sale-77/print',
     );
-
-    reconciliation.getCase.mockReturnValue(
-      of(caseDetail({ caseId: 'case-2', hasOriginalEnvelope: false, submission: null })),
-    );
-    await openCase('case-2');
-    expect(el().querySelector('.envelope-missing')?.textContent).toContain(
-      'Original envelope not recorded',
-    );
-    expect(el().querySelector('.invoice-snapshot')).toBeNull();
   });
 
   it('hides import for staff', async () => {
@@ -1335,7 +1238,6 @@ function caseDetail(overrides: Partial<ReconciliationCase> = {}): Reconciliation
     linkedOperationId: null,
     resolutionStockTransactionId: null,
     resolvedBy: null,
-    hasOriginalEnvelope: true,
     submission: submission(),
     availableActions: ['RetryHistoricalLease', 'LinkExistingSale', 'Escalate'],
     linkCandidates: [],
@@ -1359,7 +1261,7 @@ function reviewRow(clientSaleId: string, reviewCaseId: string | null): OfflineRe
 function record(
   clientSaleId: string,
   status: OfflineSaleQueueStatus,
-  issuedByUserId?: string,
+  issuedByUserId = 'user-1',
 ): OfflineQueuedSaleRecord {
   const soldAt = '2026-11-01T10:00:00.000Z';
   return {
@@ -1378,8 +1280,10 @@ function record(
       invoiceNumber: `INV-${clientSaleId}`,
       soldAt,
       pricing: {
+        calculationVersion: 1,
         lines: [],
         totals: {
+          subtotalBeforeDiscount: 100,
           totalBeforeDiscount: 100,
           totalDiscount: 0,
           totalTax: 0,
@@ -1392,7 +1296,7 @@ function record(
       customerId: null,
       customerName: null,
       customerPhone: null,
-      ...(issuedByUserId ? { issuedByUserId } : {}),
+      issuedByUserId,
     },
     status,
     warnings: [],

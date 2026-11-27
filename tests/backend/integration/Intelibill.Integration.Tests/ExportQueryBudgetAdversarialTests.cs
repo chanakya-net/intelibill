@@ -123,7 +123,7 @@ public sealed partial class ExportQueryBudgetTests
             {
                 await reached.Task.WaitAsync(TimeSpan.FromSeconds(30));
                 await using var owner = Owner();
-                owner.Sales.Add(Sale.Create(seed.Shop.Id, "CONCURRENT", null, "Concurrent buyer", null, PaymentMethod.Cash, SoldAt.AddDays(1), 0, 0, 0, 0, []));
+                owner.Sales.Add(TestSales.Create(seed.Shop.Id, "CONCURRENT", null, "Concurrent buyer", null, PaymentMethod.Cash, SoldAt.AddDays(1), 0, 0, 0, 0, []));
                 await owner.SaveChangesAsync();
             }
             finally { release.TrySetResult(); }
@@ -286,7 +286,7 @@ public sealed partial class ExportQueryBudgetTests
         for (var i = 1; i < count; i++)
         {
             var line = SaleItem.CreateService(seed.Shop.Id, firstLine.ServiceId!.Value, $"Frozen service {i}", "SVC", 1, 0, 1, 1, 0, false, false);
-            var sale = Sale.Create(seed.Shop.Id, $"INV-{i + 1:00000}", null, "Buyer", null, PaymentMethod.Cash, SoldAt, 1, 0, 1, 0, [line]);
+            var sale = TestSales.Create(seed.Shop.Id, $"INV-{i + 1:00000}", null, "Buyer", null, PaymentMethod.Cash, SoldAt, 1, 0, 1, 0, [line]);
             db.Sales.Add(sale);
             sales.Add(sale);
         }

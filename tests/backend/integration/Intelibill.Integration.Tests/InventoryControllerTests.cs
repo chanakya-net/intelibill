@@ -267,6 +267,7 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         request.Content = JsonContent.Create(new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new object[]
             {
                 new
@@ -395,87 +396,13 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new { items });
+        request.Content = JsonContent.Create(new { operationKey = $"intake-{Guid.NewGuid():N}", items });
 
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Only 100 items are allowed in a batch.", body.GetProperty("detail").GetString());
-    }
-
-    [Fact]
-    public async Task EditInventoryBatch_WhenQuantityOrCostCorrected_IsRefusedAndBatchAndPayableKept()
-    {
-        using var client = CreateClient();
-        var token = await RegisterAsync(client);
-        var ownerToken = await CreateShopAsync(client, token);
-        var supplierId = await CreateSupplierAsync(client, ownerToken, "Supplier 3");
-        var barcode = $"INV-{Guid.NewGuid():N}";
-
-        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
-        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        inboundRequest.Content = JsonContent.Create(new
-        {
-            itemName = "Chana Dal",
-            barcode,
-            itemDescription = "Initial",
-            uom = "kg",
-            batchNumber = "B-EDIT-1",
-            quantity = 10m,
-            totalPurchaseCost = 800m,
-            mrp = 120m,
-            salesPrice = 110m,
-            taxRatePercent = 5m,
-            taxIncluded = false,
-            expiryDate = (DateOnly?)null,
-            manufacturingDate = (DateOnly?)null,
-            supplierId,
-            referenceNumber = "PO-EDIT-1",
-            notes = "Initial inbound",
-            performedAt = (DateTimeOffset?)null,
-        });
-
-        var inboundResponse = await client.SendAsync(inboundRequest);
-        Assert.Equal(HttpStatusCode.OK, inboundResponse.StatusCode);
-        var inboundBody = await inboundResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
-
-        using var editRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/inventory/batches/{batchId}");
-        editRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        editRequest.Content = JsonContent.Create(new
-        {
-            newBatchNumber = "B-EDIT-CORRECTED",
-            quantity = 12m,
-            costPrice = 85m,
-            mrp = 120m,
-            salesPrice = 110m,
-            taxRatePercent = 5m,
-            taxIncluded = false,
-            expiryDate = (DateOnly?)null,
-            manufacturingDate = (DateOnly?)null,
-            supplierId,
-            notes = "Correction",
-            entryDate = new DateOnly(2026, 4, 6),
-        });
-
-        var editResponse = await client.SendAsync(editRequest);
-        Assert.Equal(HttpStatusCode.BadRequest, editResponse.StatusCode);
-        var editBody = await editResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Inventory.BatchQuantityEditMoved", editBody.GetProperty("title").GetString());
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-        var batch = await db.InventoryBatches.FindAsync(batchId);
-        Assert.False(batch!.IsVoided);
-        Assert.Equal(10m, batch.Quantity);
-        Assert.Null(await db.InventoryBatches.FirstOrDefaultAsync(b => b.BatchNumber == "B-EDIT-CORRECTED"));
-
-        var entry = Assert.Single(await db.SupplierLedgerEntries.Where(e => e.SupplierId == supplierId).ToListAsync());
-        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entry.EntryType);
-        Assert.Equal(800m, entry.Amount);
-        Assert.Equal(batchId, entry.BatchId);
     }
 
     [Fact]

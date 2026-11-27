@@ -95,6 +95,7 @@ public sealed partial class P0415LicensingTests
         using var newCustomer = await client.PostAsJsonAsync("/api/customers", new
         {
             name = "History fixture customer", phoneNumber = "+919812345678", isActive = true,
+            creditLimit = 1_000_000m, creditPolicyMode = "Enforced",
         }, Ct);
         var customer = (await ReadSuccessAsync(newCustomer)).GetProperty("customerId").GetGuid();
         var saleKey = $"p0415-sale-{Guid.NewGuid():N}";

@@ -300,7 +300,7 @@ public class PreviewSaleReturnQueryHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-SRV-001",
             Guid.NewGuid(),
@@ -401,7 +401,7 @@ public class PreviewSaleReturnQueryHandlerTests
             taxRatePercent: 0m,
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-SRV-COND",
             customerId: null,
@@ -509,7 +509,7 @@ public class PreviewSaleReturnQueryHandlerTests
         var totalAmount = saleItem.TotalAmount;
         var totalTaxAmount = saleItem.TaxAmount;
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             Guid.NewGuid(),

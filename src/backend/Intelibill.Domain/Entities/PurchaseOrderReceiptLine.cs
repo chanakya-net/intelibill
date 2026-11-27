@@ -4,7 +4,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class PurchaseOrderReceiptLine : BaseEntity
 {
-    public Guid? ClientLineId { get; private set; }
+    public Guid ClientLineId { get; private set; }
     public Guid PurchaseOrderReceiptId { get; private set; }
     public Guid PurchaseOrderLineId { get; private set; }
     public Guid ItemId { get; private set; }

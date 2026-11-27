@@ -7,8 +7,8 @@ namespace Intelibill.Domain.Enums;
 public enum ReceiptTenderMethod
 {
     /// <summary>
-    /// No tender was recorded. Every payment made before receipts existed is backfilled with this
-    /// value; it is never guessed as cash.
+    /// No tender was recorded (a payment posted outside a till without a method); it is never
+    /// guessed as cash and is never a till tender.
     /// </summary>
     UnknownRecordedMethod = 1,
     Cash = 2,

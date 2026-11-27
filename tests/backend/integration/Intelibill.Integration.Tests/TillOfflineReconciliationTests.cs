@@ -549,7 +549,8 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
         using var client = CreateClient();
         var (owner, payload, _) = await ArrangeAsync(client);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
-        var customer = Customer.Create(owner.ShopId, "Legacy credit customer", "+919222222223", null, true);
+        var customer = Customer.Create(owner.ShopId, "Legacy credit customer", "+919222222223", null, true, 1_000_000m);
+        Success(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null));
         app.Db.Customers.Add(customer);
         await app.Db.SaveChangesAsync();
         RemoveTillEvidence(payload);
@@ -691,7 +692,8 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
         using var client = CreateClient();
         var (owner, payload, session) = await ArrangeAsync(client);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
-        var customer = Customer.Create(owner.ShopId, "All due customer", "+919222222225", null, true);
+        var customer = Customer.Create(owner.ShopId, "All due customer", "+919222222225", null, true, 1_000_000m);
+        Success(customer.SetCreditPolicy(CreditPolicyMode.Enforced, null));
         app.Db.Customers.Add(customer);
         await app.Db.SaveChangesAsync();
         payload["customerId"] = customer.Id;
@@ -725,7 +727,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
             phoneNumber = $"+91{Random.Shared.NextInt64(6_000_000_000, 9_999_999_999)}", password, confirmPassword = password, role });
         using var seeded = await client.SeedVerifiedStaffAsync(request);
         seeded.EnsureSuccessStatusCode();
-        using var login = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password });
+        using var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         login.EnsureSuccessStatusCode();
         var token = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
         return new(token, owner.ShopId, Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(token).Subject));
@@ -873,7 +875,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
     private async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token) =>
         InvoiceAt(await ReserveInvoiceLeaseAsync(client, token), 0);
 
-    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid? issuedByUserId = null)
+    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid issuedByUserId)
     {
         var preTax = 100m * quantity;
         var tax = 18m * quantity;
@@ -894,6 +896,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
             totalAmount = total,
             saleDiscountOverrideType = (int)InstantDiscountType.None,
             saleDiscountOverrideValue = 0m,
+            calculationVersion = 1,
             items = new[]
             {
                 new

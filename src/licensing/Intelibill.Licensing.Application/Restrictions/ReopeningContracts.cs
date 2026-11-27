@@ -43,7 +43,6 @@ public sealed record NewReopening(ReopeningDecision Decision, Guid AccountId, Gu
 
 internal static class ReopeningErrors
 {
-    internal static Error CutoverRequired => Error.Conflict("Reopening.PublisherCutoverRequired", "The provider delivery upgrade must complete before reopening is available.");
     internal static Error Invalid => Error.Validation("Reopening.Invalid", "Record the review reason and explicit consent from the current shop owner.");
     internal static Error Denied => Error.Forbidden("Reopening.AccessDenied", "Licensing Manager access is required to review reopening.");
     internal static Error RecentMfa => Error.Forbidden("Reopening.RecentMfaRequired", "Verify MFA again before saving the reopening.");

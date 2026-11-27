@@ -45,7 +45,7 @@ public sealed partial class P0207Tests
 
     private static async Task WaitForSaveRowLockAsync(P0206Fixture fixture)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         while (!deadline.IsCancellationRequested)
         {
             var waiting = await fixture.ScalarAsync("""

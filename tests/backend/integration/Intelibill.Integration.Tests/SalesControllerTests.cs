@@ -170,7 +170,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             })
             .ToList();
 
-        request.Content = JsonContent.Create(new { items });
+        request.Content = JsonContent.Create(new { operationKey = $"intake-{Guid.NewGuid():N}", items });
 
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
@@ -199,6 +199,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             phoneNumber,
             address = (string?)null,
             isActive,
+            creditLimit = 1_000_000m,
+            creditPolicyMode = "Enforced",
         });
 
         var response = await client.SendAsync(request);
@@ -290,6 +292,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     totalAmount = 118m,
                     saleDiscountOverrideType = (int)InstantDiscountType.None,
                     saleDiscountOverrideValue = 0m,
+                    calculationVersion = 1,
+                    issuedByUserId = OfflineIssuer.Of(token),
                     items = new[]
                     {
                         new
@@ -347,7 +351,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return one unit restockable",
@@ -423,9 +427,9 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email,
+            identifier = email,
             password,
         });
         response.EnsureSuccessStatusCode();
@@ -599,6 +603,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     totalAmount = 236m,
                     saleDiscountOverrideType = (int)InstantDiscountType.None,
                     saleDiscountOverrideValue = 0m,
+                    calculationVersion = 1,
+                    issuedByUserId = OfflineIssuer.Of(ownerToken),
                     items = new[]
                     {
                         new
@@ -663,8 +669,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(sale.RequestHash, envelope.PayloadHash);
         Assert.Equal(leaseId, envelope.OriginalLeaseId);
         Assert.Equal(ownerId, envelope.SubmittedByUserId);
+        Assert.Equal(ownerId, envelope.AssertedIssuerUserId);
         Assert.Equal(ownerId, envelope.AttributableUserId);
-        Assert.Null(envelope.AssertedIssuerUserId);
         var frozen = JsonSerializer.Deserialize<Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.OfflineSaleSyncCommand>(
             envelope.PayloadJson,
             EnvelopeJsonOptions)!;
@@ -722,6 +728,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     totalAmount = 118m,
                     saleDiscountOverrideType = (int)InstantDiscountType.None,
                     saleDiscountOverrideValue = 0m,
+                    calculationVersion = 1,
+                    issuedByUserId = OfflineIssuer.Of(ownerToken),
                     items = new[]
                     {
                         new
@@ -828,6 +836,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     totalAmount = 118m,
                     saleDiscountOverrideType = (int)InstantDiscountType.None,
                     saleDiscountOverrideValue = 0m,
+                    calculationVersion = 1,
+                    issuedByUserId = OfflineIssuer.Of(memberToken),
                     items = new[]
                     {
                         new
@@ -1063,7 +1073,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Issue credit note",
@@ -1198,7 +1208,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Issue credit note",
@@ -1661,7 +1671,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         using (var editCustomer = new HttpRequestMessage(HttpMethod.Put, $"/api/customers/{customerId}"))
         {
             editCustomer.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-            editCustomer.Content = JsonContent.Create(new { name = "Renamed Buyer", phoneNumber = "+919999999999", address = "Elsewhere", isActive = true, creditLimit = 0m });
+            editCustomer.Content = JsonContent.Create(new { name = "Renamed Buyer", phoneNumber = "+919999999999", address = "Elsewhere", isActive = true, creditLimit = 1_000_000m, creditPolicyMode = "Enforced" });
             (await client.SendAsync(editCustomer)).EnsureSuccessStatusCode();
         }
 
@@ -3160,6 +3170,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                 phoneNumber = "+919876543210",
                 address = "12 Market Road",
                 isActive = true,
+                creditLimit = 1_000_000m,
+                creditPolicyMode = "Enforced",
             });
 
             var addCustomerResponse = await client.SendAsync(addCustomerRequest);
@@ -3549,7 +3561,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordOverrideNoReasonRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordOverrideNoReasonRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Override refund",
@@ -3575,7 +3587,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordOverrideWithReasonRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordOverrideWithReasonRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Override refund",
@@ -3661,7 +3673,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return one unit restockable",
@@ -4264,7 +4276,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return wastage",
@@ -4345,7 +4357,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return to void",
@@ -4435,7 +4447,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Lookup return",
@@ -4514,7 +4526,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
         request.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = (string?)null,
@@ -4614,7 +4626,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return for credit note void test",
@@ -4706,7 +4718,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         recordReturnRequest.Content = JsonContent.Create(new
         {
-            payoutMethod = (int)PaymentMethod.Cash,
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
             dueReductionOverrideAmount = (decimal?)null,
             dueOverrideReason = (string?)null,
             notes = "Return for redeemed note conflict test",
@@ -4752,7 +4764,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var invoiceNumber = await FirstLeasedInvoiceNumberAsync(client, ownerToken, "device-1");
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
 
-        var payload = OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: null, totalAmount: 1m, totalTaxAmount: 0m, subtotalBeforeDiscount: 1m);
+        var payload = OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: 1, totalAmount: 1m, totalTaxAmount: 0m, subtotalBeforeDiscount: 1m);
         var result = await PostOfflineSaleAsync(client, ownerToken, payload);
 
         Assert.Equal("NeedsReview", result.GetProperty("status").GetString());
@@ -4831,59 +4843,6 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
     }
 
-    [Fact]
-    public async Task OfflineSaleArithmeticAudit_ReportsPostedSalesWhoseHeaderDisagreesWithLines()
-    {
-        using var client = CreateClient();
-        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
-        var barcode = UniqueBarcode();
-        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
-        var lease = await ReserveInvoiceLeaseAsync(client, ownerToken, "device-1");
-        var prefix = lease.GetProperty("prefix").GetString()!;
-        var start = lease.GetProperty("rangeStart").GetInt32();
-        var padding = lease.GetProperty("numberPadding").GetInt32();
-        var consistentInvoice = FormatInvoiceNumber(prefix, start, padding);
-        var corruptedInvoice = FormatInvoiceNumber(prefix, start + 1, padding);
-        var consistent = await PostOfflineSaleAsync(client, ownerToken, OfflineSalePayload($"offline-{Guid.NewGuid():N}", consistentInvoice, barcode, batchId, calculationVersion: 1));
-        var corrupted = await PostOfflineSaleAsync(client, ownerToken, OfflineSalePayload($"offline-{Guid.NewGuid():N}", corruptedInvoice, barcode, batchId, calculationVersion: 1));
-        var corruptedSaleId = corrupted.GetProperty("saleId").GetGuid();
-        Assert.Equal("created", consistent.GetProperty("status").GetString());
-
-        // Simulates a sale posted before sync validated arithmetic: the header claims ₹1 against ₹118 of lines.
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET total_amount = 1, paid_amount = 1 WHERE id = {corruptedSaleId}");
-        }
-
-        var notices = new List<string>();
-        var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), "scripts", "db", "audit-offline-sale-arithmetic.sql"));
-        await using (var connection = new NpgsqlConnection(_factory.RuntimeConnectionString))
-        {
-            connection.Notice += (_, args) => notices.Add(args.Notice.MessageText);
-            await connection.OpenAsync();
-            await using var command = new NpgsqlCommand(script, connection);
-            await command.ExecuteNonQueryAsync();
-        }
-
-        var finding = Assert.Single(notices, n => n.Contains(corruptedSaleId.ToString(), StringComparison.Ordinal));
-        Assert.Contains(corruptedInvoice, finding, StringComparison.Ordinal);
-        Assert.Contains("totalAmount 1.00, lines 118.00", finding, StringComparison.Ordinal);
-        Assert.DoesNotContain(notices, n => n.Contains(consistentInvoice + " ", StringComparison.Ordinal));
-        using var verifyScope = _factory.Services.CreateScope();
-        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.Equal(1m, (await verifyDb.Sales.SingleAsync(s => s.Id == corruptedSaleId)).TotalAmount);
-    }
-
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
-            directory = directory.Parent;
-
-        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
-    }
-
     private async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token, string deviceId)
     {
         var lease = await ReserveInvoiceLeaseAsync(client, token, deviceId);
@@ -4924,7 +4883,10 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new { deviceId = "device-1", sales = new[] { sale } });
+        // Each invoice names its issuer, as the web client stamps it: the signed-in user.
+        var stamped = JsonSerializer.SerializeToNode(sale, JsonSerializerOptions.Web)!;
+        stamped["issuedByUserId"] ??= OfflineIssuer.Of(token);
+        request.Content = JsonContent.Create(new { deviceId = "device-1", sales = new[] { stamped } });
         var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("results")[0];

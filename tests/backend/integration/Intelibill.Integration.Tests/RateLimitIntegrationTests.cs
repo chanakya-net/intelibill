@@ -48,15 +48,15 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
     {
         using var scopeFactory = CreateRateLimitFactory();
         var client = scopeFactory.CreateClient();
-        var loginRequest = new LoginWithEmailRequest("test@example.com", "Password123!");
+        var loginRequest = new LoginRequest("test@example.com", "Password123!");
 
         for (int i = 0; i < 10; i++)
         {
-            var response = await client.PostAsJsonAsync("api/auth/login/email", loginRequest);
+            var response = await client.PostAsJsonAsync("api/auth/login", loginRequest);
             Assert.NotEqual((HttpStatusCode)429, response.StatusCode);
         }
 
-        var rateLimitedResponse = await client.PostAsJsonAsync("api/auth/login/email", loginRequest);
+        var rateLimitedResponse = await client.PostAsJsonAsync("api/auth/login", loginRequest);
 
         Assert.Equal((HttpStatusCode)429, rateLimitedResponse.StatusCode);
     }
@@ -66,14 +66,14 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
     {
         using var scopeFactory = CreateRateLimitFactory();
         var client = scopeFactory.CreateClient();
-        var loginRequest = new LoginWithEmailRequest("test@example.com", "Password123!");
+        var loginRequest = new LoginRequest("test@example.com", "Password123!");
 
         for (int i = 0; i < 11; i++)
         {
-            await client.PostAsJsonAsync("api/auth/login/email", loginRequest);
+            await client.PostAsJsonAsync("api/auth/login", loginRequest);
         }
 
-        var blockedResponse = await client.PostAsJsonAsync("api/auth/login/email", loginRequest);
+        var blockedResponse = await client.PostAsJsonAsync("api/auth/login", loginRequest);
 
         Assert.Equal((HttpStatusCode)429, blockedResponse.StatusCode);
 
@@ -206,7 +206,7 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
         var statuses = new List<HttpStatusCode>();
         for (var i = 0; i < variants.Length; i++)
         {
-            var response = await PostAsync(client, "api/auth/login/email", new { email = variants[i], password = "wrong-password" }, peer: $"203.0.113.{i + 1}");
+            var response = await PostAsync(client, "api/auth/login", new { identifier = variants[i], password = "wrong-password" }, peer: $"203.0.113.{i + 1}");
             statuses.Add(response.StatusCode);
         }
 
@@ -256,7 +256,7 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
         var client = scopeFactory.CreateClient();
 
         await PostAsync(client, "api/auth/password-reset/request", new { email = "secret.person@shop.test" }, peer: "198.51.100.77");
-        await PostAsync(client, "api/auth/login/email", new { email = "secret.person@shop.test", password = "wrong-password" }, peer: "198.51.100.77");
+        await PostAsync(client, "api/auth/login", new { identifier = "secret.person@shop.test", password = "wrong-password" }, peer: "198.51.100.77");
 
         var rows = await ReadBucketsAsync();
         Assert.NotEmpty(rows);
@@ -275,7 +275,7 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
 
         var statuses = new List<HttpStatusCode>();
         for (var i = 0; i < 11; i++)
-            statuses.Add((await PostAsync(client, "api/auth/login/email", new { }, peer: "198.51.100.90")).StatusCode);
+            statuses.Add((await PostAsync(client, "api/auth/login", new { }, peer: "198.51.100.90")).StatusCode);
 
         Assert.All(statuses.Take(10), s => Assert.Equal(HttpStatusCode.BadRequest, s));
         Assert.Equal(HttpStatusCode.TooManyRequests, statuses[10]);
@@ -348,7 +348,7 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
             var userId = await SeedVerifiedUserAsync(scopeFactory, "outage@shop.test");
 
             var reset = await PostAsync(client, "api/auth/password-reset/request", new { email = "outage@shop.test" }, peer: "198.51.100.20");
-            var login = await PostAsync(client, "api/auth/login/email", new { email = "outage@shop.test", password = Password }, peer: "198.51.100.20");
+            var login = await PostAsync(client, "api/auth/login", new { identifier = "outage@shop.test", password = Password }, peer: "198.51.100.20");
             var business = await GetAsync(client, "api/rate-limit-test/default", peer: "198.51.100.20");
 
             Assert.Equal(HttpStatusCode.ServiceUnavailable, reset.StatusCode);

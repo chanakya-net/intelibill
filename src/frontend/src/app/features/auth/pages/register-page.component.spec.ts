@@ -9,7 +9,6 @@ import {
   selectRegisterSubmitting,
   selectRegisterAccepted,
   selectRegisterEmail,
-  selectRegisterClaim,
 } from '../state/register.selectors';
 import { RegisterPageComponent } from './register-page.component';
 
@@ -21,8 +20,7 @@ describe('RegisterPageComponent', () => {
     selectSignal: (selector: unknown): Signal<unknown> => {
       if (selector === selectRegisterAccepted) return accepted;
       if (selector === selectRegisterEmail) return signal('ada@example.com');
-      if (selector === selectRegisterClaim || selector === selectRegisterSubmitting)
-        return signal(false);
+      if (selector === selectRegisterSubmitting) return signal(false);
       return signal('');
     },
   };
@@ -46,9 +44,7 @@ describe('RegisterPageComponent', () => {
     expect(Object.keys(component.form.controls)).toEqual(['email']);
     component.form.controls.email.setValue('ada@example.com');
     component.onSubmit();
-    expect(dispatch).toHaveBeenCalledWith(
-      RegisterActions.requested({ email: 'ada@example.com', claim: false }),
-    );
+    expect(dispatch).toHaveBeenCalledWith(RegisterActions.requested({ email: 'ada@example.com' }));
     expect(fixture.nativeElement.querySelector('input[type="password"]')).toBeNull();
   });
   it('rejects malformed email and whitespace', () => {
@@ -65,16 +61,6 @@ describe('RegisterPageComponent', () => {
     const fixture = setup();
     expect(fixture.nativeElement.textContent).toContain('identity.checkInbox');
     fixture.componentInstance.onResend();
-    expect(dispatch).toHaveBeenCalledWith(
-      RegisterActions.requested({ email: 'ada@example.com', claim: false }),
-    );
-  });
-  it('legacy claim requires an explicit user action', () => {
-    const component = setup().componentInstance;
-    component.form.controls.email.setValue('ada@example.com');
-    component.onClaim();
-    expect(dispatch).toHaveBeenCalledWith(
-      RegisterActions.requested({ email: 'ada@example.com', claim: true }),
-    );
+    expect(dispatch).toHaveBeenCalledWith(RegisterActions.requested({ email: 'ada@example.com' }));
   });
 });

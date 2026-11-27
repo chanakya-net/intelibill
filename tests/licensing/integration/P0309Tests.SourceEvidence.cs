@@ -3,9 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Licensing.Application.Payments;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0308Tests;
 
@@ -45,34 +42,6 @@ public sealed partial class P0309Tests
         Assert.Equal(original, await P0211Tests.OriginalFactsAsync(fixture.Checkout.Trial, package.Payer.ShopId));
         Assert.Equal(1L, await fixture.CountAsync("payment_trial_conversions"));
         Assert.Equal(2L, await fixture.CountAsync("payment_fulfilment_shops", $"order_id = '{quote.OrderId:D}'"));
-    }
-
-    [Fact]
-    public async Task UpgradeRetainsAcceptedV1OrderAndRejectsEvidenceLossAfterItsFulfilment()
-    {
-        const string baseline = "20261117120000_PaidRenewals";
-        await using var fixture = await StartAsync(database, March31, services: P0310LegacyRouting.InstallLegacy);
-        var package = await fixture.PackageAsync(1);
-        var pending = await FirstQuoteAsync(package, "Month");
-        var legacy = await P0309Fixture.RepresentLegacyQuoteAsync(fixture.Hosts.LicensingOwner, pending);
-        var quote = await AcceptAsync(package, legacy);
-        var attempt = await StartPaymentAsync(package, quote);
-        await P0302Fixture.CaptureAsync(package.Payer.Client, quote, attempt);
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        var migration = context.GetService<IMigrator>();
-        await migration.MigrateAsync(baseline);
-        await migration.MigrateAsync();
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
-        var reloaded = await package.Payer.Client.GetFromJsonAsync<CheckoutQuoteV1>(
-            $"{P0301Tests.OrdersPath(package.Account)}/{quote.OrderId:D}");
-        Assert.Equal(quote, reloaded);
-        var paid = await P0302Fixture.VerifyAsync(package.Payer.Client, quote, attempt);
-        P0302Fixture.AssertStatus(paid, "Verified", "Fulfilled", "Applying");
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => migration.MigrateAsync(baseline));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
-        Assert.Equal(1L, await fixture.CountAsync("paid_fresh_starts"));
-        Assert.Equal(0L, await LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Checkout.Trial.Catalogue.Runtime,
-            "SELECT count(*) FROM public.paid_fresh_starts"));
     }
 
     [Fact]

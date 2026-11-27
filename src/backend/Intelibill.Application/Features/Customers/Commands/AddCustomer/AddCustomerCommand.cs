@@ -3,8 +3,8 @@ using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Customers.Commands.AddCustomer;
 
-/// <param name="CreditPolicyMode">Absent: legacy advisory (an ambiguous request stays visibly unenforced).</param>
-/// <param name="CreditTermsDays">Days to pay a due sale; read only with <paramref name="CreditPolicyMode"/>.</param>
+/// <param name="CreditPolicyMode">Required: how new due is judged against <paramref name="CreditLimit"/>.</param>
+/// <param name="CreditTermsDays">Days to pay a due sale; null when no terms were agreed.</param>
 public sealed record AddCustomerCommand(
     SessionClaims Session,
     string Name,
@@ -12,9 +12,9 @@ public sealed record AddCustomerCommand(
     string? Address,
     bool IsActive,
     decimal CreditLimit,
+    CreditPolicyMode CreditPolicyMode,
     string? Gstin = null,
     string? StateCode = null,
-    CreditPolicyMode? CreditPolicyMode = null,
     int? CreditTermsDays = null)
 {
     public Guid ShopId => Session.ActiveShopId.GetValueOrDefault();

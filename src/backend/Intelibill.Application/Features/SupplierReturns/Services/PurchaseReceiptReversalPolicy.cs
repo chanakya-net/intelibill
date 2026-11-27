@@ -18,7 +18,6 @@ public sealed class PurchaseReceiptReversalPolicy(ISupplierReturnRepository retu
     {
         var result=new List<string>();
         if(batch.QuarantinedQuantity > 0 || await dispositions.HasHistoryAsync(receipt.ShopId,batch.Id,ct)) result.Add("PurchaseReceipt.QuarantineHistory");
-        if(!receipt.IsResolved) result.Add("PurchaseReceipt.EvidenceMissing");
         if(batch.IsVoided) result.Add("PurchaseReceipt.BatchVoided");
         if(receipt.HasSupplierReturns) result.Add("PurchaseReceipt.HasSupplierReturns");
         if(batch.Quantity!=receipt.ReceivedQuantity) result.Add("Inventory.BatchConsumed");

@@ -19,7 +19,7 @@ using Intelibill.Tests.Integration;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true, int? maxPoolSize = null, bool runtimeIdentityOutsideRequests = false) : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true, int? maxPoolSize = null, bool runtimeIdentityOutsideRequests = false, bool productionLockBudgets = false) : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly Lock _clientGate = new();
 
@@ -131,6 +131,9 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["Jwt:RefreshTokenExpiryDays"] = "7",
                 ["RateLimiting:BucketKey"] = RateLimitTestPeers.BucketKey,
             });
+            // Tests that measure a lock budget itself keep production's values.
+            if (!productionLockBudgets)
+                configBuilder.AddInMemoryCollection(TestDatabaseBudgets.Merchant);
 
             if (maxPoolSize is not null)
             {

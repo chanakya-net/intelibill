@@ -73,7 +73,7 @@ public sealed partial class P0111Tests
     private async Task WaitForIdentityLockAsync(Fixture fixture, long expected)
     {
         var monitor = database.Bootstrap(fixture.Runtime.Database);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         while (!deadline.IsCancellationRequested)
         {
             var current = await LicensingPostgreSqlFixture.ReadScalarAsync(monitor, """

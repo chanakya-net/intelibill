@@ -9,16 +9,9 @@ namespace Intelibill.Domain.Entities;
 /// and the ledger entry that carries it into the account balance.
 /// </summary>
 /// <remarks>
-/// <para>
 /// Immutable once posted. Which invoices or purchase receipts it settled lives in
 /// <see cref="PaymentAllocation"/> rows; a mistake is corrected by one <see cref="PaymentReversal"/>,
 /// never by editing or deleting the receipt.
-/// </para>
-/// <para>
-/// A <see cref="IsLegacy"/> receipt was backfilled from a ledger payment recorded before receipts
-/// existed. Its method is <see cref="ReceiptTenderMethod.UnknownRecordedMethod"/> and it has no
-/// allocation: neither is inferred from history.
-/// </para>
 /// </remarks>
 public sealed class PaymentReceipt : BaseEntity
 {
@@ -42,7 +35,6 @@ public sealed class PaymentReceipt : BaseEntity
     /// <summary>The expense a supplier payment also recorded, if any.</summary>
     public Guid? ExpenseId { get; private set; }
 
-    public bool IsLegacy { get; private set; }
     public Guid CreatedBy { get; private set; }
 
     private PaymentReceipt() { }
@@ -96,7 +88,6 @@ public sealed class PaymentReceipt : BaseEntity
             Notes = trimmedNotes,
             LedgerEntryId = ledgerEntryId,
             ExpenseId = expenseId,
-            IsLegacy = false,
             CreatedBy = createdBy,
         };
     }

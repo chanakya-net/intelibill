@@ -49,12 +49,12 @@ public sealed partial class P0418LicensingTests
             const string phone = "+919111111111";
             using var created = await client.PostAsJsonAsync("/api/customers", new
             {
-                name = "Existing contact", phoneNumber = phone, isActive = true, creditLimit = 0m,
+                name = "Existing contact", phoneNumber = phone, isActive = true, creditLimit = 0m, creditPolicyMode = "NoCredit",
             }, Ct);
             var id = (await ReadSuccessAsync(created)).GetProperty("customerId").GetGuid();
             return (id, () => client.PutAsJsonAsync($"/api/customers/{id:D}", new
             {
-                name = "Updated contact", phoneNumber = phone, isActive = true, creditLimit = 0m,
+                name = "Updated contact", phoneNumber = phone, isActive = true, creditLimit = 0m, creditPolicyMode = "NoCredit",
             }, Ct));
         }
 

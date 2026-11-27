@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -33,13 +34,13 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         var review = await context.TillCloses.CountAsync(x => x.ShopId == shopId && x.AwaitingReview &&
             !context.TillCloseReviews.Any(r => r.ShopId == shopId && r.CloseId == x.Id), ct);
         // An envelope resolved by linking/acknowledgement need not have SaleId. Count each unposted
-        // envelope once, plus pre-envelope unposted cases; terminal dispositions are not unresolved queues.
+        // envelope once; terminal dispositions are not unresolved queues.
         var envelopes = await context.OfflineSubmissions.CountAsync(x => x.ShopId == shopId && x.SaleId == null &&
             (!context.ReconciliationIssues.Any(r => r.ShopId == shopId && r.OfflineSubmissionId == x.Id) ||
              context.ReconciliationIssues.Any(r => r.ShopId == shopId && r.OfflineSubmissionId == x.Id && r.Status != ReconciliationCaseStatus.Resolved)), ct);
         var cases = await context.ReconciliationIssues.CountAsync(x => x.ShopId == shopId && x.Status != ReconciliationCaseStatus.Resolved &&
-            ((x.OfflineSubmissionId == null && (x.SaleId == null || x.IssueType == ReconciliationIssueType.TillReview)) ||
-             (x.IssueType == ReconciliationIssueType.TillReview && context.OfflineSubmissions.Any(e => e.ShopId == shopId && e.Id == x.OfflineSubmissionId && e.SaleId != null))), ct);
+            x.IssueType == ReconciliationIssueType.TillReview &&
+            context.OfflineSubmissions.Any(e => e.ShopId == shopId && e.Id == x.OfflineSubmissionId && e.SaleId != null), ct);
         return (open, review, envelopes + cases);
     }
     public Task<RowLockOutcome> LockSettingsActorAsync(Guid actorId, CancellationToken ct = default) => LockAsync("actor", actorId, actorId, ct);
@@ -76,7 +77,7 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         if (!context.Database.IsNpgsql() || context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Till row locks require a PostgreSQL transaction.");
         var previous = (await context.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").ToListAsync(ct)).Single();
-        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+        await context.SetLockTimeoutAsync(LockWait.Standard, ct);
         try
         {
             // table is a private server-owned constant, never a client-provided identifier.

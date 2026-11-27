@@ -163,7 +163,6 @@ public class PaymentCommandHandlerTests
             new DateOnly(2026, 6, 15), DateTimeOffset.UtcNow, null, Guid.NewGuid(), expense.Id, owner.Id).Value;
         _receipts.GetByShopAndIdAsync(_shop.Id, receipt.Id, Arg.Any<CancellationToken>()).Returns(receipt);
         _expenses.GetByIdAsync(expense.Id, Arg.Any<CancellationToken>()).Returns(expense);
-        _expenses.GetCorrectionsOfAsync(_shop.Id, expense.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<Expense>());
         _executor.ExecuteAsync(
                 Arg.Any<FinancialOperationScope>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(),
                 Arg.Any<Func<CancellationToken, Task<ErrorOr.ErrorOr<PaymentReceiptDto>>>>(), Arg.Any<CancellationToken>())

@@ -67,8 +67,10 @@ export class SaleCreditPanelComponent implements OnChanges {
   readonly reason = signal('');
   readonly approved = signal(false);
 
-  readonly policyLabelKey = computed(() => creditPolicyLabelKey(this.status()?.creditPolicyMode));
-  readonly isAdvisory = computed(() => this.status()?.creditPolicyMode === 'LegacyAdvisory');
+  readonly policyLabelKey = computed(() => {
+    const status = this.status();
+    return status ? creditPolicyLabelKey(status.creditPolicyMode) : '';
+  });
   /** The due cannot be taken at all: an inactive or no-credit customer (no override). */
   readonly isBlocked = computed(() => {
     const status = this.status();
@@ -83,7 +85,6 @@ export class SaleCreditPanelComponent implements OnChanges {
       !!status &&
       status.isActive &&
       status.creditPolicyMode === 'Enforced' &&
-      status.availableCredit !== null &&
       this.due() > status.availableCredit
     );
   });

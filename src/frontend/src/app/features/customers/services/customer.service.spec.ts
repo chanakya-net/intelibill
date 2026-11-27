@@ -71,6 +71,7 @@ describe('CustomerService', () => {
       address: null,
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit',
       gstin: null,
       stateCode: null,
     };
@@ -96,6 +97,7 @@ describe('CustomerService', () => {
       address: 'Addr',
       isActive: true,
       creditLimit: 100,
+      creditPolicyMode: 'NoCredit',
       gstin: null,
       stateCode: null,
     };
@@ -122,6 +124,7 @@ describe('CustomerService', () => {
       address: '5 Market Lane',
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit',
       gstin: '29AAGCB7383J1Z4',
       stateCode: '29',
     };

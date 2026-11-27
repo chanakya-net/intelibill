@@ -20,7 +20,7 @@ public sealed class Customer : BaseEntity
     public string? StateCode { get; private set; }
 
     /// <summary>How new due is judged against <see cref="CreditLimit"/>.</summary>
-    public CreditPolicyMode CreditPolicyMode { get; private set; } = CreditPolicyMode.LegacyAdvisory;
+    public CreditPolicyMode CreditPolicyMode { get; private set; } = CreditPolicyMode.NoCredit;
 
     /// <summary>Days after the issue date a due sale falls due; null when no terms were agreed.</summary>
     public int? CreditTermsDays { get; private set; }

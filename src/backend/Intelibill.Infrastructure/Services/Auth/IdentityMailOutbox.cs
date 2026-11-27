@@ -18,8 +18,8 @@ internal sealed class IdentityMailOutbox(IEmailOwnershipRepository repository, I
     {
         var baseUrl = configuration["App:BaseUrl"]?.TrimEnd('/') ?? throw new InvalidOperationException("App:BaseUrl is required.");
         var link = $"{baseUrl}/auth/verify-email#challengeId={id}&token={Uri.EscapeDataString(token)}&purpose={purpose}";
-        var subject = purpose == "email-change" ? "Confirm your new Intelibill email" : purpose == "claim" ? "Recover your Intelibill account" : "Verify your Intelibill email";
-        var body = $"{subject}\n\n{link}\n\nThis single-use link expires at {expiresAt:O}. Choose your own password when confirming enrollment or recovery.\nIf you did not request this, ignore this email.";
+        var subject = purpose == "email-change" ? "Confirm your new Intelibill email" : "Verify your Intelibill email";
+        var body = $"{subject}\n\n{link}\n\nThis single-use link expires at {expiresAt:O}. Choose your own password when confirming enrollment.\nIf you did not request this, ignore this email.";
         Queue(id, destination, subject, body, expiresAt);
     }
     public void QueueShopInvitation(Guid invitationId, string destination, string shopName, string role, string token, DateTimeOffset expiresAt)

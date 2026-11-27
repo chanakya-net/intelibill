@@ -50,7 +50,6 @@ internal sealed class AdminAuditStore(LicensingDbContext context, TimeProvider c
             AuditActor.Enrollment => "enrollment",
             AuditActor.Administrator => "administrator",
             AuditActor.System => "system",
-            null => action.LegacyActor,
             _ => null,
         };
         var actorId = kind is "administrator" or "enrollment" ? row.OwnerId : null;

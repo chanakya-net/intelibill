@@ -11,7 +11,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.SupplierLedger.Commands.MakeSupplierPayment;
@@ -35,6 +34,14 @@ public class MakeSupplierPaymentCommandHandlerTests
         _paymentReceiptRepository
             .LockPartyAndTargetsAsync(Arg.Any<Guid>(), Arg.Any<PaymentPartyType>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(RowLockOutcome.Acquired);
+        _executor.ExecuteAsync(
+                Arg.Any<FinancialOperationScope>(),
+                Arg.Any<Guid>(),
+                Arg.Any<Guid>(),
+                Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>()(CancellationToken.None));
     }
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
@@ -44,8 +51,7 @@ public class MakeSupplierPaymentCommandHandlerTests
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
             BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
             Substitute.For<IShopLicenceFence>(), new PaymentCompletionPolicy(_balanceReader, Substitute.For<ICustomerLedgerEntryRepository>(),
-                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()),
-            NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()));
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
     {
@@ -59,7 +65,7 @@ public class MakeSupplierPaymentCommandHandlerTests
     }
 
     private static MakeSupplierPaymentCommand BuildCommand(Guid actorId, Guid shopId, Guid supplierId, decimal amount = 500m) =>
-        new(actorId, shopId, supplierId, amount, DateOnly.FromDateTime(DateTime.UtcNow), null);
+        new(actorId, shopId, supplierId, amount, DateOnly.FromDateTime(DateTime.UtcNow), null, "supplier-pay-1");
 
     [Fact]
     public async Task HandleAsync_OwnerRole_ReturnsSuccessDto()
@@ -196,16 +202,8 @@ public class MakeSupplierPaymentCommandHandlerTests
         var (owner, shop, supplier) = BuildOwnerShopSupplier();
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
-        _executor.ExecuteAsync(
-                Arg.Any<FinancialOperationScope>(),
-                Arg.Any<Guid>(),
-                Arg.Any<Guid>(),
-                Arg.Any<string>(),
-                Arg.Any<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>(),
-                Arg.Any<CancellationToken>())
-            .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>()(CancellationToken.None));
 
-        var command = BuildCommand(owner.Id, shop.Id, supplier.Id) with { OperationKey = "supplier-pay-1" };
+        var command = BuildCommand(owner.Id, shop.Id, supplier.Id);
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -229,7 +227,7 @@ public class MakeSupplierPaymentCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
         _supplierRepository.GetByIdAsync(foreign.Id, Arg.Any<CancellationToken>()).Returns(foreign);
 
-        var command = BuildCommand(owner.Id, shop.Id, foreign.Id) with { OperationKey = "supplier-pay-1" };
+        var command = BuildCommand(owner.Id, shop.Id, foreign.Id);
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);

@@ -1,8 +1,6 @@
 # Phone verification: manual setup
 
-Phone sign-in is off unless a deployment turns it on. With `PhoneAuth:Enabled` unset or `false`, `POST /api/auth/register/phone` and every `/api/auth/phone/*` route answer `503 Auth.PhoneEnrollmentUnavailable`, and the web client hides the option. Turn it on only after the rehearsal at the bottom of this page.
-
-The legacy `register/phone` route stays closed either way. It granted a session on a number nobody had proved, which left the registrant unable to sign in again once the session was gone and let anyone reserve someone else's number. Accounts it created keep their data and their sessions.
+Phone sign-in is off unless a deployment turns it on. With `PhoneAuth:Enabled` unset or `false`, every `/api/auth/phone/*` challenge route answers `503 Auth.PhoneEnrollmentUnavailable`, and the web client hides the option. Turn it on only after the rehearsal at the bottom of this page.
 
 ## 1. Choose a delivery transport
 
@@ -84,7 +82,7 @@ dotnet ef database update \
   --startup-project src/backend/Intelibill.Api
 ```
 
-`AddVerifiedPhoneChallenges` adds `phone_challenges`, `identity_sms`, and `users.is_phone_verified` / `users.phone_verified_at`. The backfill value for `is_phone_verified` is `false`, because unknown is not verified: every number that predates verification stays contact information until its holder proves it. Deployed environments apply this through the migration job; API startup does not.
+The schema holds `phone_challenges`, `identity_sms`, and `users.is_phone_verified` / `users.phone_verified_at`. A number stays contact information until its holder proves it. Deployed environments apply migrations through the migration job; API startup does not.
 
 ## 4. Before turning it on
 

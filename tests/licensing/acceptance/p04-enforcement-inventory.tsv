@@ -1,9 +1,6 @@
 # kind	entry point	licence action	parent matrix row	request classification
 handler	Intelibill.Application.Features.Auth.Commands.Login.LoginCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Auth.Commands.LoginWithEmail.LoginWithEmailCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.RefreshToken.RefreshTokenCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Auth.Commands.RegisterWithEmail.RegisterWithEmailCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Auth.Commands.RegisterWithPhone.RegisterWithPhoneCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.RequestPasswordReset.RequestPasswordResetCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.RevokeToken.RevokeTokenCommandHandler.HandleAsync	Authentication	M01	-
@@ -46,7 +43,6 @@ handler	Intelibill.Application.Features.Inventory.Commands.CorrectStockCount.Cor
 handler	Intelibill.Application.Features.Inventory.Commands.CreateAdjustment.CreateAdjustmentCommandHandler.HandleAsync	GeneralStock	M10	-
 handler	Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier.ReassignBatchSupplierCommandHandler.HandleAsync	SourceCorrection	M09	-
 handler	Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices.UpdateBatchPricesCommandHandler.HandleAsync	OperationalCapacity	M04	-
-handler	Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch.UpdateInventoryBatchCommandHandler.Handle	GeneralStock	M10	-
 handler	Intelibill.Application.Features.Inventory.Commands.VoidAdjustment.VoidAdjustmentCommandHandler.HandleAsync	SourceCorrection	M09	-
 handler	Intelibill.Application.Features.Inventory.Commands.VoidBatch.VoidBatchCommandHandler.HandleAsync	SourceCorrection	M09	-
 handler	Intelibill.Application.Features.Inventory.Events.InventoryBatchPricingChangedDomainHandler.HandleAsync	InternalService	internal	-
@@ -135,9 +131,7 @@ handler	Intelibill.Application.Features.Tills.Queries.GetTillSession.GetTillSess
 handler	Intelibill.Application.Features.Tills.Queries.GetTillSessions.GetTillSessionsQueryHandler.HandleAsync	History	M05	-
 handler	Intelibill.Application.Features.Tills.Queries.GetTills.GetTillsQueryHandler.HandleAsync	History	M05	-
 handler	Intelibill.Application.Features.Users.Commands.AcceptShopInvitation.AcceptShopInvitationCommandHandler.HandleAsync	OperationalCapacity	M04	-
-handler	Intelibill.Application.Features.Users.Commands.AddShopUser.AddShopUserCommandHandler.HandleAsync	OperationalCapacity	M04	-
 handler	Intelibill.Application.Features.Users.Commands.ChangeMyPassword.ChangeMyPasswordCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Users.Commands.EditShopUser.EditShopUserCommandHandler.HandleAsync	OperationalCapacity	M04	-
 handler	Intelibill.Application.Features.Users.Commands.InviteShopMember.InviteShopMemberCommandHandler.HandleAsync	OperationalCapacity	M04	-
 handler	Intelibill.Application.Features.Users.Commands.RevokeShopInvitation.RevokeShopInvitationCommandHandler.HandleAsync	MemberRemoval	M13	-
 handler	Intelibill.Application.Features.Users.Commands.UpdateMyProfile.UpdateMyProfileCommandHandler.HandleAsync	Authentication	M01	-
@@ -182,10 +176,25 @@ route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/co
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/after/{after:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/{id:guid}/document	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-replacement-exceptions/{shopId:guid}/{exceptionId:guid}/consent	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-replacements/{shopId:guid}/{replacementId:guid}/consent	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/slot-assignments/{shopId:guid}/{assignmentId:guid}/consent	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/operations/{operation:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal/operations/{operation:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes/{quoteId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/operations/{operationKey:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/previews/{previewId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacement-exceptions	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacement-exceptions/operations/{key:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacements	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/slot-assignments	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacements/operations/{key:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/slot-assignments/operations/{key:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/invitations	Billing	M01/M13	protected/request
 route	GET api/billing/ownership-transfer-operations/{operation}/{key:guid}	Billing	M01/M13	protected/request
 route	GET api/billing/ownership-transfers	Billing	M01/M13	protected/request
@@ -265,16 +274,22 @@ route	GET api/users/me/sessions	Authentication	M01	protected/request
 route	PATCH api/items/{itemId:guid}	OperationalCapacity	M04	protected/request
 route	PATCH api/services/{serviceId:guid}	OperationalCapacity	M04	protected/request
 route	PATCH api/shops/{shopId:guid}/members/{targetUserId:guid}	OperationalCapacity	M04	protected/source
+route	POST /internal/licensing/v1/capacity-reductions/consume	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reductions/manifest	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reductions/reserve	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reservations/consume	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/capacity-reservations/reserve	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-replacement-exceptions/abort	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-replacement-exceptions/consume	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-replacement-exceptions/prepare	InternalService	internal	anonymous/request
 route	POST /internal/licensing/v1/entitlements	InternalService	internal	anonymous/request
+route	POST /internal/merchant/v1/capacity-reductions/observe	InternalService	internal	anonymous/request
 route	POST /internal/merchant/v1/closures/validate	InternalService	internal	anonymous/request
 route	POST api/auth/email-change/confirm	Authentication	M01	protected/request
 route	POST api/auth/email-change/request	Authentication	M01	protected/request
-route	POST api/auth/enrollment/email/claim/confirm	Authentication	M01	protected/request
-route	POST api/auth/enrollment/email/claim/request	Authentication	M01	protected/request
 route	POST api/auth/enrollment/email/confirm	Authentication	M01	protected/request
 route	POST api/auth/enrollment/email/request	Authentication	M01	protected/request
 route	POST api/auth/login	Authentication	M01	protected/request
-route	POST api/auth/login/email	Authentication	M01	protected/request
 route	POST api/auth/password-reset/confirm	Authentication	M01	protected/request
 route	POST api/auth/password-reset/request	Authentication	M01	protected/request
 route	POST api/auth/phone/change/confirm	Authentication	M01	protected/request
@@ -284,8 +299,6 @@ route	POST api/auth/phone/enrollment/request	Authentication	M01	protected/reques
 route	POST api/auth/phone/login/confirm	Authentication	M01	protected/request
 route	POST api/auth/phone/login/request	Authentication	M01	protected/request
 route	POST api/auth/reauthenticate	Authentication	M01	protected/request
-route	POST api/auth/register/email	Authentication	M01	protected/request
-route	POST api/auth/register/phone	Authentication	M01	protected/request
 route	POST api/auth/token/refresh	Authentication	M01	protected/request
 route	POST api/auth/token/revoke	Authentication	M01	protected/request
 route	POST api/bank-accounts	OperationalCapacity	M04	protected/source
@@ -302,8 +315,21 @@ route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/a
 route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/simulator/capture	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/verify	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/ownership-transfers	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/refund-requests	Billing	M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-replacement-exceptions/{shopId:guid}/{exceptionId:guid}/consent/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-replacements/{shopId:guid}/{replacementId:guid}/consent/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/slot-assignments/{shopId:guid}/{assignmentId:guid}/consent/{decision}	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-change-quotes/{quoteId:guid}/order	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/previews	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/order	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/capacity-reductions/{scheduleId:guid}/resolve	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacement-exceptions	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-replacements	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/slot-assignments	Billing	M01/M13	protected/request
 route	POST api/billing/invitations/{invitationId:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/billing/ownership-transfers/{transfer:guid}/accept	Billing	M01/M13	protected/request
 route	POST api/credit-notes/{code}/void	SourceCorrection	M09	protected/request
@@ -370,7 +396,6 @@ route	POST api/tills/sessions/{id:guid}/cash-movements	OperationalCapacity	M04	p
 route	POST api/tills/sessions/{id:guid}/close	TillCompletion	M06	protected/source
 route	POST api/tills/sessions/{id:guid}/review	TillCompletion	M06	protected/source
 route	POST api/tills/{id:guid}/sessions	OperationalCapacity	M04	protected/source
-route	POST api/users	OperationalCapacity	M04	protected/request
 route	POST api/users/me/change-password	Authentication	M01	protected/request
 route	POST api/users/me/sessions/revoke-all	Authentication	M01	protected/request
 route	PUT api/bank-accounts/{id:guid}	OperationalCapacity	M04	protected/source
@@ -378,7 +403,6 @@ route	PUT api/customers/{customerId:guid}	OperationalCapacity	M04	protected/requ
 route	PUT api/discounts/{id:guid}	OperationalCapacity	M04	protected/request
 route	PUT api/expiry-policies	OperationalCapacity	M04	protected/source
 route	PUT api/expiry-policies/items/{id:guid}	OperationalCapacity	M04	protected/source
-route	PUT api/inventory/batches/{batchId:guid}	GeneralStock	M10	protected/request
 route	PUT api/inventory/batches/{batchId:guid}/prices	OperationalCapacity	M04	protected/request
 route	PUT api/purchase-orders/{purchaseOrderId:guid}	NewTrading	M03	protected/request
 route	PUT api/shops/{shopId:guid}	BasicShopSetup	M02	protected/source
@@ -388,7 +412,20 @@ route	PUT api/shops/{shopId:guid}/tax-profile	BasicShopSetup	M02	protected/sourc
 route	PUT api/shops/{shopId:guid}/till-settings	OperationalCapacity	M04	protected/source
 route	PUT api/suppliers/{supplierId:guid}	OperationalCapacity	M04	protected/request
 route	PUT api/users/me	Authentication	M01	protected/request
-route	PUT api/users/{targetUserId:guid}	OperationalCapacity	M04	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents/before/{beforeVersion:int}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents/{versionId:guid}/content	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfers	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/operations/{key:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers/operations/{key:guid}	Billing	M01/M13	protected/request
+route	POST /internal/licensing/v1/coverage-transfers/apply	InternalService	internal	anonymous/request
+route	POST /internal/licensing/v1/coverage-transfers/check-shop-authority	InternalService	internal	anonymous/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers/preview	Billing	M01/M13	protected/request
 writer	Intelibill.Api.Internal.LicenceAuthorityNotifications	InternalService	internal	-
 writer	Intelibill.Api.Services.Realtime.RealtimeRevocationWorker	InternalService	internal	-
 writer	Intelibill.Api.Startup.ApplicationModelWarmupService	InternalService	internal	-

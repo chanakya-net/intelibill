@@ -43,8 +43,20 @@ internal static class EntitlementDeliveryRegistration
             provider.GetRequiredService<IDevicePermitObservationReader>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
             provider.GetRequiredService<TimeProvider>()));
+        services.AddScoped<Billing.CoverageSlotAssignmentStore>();
+        services.AddScoped<CoverageSlotConsentAcknowledgements>();
+        services.AddScoped<ReplacementConsentAcknowledgements>();
+        services.AddScoped<CoverageExceptionAcknowledgements>();
+        services.AddScoped<CoverageTransferAcknowledgements>();
+        services.AddScoped<CapacityReservationAcknowledgements>();
+        services.AddScoped<ReductionReservationAcknowledgements>();
         services.AddScoped(provider => new EntitlementMerchantEvents(provider.GetRequiredService<LicensingDbContext>(),
-            provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>()));
+            provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>(),
+            provider.GetRequiredService<CapacityReservationAcknowledgements>(),
+            provider.GetRequiredService<ReductionReservationAcknowledgements>(), provider.GetRequiredService<CoverageSlotConsentAcknowledgements>(),
+            provider.GetRequiredService<ReplacementConsentAcknowledgements>(),
+            provider.GetRequiredService<CoverageExceptionAcknowledgements>(),
+            provider.GetRequiredService<Billing.CoverageTransferStore>(),provider.GetRequiredService<CoverageTransferAcknowledgements>()));
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<LicensingDbContext>()));
         services.AddScoped<ILeasedHttpDestination, LicensingEntitlementDelivery>();
         LeasedHttpDeliveryPump.Register(services);

@@ -80,6 +80,6 @@ public sealed partial class P0408bLicensingTests
         client.PostAsJsonAsync("/api/customers", new
         {
             name, phoneNumber = "+919111111111", isActive = true, creditLimit,
-            creditPolicyMode = creditLimit > 0 ? "Enforced" : null,
+            creditPolicyMode = creditLimit > 0 ? "Enforced" : "NoCredit",
         }, Ct);
 }

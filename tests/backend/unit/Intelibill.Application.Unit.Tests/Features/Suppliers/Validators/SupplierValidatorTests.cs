@@ -54,7 +54,11 @@ public class MakeSupplierPaymentCommandValidatorTests
     private readonly MakeSupplierPaymentCommandValidator _v = new();
 
     private static MakeSupplierPaymentCommand Valid() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new DateOnly(2026, 4, 1), null);
+        new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new DateOnly(2026, 4, 1), null, "pay-1");
+
+    [Fact] public void Validate_WhenOperationKeyBlank_ReturnsError() =>
+        _v.TestValidate(Valid() with { OperationKey = " " }).ShouldHaveValidationErrorFor(x => x.OperationKey)
+            .WithErrorCode("Payment.OperationKeyRequired");
 
     [Fact] public void Validate_WhenAmountZero_ReturnsError() =>
         _v.TestValidate(Valid() with { Amount = 0m }).ShouldHaveValidationErrorFor(x => x.Amount);

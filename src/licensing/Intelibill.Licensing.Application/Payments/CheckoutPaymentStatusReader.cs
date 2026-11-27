@@ -13,8 +13,17 @@ namespace Intelibill.Licensing.Application.Payments;
 /// </summary>
 public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPaymentStore store,
     IEntitlementSynchronizationReader synchronization, IPaymentGatewayResolver gateways, TimeProvider clock,
-    IPaymentProviderSelection selection, IClosureStore closures)
+    IPaymentProviderSelection selection, IClosureStore closures, Changes.ICapacityIncreaseStore increases,
+    Changes.IScheduledCapacityReductionStore reductions)
 {
+    internal async Task<bool> MayAccessOrderAsync(Guid account, Guid order, Guid actor, CancellationToken ct)
+    {
+        var retained = await orders.FindAsync(account, order, false, ct);
+        if (retained?.Quote.Increase is not null && !await orders.IsIncreaseOwnerAsync(account, order, actor, ct))
+            return false;
+        return retained?.Quote.Reduction is null || await orders.IsReductionOwnerAsync(account, order, actor, ct);
+    }
+
     public async Task<ErrorOr<CheckoutPaymentV1>> ReadAsync(Guid account, Guid order, CancellationToken ct)
     {
         if (await orders.FindAsync(account, order, false, ct) is not { Quote: var quote })
@@ -27,15 +36,29 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var canStart = row.Attempt is null && row.ManualVerifiedAt is null && row.TermId is null &&
             await CanStartAsync(quote, ct) && !await store.HasOverlappingPaymentAsync(account, order, ct);
         var closureStatus = shops.Length == 0 ? [] : await closures.ReadCheckoutClosuresAsync(account, shops, ct);
-        return Project(quote, row, synced, closureStatus.ToDictionary(status => status.ShopId), canStart, gateway);
+        var status = Project(quote, row, synced, closureStatus.ToDictionary(s => s.ShopId), canStart, gateway);
+        if (quote.Reduction is not null && row.TermId is null && await reductions.OrderStateAsync(account, order, ct) is { } rState)
+            return rState is "Funded" or "Applying"
+                ? status with { Fulfilment = "Pending", CanStart = false, Launch = null }
+                : status with { Fulfilment = "NeedsReview", CanStart = false, Launch = null };
+        if (quote.Increase is null || await increases.StateAsync(account, order, ct) is not { } state)
+            return status;
+        return state == "Applied"
+            ? status with { Fulfilment = "Fulfilled", Access = "Applied", TermId = quote.TermId, TermStartsAt = quote.PreviewStartsAt,
+                TermEndsAt = quote.PreviewEndsAt, ShopsApplied = quote.ShopCount, CanStart = false, Launch = null }
+            : status with { Fulfilment = state, CanStart = false, Launch = null };
     }
 
     internal async Task<bool> CanStartAsync(CheckoutQuoteV1 quote, CancellationToken ct)
     {
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
         var selected = await selection.SelectedAsync(false, ct);
-        return Startable(quote) && selected.Pin is { } pin && gateways.ForPin(pin) is { } gateway && gateway.SupportsAmount(quote.AmountPaise, quote.Currency) && now < quote.ExpiresAt &&
-            CheckoutRenewalPolicy.WindowOpen(quote, now);
+        if (selected.Pin is not { } pin || gateways.ForPin(pin) is not { } gateway ||
+            !gateway.SupportsAmount(quote.AmountPaise, quote.Currency)) return false;
+        if (quote.Increase is { } change && (change.RoutingRevision != selected.Revision ||
+            change.PinHash != Subscriptions.ConvertCapacityQuoteHandler.PinHash(pin))) return false;
+        return Startable(quote) && now < quote.ExpiresAt && CheckoutRenewalPolicy.WindowOpen(quote, now) &&
+            await CheckoutRenewalPolicy.SourceIsCurrentAsync(orders, quote, now, ct);
     }
 
     internal static bool Startable(CheckoutQuoteV1 quote) => CheckoutRenewalPolicy.Payable(quote);
@@ -51,9 +74,9 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         if (routingReview) payment = "PendingVerification";
         var fulfilment = row.TermId is not null ? "Fulfilled" : (row.NeedsReview || routingReview) ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => closures.GetValueOrDefault(d.ShopId)?.Closed != true &&
-            synced.TryGetValue(d.ShopId, out var s) && Applied(d.ShopRevision, s, closures.GetValueOrDefault(d.ShopId)));
+            synced.TryGetValue(d.ShopId, out var s) && Applied(d, s, closures.GetValueOrDefault(d.ShopId)));
         var review = closures.Values.Any(s => s.Closed) || row.Deliveries.Any(d => d.ShopRevision is not null &&
-            synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" && !Applied(d.ShopRevision, s, closures.GetValueOrDefault(d.ShopId)));
+            synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" && !Applied(d, s, closures.GetValueOrDefault(d.ShopId)));
         var access = row.TermId is null ? "NotApplicable"
             : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
         // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
@@ -66,8 +89,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             row.RestorationHeld, row.ServiceRestoration);
     }
 
-    private static bool Applied(long? fulfilmentRevision, EntitlementSynchronizationV1 synchronization,
+    private static bool Applied(PaymentShopDelivery delivery, EntitlementSynchronizationV1 synchronization,
         CheckoutClosureStatus? closure) =>
-        fulfilmentRevision is { } revision && synchronization.AppliedShopRevision >= revision &&
+        !delivery.AwaitingReplacementReceipt && delivery.ShopRevision is { } revision && synchronization.AppliedShopRevision >= revision &&
         (closure?.ReopeningRevision is null || closure.ReopeningAcknowledged);
 }

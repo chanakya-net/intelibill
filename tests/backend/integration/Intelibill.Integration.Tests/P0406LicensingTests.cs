@@ -34,7 +34,6 @@ public sealed partial class P0406LicensingTests
     [Theory]
     [InlineData("reserve-keyed")]
     [InlineData("complete-keyed")]
-    [InlineData("save-unkeyed")]
     public async Task Partial_intake_crosses_deadline_without_posting_row_B(string stage)
     {
         using var host = CreateHost();
@@ -47,14 +46,13 @@ public sealed partial class P0406LicensingTests
             pin = "560001", isActive = true, isPreferred = false,
         })).GetProperty("supplierId").GetGuid();
         var rows = new[] { Row("A", _clock.Now.AddDays(-1), supplierId), Row("B", _clock.Now.AddDays(-1), supplierId) };
-        var keyed = stage != "save-unkeyed";
-        var request = new { operationKey = keyed ? "two-rows" : null, items = rows };
+        var request = new { operationKey = "two-rows", items = rows };
         await using var barrier = await PauseSecondRowAsync(shop, stage);
         var posting = client.PostAsJsonAsync(Bulk, request, Ct);
         var waiter = await barrier.WaitForArrivalAsync();
         try
         {
-            Assert.Equal(new StockFacts(1, 1, 2, 1, 1, 1, keyed ? 2 : 0), await FactsAsync(shop));
+            Assert.Equal(new StockFacts(1, 1, 2, 1, 1, 1, 2), await FactsAsync(shop));
             _clock.Now = end;
         }
         finally
@@ -67,9 +65,8 @@ public sealed partial class P0406LicensingTests
         _output.WriteLine("PostgreSQL waiter {0} blocked by {1} during {2}; HTTP {3}; facts={4}",
             waiter, barrier.BlockerPid, stage, (int)response.StatusCode, after);
         var original = await AssertPartialAsync(response, "Licence.Expired");
-        Assert.Equal(new StockFacts(1, 1, 2, 1, 1, 1, keyed ? 2 : 0), after);
-        if (keyed)
-            await AssertRecoveryAsync(client, binding, rows, original);
+        Assert.Equal(new StockFacts(1, 1, 2, 1, 1, 1, 2), after);
+        await AssertRecoveryAsync(client, binding, rows, original);
     }
 
     private Task<TillPostgresBarrier> PauseSecondRowAsync(Guid shop, string stage)
@@ -78,8 +75,7 @@ public sealed partial class P0406LicensingTests
         return stage switch
         {
             "reserve-keyed" => TillPostgresBarrier.CreateAsync(Migrator, "operation_receipts", shop, rowReceipt, "BEFORE INSERT"),
-            "complete-keyed" => TillPostgresBarrier.CreateAsync(Migrator, "operation_receipts", shop, rowReceipt, "AFTER UPDATE"),
-            _ => TillPostgresBarrier.CreateAsync(Migrator, "inventory_batches", shop, "NEW.batch_number = 'B'"),
+            _ => TillPostgresBarrier.CreateAsync(Migrator, "operation_receipts", shop, rowReceipt, "AFTER UPDATE"),
         };
     }
 

@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Data;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
@@ -22,7 +23,7 @@ internal sealed class CatalogueDraftStore(LicensingDbContext context) : ICatalog
         try
         {
             await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, token);
-            await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", token);
+            await context.SetLockTimeoutAsync(LockWait.Brief, token);
             var result = await operation(token);
             if (result.IsError) return result;
             await context.SaveChangesAsync(token);

@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -14,7 +15,6 @@ namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
 {
-    private const string ReturnMutationLockTimeout = "5s";
 
     private readonly ApplicationDbContext _context;
 
@@ -47,7 +47,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         // below, the credit notes and the batch rows written at save. A lock not granted in time
         // fails its statement with 55P03, which the caller answers as a retryable conflict.
         await _context.Database.ExecuteSqlAsync(
-            $"SELECT set_config('lock_timeout', {ReturnMutationLockTimeout}, true)",
+            $"SELECT set_config('lock_timeout', {DatabaseLockTimeouts.Value(_context, LockWait.Standard)}, true)",
             cancellationToken);
 
         // The sale's customer never changes, so it is read before any lock. A due reduction is

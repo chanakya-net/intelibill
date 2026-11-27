@@ -8,7 +8,6 @@ export interface RegisterState {
   readonly submitting: boolean;
   readonly email: string;
   readonly accepted: boolean;
-  readonly claim: boolean;
   readonly errorMessage: string;
 }
 
@@ -16,18 +15,16 @@ const initialState: RegisterState = {
   submitting: false,
   email: '',
   accepted: false,
-  claim: false,
   errorMessage: '',
 };
 
 export const registerReducer = createReducer(
   initialState,
   on(RegisterActions.reset, () => initialState),
-  on(RegisterActions.requested, (state, { email, claim }) => ({
+  on(RegisterActions.requested, (state, { email }) => ({
     ...state,
     submitting: true,
     email,
-    claim: claim ?? false,
     errorMessage: '',
   })),
   on(RegisterActions.succeeded, (state) => ({

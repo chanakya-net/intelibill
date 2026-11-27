@@ -31,7 +31,6 @@ const itemOne: Item = {
   defaultTaxIncluded: false,
   unitCode: null,
   quantityScale: 0,
-  unitReviewRequired: false,
 };
 
 const itemTwo: Item = {
@@ -51,7 +50,6 @@ const itemTwo: Item = {
   defaultTaxIncluded: false,
   unitCode: null,
   quantityScale: 0,
-  unitReviewRequired: false,
 };
 
 describe('inventory selectors', () => {

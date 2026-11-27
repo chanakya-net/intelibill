@@ -23,6 +23,14 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
         var path = message.Kind switch
         {
             "Acknowledgement" => EntitlementSnapshotsV1.AcknowledgementPath,
+            CoverageReplacementsV1.Kind => CoverageReplacementsV1.ReceiptPath,
+            CoverageReplacementExceptionsV1.ConsentKind => CoverageReplacementExceptionsV1.ConsentReceiptPath,
+            CoverageReplacementExceptionsV1.ReceiptKind => CoverageReplacementExceptionsV1.DecisionReceiptPath,
+            CoverageTransferApprovalsV1.Receipt => CoverageTransferApprovalsV1.ReceiptPath,
+            CoverageTransfersV1.ConsentKind => CoverageTransfersV1.ConsentReceiptPath,
+            CoverageSlotsV1.Kind => CoverageSlotsV1.ReceiptPath,
+            CapacityReservationV1.Receipt => CapacityReservationV1.ReceiptPath,
+            ReductionTransportV1.ReceiptKind => ReductionTransportV1.ReceiptPath,
             "Reconciliation" => EntitlementSnapshotsV1.ReconciliationPath,
             OfflineDeviceObservationsV1.Kind => OfflineDeviceObservationsV1.Path,
             _ => null,
@@ -80,7 +88,7 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
     private Task<bool> StillDueAsync(Binding binding, DateTimeOffset now, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (
-                SELECT FROM public.shop_affiliation_consent_events e
+                SELECT FROM public.merchant_entitlement_bindings e
                 LEFT JOIN public.shop_affiliation_delivery_receipts f ON f.event_id = e.id
                 LEFT JOIN public.entitlement_reconciliation_requests r ON r.shop_id = e.shop_id
                 LEFT JOIN public.entitlement_outbox o ON o.event_id = r.event_id

@@ -110,7 +110,7 @@ export class SuspensionApi {
   }
 
   suspend(account: string, command: SuspensionCommand, session: string) {
-    // Drafts saved by an older client may contain fields from the preview.
+    // The saved draft also carries UI state (for example its validity), so send only the command.
     const { scope, shopId, operationKey, mode, effectiveAt, customerExplanation, internalReason,
       reviewReference, expectedVersion, impactDigest } = command;
     const body: SuspensionCommand = { scope, shopId, operationKey, mode, effectiveAt, customerExplanation,

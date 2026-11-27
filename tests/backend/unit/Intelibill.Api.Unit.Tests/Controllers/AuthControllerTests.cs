@@ -1,14 +1,10 @@
 using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.Login;
-using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
-using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.DTOs;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using Wolverine;
@@ -19,56 +15,10 @@ public class AuthControllerTests
 {
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
     private readonly AuthController _controller;
-    private readonly IEmailOwnershipService _ownership = Substitute.For<IEmailOwnershipService>();
 
     public AuthControllerTests()
     {
         _controller = new AuthController(_bus);
-        _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(_ownership).BuildServiceProvider() } };
-    }
-
-    [Fact]
-    public async Task RegisterWithEmail_ReturnsAcceptedWithoutCredentials()
-    {
-        _ownership.RequestAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
-        var result = await _controller.RegisterWithEmail(new RegisterWithEmailRequest("user@test.com", "Untrusted!1", "First", "Last", "+15551234567"), CancellationToken.None);
-        Assert.IsType<AcceptedResult>(result);
-        await _ownership.Received(1).RequestAsync("user@test.com", Arg.Any<CancellationToken>());
-        Assert.Empty(_bus.ReceivedCalls());
-    }
-
-    /// <summary>
-    /// The closed route answers with its own stable code and a 503, not the 500 the default
-    /// Failure mapping would produce.
-    /// </summary>
-    [Fact]
-    public async Task RegisterWithPhone_IsClosed_Returns503WithStableCode()
-    {
-        ArrangeBusResponse<AuthResult>(Errors.Phone.EnrollmentUnavailable);
-
-        var result = await _controller.RegisterWithPhone(
-            new RegisterWithPhoneRequest("+919876543210", "First", "Last"),
-            CancellationToken.None);
-
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status503ServiceUnavailable, objectResult.StatusCode);
-
-        var details = Assert.IsType<ProblemDetails>(objectResult.Value);
-        Assert.Equal("Auth.PhoneEnrollmentUnavailable", details.Title);
-    }
-
-    [Fact]
-    public async Task LoginWithEmail_WhenSuccessful_ReturnsOk()
-    {
-        var authResult = CreateAuthResult();
-        ArrangeBusResponse<AuthResult>(authResult);
-
-        var result = await _controller.LoginWithEmail(
-            new LoginWithEmailRequest("user@test.com", "Pass123!"),
-            CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
     }
 
     [Fact]
@@ -172,35 +122,6 @@ public class AuthControllerTests
     }
 
     [Fact]
-    public async Task LoginWithEmail_WhenInvalidCredentials_ReturnsUnauthorized()
-    {
-        ArrangeBusResponse<AuthResult>(Errors.Auth.InvalidCredentials);
-
-        var result = await _controller.LoginWithEmail(
-            new LoginWithEmailRequest("user@test.com", "Pass123!"),
-            CancellationToken.None);
-
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
-
-        var details = Assert.IsType<ProblemDetails>(objectResult.Value);
-        Assert.Equal(Errors.Auth.InvalidCredentials.Code, details.Title);
-    }
-
-    [Fact]
-    public async Task LoginWithEmail_DispatchesGenericCommandForCompatibility()
-    {
-        var request = new LoginWithEmailRequest("user@test.com", "Pass123!");
-        ArrangeBusResponse<AuthResult>(CreateAuthResult());
-
-        _ = await _controller.LoginWithEmail(request, CancellationToken.None);
-
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
-            Arg.Is<LoginCommand>(c => c.Identifier == request.Email && c.Password == request.Password),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task Login_WhenInvalidCredentials_ReturnsUnauthorized()
     {
         ArrangeBusResponse<AuthResult>(Errors.Auth.InvalidCredentials);
@@ -265,19 +186,6 @@ public class AuthControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
-    }
-
-    [Fact]
-    public async Task LoginWithEmail_WhenUnexpectedError_ReturnsInternalServerError()
-    {
-        ArrangeBusResponse<AuthResult>(Error.Unexpected("Auth.Unexpected", "Unexpected failure"));
-
-        var result = await _controller.LoginWithEmail(
-            new LoginWithEmailRequest("user@test.com", "Pass123!"),
-            CancellationToken.None);
-
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
     }
 
     [Fact]

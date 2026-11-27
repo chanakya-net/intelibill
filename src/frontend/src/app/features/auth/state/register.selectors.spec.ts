@@ -8,7 +8,6 @@ function buildState(overrides: Partial<RegisterState> = {}): { authRegistration:
       errorMessage: '',
       accepted: false,
       email: '',
-      claim: false,
       ...overrides,
     },
   };

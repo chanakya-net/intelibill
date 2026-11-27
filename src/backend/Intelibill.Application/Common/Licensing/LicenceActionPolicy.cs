@@ -9,9 +9,12 @@ namespace Intelibill.Application.Common.Licensing;
 public sealed class LicenceActionPolicy : ILicenceActionPolicy
 {
     public LicenceDecision Decide(LicenceAction action, ShopLicenseState? shop, AccountLicenseRestriction? account,
-        LicenseProofIssuance? proofs, DateTimeOffset now)
+        LicenseProofIssuance? proofs, DateTimeOffset now, bool activationPending = false)
     {
         var phase = GetPhase(shop, account, proofs, now);
+        // An otherwise operating head stays in the pending row until this shop's own seat check activates its slot.
+        if (activationPending && phase == Phase.Operating)
+            phase = Phase.Pending;
         var row = ForAction(action);
         var outcome = phase switch
         {

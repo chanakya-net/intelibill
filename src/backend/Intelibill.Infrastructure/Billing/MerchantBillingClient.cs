@@ -19,7 +19,9 @@ internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials,
-    TimeProvider clock, MerchantClosureConsentStore closures)
+    TimeProvider clock, MerchantClosureConsentStore closures, CoverageSlotConsentStore slotConsents,
+    ReplacementConsentStore replacementConsents, CoverageExceptionConsentStore exceptionConsents,
+    CoverageTransferShopConsentStore transferConsents)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
         IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders, IMerchantShopClosures
 {
@@ -94,12 +96,13 @@ internal sealed partial class MerchantBillingClient(
         int responseLimit, Func<HttpResponseMessage, CancellationToken, Task<ErrorOr<T>>> read,
         CancellationToken cancellationToken, string mediaType = "application/json")
     {
-        var origin = options.CurrentValue.GetOrigin(environment);
+        var settings = options.CurrentValue;
+        var origin = settings.GetOrigin(environment);
         if (origin is null)
             return Unavailable("InvalidLicensingOrigin");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        timeout.CancelAfter(settings.EffectiveRequestTimeout);
         try
         {
             return await SendAsync(origin, caller, intent, responseLimit, read, mediaType, timeout.Token);
@@ -157,13 +160,38 @@ internal sealed partial class MerchantBillingClient(
         {
             case HttpStatusCode.OK:
             case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request or CheckoutOrdersV1.Create
-                or CheckoutPaymentsV1.Start:
+                or CheckoutPaymentsV1.Start or CapacityReductionsV1.Schedule:
             case HttpStatusCode.Accepted when action is BillingInvitationsV1.Issue or BillingOwnershipTransfersV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
+                CoverageReplacementsV1.Read or CoverageReplacementsV1.Schedule or CoverageReplacementsV1.Recover or CoverageReplacementsV1.OwnerRead:
+                return await ReadProblemCodeAsync(response, cancellationToken) switch
+                {
+                    "Coverage.ReplacementInvalid" => Error.Validation("Coverage.ReplacementInvalid"),
+                    "Coverage.ReplacementChanged" => Error.Conflict("Coverage.ReplacementChanged"),
+                    "Coverage.ReplacementNotFound" => Error.NotFound("Coverage.ReplacementNotFound"),
+                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+                    _ => MerchantBillingErrors.Unavailable,
+                };
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CoverageReplacementExceptionsV1.IsAction(action):
+                return await ReadProblemCodeAsync(response, cancellationToken) switch
+                {
+                    "Coverage.ExceptionInvalid" => Error.Validation("Coverage.ExceptionInvalid"),
+                    "Coverage.ExceptionChanged" => Error.Conflict("Coverage.ExceptionChanged"),
+                    "Coverage.ExceptionNotFound" => Error.NotFound("Coverage.ExceptionNotFound"),
+                    "Coverage.ExceptionConsentsRequired" => Error.Conflict("Coverage.ExceptionConsentsRequired"),
+                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+                    _ => MerchantBillingErrors.Unavailable,
+                };
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
+                CoverageSlotsV1.Read or CoverageSlotsV1.Recover or CoverageSlotsV1.Request or CoverageSlotsV1.OwnerRead:
+                return SlotError(await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CoverageTransfersV1.IsAction(action):
+                return MapTransferRequestFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
                 return await ReadProblemCodeAsync(response, cancellationToken) switch
                 {
@@ -185,6 +213,16 @@ internal sealed partial class MerchantBillingClient(
                 return MapCancellationFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutPaymentsV1.IsAction(action):
                 return MapPaymentFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.NotFound when BillingDocumentsV1.IsAction(action):
+                return await ReadProblemCodeAsync(response, cancellationToken) == BillingDocumentsV1.NotFound
+                    ? Error.NotFound(BillingDocumentsV1.NotFound, "The billing document was not found.")
+                    : Unavailable("UpstreamStatus");
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityChangeQuotesV1.IsAction(action):
+                return MapCapacityQuoteFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CapacityReductionsV1.IsAction(action):
+                return MapCapacityReductionFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when RefundRequestsV1.IsAction(action):
+                return MapRefundRequestFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutOrdersV1.IsAction(action):
                 return MapCheckoutFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action == PublishedCatalogueV1.Read:

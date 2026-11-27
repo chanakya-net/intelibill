@@ -87,9 +87,9 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Address,
                 request.IsActive,
                 request.CreditLimit,
+                request.CreditPolicyMode,
                 request.Gstin,
                 request.StateCode,
-                request.CreditPolicyMode,
                 request.CreditTermsDays),
             cancellationToken);
 
@@ -112,10 +112,10 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Address,
                 request.IsActive,
                 request.CreditLimit,
+                request.CreditPolicyMode,
                 SessionClaims.TryRead(User),
                 request.Gstin,
                 request.StateCode,
-                request.CreditPolicyMode,
                 request.CreditTermsDays,
                 UserId),
             cancellationToken);
@@ -174,7 +174,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaymentDate,
                 request.Notes,
-                request.OperationKey,
+                request.OperationKey ?? string.Empty,
                 request.Method,
                 request.BankAccountId,
                 request.ExternalReference,
@@ -185,37 +185,39 @@ public sealed class CustomersController : AuthenticatedControllerBase
     }
 }
 
+/// <param name="CreditPolicyMode">Required; a request without one is refused as invalid.</param>
 public sealed record AddCustomerRequest(
     string Name,
     string PhoneNumber,
     string? Address,
     bool IsActive,
+    CreditPolicyMode CreditPolicyMode,
     decimal CreditLimit = 0m,
     string? Gstin = null,
     string? StateCode = null,
-    CreditPolicyMode? CreditPolicyMode = null,
     int? CreditTermsDays = null);
 
+/// <summary>Replaces the customer's details: an absent GSTIN, state or terms records none.</summary>
+/// <param name="CreditPolicyMode">Required; a request without one is refused as invalid.</param>
 public sealed record EditCustomerRequest(
     string Name,
     string PhoneNumber,
     string? Address,
     bool IsActive,
     decimal CreditLimit,
+    CreditPolicyMode CreditPolicyMode,
     string? Gstin = null,
     string? StateCode = null,
-    CreditPolicyMode? CreditPolicyMode = null,
     int? CreditTermsDays = null);
 
 /// <param name="OperationKey">
-/// Durable identity of this payment. A retry with the same key replays the committed result;
-/// optional only until every client sends one.
+/// Required durable identity of this payment. A retry with the same key replays the committed result.
 /// </param>
 public sealed record RecordCustomerPaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
     string? Notes,
-    string? OperationKey = null,
+    string? OperationKey,
     ReceiptTenderMethod? Method = null,
     Guid? BankAccountId = null,
     string? ExternalReference = null,

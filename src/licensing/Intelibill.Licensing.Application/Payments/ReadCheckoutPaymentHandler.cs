@@ -8,5 +8,7 @@ public sealed class ReadCheckoutPaymentHandler(IBillingDelegationAccess access, 
 {
     public Task<ErrorOr<CheckoutPaymentV1>> ReadAsync(VerifiedBillingDelegation proof, Guid account, Guid order,
         CancellationToken ct) =>
-        access.ExecuteAsync(proof, (_, token) => status.ReadAsync(account, order, token), ct);
+        access.ExecuteAsync<CheckoutPaymentV1>(proof, async (_, token) =>
+            await status.MayAccessOrderAsync(account, order, proof.ActorId, token)
+                ? await status.ReadAsync(account, order, token) : BillingDelegationErrors.Denied, ct);
 }

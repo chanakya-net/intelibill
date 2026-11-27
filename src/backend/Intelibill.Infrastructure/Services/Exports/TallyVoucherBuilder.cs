@@ -65,7 +65,7 @@ internal static class TallyVoucherBuilder
     {
         var adjustmentSide = !entry.IsReversal;
         var lines = new List<AccountingVoucherLine>();
-        AddLine(lines, SalesLedger, Math.Abs(entry.TaxableAdjustment ?? 0m), adjustmentSide);
+        AddLine(lines, SalesLedger, Math.Abs(entry.TaxableAdjustment), adjustmentSide);
         if (entry.DocumentTaxComponents is { } documentComponents)
         {
             // Reverses tax into the same component ledgers the sale's document posted to.
@@ -77,7 +77,7 @@ internal static class TallyVoucherBuilder
             foreach (var component in entry.TaxComponents.OrderBy(c => c.TaxRatePercent))
                 AddLine(lines, FormatGstLedgerName(component.TaxRatePercent), Math.Abs(component.TaxAmount), adjustmentSide);
         }
-        AddLine(lines, SalesReturnAdjustmentsLedger, Math.Abs(entry.NonTaxAdjustment ?? 0m), adjustmentSide);
+        AddLine(lines, SalesReturnAdjustmentsLedger, Math.Abs(entry.NonTaxAdjustment), adjustmentSide);
 
         foreach (var settlement in entry.Settlements)
             AddLine(lines, SettlementLedgerName(settlement.Kind, entry.CustomerName), Math.Abs(settlement.Amount), !adjustmentSide);

@@ -355,29 +355,4 @@ test.describe('P04-13d receipt correction recovery', () => {
       }
     });
   }
-
-  for (const role of ['Owner', 'Manager']) {
-    test(`P04-13d ${role} sees the appropriate action for unresolved legacy evidence`, async ({ page }, info) => {
-      const server = await startPurchaseReceivingServer(build);
-      const state = await installReceiptFixture(page, role);
-      state.rows = [{ ...batch, receiptStatus: 'LegacyUnresolved', receiptOriginalTotalCost: null,
-        receiptTotalCost: null, receiptVersion: null }] as unknown as typeof state.rows;
-      try {
-        await page.goto(`${server.origin}/inventory/batches`);
-        if (role === 'Owner') {
-          const dialog = await openReceiptCorrection(page);
-          await expect(dialog.getByTestId('receipt-cost-unresolved')).toBeVisible();
-          await expect(dialog.getByRole('button', { name: 'Post correction' })).toHaveCount(0);
-          await page.screenshot({ animations: 'disabled', path: info.outputPath('legacy-source-refusal.png') });
-        } else {
-          await page.getByRole('button', { name: 'Actions', exact: true }).filter({ visible: true }).first().click();
-          await expect(page.getByRole('menu')).toBeVisible();
-          await expect(page.getByRole('menuitem', { name: 'Correct receipt cost', exact: true })).toHaveCount(0);
-        }
-        expect(state.posts).toHaveLength(0);
-      } finally {
-        await server.close();
-      }
-    });
-  }
 });

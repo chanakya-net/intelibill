@@ -81,8 +81,8 @@ export interface OfflineFrozenSaleLine {
 }
 
 export interface OfflineFrozenSaleTotals {
-  /** Sum of pre-tax line amounts. Absent on unversioned (legacy) payloads, which sent totalBeforeDiscount instead. */
-  readonly subtotalBeforeDiscount?: number;
+  /** Sum of pre-tax line amounts. */
+  readonly subtotalBeforeDiscount: number;
   readonly totalBeforeDiscount: number;
   readonly totalDiscount: number;
   readonly totalTax: number;
@@ -92,8 +92,8 @@ export interface OfflineFrozenSaleTotals {
 }
 
 export interface OfflineFrozenSalePricing {
-  /** Arithmetic contract the amounts were frozen under; absent on payloads queued before versioning (legacy). */
-  readonly calculationVersion?: number;
+  /** Arithmetic contract the amounts were frozen under. */
+  readonly calculationVersion: number;
   readonly lines: readonly OfflineFrozenSaleLine[];
   readonly totals: OfflineFrozenSaleTotals;
   readonly saleDiscountOverrideType?: number;
@@ -136,8 +136,8 @@ export interface OfflineQueuedSalePayload {
   readonly customerId: string | null;
   readonly customerName: string | null;
   readonly customerPhone: string | null;
-  /** Signed-in user who issued the invoice. Absent on payloads queued before issuers were recorded (legacy). */
-  readonly issuedByUserId?: string | null;
+  /** Signed-in user who issued the invoice. */
+  readonly issuedByUserId: string;
   /**
    * The document the invoice was issued as, frozen once at finalization from the lease's seller profile; every print
    * and reprint renders it. Absent on payloads queued before devices issued documents (legacy).

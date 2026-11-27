@@ -62,6 +62,5 @@ public sealed class GetItemsQueryHandler(
             item.DefaultTaxRatePercent,
             item.DefaultTaxIncluded,
             item.UnitCode,
-            item.QuantityScale,
-            item.UnitReviewRequired);
+            item.QuantityScale);
 }

@@ -79,7 +79,7 @@ internal sealed partial class MerchantBillingClient
         CheckoutOrdersV1.IsHash(q.ShopHash) && CheckoutOrdersV1.IsHash(q.SourceHash) &&
         q.AmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise && q.Currency == "INR" && q.PriceBasis == "TaxInclusiveFinal" &&
         q.CustomerTermsVersion is { Length: > 0 and <= 80 } && q.RefundPolicyVersion is { Length: > 0 and <= 80 } &&
-        HasCheckoutDates(q) && ValidFreshStart(q) && q.SnapshotHash == CheckoutOrdersV1.SnapshotHash(q) &&
+        ((q.Increase is not null) == (q.StartRule == CapacityIncreaseOrderV1.Rule)) && ValidReductionOrder(q) && HasCheckoutDates(q) && ValidFreshStart(q) && q.SnapshotHash == CheckoutOrdersV1.SnapshotHash(q) &&
         (q.Acceptance is null || q.Acceptance is { } a && a.OperationKey != Guid.Empty && a.QuoteRevision == q.Revision &&
             a.SnapshotHash == q.SnapshotHash && EntitlementSnapshotsV1.IsInstant(a.AcceptedAt) &&
             a.AcceptedAt >= q.CreatedAt && a.AcceptedAt < q.ExpiresAt);
@@ -88,6 +88,12 @@ internal sealed partial class MerchantBillingClient
         quote.FreshStart is null || quote.FreshStart is { Policy: CheckoutOrdersV1.FreshStartPolicy, TrialShopCount: >= 0 } fresh &&
         fresh.TrialShopCount <= quote.ShopCount && CheckoutOrdersV1.IsHash(fresh.TrialSourceHash) &&
         (quote.StartRule == "Fulfilment" || quote.StartRule == "RestoredAccess" && fresh.TrialShopCount == 0);
+
+    private static bool ValidReductionOrder(CheckoutQuoteV1 q) =>
+        q.Reduction is null || (q.StartRule == "PriorPaidThrough" && q.Increase is null && q.FreshStart is null &&
+            q.Reduction.ScheduleId != Guid.Empty && CheckoutOrdersV1.IsHash(q.Reduction.ScheduleHash) &&
+            q.Reduction.SourceShopCount >= q.ShopCount && q.Reduction.SourceShopCount <= CheckoutOrdersV1.MaxShops &&
+            CheckoutOrdersV1.IsHash(q.Reduction.SourceShopHash));
 
     private static bool HasCheckoutDates(CheckoutQuoteV1 q) =>
         q.BillingTimeZone == "Asia/Kolkata" && q.CalendarVersion == "calendar-month-year/1" && q.RenewalPolicyVersion == "renewal/1" &&
@@ -99,6 +105,9 @@ internal sealed partial class MerchantBillingClient
         {
             "Fulfilment" => q.TermId is null && q.Ordinal == 0 && q.GraceDaysIncluded == 0,
             "RestoredAccess" => q.TermId is not null && q.Ordinal == 0 && q.GraceDaysIncluded == 0,
+            CapacityIncreaseOrderV1.Rule => q.TermId is not null && q.FreshStart is null && q.Ordinal >= 0 &&
+                q.Increase is { RoutingRevision: >= 0, SourceRevision: >= 0 and < long.MaxValue } change && CheckoutOrdersV1.IsHash(change.QuoteHash) &&
+                CheckoutOrdersV1.IsHash(change.PinHash) && q.PreviewStartsAt <= q.CreatedAt && q.CreatedAt < q.PreviewEndsAt,
             "PriorPaidThrough" => q.TermId is not null && q.Ordinal is > 0 and <= 1201 && q.GraceDaysIncluded is >= 0 and <= 7,
             _ => false,
         });
@@ -126,6 +135,8 @@ internal sealed partial class MerchantBillingClient
         (HttpStatusCode.Conflict, CheckoutOrdersV1.Expired) => Error.Conflict(code, "The quote expired before acceptance."),
         (HttpStatusCode.Conflict, CheckoutOrdersV1.AlreadyAccepted) => Error.Conflict(code, "The quote was already accepted."),
         (HttpStatusCode.Conflict, "Billing.OperationPayloadMismatch") => MerchantBillingErrors.PayloadMismatch,
+        (_, CapacityReductionsV1.NotFound or CapacityReductionsV1.SourceChanged or CapacityReductionsV1.MemberConflict
+            or CapacityReductionsV1.AlreadyFunded or CapacityReductionsV1.NeedsReview) => MapCapacityReductionFailure(status, code),
         _ => Unavailable("UpstreamStatus"),
     };
 }

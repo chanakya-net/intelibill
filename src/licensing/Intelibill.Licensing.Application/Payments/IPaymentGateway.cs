@@ -14,6 +14,8 @@ public interface IPaymentGateway
         new Dictionary<string, string>();
     /// <summary>Whether the provider can take this full amount; checked before any attempt is persisted.</summary>
     bool SupportsAmount(long amountPaise, string currency) => true;
+    /// <summary>The documented smallest full amount for a currency, when the provider has one; null when it has none.</summary>
+    long? MinimumAmountPaise(string currency) => null;
     Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct);
     Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<CheckoutLookup>());
@@ -23,6 +25,17 @@ public interface IPaymentGateway
     /// <summary>Independent authenticated receipt reads for finance. These observations cannot fund an order.</summary>
     Task<GatewayResult<IReadOnlyList<PaymentObservation>>> InspectCapturesAsync(string orderReference, string? paymentReference, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<IReadOnlyList<PaymentObservation>>());
+    bool SupportsRefund(RefundRequest request) => Capabilities.Refunds && request.Pin == Pin &&
+        request.Payment is { } payment && request.AmountPaise > 0 && request.AmountPaise <= payment.AmountPaise &&
+        request.Currency == payment.Currency && request.RefundId != Guid.Empty && request.ProviderOrderReference is not null;
+    /// <summary>Read-only verification of the original captured payment before consuming the single refund send right.</summary>
+    Task<GatewayOutcome> PreflightRefundAsync(RefundRequest request, CancellationToken ct) =>
+        Task.FromResult(SupportsRefund(request) ? GatewayOutcome.Succeeded : GatewayOutcome.Unsupported);
+    /// <summary>Dispatches the single refund write after preflight and send-right commitment; never retries.</summary>
+    Task<GatewayResult<RefundObservation>> SendRefundAsync(RefundRequest request, CancellationToken ct) =>
+        RequestRefundAsync(request, ct);
+    Task<GatewayResult<RefundObservation>> GetRefundAsync(RefundRequest request, string? reference, CancellationToken ct) =>
+        Task.FromResult(GatewayResult.Unsupported<RefundObservation>());
     Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct);
     Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct);
     GatewayResult<VerifiedGatewayEvent> ValidateWebhook(ReadOnlySpan<byte> body, IReadOnlyDictionary<string, string> headers);

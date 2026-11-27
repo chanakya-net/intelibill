@@ -148,15 +148,6 @@ public sealed class SaleExpiryGuardTests(PostgreSqlTestFixture fixture)
         var failure = await Assert.ThrowsAsync<DbUpdateException>(() => invalid.SaveChangesAsync());
         Assert.Equal(Npgsql.PostgresErrorCodes.ForeignKeyViolation, Assert.IsType<Npgsql.PostgresException>(failure.InnerException).SqlState);
     }
-    [Fact]
-    public void EvidenceMigration_RefusesDestructiveDown()
-    {
-        var migration = new Intelibill.Infrastructure.Migrations.AddExpirySaleEvidence();
-        var builder = new Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
-        var down = migration.GetType().GetMethod("Down", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration, [builder]));
-        Assert.IsType<NotSupportedException>(exception.InnerException); Assert.Empty(builder.Operations);
-    }
     private sealed class PolicyReadCounter : DbCommandInterceptor
     {
         public int Reads { get; private set; }

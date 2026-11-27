@@ -112,9 +112,7 @@ internal sealed record OfflineSaleSyncIdempotencyPayload(
     decimal? ConfiguredSaleRulePercentage,
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineIdempotencyPayload> Items,
-    // Omitted when null so unversioned payloads keep the hash they were first synced with.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CalculationVersion,
-    // Omitted when null so payloads queued before the issuer was recorded keep their hash.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? IssuedByUserId,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null,

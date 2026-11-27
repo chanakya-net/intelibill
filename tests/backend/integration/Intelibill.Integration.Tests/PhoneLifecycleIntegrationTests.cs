@@ -227,25 +227,27 @@ public sealed class PhoneLifecycleIntegrationTests(PostgreSqlTestFixture fixture
     }
 
     /// <summary>
-    /// A carrier gave this number to somebody else. Proving it today says nothing about having
-    /// owned the account that accumulated the shop behind it, so the answer is an audited support
-    /// process, never an automatic claim.
+    /// A carrier gave this number to somebody else. The account that listed it as a contact number
+    /// never proved it, so proving it today says nothing about having owned the shop behind it: the
+    /// answer is an audited support process, never an automatic claim.
     /// </summary>
     [Fact]
-    public async Task RecycledPhone_CannotClaimLegacyShop()
+    public async Task RecycledPhone_CannotClaimEstablishedShop()
     {
         var phone = Phone();
-        Guid legacyUserId;
+        Guid establishedUserId;
 
         using (var scope = _factory.Services.CreateScope())
         {
             var seed = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var legacy = User.CreateWithPhone(phone, "Legacy", "Owner");
-            legacyUserId = legacy.Id;
+            var email = $"established-{Guid.NewGuid():N}@test.com";
+            var established = User.CreateWithEmail(email, "hash", "Established", "Owner", phone);
+            established.VerifyEmail(email);
+            establishedUserId = established.Id;
             var shop = Shop.Create("Established business", "Address", "City", "State", "560001", null, null, null);
-            seed.Users.Add(legacy);
+            seed.Users.Add(established);
             seed.Shops.Add(shop);
-            seed.ShopMemberships.Add(ShopMembership.Create(shop.Id, legacy.Id, ShopRole.Owner, true));
+            seed.ShopMemberships.Add(ShopMembership.Create(shop.Id, established.Id, ShopRole.Owner, true));
             await seed.SaveChangesAsync();
         }
 
@@ -264,7 +266,7 @@ public sealed class PhoneLifecycleIntegrationTests(PostgreSqlTestFixture fixture
         Assert.Equal(0, await db.Set<IdentitySms>().CountAsync());
         Assert.Equal(0, await db.AuthSessions.CountAsync());
 
-        var preserved = await db.Users.SingleAsync(x => x.Id == legacyUserId);
+        var preserved = await db.Users.SingleAsync(x => x.Id == establishedUserId);
         Assert.Equal(phone, preserved.PhoneNumber);
         Assert.False(preserved.IsPhoneVerified);
         Assert.Equal(1, await db.Shops.CountAsync());
@@ -370,8 +372,7 @@ public sealed class PhoneLifecycleIntegrationTests(PostgreSqlTestFixture fixture
 }
 
 /// <summary>
-/// With phone authentication switched off, the switch has to close the challenge endpoints too.
-/// Closing only the legacy route would ship a worse hole than the one being closed.
+/// With phone authentication switched off, the switch has to close every phone challenge endpoint.
 /// </summary>
 [Collection("Integration Tests")]
 public sealed class PhoneAuthDisabledIntegrationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
@@ -393,7 +394,6 @@ public sealed class PhoneAuthDisabledIntegrationTests(PostgreSqlTestFixture fixt
 
         var routes = new (string Route, object Body)[]
         {
-            ("/api/auth/register/phone", new { phoneNumber = phone, firstName = "Phone", lastName = "Owner" }),
             ("/api/auth/phone/enrollment/request", new { phoneNumber = phone }),
             ("/api/auth/phone/login/request", new { phoneNumber = phone }),
         };

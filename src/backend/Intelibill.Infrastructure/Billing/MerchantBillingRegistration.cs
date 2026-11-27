@@ -24,6 +24,11 @@ internal static class MerchantBillingRegistration
         services.AddSingleton<IMerchantBillingSigningKeys, MerchantBillingDelegationKeys>();
         services.AddScoped<MerchantBillingDelegationIssuer>();
         services.AddScoped<ShopAffiliationConsentStore>();
+        services.AddScoped<CoverageSlotConsentStore>();
+        services.AddScoped<ReplacementConsentStore>();
+        services.AddScoped<CoverageExceptionConsentStore>();
+        services.AddScoped<CoverageTransferShopConsentStore>();
+        services.AddScoped<ICoverageTransferAuthorityReceiver, MerchantCoverageTransferAuthority>();
         services.AddScoped<MerchantClosureConsentStore>();
         services.AddScoped<IMerchantClosureValidationReceiver>(provider => provider.GetRequiredService<MerchantClosureConsentStore>());
         AddDeliveryKey(services, ShopAffiliationDeliveryV1.Section);
@@ -35,6 +40,10 @@ internal static class MerchantBillingRegistration
         services.AddScoped<ShopLicenceFence>();
         services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
+        services.AddScoped<ICapacityReservationReceiver, MerchantCapacityReservationStore>();
+        services.AddScoped<IReductionReservationReceiver, MerchantReductionReservationStore>();
+        services.AddScoped<ICoverageTransferReceiver, MerchantCoverageTransferReceiver>();
+        services.AddScoped<ICoverageExceptionReceiver, MerchantCoverageExceptionReceiver>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
         AddDeliveryKey(services, OfflinePermitContractV1.Section);
@@ -55,6 +64,10 @@ internal static class MerchantBillingRegistration
         LeasedHttpDeliveryPump.Register(services);
         services.TryAddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection,
             (provider, _) => provider.GetRequiredService<TimeProvider>());
+        services.AddOptions<MerchantDeliveryPollingOptions>()
+            .BindConfiguration(MerchantDeliveryPollingOptions.Section)
+            .Validate(options => options.IsValid(), "MerchantDeliveryPolling:Interval must be between 10 ms and 5 minutes.")
+            .ValidateOnStart();
         services.AddScoped<TrialActivationConsentStore>();
         services.AddScoped<TrialActivationDelivery>();
         services.AddHostedService<TrialActivationDeliveryWorker>();
@@ -63,6 +76,10 @@ internal static class MerchantBillingRegistration
         services.AddHttpClient(ClientName)
             .AddTypedClient<IMerchantBillingAccess, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingInvitations, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCoverageSlots, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCoverageReplacements, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCoverageReplacementExceptions, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCoverageTransfers, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopAffiliations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopClosures, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingOwnershipTransfers, MerchantBillingClient>()
@@ -70,8 +87,12 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantSubscriptionCancellations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopTrials, MerchantBillingClient>()
             .AddTypedClient<IMerchantCheckoutOrders, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCapacityChangeQuotes, MerchantBillingClient>()
+            .AddTypedClient<IMerchantCapacityReductions, MerchantBillingClient>()
+            .AddTypedClient<IMerchantRefundRequests, MerchantBillingClient>()
             .AddTypedClient<IMerchantCheckoutPayments, MerchantBillingClient>()
             .AddTypedClient<IMerchantPaymentConfirmations, MerchantBillingClient>()
+            .AddTypedClient<IMerchantBillingDocuments, MerchantBillingClient>()
             .RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {

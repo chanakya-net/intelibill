@@ -56,6 +56,24 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.PaymentReviewPageComponent),
       },
       {
+        path: 'payments/refunds/:account/:request/approve',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/refunds/refund-approval-page.component')
+          .then((m) => m.RefundApprovalPageComponent),
+      },
+      {
+        path: 'payments/refunds',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/payments/refunds/refund-intake-page.component')
+          .then((m) => m.RefundIntakePageComponent),
+      },
+      {
+        path: 'payments/documents',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/documents/billing-document-page.component')
+          .then((m) => m.BillingDocumentPageComponent),
+      },
+      {
         path: 'payments',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/payments/manual-payment-page.component')
@@ -72,6 +90,24 @@ export const appConfig: ApplicationConfig = {
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/restrictions/suspension-page.component')
           .then((m) => m.SuspensionPageComponent),
+      },
+      {
+        path: 'coverage-exceptions',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/coverage-exceptions/coverage-exception-page.component')
+          .then((m) => m.CoverageExceptionPageComponent),
+      },
+      {
+        path: 'accounts/:accountId/coverage-transfers',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/coverage-exceptions/transfer-review-page.component')
+          .then(m => m.TransferReviewPageComponent),
+      },
+      {
+        path: 'accounts/:accountId/coverage-exceptions',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/coverage-exceptions/coverage-exception-page.component')
+          .then((m) => m.CoverageExceptionPageComponent),
       },
       {
         path: 'accounts',

@@ -92,13 +92,9 @@ follow the server's `availableActions`. Backend rules: `docs/backend-architectur
 - **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales` for the active shop and this
   browser's device id: Pending/Failed invoices are transport retries, NeedsReview opens its case, and
   another user's invoices are listed as awaiting their issuer.
-- **Send to server for review.** A NeedsReview row the signed-in user may submit (`isSubmittableBy`)
-  whose case kept no original invoice (`hasOriginalEnvelope` false, learnt from the case detail) or that
-  has no case at all offers a one-time resend: `resubmitForReview` sends that one record through the
-  normal sync request; if the request fails the record goes back to NeedsReview exactly as it was, so
-  automatic and bulk retries (`isOfflineSaleSyncRetryable`) still never resend held invoices.
-- **Issuer stamping.** New queued invoices carry `issuedByUserId`; queue sync submits only the
-  signed-in user's invoices (and legacy unstamped ones).
+  Automatic and bulk retries (`isOfflineSaleSyncRetryable`) never resend held invoices.
+- **Issuer stamping.** Every queued invoice carries `issuedByUserId` and the `calculationVersion` it was
+  priced under; queue sync submits only the signed-in user's invoices (`isSubmittableBy`).
 - **Cases** show a status filter, paging, the frozen invoice, reason, differences, people ("unknown
   user" for non-members), the invoice number reservation window, and the audit trail, plus a resolve
   form. State is shown only from the last server response; offline display never claims a resolution.
@@ -427,12 +423,10 @@ immutable for a year).
 - **Stock count and adjustment.** `InventoryBatchDto` carries the item's `uom` and `quantityScale`. Both forms
   take up to 3 decimals, refuse an entry finer than the item's unit before submit
   (`shared/quantity/quantity-messages.ts` names the unit and the allowed decimals) and preview the result
-  unrounded. An API that predates units sends neither field, and the storage ceiling of 3 applies.
+  unrounded.
 - **Item form.** Add and edit item overlays pick a unit and a precision. A catalog unit fixes the
   precision; a custom name offers a 0 to 3 decimals select (changing back from a catalog label restores the
-  custom precision the item had, whole numbers by default), and an item flagged for review shows a badge until
-  the merchant saves it: a catalog-unit item is told that saving confirms the unit, a custom one to choose the
-  precision.
+  custom precision the item had, whole numbers by default).
 - **Returns.** The return form allows `max(item scale, scale of the sold quantity)` decimals per line. A typed
   quantity above the returnable amount is kept and refused by the form's validation, never clamped.
 - **Mocked UI proof.** The fractional-sale flow runs against mocked APIs in

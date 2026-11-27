@@ -12,7 +12,6 @@ public sealed class Item : BaseEntity
     public string Uom { get; private set; } = string.Empty;
     public string? UnitCode { get; private set; }
     public int QuantityScale { get; private set; }
-    public bool UnitReviewRequired { get; private set; }
     public string DocumentUnit => QuantityUnits.DocumentUnitFor(UnitCode, QuantityScale);
     public string Barcode { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
@@ -85,8 +84,6 @@ public sealed class Item : BaseEntity
         UpdateTaxDefaults(hsnCode, defaultTaxRatePercent, defaultTaxIncluded);
     }
 
-    public void MarkUnitReviewRequired() => UnitReviewRequired = true;
-
     /// <summary>True when applying this label and scale would change the unit identity or the precision (not just the spelling).</summary>
     public bool WouldChangeUnit(string uom, int? quantityScale)
     {
@@ -113,42 +110,18 @@ public sealed class Item : BaseEntity
         var label = uom.Trim();
         var (targetCode, targetScale) = ResolveUnit(label, quantityScale);
 
-        // An item no one has classified yet, saved with a label that names the same catalog unit as the
-        // label it already carries, is being classified, not changed: the catalog scale must still cover
-        // what is on hand.
-        if (UnitCode is null
-            && targetCode is not null
-            && string.Equals(QuantityUnits.Resolve(Uom)?.Code, targetCode, StringComparison.Ordinal)
-            && targetScale >= history.MaxOnHandScale)
-        {
-            Uom = label;
-            UnitCode = targetCode;
-            QuantityScale = targetScale;
-            UnitReviewRequired = false;
-            return Result.Success;
-        }
-
         if (IsSameIdentity(label, targetCode) && targetScale == QuantityScale)
         {
             Uom = label;
-
-            // Confirming a flagged item at the precision it already has settles the review when that
-            // precision covers what is on hand; otherwise the flag stays.
-            if (UnitReviewRequired && QuantityScale >= history.MaxOnHandScale)
-                UnitReviewRequired = false;
-
             return Result.Success;
         }
 
-        var allowed = !history.HasMovements
-            || (UnitReviewRequired && targetScale >= history.MaxOnHandScale);
-        if (!allowed)
+        if (history.HasMovements)
             return Errors.ItemUnit.ChangeWithHistory;
 
         Uom = label;
         UnitCode = targetCode;
         QuantityScale = targetScale;
-        UnitReviewRequired = false;
         return Result.Success;
     }
 

@@ -9,7 +9,7 @@ const ITEM = {
   id: 'item-1', name: 'Fixture widget', barcode: 'EXISTING-1', description: null,
   uom: 'pcs', isActive: true, quantityScale: 0, unitCode: 'PCS', currentStock: 3,
   unitPrice: 20, currentStockValue: 60, reorderLevel: 0, stockStatus: 'healthy',
-  defaultTaxRatePercent: 0, defaultTaxIncluded: false, unitReviewRequired: false,
+  defaultTaxRatePercent: 0, defaultTaxIncluded: false,
 };
 const SERVICE = {
   serviceId: 'service-1', code: 'SRV-000001', name: 'Fixture repair',

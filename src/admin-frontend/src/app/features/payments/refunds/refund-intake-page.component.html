@@ -1,0 +1,116 @@
+<main class="adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider console
+    </a>
+    <p class="ib-eyebrow">Finance Intake</p>
+    <h1 class="ib-page-title">Refund requests</h1>
+    <p class="ib-subtitle">
+      Per-account intake of customer refund requests. A request alone is not an approval, money movement, or access change;
+      a Billing operator reviews and approves each one separately.
+    </p>
+  </header>
+
+  @if (!allowed()) {
+    <section class="ib-panel">
+      <p class="ib-error-banner" data-testid="refund-intake-denied">
+        Billing access is required to view refund requests.
+      </p>
+    </section>
+  } @else {
+    <form class="ib-panel" (submit)="search($event, accountInput.value)">
+      <div class="adm-lookup-bar">
+        <div class="adm-field">
+          <label for="refund-intake-account">Billing account ID</label>
+          <input id="refund-intake-account" data-testid="refund-intake-account" #accountInput [value]="account()"
+            placeholder="00000000-0000-0000-0000-000000000000" required />
+        </div>
+        <button pButton type="submit" data-testid="refund-intake-search">Load refund requests</button>
+      </div>
+    </form>
+
+    @if (error()) {
+      <p role="alert" class="ib-error-banner" data-testid="refund-intake-error">{{ error() }}</p>
+    }
+
+    @if (account()) {
+      <section class="ib-panel" aria-labelledby="refund-intake-heading">
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title" id="refund-intake-heading">Recorded requests</h2>
+            <p class="adm-panel-sub">Account <code>{{ account() }}</code></p>
+          </div>
+          <div class="adm-actions">
+            @if (items().length) {
+              <span class="adm-pill">{{ items().length }} {{ items().length === 1 ? 'request' : 'requests' }}</span>
+            }
+            <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="refresh()">
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="adm-list-stack" data-testid="refund-intake-list">
+          @for (item of items(); track item.refundRequestId) {
+            <article class="adm-subcard" data-testid="refund-intake-row"
+              [attr.data-refund-id]="item.refundRequestId" [attr.data-status]="item.status">
+              <p class="adm-panel-sub">
+                <span class="adm-pill" data-testid="refund-intake-status">{{ outcomeLabel(item) }}</span>
+                · Requested {{ money(item.amountPaise) }} of {{ money(item.paymentAmountPaise) }}
+                @if (item.approvedAmountPaise != null) {
+                  · {{ approvedLabel(item) }} {{ money(item.approvedAmountPaise) }}
+                }
+                · {{ instant(item.requestedAt) }}
+              </p>
+              <p data-testid="refund-intake-status-detail">{{ outcomeDetail(item) }}</p>
+              <dl>
+                <dt>Requested amount</dt>
+                <dd data-testid="refund-intake-requested-amount">{{ money(item.amountPaise) }} of {{ money(item.paymentAmountPaise) }} verified</dd>
+                @if (item.approvedAmountPaise != null) {
+                  <dt>{{ approvedLabel(item) }}</dt>
+                  <dd data-testid="refund-intake-approved-amount">{{ money(item.approvedAmountPaise) }}</dd>
+                  <dt>Access decision</dt>
+                  <dd data-testid="refund-intake-access">{{ accessLabel(item.accessDisposition) }}</dd>
+                }
+                <dt>Request ID</dt><dd>{{ item.refundRequestId }}</dd>
+                <dt>Order</dt><dd>{{ item.orderId }}</dd>
+                <dt>Payment confirmation</dt><dd>{{ item.confirmationId }}</dd>
+                <dt>Payment source</dt><dd>{{ item.paymentSource }}</dd>
+                <dt>Requested by actor</dt><dd data-testid="refund-intake-actor">{{ item.actorId }}</dd>
+                <dt>Reason</dt><dd data-testid="refund-intake-reason">{{ item.reason }}</dd>
+                <dt>Frozen provider pin</dt>
+                <dd data-testid="refund-intake-provider">
+                  {{ item.providerId }} · {{ item.providerAccountId }} · {{ item.environment }} · {{ item.configurationVersion }}
+                </dd>
+              </dl>
+              @if (item.status === 'Requested') {
+                <div class="adm-actions">
+                  <a pButton data-testid="refund-intake-approve"
+                    [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">
+                    Review and approve
+                  </a>
+                </div>
+              } @else {
+                <a pButton data-testid="refund-intake-view"
+                  [routerLink]="['/payments/refunds', item.accountId, item.refundRequestId, 'approve']">View refund</a>
+              }
+            </article>
+          } @empty {
+            @if (loaded() && !busy() && !error()) {
+              <p class="adm-callout" data-testid="refund-intake-empty">No refund requests recorded for this billing account.</p>
+            }
+          }
+        </div>
+
+        @if (nextCursor()) {
+          <div class="adm-actions">
+            <button pButton severity="secondary" [outlined]="true" type="button" data-testid="refund-intake-more"
+              [disabled]="busy()" (click)="loadMore()">
+              Load more requests
+            </button>
+          </div>
+        }
+      </section>
+    }
+  }
+</main>

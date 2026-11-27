@@ -336,7 +336,7 @@ export class OfflineSaleFinalizationService {
       customerId: request.pricingInput.customerId,
       customerName: request.pricingInput.customerName,
       customerPhone: request.pricingInput.customerPhone,
-      ...(issuedByUserId ? { issuedByUserId } : {}),
+      issuedByUserId,
       document: { ...built.draft, number: invoiceNumber },
       licenceEvidence: permission.evidence,
     };

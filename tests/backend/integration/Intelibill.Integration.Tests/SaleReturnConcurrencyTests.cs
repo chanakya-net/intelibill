@@ -688,6 +688,8 @@ public sealed class SaleReturnConcurrencyTests(PostgreSqlTestFixture fixture) : 
             phoneNumber = "+919812345678",
             address = (string?)null,
             isActive = true,
+            creditLimit = 1_000_000m,
+            creditPolicyMode = "Enforced",
         });
         customer.EnsureSuccessStatusCode();
         return (await customer.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("customerId").GetGuid();

@@ -28,7 +28,7 @@ public sealed class SaleRepositoryTests
         var customerId = Guid.NewGuid();
 
         // Sale with matching customer
-        var s1 = Sale.Create(
+        var s1 = TestSales.Create(
             shopId,
             "INV-001",
             customerId,
@@ -43,7 +43,7 @@ public sealed class SaleRepositoryTests
             []);
 
         // Sale with null CustomerId
-        var s2 = Sale.Create(
+        var s2 = TestSales.Create(
             shopId,
             "INV-002",
             null,
@@ -81,7 +81,7 @@ public sealed class SaleRepositoryTests
         var customerId = Guid.NewGuid();
 
         // 3 sales across different times
-        var s1 = Sale.Create(
+        var s1 = TestSales.Create(
             shopId,
             "INV-001",
             customerId,
@@ -95,7 +95,7 @@ public sealed class SaleRepositoryTests
             0m,
             []);
 
-        var s2 = Sale.Create(
+        var s2 = TestSales.Create(
             shopId,
             "INV-002",
             customerId,
@@ -109,7 +109,7 @@ public sealed class SaleRepositoryTests
             0m,
             []);
 
-        var s3 = Sale.Create(
+        var s3 = TestSales.Create(
             shopId,
             "INV-003",
             customerId,
@@ -151,7 +151,7 @@ public sealed class SaleRepositoryTests
         var nextMonthStart = monthStart.AddMonths(1);
 
         // Sale just before the month start (April 30, 23:59:59 UTC)
-        var s1 = Sale.Create(
+        var s1 = TestSales.Create(
             shopId,
             "INV-001",
             customerId,
@@ -166,7 +166,7 @@ public sealed class SaleRepositoryTests
             []);
 
         // Sale exactly at month start (May 1, 00:00:00 UTC)
-        var s2 = Sale.Create(
+        var s2 = TestSales.Create(
             shopId,
             "INV-002",
             customerId,
@@ -181,7 +181,7 @@ public sealed class SaleRepositoryTests
             []);
 
         // Sale exactly just before next month start (May 31, 23:59:59 UTC)
-        var s3 = Sale.Create(
+        var s3 = TestSales.Create(
             shopId,
             "INV-003",
             customerId,
@@ -196,7 +196,7 @@ public sealed class SaleRepositoryTests
             []);
 
         // Sale exactly at next month start (June 1, 00:00:00 UTC)
-        var s4 = Sale.Create(
+        var s4 = TestSales.Create(
             shopId,
             "INV-004",
             customerId,

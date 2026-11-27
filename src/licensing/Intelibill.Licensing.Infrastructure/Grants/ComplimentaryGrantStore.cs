@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Entitlements;
 using System.Data;
 using ErrorOr;
@@ -26,7 +27,7 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var result = await operation(ct);
             if (!result.IsError) await transaction.CommitAsync(ct);
             return result;
@@ -71,7 +72,7 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
 
     public async Task<IReadOnlyList<GrantShopSource>> ReadShopsAsync(Guid account, Guid[] shops, CancellationToken ct) =>
         await db.Database.SqlQuery<GrantShopSource>($"""
-            SELECT shop_id, shop_name, request_id AS affiliation_request_id FROM public.shop_affiliations
+            SELECT shop_id, shop_name, request_id AS affiliation_request_id FROM public.current_shop_affiliations
             WHERE account_id = {account} AND shop_id = ANY({shops}) ORDER BY shop_id
             """).ToListAsync(ct);
 
@@ -79,7 +80,7 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
         db.Database.SqlQuery<Guid?>($"""
             SELECT f.term_id AS "Value" FROM public.payment_fulfilments f
             WHERE f.account_id = {account} AND f.order_id = {order} AND cardinality({shops}) = (SELECT count(*)
-                FROM public.payment_fulfilment_shops p JOIN public.shop_affiliations a
+                FROM public.payment_fulfilment_shops p JOIN public.current_shop_affiliations a
                     ON a.account_id = p.account_id AND a.request_id = p.affiliation_request_id AND a.shop_id = p.shop_id
                 WHERE p.account_id = f.account_id AND p.order_id = f.order_id AND p.shop_id = ANY({shops}))
             """).SingleOrDefaultAsync(ct);
@@ -102,7 +103,7 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
         if (rows is not [var row]) return null;
         var shops = await db.Database.SqlQuery<GrantShopSource>($"""
             SELECT l.shop_id, a.shop_name, l.affiliation_request_id
-            FROM public.complimentary_grant_shops l JOIN public.shop_affiliations a ON a.request_id = l.affiliation_request_id
+            FROM public.complimentary_grant_shops l JOIN public.current_shop_affiliations a ON a.request_id = l.affiliation_request_id
             WHERE l.grant_id = {row.GrantId} ORDER BY l.shop_id
             """).ToListAsync(ct);
         var facts = new ComplimentaryGrantFacts([.. shops.Select(shop => shop.ShopId)], row.StartsAt.ToUniversalTime(),
@@ -112,6 +113,13 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
     }
 
     public async Task SaveAsync(StoredComplimentaryGrant grant, CancellationToken ct)
+    {
+        await SaveCoreAsync(grant, ct);
+        foreach (var shop in grant.Shops.OrderBy(shop => shop.ShopId))
+            await publisher.PublishAsync(grant.AccountId, shop.ShopId, ct);
+    }
+
+    internal async Task SaveCoreAsync(StoredComplimentaryGrant grant, CancellationToken ct)
     {
         var facts = grant.Facts;
         var version = grant.ExpectedVersion + 1;
@@ -150,8 +158,6 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
         if (facts.PaymentOrderId is { } order)
             await LinkAdjustmentAsync(grant, order, ct);
         await db.Database.ExecuteSqlRawAsync("SET CONSTRAINTS ALL IMMEDIATE", ct);
-        foreach (var shop in grant.Shops.OrderBy(shop => shop.ShopId))
-            await publisher.PublishAsync(grant.AccountId, shop.ShopId, ct);
     }
 
     private Task<int> LinkAdjustmentAsync(StoredComplimentaryGrant grant, Guid order, CancellationToken ct) =>

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Intelibill.Application.Features.Customers.Commands.AddCustomer;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,7 +50,7 @@ public sealed partial class P0408bLicensingTests
         {
             var handler = ActivatorUtilities.CreateInstance<AddCustomerCommandHandler>(services);
             var result = await handler.HandleAsync(
-                new(session, "Direct", "+919111111111", null, true, 0m), Ct);
+                new(session, "Direct", "+919111111111", null, true, 0m, CreditPolicyMode.NoCredit), Ct);
             Assert.True(result.IsError, "Direct handler created a customer while trading was restricted.");
             Assert.Equal("Licence.TradingRestricted", result.FirstError.Code);
         }
@@ -142,8 +143,8 @@ public sealed partial class P0408bLicensingTests
 
     private static async Task AssertCreditAuthorityAsync(HttpClient owner, HttpClient staff, string path, bool suspended)
     {
-        var contact = new { name = "Existing", phoneNumber = "+919111111111", address = "Updated address", isActive = true, creditLimit = 10m };
-        var increase = new { contact.name, contact.phoneNumber, contact.address, contact.isActive, creditLimit = 20m };
+        var contact = new { name = "Existing", phoneNumber = "+919111111111", address = "Updated address", isActive = true, creditLimit = 10m, creditPolicyMode = "Enforced" };
+        var increase = new { contact.name, contact.phoneNumber, contact.address, contact.isActive, creditLimit = 20m, contact.creditPolicyMode };
         await AssertProblemAsync(await staff.PutAsJsonAsync(path, increase, Ct), HttpStatusCode.Forbidden,
             suspended ? "Licence.TradingRestricted" : "Customer.CreditSettingsChangeNotPermitted");
         if (suspended)
@@ -170,7 +171,7 @@ public sealed partial class P0408bLicensingTests
         });
         using var seeded = await owner.SeedVerifiedStaffAsync(seed);
         seeded.EnsureSuccessStatusCode();
-        using var login = await staff.PostAsJsonAsync("/api/auth/login/email", new { email, password }, Ct);
+        using var login = await staff.PostAsJsonAsync("/api/auth/login", new { identifier = email, password }, Ct);
         staff.DefaultRequestHeaders.Authorization = new("Bearer", (await ReadSuccessAsync(login)).GetProperty("accessToken").GetString());
     }
 

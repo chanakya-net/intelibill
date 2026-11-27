@@ -54,6 +54,8 @@ describe('InventoryBatchesListPageComponent', () => {
       receiptOriginalTotalCost: 1000,
       receiptTotalCost: 1000,
       receiptVersion: 7,
+      uom: null,
+      quantityScale: 3,
     },
   ];
 
@@ -685,13 +687,11 @@ describe('InventoryBatchesListPageComponent', () => {
       httpMock.expectNone(correctionUrl);
     });
 
-    it.each([
-      { receiptStatus: 'LegacyUnresolved' as const, receiptValueId: 'r1' },
-      { receiptStatus: null, receiptValueId: null },
-    ])('shows guidance and blocks submit for an unresolved receipt ($receiptStatus)', (receipt) => {
+    it('shows guidance and blocks submit for a batch without a receipt value', () => {
       const unresolved: InventoryBatchDto = {
         ...mockBatches[0],
-        ...receipt,
+        receiptStatus: null,
+        receiptValueId: null,
         receiptOriginalTotalCost: null,
         receiptTotalCost: null,
       };

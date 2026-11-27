@@ -285,27 +285,6 @@ public sealed class SalesExcelExportRendererTests
     }
 
     [Fact]
-    public async Task RenderAsync_ReturnAdjustmentsSheet_FlagsReturnsNeedingReview()
-    {
-        var legacy = Adjustment("RET-9", "INV-001", 118m, 0m, 0m) with
-        {
-            Status = ReturnAccountingStatus.NeedsReview,
-            ReviewReason = "Payout settlement is not evidenced.",
-            PolicyVersion = null,
-            TaxableAdjustment = null,
-            TaxAdjustment = null,
-            NonTaxAdjustment = null,
-        };
-
-        var sheet = await RenderAdjustmentsAsync([legacy]);
-
-        var headerRow = FindRow(sheet, "Posting Date");
-        Assert.Equal("Needs review", sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "Accounting Status")).GetString());
-        Assert.Equal("Payout settlement is not evidenced.", sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "Review Reason")).GetString());
-        Assert.True(sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "GST Adjustment")).IsEmpty());
-    }
-
-    [Fact]
     public async Task RenderAsync_SummarySheet_ReconcilesReturnsOnEarlierSales()
     {
         var summaryRows = new List<SalesExportSummaryRowDto>
@@ -412,9 +391,7 @@ public sealed class SalesExcelExportRendererTests
             new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
             new DateOnly(2026, 5, 1),
             "Alice",
-            ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",
-            null,
             OriginalReturnedGross: financial < 0m ? -118m : 118m,
             financial,
             taxable,

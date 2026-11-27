@@ -52,7 +52,7 @@ public class GetProfitLossReportQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(MakeMembership(shop.Id, user.Id));
-        var sale = Sale.Create(shop.Id, "ECON-1", null, null, null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 200m, 0m, 200m, 0m,
+        var sale = TestSales.Create(shop.Id, "ECON-1", null, null, null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 200m, 0m, 200m, 0m,
             [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC", 1m, 100m, 200m, 200m, 0m, false, false)]);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
         _expenses.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([
@@ -81,7 +81,7 @@ public class GetProfitLossReportQueryHandlerTests
         var today = Today;
 
         var item = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(shop.Id, "INV-001", null, "John Doe", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 100m, 0m, 100m, 0m, [item]);
+        var sale = TestSales.Create(shop.Id, "INV-001", null, "John Doe", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 100m, 0m, 100m, 0m, [item]);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
@@ -123,9 +123,9 @@ public class GetProfitLossReportQueryHandlerTests
         var start = new DateOnly(2026, 5, 1);
         var end = new DateOnly(2026, 5, 7);
 
-        var sale1 = Sale.Create(shop.Id, "INV-001", null, "Alpha", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m,
+        var sale1 = TestSales.Create(shop.Id, "INV-001", null, "Alpha", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m,
             [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false)]);
-        var sale2 = Sale.Create(shop.Id, "INV-002", null, "Beta", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 120m, 0m, 120m, 0m,
+        var sale2 = TestSales.Create(shop.Id, "INV-002", null, "Beta", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 120m, 0m, 120m, 0m,
             [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-002", 1m, 90m, 120m, 120m, 0m, false, false)]);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
@@ -161,7 +161,7 @@ public class GetProfitLossReportQueryHandlerTests
         var to = new DateOnly(2026, 5, 7);
 
         var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(shop.Id, "INV-001", null, "Customer One", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
+        var sale = TestSales.Create(shop.Id, "INV-001", null, "Customer One", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
         var saleReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
@@ -180,7 +180,7 @@ public class GetProfitLossReportQueryHandlerTests
             null,
             [
                 new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)
-            ]).Value;
+            ]).Value.Posted();
         var adjustment = InventoryAdjustment.Create(
             shop.Id,
             Guid.NewGuid(),
@@ -229,7 +229,7 @@ public class GetProfitLossReportQueryHandlerTests
         var to = new DateOnly(2026, 5, 7);
 
         var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(shop.Id, "INV-001", null, "Customer", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
+        var sale = TestSales.Create(shop.Id, "INV-001", null, "Customer", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
         var saleReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
@@ -246,7 +246,7 @@ public class GetProfitLossReportQueryHandlerTests
             0m,
             null,
             null,
-            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value;
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value.Posted();
         var adjustment = InventoryAdjustment.Create(
             shop.Id,
             Guid.NewGuid(),
@@ -290,7 +290,7 @@ public class GetProfitLossReportQueryHandlerTests
         var to = new DateOnly(2026, 5, 7);
 
         var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(shop.Id, "INV-001", null, "Customer", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
+        var sale = TestSales.Create(shop.Id, "INV-001", null, "Customer", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
         var activeReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
@@ -307,7 +307,7 @@ public class GetProfitLossReportQueryHandlerTests
             0m,
             null,
             null,
-            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value;
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value.Posted();
         var voidedReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
@@ -324,7 +324,7 @@ public class GetProfitLossReportQueryHandlerTests
             0m,
             null,
             null,
-            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value;
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value.Posted();
         voidedReturn.Void(new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero)), user.Id, "Mistake");
 
         var decrease = InventoryAdjustment.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "ADJ-LOSS", InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 1m, 40m, 40m, 5m, 4m, 5m, 4m, new DateTimeOffset(2026, 5, 5, 10, 0, 0, TimeSpan.Zero), user.Id, null, user.Id).Value;
@@ -397,7 +397,6 @@ public class GetProfitLossReportQueryHandlerTests
         var membership = MakeMembership(shop.Id, user.Id);
         var sale = ReturnAccountingFixtures.Sale(shop.Id);
         var saleReturn = ReturnAccountingFixtures.Return(sale, approved: 100m, taxable: 84.75m, tax: 15.25m);
-        var unposted = ReturnAccountingFixtures.Return(sale, approved: 18m, taxable: 0m, tax: 0m, returnNumber: "RET-002", post: false);
         var from = new DateOnly(2026, 6, 1);
         var to = new DateOnly(2026, 6, 30);
 
@@ -405,7 +404,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
-        _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn, unposted]);
+        _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
         _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to, Type: "saleReturn"), CancellationToken.None);
@@ -414,12 +413,6 @@ public class GetProfitLossReportQueryHandlerTests
         var posted = Assert.Single(result.Value.Items, x => x.ReferenceNumber == "INV-001 / RET-001");
         Assert.Equal(-100m, posted.RevenueAfterTax);
         Assert.Equal(-84.75m, posted.RevenueBeforeTax);
-        Assert.False(posted.NeedsAccountingReview);
-
-        var legacy = Assert.Single(result.Value.Items, x => x.ReferenceNumber == "INV-001 / RET-002");
-        Assert.True(legacy.NeedsAccountingReview);
-        Assert.Equal(-18m, legacy.RevenueAfterTax);
-        Assert.Equal(-18m, legacy.RevenueBeforeTax);
     }
 
     [Fact]
@@ -432,7 +425,7 @@ public class GetProfitLossReportQueryHandlerTests
         var to = new DateOnly(2026, 5, 7);
 
         var serviceItem = SaleItem.CreateService(shop.Id, Guid.NewGuid(), "Consulting", "SRV-001", 1m, 0m, 150m, 150m, 0m, false, false);
-        var sale = Sale.Create(shop.Id, "INV-SRV", null, "Service Customer", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 150m, 0m, 150m, 0m, [serviceItem]);
+        var sale = TestSales.Create(shop.Id, "INV-SRV", null, "Service Customer", null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), 150m, 0m, 150m, 0m, [serviceItem]);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);

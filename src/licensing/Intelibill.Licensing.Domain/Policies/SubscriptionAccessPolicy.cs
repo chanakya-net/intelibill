@@ -16,6 +16,16 @@ public static class SubscriptionAccessPolicy
             ? cancellation.EffectiveAt : (DateTimeOffset?)null;
         var paidThrough = cancelledAt is { } early && early > facts.StartsAt ? early : facts.EndsAt;
         var grace = facts.Evidence == TermEvidenceState.Complete ? GracePolicy.GraceEndsAt(facts) : null;
+        var decided = facts is { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid } ? facts.RefundBoundary : null;
+        if (decided is not null)
+            (paidThrough, grace) = Apply(decided, facts, paidThrough, grace);
+        var handedOff = facts is { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid, HandoffEndsAt: { } handoffEnd };
+        if (handedOff)
+        {
+            var bound = facts.HandoffEndsAt!.Value;
+            if (bound < paidThrough) paidThrough = bound > facts.StartsAt ? bound : facts.StartsAt;
+            grace = null;
+        }
         var accessEnds = facts.Evidence == TermEvidenceState.Complete ? grace ?? paidThrough : (DateTimeOffset?)null;
         var state = facts.Evidence switch
         {
@@ -27,7 +37,18 @@ public static class SubscriptionAccessPolicy
             state = SubscriptionAccessState.Suspended;
 
         return new SubscriptionAccessEvaluation(state, facts.StartsAt, paidThrough, grace, accessEnds,
-            NextDeadline(facts, at, paidThrough, grace), NextPeriodEnd(facts, paidThrough));
+            NextDeadline(facts, at, paidThrough, grace), decided is null && !handedOff ? NextPeriodEnd(facts, paidThrough) : null);
+    }
+
+    // A decided term is paid through its decided boundary and keeps access (as grace) only up to its decided end.
+    private static (DateTimeOffset PaidThrough, DateTimeOffset? Grace) Apply(RefundAccessBoundary decided,
+        SubscriptionAccessFacts facts, DateTimeOffset paidThrough, DateTimeOffset? grace)
+    {
+        var paid = decided.PaidThrough > facts.StartsAt ? decided.PaidThrough : facts.StartsAt;
+        if (paid > paidThrough) paid = paidThrough;
+        var limit = grace ?? paidThrough;
+        var ends = decided.AccessEndsAt < limit ? decided.AccessEndsAt : limit;
+        return (paid, ends > paid ? ends : null);
     }
 
     private static SubscriptionAccessState Underlying(SubscriptionAccessFacts facts, DateTimeOffset at,

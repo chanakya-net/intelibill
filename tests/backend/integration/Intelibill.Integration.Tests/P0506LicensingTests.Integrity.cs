@@ -193,7 +193,7 @@ public sealed partial class P0506LicensingTests
         var total = items.Sum(x => x.TotalAmount);
         return new(clientSaleId, invoiceNumber, At("2027-01-20T11:50:00Z"), null, "Walk-in", "+919876543210",
             PaymentMethod.Cash, total, 0m, total, total, 0m, 0m, total,
-            InstantDiscountType.None, 0m, null, null, null, null, items, IssuedByUserId: issuerId);
+            InstantDiscountType.None, 0m, null, null, null, null, items, CalculationVersion: 1, IssuedByUserId: issuerId);
     }
 
     private static OfflineSaleSyncLineCommand DirectGoodsLine(Guid batchId) =>
@@ -228,6 +228,7 @@ public sealed partial class P0506LicensingTests
         _clock.Now = At("2027-01-20T13:00:00Z");
         var legacyNode = JsonNode.Parse(vectors.GetProperty("unversionedPreDocument").GetProperty("expectedSyncRequestJson").GetString()!)!.AsObject();
         legacyNode["issuedByUserId"] = actor.User.ToString("D");
+        legacyNode["calculationVersion"] = 1;
         var imported = await SubmitRawRecoveryBundleAsync(owner, "p0506-legacy-goods-import",
             BuildCompactBundle(actor.Shop, LegacyDevice, _clock.Now, legacyNode));
         var caseId = Assert.Single(imported.GetProperty("results").EnumerateArray()).GetProperty("caseId").GetGuid();

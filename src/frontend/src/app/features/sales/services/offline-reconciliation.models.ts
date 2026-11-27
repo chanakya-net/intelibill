@@ -167,7 +167,6 @@ export interface ReconciliationCase extends ReconciliationCaseSummary {
   readonly linkedOperationId: string | null;
   readonly resolutionStockTransactionId: string | null;
   readonly resolvedBy: ReconciliationPerson | null;
-  readonly hasOriginalEnvelope: boolean;
   readonly submission: OfflineSubmission | null;
   /** Authoritative: the console offers exactly these and nothing else. */
   readonly availableActions: readonly ReconciliationAction[];

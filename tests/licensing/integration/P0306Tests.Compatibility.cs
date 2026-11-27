@@ -3,8 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
 
@@ -110,23 +108,14 @@ public sealed partial class P0306Tests
     }
 
     [Fact]
-    public async Task PostgreSqlUpgradeRetainsOnlineEvidenceAndRejectsInvalidSources()
+    public async Task PostgreSqlRetainsOnlineEvidenceAndRejectsInvalidSources()
     {
-        const string previous = "20261117100000_PendingPaymentReconciliation";
-        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings, services: services => { P0310LegacyRouting.InstallLegacy(services); P0311LegacyIssuance.InstallLegacy(services); });
-        var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, legacyQuote: true);
+        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings);
+        var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
         var attempt = (await StartAsync(payer.Client, quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
         await CaptureAsync(payer.Client, quote, attempt);
         AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "Verified", "Fulfilled", "Applying");
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        var migrator = context.GetService<IMigrator>();
-        await P0309Fixture.RepresentLegacyFulfilmentAsync(fixture.Hosts.LicensingOwner, quote.OrderId);
-        await migrator.MigrateAsync(previous);
         var before = Assert.IsType<string>(await ReadOnlineEvidenceAsync(fixture));
-        await migrator.MigrateAsync();
-        Assert.Equal(before, await ReadOnlineEvidenceAsync(fixture));
-        Assert.Equal("ProviderCapture", await fixture.Delivery.SourceScalarAsync(
-            "SELECT capture_time_basis FROM public.verified_payments"));
         var error = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner,
             """
             INSERT INTO public.payment_fulfilments (account_id, order_id, term_id, policy_version, fulfilled_at)
@@ -134,7 +123,6 @@ public sealed partial class P0306Tests
             """));
         Assert.Equal("23514", error.SqlState);
         Assert.Equal("payment_fulfilment_one_source", error.ConstraintName);
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, RuntimeGrant);
         using var billing = await SignInBillingAsync(fixture);
         await ConfirmAsync(billing, Path(quote), Receipt(quote, P0210Fixture.Start), "NeedsReview");
         var both = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner,
@@ -144,17 +132,13 @@ public sealed partial class P0306Tests
                 gen_random_uuid(), policy_version, fulfilled_at FROM public.payment_fulfilments
             """));
         Assert.Equal("payment_fulfilment_one_source", both.ConstraintName);
-        var retained = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(previous));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(retained.InnerException).SqlState);
         Assert.Equal(before, await ReadOnlineEvidenceAsync(fixture));
-        output.WriteLine("Populated #866 schema upgraded with identical attempt, session, verified money, pending lease and fulfilment. PostgreSQL rejected both/no sources with 23514 and downgrade with manual evidence with 55000.");
     }
 
     private static Task<object?> ReadOnlineEvidenceAsync(P0302Fixture fixture) =>
         LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Hosts.LicensingOwner, """
             SELECT jsonb_build_object('attempt', to_jsonb(a) - 'selection_revision', 'session', to_jsonb(s), 'payment', to_jsonb(v) - 'capture_time_basis',
                 'lease', to_jsonb(p), 'fulfilment', to_jsonb(f) - 'manual_receipt_id'
-                    -- #871 adds nullable renewal provenance; a first purchase keeps it null and is otherwise unchanged.
                     - ARRAY['predecessor_term_id', 'payment_effective_at', 'grace_days_included', 'renewal_policy_version'])::text
             FROM public.payment_attempts a JOIN public.payment_attempt_sessions s USING (attempt_id)
             JOIN public.verified_payments v USING (attempt_id) JOIN public.pending_payment_attempts p USING (attempt_id)

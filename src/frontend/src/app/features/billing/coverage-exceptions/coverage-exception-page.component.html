@@ -1,0 +1,120 @@
+<section class="ib-panel">
+  <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+  <h1 id="early-replacement-heading" class="ib-page-title">{{ 'billing.earlyReplacement.heading' | transloco }}</h1>
+
+  @if (scope(); as s) {
+    @if (preview(); as p) {
+      <p>{{ 'billing.status.paidThrough' | transloco }} ·
+        <time data-testid="early-renewal-date" [attr.datetime]="p.normalRenewalAt">{{ instant(p.normalRenewalAt) }}</time></p>
+      <p role="note" data-testid="early-unknown-queues">{{ p.disconnectedQueuesNotice }}</p>
+
+      @if (!draft() && p.canRequest && p.coveredShops.length && p.eligibleShops.length) {
+        <fieldset aria-labelledby="early-replacement-heading" [disabled]="busy()" data-testid="early-request-form">
+          <label>{{ 'billing.replacement.outgoing' | transloco }}
+            <select #old data-testid="early-outgoing" [value]="outgoing()?.shopId ?? ''" (change)="selectShop(true, old.value)">
+              <option value="">—</option>
+              @for (shop of p.coveredShops; track shop.shopId) {
+                <option [value]="shop.shopId">{{ shop.shopName }}</option>
+              }
+            </select>
+          </label>
+          <label>{{ 'billing.replacement.incoming' | transloco }}
+            <select #next data-testid="early-incoming" [value]="incoming()?.shopId ?? ''" (change)="selectShop(false, next.value)">
+              <option value="">—</option>
+              @for (shop of p.eligibleShops; track shop.shopId) {
+                <option [value]="shop.shopId">{{ shop.shopName }}</option>
+              }
+            </select>
+          </label>
+          @if (outgoing(); as oldShop) {
+            <p data-testid="early-observed-permit">{{ 'billing.replacement.permit' | transloco }} ·
+              {{ oldShop.observedPermitDeadline ? instant(oldShop.observedPermitDeadline) : ('billing.replacement.unknown' | transloco) }}</p>
+          }
+          <label>{{ 'billing.earlyReplacement.earlyStart' | transloco }}
+            <input type="text" data-testid="early-start" [value]="earlyStart()" (input)="earlyStart.set($any($event.target).value)" />
+          </label>
+          <label>{{ 'billing.earlyReplacement.paidCutover' | transloco }}
+            <input type="text" data-testid="early-cutover" [value]="paidCutover()" (input)="paidCutover.set($any($event.target).value)" />
+          </label>
+          <label>{{ 'billing.earlyReplacement.disposition' | transloco }}
+            <select #disp data-testid="early-disposition" [value]="disposition()" (change)="disposition.set($any(disp.value))">
+              <option value="Wait">{{ 'billing.earlyReplacement.wait' | transloco }}</option>
+              <option value="CourtesyBridge">{{ 'billing.earlyReplacement.courtesyBridge' | transloco }}</option>
+            </select>
+          </label>
+          <label>{{ 'billing.earlyReplacement.reason' | transloco }}
+            <textarea rows="2" maxlength="500" data-testid="early-reason" [value]="reason()"
+              (input)="reason.set($any($event.target).value)"></textarea>
+          </label>
+          @for (key of ['ackSelection', 'ackAllocation', 'ackPermits', 'ackUnknown']; track key; let i = $index) {
+            <label><input #box type="checkbox" [attr.data-testid]="'early-' + key" [checked]="confirms()[i]" (change)="tick(i, box.checked)" />
+              {{ 'billing.earlyReplacement.' + key | transloco }}</label>
+          }
+          <button type="button" class="ib-btn-primary" data-testid="early-submit" [disabled]="!ready()" (click)="submit('request')">
+            {{ 'billing.earlyReplacement.submit' | transloco }}
+          </button>
+        </fieldset>
+      }
+
+      @for (ex of p.exceptions; track ex.exceptionId) {
+        <article data-testid="early-item">
+          <strong>{{ ex.outgoingShopName }} → {{ ex.incomingShopName }}</strong>
+          <p>{{ 'billing.earlyReplacement.paidCutover' | transloco }}: {{ instant(ex.paidCutoverAt) }} ·
+            {{ ex.overlapDisposition === 'CourtesyBridge' ? ('billing.earlyReplacement.courtesyBridge' | transloco) : ('billing.earlyReplacement.wait' | transloco) }}</p>
+          <p data-testid="early-item-state">{{ ex.state }} ·
+            {{ ex.outgoingShopName }}: {{ ex.outgoingConsentState }} ({{ ex.outgoingActivation }}) ·
+            {{ ex.incomingShopName }}: {{ ex.incomingConsentState }} (Paid: {{ ex.incomingActivation }}@if (ex.courtesyGrantId) { · Courtesy: {{ ex.courtesyActivation }}})
+          </p>
+          @if (ex.state === 'AwaitingConsents' || ex.state === 'ReadyForReview') {
+            <a data-testid="early-outgoing-consent-link" [routerLink]="['/billing/early-replacement-consent', s.account, ex.outgoingShopId, ex.exceptionId]">
+              {{ 'billing.earlyReplacement.outgoingConsentLink' | transloco }} ({{ ex.outgoingShopName }})
+            </a>
+            <a data-testid="early-incoming-consent-link" [routerLink]="['/billing/early-replacement-consent', s.account, ex.incomingShopId, ex.exceptionId]">
+              {{ 'billing.earlyReplacement.incomingConsentLink' | transloco }} ({{ ex.incomingShopName }})
+            </a>
+          }
+        </article>
+      }
+      @if (p.hasMore) {
+        <button type="button" class="ib-btn-secondary" [disabled]="busy()" (click)="load(s, true)">{{ 'expenses.nextPage' | transloco }}</button>
+      }
+    }
+
+    @if (owner(); as o) {
+      <h2 data-testid="early-owner-heading">{{ o.leg }}: {{ o.shopName }} ↔ {{ o.counterpartyShopName }}</h2>
+      <p>{{ 'billing.earlyReplacement.paidCutover' | transloco }}: <time>{{ instant(o.paidCutoverAt) }}</time></p>
+      <p>{{ 'billing.status.paidThrough' | transloco }}: <time>{{ instant(o.normalRenewalAt) }}</time></p>
+      @if (o.observedPermitDeadline) {
+        <p>{{ 'billing.replacement.permit' | transloco }} · {{ instant(o.observedPermitDeadline) }}</p>
+      }
+      <p role="note">{{ 'billing.earlyReplacement.ackUnknown' | transloco }}</p>
+      <p role="status" data-testid="early-owner-status">{{ o.state }} · {{ o.consentStatus }} · {{ o.legActivation }}</p>
+      @if (!draft() && (o.state === 'AwaitingConsents' || o.state === 'ReadyForReview') && o.consentStatus === 'AwaitingConsent') {
+        <button type="button" class="ib-btn-primary" [disabled]="busy()" data-testid="early-grant" (click)="submit('grant')">
+          {{ 'billing.affiliation.grant' | transloco }}
+        </button>
+      }
+      @if (!draft() && o.consentStatus === 'Granted') {
+        <button type="button" class="ib-btn-primary" [disabled]="busy()" data-testid="early-accept" (click)="submit('accept')">
+          {{ 'billing.slot.confirm' | transloco }}
+        </button>
+      }
+      @if (!draft() && (o.consentStatus === 'Granted' || o.consentStatus === 'Accepted') && o.state !== 'Applied' && o.state !== 'Consuming') {
+        <button type="button" class="ib-btn-secondary" [disabled]="busy()" data-testid="early-revoke" (click)="submit('revoke')">
+          {{ 'billing.affiliation.revoke' | transloco }}
+        </button>
+      }
+    }
+
+    @if (draft(); as pending) {
+      <p>{{ pending.label }}</p>
+      <button type="button" class="ib-btn-secondary" data-testid="early-retry" [disabled]="busy()" (click)="dispatch(pending, true)">
+        {{ 'billing.checkout.retry' | transloco }}
+      </button>
+    }
+    <button type="button" class="ib-btn-secondary" [disabled]="busy()" data-testid="early-refresh" (click)="load(s)">
+      {{ 'billing.status.refresh' | transloco }}
+    </button>
+    @if (error()) { <p role="alert">{{ error() | transloco }}</p> }
+  }
+</section>

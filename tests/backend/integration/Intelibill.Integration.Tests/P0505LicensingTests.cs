@@ -76,41 +76,6 @@ public sealed partial class P0505LicensingTests(PostgreSqlTestFixture fixture, I
         Assert.Equal("OfflineLicenceHistory.EvidenceUnsupported", observations[0].GetProperty("reasonCode").GetString());
         Assert.Equal("version", observations[0].GetProperty("comparedField").GetString());
         Assert.DoesNotContain("signedPermit", detail.GetRawText(), StringComparison.OrdinalIgnoreCase);
-
-        // Compatibility reader: an old #903 ProvenanceReview case with the OfflineLicenceHistory.* prefix
-        // remains readable without rewriting its case ID, type, or audit trail, exposing unstored observations as unknown.
-        Guid legacyCaseId;
-        await using (var db = Open(Migrator))
-        {
-            var lease = await db.InvoiceLeases.SingleAsync(x => x.ShopId == actor.Shop, Ct);
-            var legacySale = sale.DeepClone();
-            legacySale["clientSaleId"] = Guid.NewGuid().ToString("N");
-            legacySale["invoiceNumber"] = lease.Prefix + (lease.RangeStart + 1).ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
-            var parsedLegacy = legacySale.Deserialize<OfflineSaleSyncCommand>(JsonSerializerOptions.Web)!;
-            var legacyHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(actor.Shop, Device, parsedLegacy);
-            var legacyEnvelope = OfflineSubmission.Record(
-                actor.Shop, Device, parsedLegacy.ClientSaleId, parsedLegacy.InvoiceNumber, legacyHash,
-                OfflineSubmissionPayload.Serialize(parsedLegacy), parsedLegacy.SoldAt, firstReceived,
-                OfflineSubmissionSource.Sync, actor.User, actor.User, actor.User, lease.Id, null);
-            db.OfflineSubmissions.Add(legacyEnvelope);
-            var legacyIssue = ReconciliationIssue.Create(
-                actor.Shop, null, parsedLegacy.ClientSaleId, Device, ReconciliationIssueType.ProvenanceReview,
-                "OfflineLicenceHistory.EvidenceUnsupported", "The original offline licence evidence requires review.",
-                actor.User, invoiceNumber: parsedLegacy.InvoiceNumber, offlineSubmissionId: legacyEnvelope.Id);
-            db.ReconciliationIssues.Add(legacyIssue);
-            await db.SaveChangesAsync(Ct);
-            legacyCaseId = legacyIssue.Id;
-        }
-
-        var legacyDetail = await GetCaseDetailAsync(client, legacyCaseId);
-        Assert.Equal(legacyCaseId, legacyDetail.GetProperty("caseId").GetGuid());
-        Assert.Equal("ProvenanceReview", legacyDetail.GetProperty("issueType").GetString());
-        Assert.Equal(["Escalate"],
-            legacyDetail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()!).ToArray());
-        var legacyHistory = legacyDetail.GetProperty("licenceHistory");
-        Assert.Equal("OfflineLicenceHistory.EvidenceUnsupported", legacyHistory.GetProperty("currentReasonCode").GetString());
-        Assert.False(legacyHistory.GetProperty("hasStoredObservations").GetBoolean());
-        Assert.Empty(legacyHistory.GetProperty("observations").EnumerateArray());
     }
 
     [Fact]

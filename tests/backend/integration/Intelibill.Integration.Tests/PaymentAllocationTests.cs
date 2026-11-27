@@ -265,7 +265,7 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task ReverseSupplierPayment_VoidsLegacyCorrectedExpenseToo_AndNewCorrectionIsRefused()
+    public async Task ReverseSupplierPayment_VoidsItsExpense_AndCorrectionIsRefused()
     {
         using var shop = await OpenShopAsync();
         var supplierId = await AddSupplierAsync(shop);
@@ -288,20 +288,9 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
             expenseDate = Today,
         }), HttpStatusCode.BadRequest, "Expense.SupplierSettlementCorrectionRefused");
 
-        // Keep coverage of correction chains left by earlier writers. Current APIs refuse to create them.
-        await QueryAsync(async db =>
-        {
-            var original = await db.Expenses.SingleAsync(e => e.Id == expenseId);
-            original.MarkVoided();
-            db.Expenses.Add(Expense.CreateCorrection(original.ShopId, original.CategoryId, 280m, "Supplier", "Legacy correction",
-                DateOnly.Parse(Today, System.Globalization.CultureInfo.InvariantCulture), original.ActorUserId, original.Id, original.Treatment, original.SupplierLedgerEntryId));
-            return await db.SaveChangesAsync();
-        });
-
         await AssertOkAsync(await ReverseAsync(shop, receiptId, "Cheque bounced", $"rev-{Guid.NewGuid():N}"));
 
-        var active = await QueryAsync(db => db.Expenses.CountAsync(e => !e.IsVoided && (e.Id == expenseId || e.OriginalExpenseId == expenseId)));
-        Assert.Equal(0, active);
+        Assert.True(await QueryAsync(db => db.Expenses.Where(e => e.Id == expenseId).Select(e => e.IsVoided).SingleAsync()));
     }
 
     // ── Task 2: corrections and races ─────────────────────────────────────────
@@ -467,19 +456,14 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task LegacyAccount_PaymentWithoutAllocationLeavesInvoiceDueButBalanceCorrect()
+    public async Task PaymentWithoutAllocationOrTender_LeavesInvoiceDueButBalanceCorrect()
     {
         using var shop = await OpenShopAsync();
         var customerId = await AddCustomerAsync(shop);
         var saleId = await SellServiceOnCreditAsync(shop, customerId);
 
-        // An older client sends no tender: the receipt says so instead of guessing cash.
-        await AssertOkAsync(await SendAsync(shop, HttpMethod.Post, $"/api/customers/{customerId}/payments", new
-        {
-            amount = 50m,
-            paymentDate = Today,
-            notes = (string?)null,
-        }));
+        // No tender recorded: the receipt says so instead of guessing cash.
+        await AssertOkAsync(await PayCustomerAsync(shop, customerId, 50m));
 
         var receipt = await QueryAsync(db => db.PaymentReceipts.AsNoTracking().SingleAsync(r => r.PartyId == customerId));
         Assert.Equal(ReceiptTenderMethod.UnknownRecordedMethod, receipt.Method);
@@ -572,6 +556,8 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
             phoneNumber = $"+9198{Random.Shared.Next(10_000_000, 99_999_999)}",
             address = (string?)null,
             isActive = true,
+            creditLimit = 1_000_000m,
+            creditPolicyMode = "Enforced",
         });
         var content = await response.Content.ReadAsStringAsync();
         Assert.True(response.IsSuccessStatusCode, content);

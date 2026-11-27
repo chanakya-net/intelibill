@@ -4,13 +4,10 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
-using Intelibill.Infrastructure.Migrations;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Expiry;
 using Intelibill.Infrastructure.Services.Time;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Integration.Tests;
@@ -19,8 +16,8 @@ namespace Intelibill.Integration.Tests;
 public sealed class ExpirySchemaTests(PostgreSqlTestFixture fixture)
 {
     private static readonly string[] NewTables = ["shop_expiry_states", "expiry_policy_revisions", "batch_expiry_revisions", "offline_expiry_evidence", "batch_disposition_changes"];
-    private ApplicationDbContext Db(string? connection = null) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
-        .UseNpgsql(connection ?? fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
+    private ApplicationDbContext Db() => new(new DbContextOptionsBuilder<ApplicationDbContext>()
+        .UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
 
     private async Task<(Guid Shop, Guid Actor, Guid Item, Guid Batch, Guid Sale)> SeedAsync()
     {
@@ -96,74 +93,6 @@ public sealed class ExpirySchemaTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
-    public async Task PopulatedPreFeatureUpgrade_PreservesStockDatesAmountsAndInvoiceJsonAcrossAllFourMigrations()
-    {
-        var seed = await SeedAsync();
-        await using var source = new NpgsqlConnection(fixture.MigratorConnectionString);
-        await source.OpenAsync();
-        // Persisted historic inconsistency is deliberately retained; migrations must not repair it.
-        await using (var history = new NpgsqlCommand("update inventory_batches set manufacturing_date=date '2021-01-01' where id=@id; update sales set invoice_document=' {\"version\":2,\"number\":\"A/2627/000001\",\"seller\":{\"name\":\"Frozen seller\"},\"total\":2}'::jsonb where id=@sale", source))
-        { history.Parameters.AddWithValue("id", seed.Batch); history.Parameters.AddWithValue("sale", seed.Sale); await history.ExecuteNonQueryAsync(); }
-        var tables = new[] { "shops", "users", "items", "inventory", "inventory_batches", "sales", "sale_items" };
-        var rows = new Dictionary<string, List<string>>();
-        foreach (var table in tables)
-        {
-            await using var command = new NpgsqlCommand($"select row_to_json(t)::text from {table} t where {(table is "shops" or "users" ? "id" : "shop_id")}=@id", source);
-            command.Parameters.AddWithValue("id", table == "users" ? seed.Actor : seed.Shop);
-            await using var reader = await command.ExecuteReaderAsync(); var snapshots = new List<string>();
-            while (await reader.ReadAsync())
-            {
-                var snapshot = JsonSerializer.Deserialize<SortedDictionary<string, JsonElement>>(reader.GetString(0))!;
-                if (table == "inventory_batches") snapshot.Remove("quarantined_quantity");
-                if (table == "sales") snapshot.Remove("expiry_decisions");
-                snapshots.Add(JsonSerializer.Serialize(snapshot));
-            }
-            rows[table] = snapshots;
-        }
-        var name = $"expiry_all_upgrade_{Guid.NewGuid():N}";
-        await using (var create = new NpgsqlCommand($"CREATE DATABASE {name}", source)) await create.ExecuteNonQueryAsync();
-        var connectionString = new NpgsqlConnectionStringBuilder(fixture.MigratorConnectionString) { Database = name, Pooling = false }.ConnectionString;
-        try
-        {
-            await using var db = Db(connectionString);
-            var migrator = db.GetService<IMigrator>();
-            await migrator.MigrateAsync("20261108130102_AddTillReconciliationEvidence");
-            await using var target = new NpgsqlConnection(connectionString); await target.OpenAsync();
-            foreach (var table in tables)
-                foreach (var json in rows[table])
-                {
-                    await using var insert = new NpgsqlCommand($"insert into {table} select * from json_populate_record(null::{table}, @row::json)", target);
-                    insert.Parameters.AddWithValue("row", json); await insert.ExecuteNonQueryAsync();
-                }
-            foreach (var migration in new[] { "20261108182442_AddExpiryPolicies", "20261108184604_AddExpirySaleEvidence", "20261108193354_AddOfflineExpiryEvidence", "20261108210054_AddBatchDispositionEvidence" })
-                await migrator.MigrateAsync(migration);
-            foreach (var table in tables)
-            {
-                var added = table == "inventory_batches" ? " - 'quarantined_quantity'" : table == "sales" ? " - 'expiry_decisions'" : "";
-                await using var query = new NpgsqlCommand($"select (to_jsonb(t){added})::text from {table} t order by id", target);
-                await using var reader = await query.ExecuteReaderAsync(); var actual = new List<string>();
-                while (await reader.ReadAsync()) actual.Add(reader.GetString(0));
-                Assert.Equal(rows[table].Select(x => JsonSerializer.Serialize(JsonSerializer.Deserialize<SortedDictionary<string, JsonElement>>(x))).Order(),
-                    actual.Select(x => JsonSerializer.Serialize(JsonSerializer.Deserialize<SortedDictionary<string, JsonElement>>(x))).Order());
-            }
-            var policy = await new ExpiryPolicyRepository(db).GetEffectiveAsync(seed.Shop, seed.Item, null, default);
-            Assert.True(policy.HistoryKnown); Assert.True(policy.IsPreFeatureBaseline); Assert.Equal(ExpiryPolicy.Default, policy.Policy);
-            Assert.All(await db.InventoryBatches.ToListAsync(), x => Assert.Equal(0m, x.QuarantinedQuantity));
-            Assert.Empty(await db.BatchExpiryRevisions.ToListAsync()); Assert.Empty(await db.OfflineExpiryEvidence.ToListAsync()); Assert.Empty(await db.BatchDispositionChanges.ToListAsync());
-            Assert.Equal(1, await db.ExpiryPolicyRevisions.CountAsync());
-            await RestrictedRuntimeRole.GrantAsync(connectionString);
-            await using var runtime = new NpgsqlConnection(RestrictedRuntimeRole.ConnectionStringFor(connectionString)); await runtime.OpenAsync();
-            foreach (var table in NewTables)
-            {
-                await using var catalog = new NpgsqlCommand("select relrowsecurity and relforcerowsecurity and exists(select 1 from pg_policy p where p.polrelid=c.oid and p.polqual is not null and p.polwithcheck is not null) from pg_class c where relname=@table", runtime);
-                catalog.Parameters.AddWithValue("table", table); Assert.Equal(true, await catalog.ExecuteScalarAsync());
-                await using var read = new NpgsqlCommand($"select count(*) from {table}", runtime); Assert.Equal(0L, await read.ExecuteScalarAsync());
-            }
-        }
-        finally { await using var drop = new NpgsqlCommand($"DROP DATABASE {name} WITH (FORCE)", source); await drop.ExecuteNonQueryAsync(); }
-    }
-
-    [Fact]
     public async Task EveryNewTable_RestrictedRoleScopesReadsAndRefusesForeignInsert_AndFactsRejectUpdateAndDelete()
     {
         var own = await SeedRetainedFactsAsync(); var foreign = await SeedRetainedFactsAsync();
@@ -234,19 +163,5 @@ public sealed class ExpirySchemaTests(PostgreSqlTestFixture fixture)
         await using var command = new NpgsqlCommand($"insert into {table} select (jsonb_populate_record(null::{table}, to_jsonb(t) || @patch::jsonb || jsonb_build_object('id', gen_random_uuid()))).* from {table} t where shop_id=@shop", connection);
         command.Parameters.AddWithValue("shop", shop); command.Parameters.AddWithValue("patch", patch);
         var error = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync()); Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
-    }
-
-    [Theory]
-    [InlineData(typeof(AddExpiryPolicies))]
-    [InlineData(typeof(AddExpirySaleEvidence))]
-    [InlineData(typeof(AddOfflineExpiryEvidence))]
-    [InlineData(typeof(AddBatchDispositionEvidence))]
-    public void EveryMigration_RefusesDownBeforeEmittingAnyDestructiveOperation(Type type)
-    {
-        var migration = Assert.IsAssignableFrom<Migration>(Activator.CreateInstance(type));
-        var builder = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
-        var down = type.GetMethod("Down", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration, [builder]));
-        Assert.IsType<NotSupportedException>(exception.InnerException); Assert.Empty(builder.Operations);
     }
 }

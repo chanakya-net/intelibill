@@ -320,13 +320,12 @@ export class InventoryBatchesListPageComponent {
   });
   // The input clears to null; an empty field has no delta to show (it is not a total of zero).
   private readonly revisedTotalCostValue = signal<number | null>(0);
-  /** A receipt without amounts on record (legacy) cannot be corrected: there is nothing to diff. */
+  /** A batch without a receipt value on record cannot be corrected: there is nothing to diff. */
   readonly costCorrectionBlocked = computed(() => {
     const batch = this.selectedBatch();
     return (
       !batch ||
       batch.receiptValueId === null ||
-      batch.receiptStatus !== 'Resolved' ||
       receiptCostPaise(batch.receiptOriginalTotalCost) === null ||
       receiptCostPaise(batch.receiptTotalCost) === null ||
       !batch.receiptVersion

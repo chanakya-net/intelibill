@@ -93,6 +93,8 @@ describe('InventoryAdjustmentsPageComponent', () => {
       receiptOriginalTotalCost: null,
       receiptTotalCost: null,
       receiptVersion: null,
+      uom: null,
+      quantityScale: 3,
     },
     {
       id: 'batch-empty',
@@ -121,6 +123,8 @@ describe('InventoryAdjustmentsPageComponent', () => {
       receiptOriginalTotalCost: null,
       receiptTotalCost: null,
       receiptVersion: null,
+      uom: null,
+      quantityScale: 3,
     },
     {
       id: 'batch-voided',
@@ -149,6 +153,8 @@ describe('InventoryAdjustmentsPageComponent', () => {
       receiptOriginalTotalCost: null,
       receiptTotalCost: null,
       receiptVersion: null,
+      uom: null,
+      quantityScale: 3,
     },
   ];
 

@@ -3,22 +3,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { buildLegacyManifest } from './legacy-manifest';
-import {
-  BUILD,
-  DEVICE_ID as LEGACY_DEVICE_ID,
-  INITIAL_NEXT_NUMBER,
-  OLD_SIGNED_TOKEN,
-  assertPreservedPayloadBytes,
-  buildSignedPreUpgradeRow,
-  controlledByProtectedWorker,
-  readLeaseNextNumber,
-  readQueueRowsRaw,
-  seedLegacyBrowserState,
-  sha256Hex,
-  startLegacyRecoveryServer,
-  vectors,
-} from './legacy-queue-recovery-fixture';
+import { BUILD, sha256Hex } from './legacy-queue-recovery-fixture';
 import {
   MSG_EXPIRED,
   addBatchToCart,
@@ -27,9 +12,6 @@ import {
   queuedDialog,
   submit,
   triggerReconnect,
-  verifyLegacyOfflinePrintAndAccess,
-  verifyLegacyRecoveryRoundTrip,
-  verifyLegacyWorkerUpgrade,
 } from './licensing-offline-fixtures';
 import { runLiveMissedSuspensionScenario, runLiveOrdinaryExpiryScenario } from './licensing-offline-live';
 import {
@@ -275,59 +257,5 @@ if (liveScenario === 'ordinary-expiry') {
     await queuedDialog(page).getByRole('button').last().click();
 
     evidenceLog['securityBarredUpload'] = await expectQueuePreservedWhenUploadBarred(page, server.origin);
-  });
-
-  test('upgraded queue preserves literal legacy and pre-upgrade signed evidence across print, sync and recovery', async ({ page, context }) => {
-    const handle = await startLegacyRecoveryServer();
-    try {
-      await context.addInitScript(() => {
-        (window as unknown as { __printCalls?: number }).__printCalls = 0;
-        window.print = () => { (window as unknown as { __printCalls: number }).__printCalls += 1; };
-      });
-      const signedRow = buildSignedPreUpgradeRow();
-      const signedExpectedJson = JSON.stringify(signedRow['payload']);
-
-      handle.server.useLegacyDeployment(await buildLegacyManifest(BUILD));
-      await page.goto(`${handle.server.origin}/__harness`);
-      await page.evaluate(async () => { await navigator.serviceWorker.register('/ngsw-worker.js'); });
-      await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: 45_000 });
-      expect(await controlledByProtectedWorker(page)).toBe(false);
-      await seedLegacyBrowserState(page, signedRow);
-      assertPreservedPayloadBytes(await readQueueRowsRaw(page), signedExpectedJson);
-
-      handle.server.useCurrentDeployment();
-      await verifyLegacyWorkerUpgrade(page, handle.server.origin);
-
-      await expect.poll(() => handle.syncBodies.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
-      const firstSync = JSON.parse(handle.syncBodies[0]) as { deviceId: string; sales: Record<string, unknown>[] };
-      expect(firstSync.deviceId).toBe(LEGACY_DEVICE_ID);
-      const byId = new Map(firstSync.sales.map((s) => [s['clientSaleId'] as string, s]));
-      expect(JSON.stringify(byId.get('legacy-7ff1-0001'))).toBe(vectors.unversionedPreDocument.expectedSyncRequestJson);
-      expect(JSON.stringify(byId.get('legacy-671d-0002'))).toBe(vectors.v1FrozenDocument.expectedSyncRequestJson);
-      expect((byId.get('legacy-signed-0003')?.['licenceEvidence'] as { signedPermit: string })?.signedPermit).toBe(OLD_SIGNED_TOKEN);
-
-      await verifyLegacyOfflinePrintAndAccess(page, context, handle.server.origin);
-      const bundleChecksum = await verifyLegacyRecoveryRoundTrip(page, context, handle.server.origin);
-
-      await page.reload();
-      await page.locator('.reconciliation-page').waitFor({ timeout: 30_000 });
-      assertPreservedPayloadBytes(await readQueueRowsRaw(page), signedExpectedJson);
-      expect(await readLeaseNextNumber(page)).toBe(INITIAL_NEXT_NUMBER);
-      expect(handle.leaseReservationCount()).toBe(0);
-
-      evidenceLog['legacyQueue'] = {
-        preDocumentClientSha256: vectors.unversionedPreDocument.payloadSha256,
-        preDocumentWireSha256: sha256Hex(vectors.unversionedPreDocument.expectedSyncRequestJson),
-        preDocumentServerVectorHash: vectors.unversionedPreDocument.expectedServerPayloadHash,
-        v1FrozenClientSha256: vectors.v1FrozenDocument.payloadSha256,
-        v1FrozenWireSha256: sha256Hex(vectors.v1FrozenDocument.expectedSyncRequestJson),
-        v1FrozenServerVectorHash: vectors.v1FrozenDocument.expectedServerPayloadHash,
-        exportedBundleChecksum: bundleChecksum,
-        leaseNextNumber: INITIAL_NEXT_NUMBER,
-        leaseReservations: handle.leaseReservationCount(),
-      };
-    } finally {
-      await handle.server.close();
-    }
   });
 }

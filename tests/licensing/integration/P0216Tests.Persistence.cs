@@ -2,9 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0215Fixture;
@@ -78,10 +75,8 @@ public sealed partial class P0216Tests
     }
 
     [Fact]
-    public async Task MigrationPreservesScheduledEvidenceAndRefusesDowngradeAfterWithdrawal()
+    public async Task WithdrawalEvidenceIsIsolatedAndForgeriesAreRejected()
     {
-        const string previous = "20261116210000_AddScheduledSubscriptionCancellations";
-        const string withdrawals = "20261116220000_AddSubscriptionCancellationWithdrawals";
         await using var fixture = await P0213Fixture.StartAsync(database);
         var payer = await SignInAsync(fixture.Hosts, ShopRole.Owner);
         var other = await SignInAsync(fixture.Hosts, ShopRole.Owner);
@@ -91,17 +86,6 @@ public sealed partial class P0216Tests
         fixture.Hosts.StatusClock.Now = EndsAt.AddDays(-3);
         var cancellation = await ScheduleAsync(payer, account, term);
         await ScheduleAsync(payer, account, otherTerm);
-        var retained = await ChangeHistoryAsync(fixture);
-
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        var migrator = context.GetService<IMigrator>();
-        await migrator.MigrateAsync(previous);
-        Assert.Equal(retained, await ChangeHistoryAsync(fixture));
-        await migrator.MigrateAsync(withdrawals);
-        Assert.Equal(retained, await ChangeHistoryAsync(fixture));
-        // The current binary reads the later checkout and payment schema; apply it and its runtime grants first.
-        await migrator.MigrateAsync();
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
         Assert.Equal(cancellation.GetProperty("changeId").GetGuid(),
             (await StatusAsync(payer)).GetProperty("term").GetProperty("cancellation").GetProperty("changeId").GetGuid());
 
@@ -109,11 +93,6 @@ public sealed partial class P0216Tests
             await ReadAsync(withdrawn);
         await CheckWithdrawalIsolationAsync(fixture, account, payer);
         await AssertForgedWithdrawalsRejectedAsync(fixture, term, otherTerm);
-        var history = await ChangeHistoryAsync(fixture);
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(previous));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
-        Assert.Equal(withdrawals, (await context.Database.GetAppliedMigrationsAsync()).Last());
-        Assert.Equal(history, await ChangeHistoryAsync(fixture));
     }
 
     private static async Task CheckWithdrawalIsolationAsync(P0213Fixture fixture, Guid account, Merchant owner)
@@ -172,14 +151,6 @@ public sealed partial class P0216Tests
             s.policy_version, s.shop_count, s.shop_hash, s.change_id
         FROM scheduled_subscription_changes s WHERE s.term_id = '{term:D}' AND s.revision = 1
         """;
-
-    // The link column exists only after this migration; scheduled rows carry it as null, so it is compared separately.
-    private static async Task<string> ChangeHistoryAsync(P0213Fixture fixture) => (string)(await fixture.SourceScalarAsync("""
-        SELECT jsonb_build_array(
-            (SELECT coalesce(jsonb_agg(to_jsonb(c) - 'withdraws_change_id' ORDER BY c.change_id), '[]') FROM scheduled_subscription_changes c),
-            (SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.change_id, s.shop_id), '[]') FROM scheduled_subscription_change_shops s),
-            (SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.change_id), '[]') FROM subscription_cancellation_receipts r))::text
-        """))!;
 
     private static async Task<string?> ScopedAsync(NpgsqlConnectionStringBuilder settings, Guid? account, Guid? shop, Guid? actor)
     {

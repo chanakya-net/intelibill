@@ -83,7 +83,7 @@ public sealed partial class P0205Tests
             var result = await owner.GetFromJsonAsync<JsonElement>(path, deadline.Token);
             if (result.GetProperty("status").GetString() == status)
                 return;
-            await Task.Delay(TimeSpan.FromMilliseconds(250), deadline.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(50), deadline.Token);
         }
     }
 
@@ -121,7 +121,7 @@ public sealed partial class P0205Tests
             var list = await payer.GetFromJsonAsync<JsonElement>(path, deadline.Token);
             if (list.GetProperty("requests").EnumerateArray().Any(row => row.GetProperty("status").GetString() == expected))
                 return;
-            await Task.Delay(TimeSpan.FromMilliseconds(250), deadline.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(50), deadline.Token);
         }
         Assert.Fail($"No affiliation reached {expected}.");
     }

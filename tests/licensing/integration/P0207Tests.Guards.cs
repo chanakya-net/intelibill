@@ -1,8 +1,5 @@
 using System.Net;
 using System.Security.Cryptography;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -111,31 +108,6 @@ public sealed partial class P0207Tests
         await fixture.GrantAsync(P0114Tests.Invitee);
         using var revoked = await fresh.SendAsync(HttpMethod.Get, recoveryPath);
         Assert.Equal(HttpStatusCode.Unauthorized, revoked.StatusCode);
-    }
-
-    [Fact]
-    public async Task MigrationKeepsPreExistingDraftFactsUnapproved()
-    {
-        var name = "p0207_upgrade_" + Guid.NewGuid().ToString("N");
-        using var fixture = new P0201Fixture(database, name);
-        var superuser = database.Bootstrap(name);
-        await database.CreateEmptyLicensingDatabaseAsync(name);
-        await using var context = fixture.OpenMigrationContext();
-        var migrator = context.GetService<IMigrator>();
-        await migrator.MigrateAsync("20261116120000_AddBillingOwnershipTransfers");
-        await LicensingPostgreSqlFixture.ExecuteAsync(superuser, """
-            INSERT INTO trial_policy_versions(id, version_number, status, revision, duration_days, active_member_cap,
-                max_concurrent_trial_shops, trial_terms_version, created_by_admin_id, created_at, updated_by_admin_id, updated_at)
-            VALUES (gen_random_uuid(), 1, 1, 2, 14, 5, 2, 'trial-local-1', gen_random_uuid(), now(), gen_random_uuid(), now());
-            """);
-        await context.Database.MigrateAsync();
-        Assert.False(context.Database.HasPendingModelChanges());
-        Assert.Equal(true, await LicensingPostgreSqlFixture.ReadScalarAsync(superuser, """
-            SELECT status = 1 AND revision = 2 AND source = 0 AND source_version_id IS NULL AND source_expected_version IS NULL
-                AND active_member_cap = 5 AND max_concurrent_trial_shops = 2 AND trial_terms_version = 'trial-local-1'
-            FROM trial_policy_versions
-            """));
-        Assert.Equal(0L, await LicensingPostgreSqlFixture.ReadScalarAsync(superuser, "SELECT count(*) FROM catalogue_publications"));
     }
 
     private static async Task<Guid> CreateTrialDraftAsync(P0110CookieBrowser manager, int maxConcurrentTrialShops = 2)

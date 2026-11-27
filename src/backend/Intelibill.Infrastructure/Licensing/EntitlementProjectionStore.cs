@@ -1,7 +1,9 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using System.Text.Json;
 using Intelibill.Application.Features.Licensing;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Policies;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
@@ -10,7 +12,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Licensing;
 
-public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence)
+public sealed partial class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence,
+    [Microsoft.Extensions.DependencyInjection.FromKeyedServices(ShopTrialsV1.DeliverySection)] TimeProvider? businessClock = null)
 {
     private static Error Replayed => Error.Unauthorized("Entitlement.Replayed");
     private static Error Conflict => Error.Conflict("Entitlement.EventMismatch");
@@ -26,7 +29,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
     {
         var received = EntitlementSnapshotsV1.Instant(clock);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var entered = await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
+        var entered = await EnterSnapshotAsync(snapshot, ct);
         if (entered.IsError)
             return entered.Errors;
         if (!await ConsumeAsync(proof, ct))
@@ -47,41 +50,177 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             WHERE event_id = {snapshot.EventId}
             """).SingleOrDefaultAsync(ct);
         if (prior is not null)
-            return prior.Digest == proof.Digest ? new EntitlementProjectionReceipt(prior.Acknowledgement, false) : Conflict;
+        {
+            if (prior.Digest != proof.Digest) return Conflict;
+            if (snapshot.EventId == snapshot.AffiliationRequestId)
+                await db.Database.ExecuteSqlAsync($"""
+                    UPDATE public.entitlement_outbox SET status='Pending', attempts=0, last_failure=NULL, next_attempt_at={received}
+                    WHERE event_id={snapshot.EventId} AND status='DeadLetter'
+                    """, ct);
+            return new EntitlementProjectionReceipt(prior.Acknowledgement, false);
+        }
 
         var account = await db.Set<AccountLicenseRestriction>().SingleOrDefaultAsync(row => row.AccountId == snapshot.AccountId, ct);
         var shop = await db.Set<ShopLicenseState>().SingleOrDefaultAsync(row => row.ShopId == snapshot.ShopId, ct);
-        var bound = await HasBindingAsync(snapshot, shop, ct);
+        var transferring = shop is not null && shop.AccountId != snapshot.AccountId &&
+            await MayActivateTransferAsync(snapshot, shop, ct);
+        var bound = transferring || await HasBindingAsync(snapshot, shop, ct);
         // Only a backward stamp needs the preceding head's immutable signing time.
         var regresses = snapshot.Account?.UpstreamVerifiedAt < account?.UpstreamVerifiedAt ||
             snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
         var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
-        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt) : "AffiliationUnresolved";
+        var savedMarkers = bound && shop is not null && snapshot.Shop?.Revision == shop.Revision
+            ? await CoverageActivationEvidence.ReadAsync(db, shop.EvidenceId, ct) : null;
+        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt,
+            savedMarkers?.SlotAssignment, savedMarkers?.Replacement, savedMarkers?.ReleasedReplacement,
+            savedMarkers?.ReplacementException, savedMarkers?.ReplacementExceptionLeg, savedMarkers?.ReplacementExceptionGeneration)
+            : "AffiliationUnresolved";
+        Guid? activatingAssignment = null;
+        if (reason is null)
+        {
+            var slotCheck = await CheckSlotActivationAsync(snapshot, account, shop, ct);
+            if (slotCheck.ExceedsAllowance) reason = "ConflictingShopScope";
+            else activatingAssignment = slotCheck.ActivatingAssignmentId;
+        }
+        var nextShopHead = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
+        var nextAccountHead = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
+        var candShop = reason is null ? BuildCandidateShop(snapshot, shop, nextShopHead) : null;
+        var candAccount = reason is null ? BuildCandidateAccount(snapshot, account, nextAccountHead) : null;
+        var replacement = reason is null && nextShopHead && snapshot.Shop!.ReplacementId is { } marker
+            && CanEnableTrading(candShop!, candAccount!, out _) ? marker : (Guid?)null;
+        Guid? confirmedReplacement = null;
+        if (replacement is { } id)
+        {
+            var gate = await ReplacementActivationGate.CheckAsync(db, snapshot, id, (businessClock ?? clock).GetUtcNow(), ct);
+            if (gate == "Waiting") return Error.Conflict(CoverageReplacementsV1.AwaitingRelease);
+            if (gate == "Invalid") reason = "ConflictingShopScope";
+            else confirmedReplacement = id;
+            if (gate != "Ready") replacement = null;
+        }
+        (Guid Id, string Leg, long Generation)? exceptionActivation = null;
+        (Guid Id, string Leg, long Generation)? confirmedException = null;
+        if (reason is null && nextShopHead && snapshot.Shop is
+            { ReplacementExceptionId: { } exId, ReplacementExceptionLeg: { } exLeg, ReplacementExceptionGeneration: { } exGen })
+        {
+            var needsCheck = exLeg == CoverageReplacementExceptionsV1.OutgoingLeg
+                || CanEnableTrading(candShop!, candAccount!, out _, allowComplimentary: exLeg == CoverageReplacementExceptionsV1.IncomingCourtesyLeg);
+            if (needsCheck)
+            {
+                var gate = await CoverageExceptionActivationGate.CheckAsync(db, snapshot, exId, exLeg, exGen,
+                    (businessClock ?? clock).GetUtcNow(), ct);
+                if (gate == "Waiting") return Error.Conflict(CoverageReplacementExceptionsV1.AwaitingRelease);
+                if (gate == "Invalid") reason = "ConflictingShopScope";
+                else
+                {
+                    confirmedException = (exId, exLeg, exGen);
+                    if (gate == "Ready") exceptionActivation = (exId, exLeg, exGen);
+                }
+            }
+        }
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
-        var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
-        var nextShop = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
+        var nextAccount = reason is null && nextAccountHead;
+        var nextShop = reason is null && nextShopHead;
         var ack = new EntitlementAcknowledgementV1(1, snapshot.EventId, proof.Digest, snapshot.AccountId, snapshot.ShopId,
             snapshot.AffiliationRequestId, snapshot.Account?.Revision, snapshot.Shop?.Revision,
             nextAccount ? snapshot.Account!.Revision : bound ? account?.Revision : null,
             nextShop ? snapshot.Shop!.Revision : bound ? shop?.Revision : null,
-            reason is null ? "Applied" : "NeedsReview", reason ?? (nextAccount || nextShop ? "Applied" : "Superseded"), appliedAt);
+            reason is null ? "Applied" : "NeedsReview", reason ?? (nextAccount || nextShop ? "Applied" : "Superseded"),
+            appliedAt, confirmedReplacement, confirmedException?.Id, confirmedException?.Leg, confirmedException?.Generation);
         var receipt = JsonSerializer.SerializeToUtf8Bytes(ack, EntitlementSnapshotsV1.Json);
         if (!await ReserveInboxAsync(snapshot, proof.Digest, receipt, ct))
             return Conflict;
 
         db.Add(Evidence(snapshot, body, proof, received, appliedAt));
         if (nextAccount) UpdateAccount(snapshot, account);
-        if (nextShop) UpdateShop(snapshot, shop);
+        if (nextShop)
+        {
+            if (transferring)
+            {
+                db.Entry(shop!).Property(s => s.AccountId).CurrentValue = snapshot.AccountId;
+                db.Entry(shop!).Property(s => s.AffiliationRequestId).CurrentValue = snapshot.AffiliationRequestId;
+            }
+            UpdateShop(snapshot, shop);
+        }
         await db.SaveChangesAsync(ct);
+        if (replacement is { } activated)
+            await ReplacementActivationGate.RecordAsync(db, snapshot, activated, appliedAt, ct);
+        if (exceptionActivation is { } exActivated)
+            await CoverageExceptionActivationGate.RecordAsync(db, snapshot, exActivated.Id, exActivated.Leg, exActivated.Generation, appliedAt, ct);
+        if (activatingAssignment is { } activatedId)
+            await SlotActivationGate.RecordAsync(db, activatedId, snapshot.ShopId, snapshot.AccountId, snapshot.EventId, appliedAt, ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
             "Acknowledgement", receipt, SignedServiceAssertion.Digest(receipt), appliedAt, ct);
         return new EntitlementProjectionReceipt(receipt, nextAccount || nextShop);
     }
 
+    // The projection fence also serializes member admission. Recheck live seats whenever applying the head
+    // could enable trading permission for an unactivated slot assignment (including Grace, future suspensions
+    // and out-of-order early-renewal successors), while letting immediately restrictive updates through.
+    // Those stay unactivated, and ShopLicenceFence keeps the shop out of trading until its own check succeeds.
+    // Only a head that names an assignment reads the slot tables, so earlier signed traffic needs no new schema.
+    private async Task<(bool ExceedsAllowance, Guid? ActivatingAssignmentId)> CheckSlotActivationAsync(
+        EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? account, ShopLicenseState? shop, CancellationToken ct)
+    {
+        var incomingShop = snapshot.Shop!;
+        var incomingAccount = snapshot.Account!;
+        var nextAccount = account is null || incomingAccount.Revision > account.Revision;
+        var nextShop = shop is null || incomingShop.Revision > shop.Revision;
+        if (!nextShop && !nextAccount) return (false, null);
+
+        var candShop = BuildCandidateShop(snapshot, shop, nextShop);
+        var candAccount = BuildCandidateAccount(snapshot, account, nextAccount);
+        if (!CanEnableTrading(candShop, candAccount, out var allowance)) return (false, null);
+
+        var named = nextShop ? incomingShop.SlotAssignmentId : (await CoverageActivationEvidence.ReadAsync(db, candShop.EvidenceId, ct))?.SlotAssignment;
+        if (named is not { } namedId || await SlotActivationGate.FindPendingAsync(db, snapshot.ShopId, snapshot.AccountId,
+                snapshot.AffiliationRequestId, namedId, ct) is not { } assignmentId)
+            return (false, null);
+
+        var activeMembers = await db.Database.SqlQuery<int>($"""
+            SELECT count(*)::int AS "Value" FROM public.shop_memberships
+            WHERE shop_id = {snapshot.ShopId} AND status = 'Active'
+            """).SingleAsync(ct);
+        return activeMembers > allowance ? (true, null) : (false, assignmentId);
+    }
+
+    private static bool CanEnableTrading(ShopLicenseState shop, AccountLicenseRestriction account, out int allowance,
+        bool allowComplimentary = false)
+    {
+        allowance = shop.MemberAllowance ?? 0;
+        var validBasis = shop.Basis == "Paid" || (allowComplimentary && shop.Basis == "Complimentary");
+        if (shop.State is not ("Active" or "Grace") || !validBasis || shop.TermId is null || allowance <= 0)
+            return false;
+        var evalAt = shop.UpstreamVerifiedAt > account.UpstreamVerifiedAt ? shop.UpstreamVerifiedAt : account.UpstreamVerifiedAt;
+        if (shop.StartsAt is not { } starts || shop.AccessEndsAt is not { } ends || starts > evalAt || ends <= evalAt)
+            return false;
+        return LicenseProjectionPolicy.EffectiveSuspension(shop, account, evalAt) is null;
+    }
+
+    private static ShopLicenseState BuildCandidateShop(EntitlementSnapshotV1 snapshot, ShopLicenseState? saved, bool advance)
+    {
+        if (!advance && saved is not null) return saved;
+        var s = snapshot.Shop!;
+        var copy = new ShopLicenseState { ShopId = snapshot.ShopId, AccountId = snapshot.AccountId, AffiliationRequestId = snapshot.AffiliationRequestId };
+        copy.Apply(s.Revision, s.UpstreamVerifiedAt, s.State, s.TermId, s.Basis, s.StartsAt, s.AccessEndsAt,
+            s.NextBoundary, s.ShopCapacity, s.MemberAllowance, snapshot.EventId, s.Suspension?.Mode,
+            s.Suspension?.EffectiveAt, s.Suspension?.CustomerExplanation, s.ReleasedRevision, s.ReopenedRevision, s.ClosureRevision);
+        return copy;
+    }
+
+    private static AccountLicenseRestriction BuildCandidateAccount(EntitlementSnapshotV1 snapshot, AccountLicenseRestriction? saved, bool advance)
+    {
+        if (!advance && saved is not null) return saved;
+        var a = snapshot.Account!;
+        var copy = new AccountLicenseRestriction { AccountId = snapshot.AccountId };
+        copy.Apply(a.Revision, a.UpstreamVerifiedAt, a.Restriction, a.ReleasedRevision, snapshot.EventId,
+            a.Suspension?.EffectiveAt, a.Suspension?.CustomerExplanation, a.PreviousReleaseRevision);
+        return copy;
+    }
+
     internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)
     {
         // These delivery transactions also bound their later inbox, evidence and outbox writes.
-        await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {ShopLicenceFence.LockTimeout}, true)", ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.active_shop_id', {shop.ToString("D")}, true),
                 set_config('app.entitlement_account_id', {account.ToString("D")}, true)
@@ -89,7 +228,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return await fence.EnterProjectionAsync(account, shop, ct);
     }
 
-    private async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)
+    internal async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)
     {
         if (clock.GetUtcNow() >= proof.ExpiresAt) return false;
         await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -102,16 +241,22 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return count == 1 && clock.GetUtcNow() < proof.ExpiresAt;
     }
 
-    private Task<bool> HasBindingAsync(EntitlementSnapshotV1 snapshot, ShopLicenseState? prior, CancellationToken ct)
+    private async Task<bool> HasBindingAsync(EntitlementSnapshotV1 snapshot, ShopLicenseState? prior, CancellationToken ct)
     {
         if (prior is not null && (prior.AccountId != snapshot.AccountId || prior.AffiliationRequestId != snapshot.AffiliationRequestId))
-            return Task.FromResult(false);
-        return db.Database.SqlQuery<bool>($"""
+            return false;
+        var original = await db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (SELECT FROM public.shop_affiliation_consent_events e
                 LEFT JOIN public.shop_affiliation_delivery_receipts r ON r.event_id = e.id
                 WHERE e.shop_id = {snapshot.ShopId} AND e.account_id = {snapshot.AccountId}
                     AND e.request_id = {snapshot.AffiliationRequestId} AND e.kind = 'Accepted'
                     AND r.status IS DISTINCT FROM 'NeedsReview') AS "Value"
+            """).SingleAsync(ct);
+        if (original || prior is null) return original;
+        return await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.merchant_transfer_decisions d WHERE d.shop_id={snapshot.ShopId}
+                AND d.destination_account_id={snapshot.AccountId} AND d.transfer_id={snapshot.AffiliationRequestId}
+                AND d.outcome='Consumed') AS "Value"
             """).SingleAsync(ct);
     }
 

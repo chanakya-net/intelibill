@@ -1,10 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -67,36 +64,8 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         Assert.DoesNotContain("accessToken", await response.Content.ReadAsStringAsync());
     }
 
-    /// <summary>
-    /// The route that used to hand out a session on an unproved number is closed. It still answers,
-    /// with a stable code, so a client that has not been updated gets a documented refusal rather
-    /// than a 404 or a 500 — and no account is created.
-    /// </summary>
     [Fact]
-    public async Task RegisterWithPhone_IsClosed_Returns503AndCreatesNothing()
-    {
-        using var client = CreateClient();
-        var phone = UniquePhone();
-
-        var response = await client.PostAsJsonAsync("/api/auth/register/phone", new
-        {
-            phoneNumber = phone,
-            firstName = "Phone",
-            lastName = "User"
-        });
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Auth.PhoneEnrollmentUnavailable", body);
-        Assert.DoesNotContain("accessToken", body);
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False(await db.Users.AnyAsync(x => x.PhoneNumber == phone));
-    }
-
-    [Fact]
-    public async Task LoginWithEmail_ValidCredentials_Returns200WithTokens()
+    public async Task Login_WithEmail_ValidCredentials_Returns200WithTokens()
     {
         using var client = CreateClient();
         var email = UniqueEmail();
@@ -106,9 +75,9 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
-        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email, password = "Pass123!Aa"
+            identifier = email, password = "Pass123!Aa"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -118,7 +87,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     }
 
     [Fact]
-    public async Task LoginWithEmail_WrongPassword_Returns401()
+    public async Task Login_WithEmail_WrongPassword_Returns401()
     {
         using var client = CreateClient();
         var email = UniqueEmail();
@@ -128,22 +97,22 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
-        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email, password = "WrongPassword!"
+            identifier = email, password = "WrongPassword!"
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
-    public async Task LoginWithEmail_UnknownEmail_Returns401()
+    public async Task Login_WithEmail_UnknownEmail_Returns401()
     {
         using var client = CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email = UniqueEmail(),
+            identifier = UniqueEmail(),
             password = "Pass123!Aa"
         });
 

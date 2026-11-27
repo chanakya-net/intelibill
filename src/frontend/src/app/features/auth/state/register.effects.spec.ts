@@ -41,15 +41,8 @@ describe('RegisterEffects', () => {
     const state = registerReducer(registerReducer(undefined, request), action);
     expect(state.accepted).toBe(true);
     expect(state.email).toBe('a@b.com');
-    expect(authService.registerWithEmail).toHaveBeenCalledWith('a@b.com', false);
+    expect(authService.registerWithEmail).toHaveBeenCalledWith('a@b.com');
     expect(router.navigateByUrl).not.toHaveBeenCalled();
-  });
-  it('resends to the explicit legacy-claim endpoint without exposing account existence', async () => {
-    authService.registerWithEmail.mockReturnValue(of({ message: 'generic' }));
-    const output = firstValueFrom(effects.register$);
-    actions$.next(RegisterActions.requested({ email: 'a@b.com', claim: true }));
-    await output;
-    expect(authService.registerWithEmail).toHaveBeenCalledWith('a@b.com', true);
   });
   it('explains unavailable delivery without pretending mail was accepted', async () => {
     authService.registerWithEmail.mockReturnValue(

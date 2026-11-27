@@ -76,7 +76,6 @@ public sealed class AddItemCommandHandler(
             item.DefaultTaxRatePercent,
             item.DefaultTaxIncluded,
             item.UnitCode,
-            item.QuantityScale,
-            item.UnitReviewRequired);
+            item.QuantityScale);
     }
 }

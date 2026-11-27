@@ -4,14 +4,14 @@ using Intelibill.Application.Features.Inventory.DTOs;
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 
 /// <param name="OperationKey">
-/// Optional durable identity of this submission. Resending the same rows under the same key
+/// Required durable identity of this submission. Resending the same rows under the same key
 /// replays committed rows and retries the rest; changed rows under the same key are refused.
 /// </param>
 public sealed record AddInventoryBatchCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     IReadOnlyList<AddInventoryBatchRowCommand> Items,
-    string? OperationKey = null,
+    string OperationKey,
     SessionClaims? Session = null);
 
 public sealed record AddInventoryBatchRowCommand(

@@ -831,9 +831,9 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
         var response = await client.SeedVerifiedStaffAsync(request);
         response.EnsureSuccessStatusCode();
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email,
+            identifier = email,
             password,
         });
         loginResponse.EnsureSuccessStatusCode();

@@ -89,7 +89,7 @@ public sealed class ScheduleCancellationHandler(IBillingDelegationAccess access,
     private async Task<CancellationSource?> ReadSourceAsync(TermFactsRow row, DateTimeOffset at, CancellationToken ct)
     {
         var facts = SubscriptionStatusProjection.ToFacts(row);
-        if (SubscriptionStatusProjection.ActiveCancellation(row) is not null || facts is not { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid }
+        if (row.RefundBoundary is not null || SubscriptionStatusProjection.ActiveCancellation(row) is not null || facts is not { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid }
             || row.PricePaise is not >= 0 || row.Currency != "INR" || at < row.StartsAt || at >= row.EndsAt)
             return null;
 

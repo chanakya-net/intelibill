@@ -17,7 +17,7 @@ public sealed record ManualPaymentReceipt(Guid ReceiptId, Guid OperationKey, Gui
 {
     public string Source { get; } = "Manual";
     public string Payment { get; } = "Verified";
-    public string Fulfilment => TermId is null ? "NeedsReview" : "Fulfilled";
+    public string Fulfilment => ReviewReason is "CapacityPending" or "ReductionPending" ? "Pending" : TermId is null ? "NeedsReview" : "Fulfilled";
 }
 
 public sealed record ManualPaymentOrder(Guid AccountId, Guid OrderId, int Revision, string SnapshotHash,

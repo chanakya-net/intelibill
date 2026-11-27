@@ -92,7 +92,7 @@ public sealed partial class P0408dLicensingTests
     [InlineData("create", "shop")]
     public async Task HeldAuthorityRowsAnswerBusyAndReleaseTheFence(string operation, string held)
     {
-        using var host = CreateHost();
+        using var host = CreateHost(productionLockBudgets: true);
         await host.InitializeAsync();
         using var client = CreateClient(host);
         var shop = await CreateShopAsync(client);

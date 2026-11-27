@@ -12,8 +12,6 @@ using Intelibill.Infrastructure.Repositories;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using static Intelibill.Integration.Tests.TillTestContext;
 
 namespace Intelibill.Integration.Tests;
@@ -26,30 +24,10 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         new Intelibill.Infrastructure.Services.Tills.TillSessionPolicy(Microsoft.Extensions.Options.Options.Create(app.Options), new ShopRepository(app.Db), app.Tills), app.Time, ExpirySettingsFixture.Access(app.Db));
 
     [Fact]
-    public async Task Migration_PreservesPriorTillUsers_LeavesUnconfiguredShopsOff_AndMatchesModel()
+    public void Model_MatchesTheMigrations()
     {
-        var database = $"till_settings_{Guid.NewGuid():N}";
-        await using (var admin = new Npgsql.NpgsqlConnection(fixture.MigratorConnectionString))
-        {
-            await admin.OpenAsync();
-            await using var create = new Npgsql.NpgsqlCommand($"CREATE DATABASE {database}", admin);
-            await create.ExecuteNonQueryAsync();
-        }
-        var connection = new Npgsql.NpgsqlConnectionStringBuilder(fixture.MigratorConnectionString) { Database = database }.ConnectionString;
-        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
-        var migrations = db.Database.GetMigrations().ToArray();
-        var current = Array.FindIndex(migrations, x => x.EndsWith("_AddOwnerTillSettings", StringComparison.Ordinal));
-        await db.GetService<IMigrator>().MigrateAsync(migrations[current - 1]);
-        var prior = Shop.Create("Prior till user", "Address", "City", "State", "560001", null, null, null);
-        var fresh = Shop.Create("Never configured", "Address", "City", "State", "560001", null, null, null);
-        var actor = User.CreateWithEmail($"migration-{Guid.NewGuid():N}@example.test", "hash", "Owner", "Name");
-        db.AddRange(prior, fresh, actor, ShopMembership.Create(prior.Id, actor.Id, ShopRole.Owner, false),
-            Till.Create(prior.Id, "Existing drawer", actor.Id, DateTimeOffset.UtcNow).Value);
-        await db.SaveChangesAsync();
-        await db.Database.MigrateAsync();
-        Assert.True((await db.ShopTillSettings.SingleAsync(x => x.ShopId == prior.Id)).Enabled);
-        Assert.Equal(0, (await db.ShopTillSettings.SingleAsync(x => x.ShopId == prior.Id)).Version);
-        Assert.False(await db.ShopTillSettings.AnyAsync(x => x.ShopId == fresh.Id));
+        using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
         Assert.False(db.Database.HasPendingModelChanges());
     }
 
@@ -241,12 +219,6 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         var (shop, owner, _, _) = await SeedAsync(fixture.MigratorConnectionString);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
         var service = Settings(app);
-        var prior = ReconciliationIssue.Create(shop, null, "pre-envelope", "older-device", ReconciliationIssueType.ArithmeticConflict,
-            "ArithmeticConflict", "Unposted printed invoice", owner);
-        app.Db.Add(prior); await app.Db.SaveChangesAsync();
-        Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
-        prior.Resolve(owner, app.Clock.UtcNow); await app.Db.SaveChangesAsync();
         Assert.Equal(0, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
         var envelope = OfflineSubmission.Record(shop, "device", "pending", "A/2627/000001", new string('a', 64), "{}", app.Clock.UtcNow, app.Clock.UtcNow, OfflineSubmissionSource.Sync, owner, null, null, null, null);
         app.Db.Add(envelope); await app.Db.SaveChangesAsync();

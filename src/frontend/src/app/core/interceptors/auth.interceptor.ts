@@ -164,7 +164,6 @@ function ignoreAnswersFromLeftScope(
 const SESSION_INSTALLING_ENDPOINTS: readonly string[] = [
   AUTH_ENDPOINTS.login,
   AUTH_ENDPOINTS.confirmEmailEnrollment,
-  AUTH_ENDPOINTS.confirmEmailClaim,
   AUTH_ENDPOINTS.confirmPhoneEnrollment,
   AUTH_ENDPOINTS.confirmPhoneLogin,
   AUTH_ENDPOINTS.refreshToken,
@@ -197,7 +196,7 @@ function canReportRefusal(path: string, activeShopId: string): boolean {
 
 function isRefreshExcludedEndpointRequest(path: string): boolean {
   return [
-    AUTH_ENDPOINTS.loginWithEmail, AUTH_ENDPOINTS.confirmPasswordReset,
+    AUTH_ENDPOINTS.login, AUTH_ENDPOINTS.confirmPasswordReset,
     AUTH_ENDPOINTS.refreshToken, AUTH_ENDPOINTS.revokeToken,
   ].some((endpoint) => path.startsWith(canonicalPath(endpoint)));
 }

@@ -53,7 +53,6 @@ public sealed record ReconciliationCaseDto(
     ReconciliationPersonDto CreatedBy,
     DateTimeOffset? ResolvedAt,
     ReconciliationPersonDto? ResolvedBy,
-    bool HasOriginalEnvelope,
     OfflineSubmissionDto? Submission,
     IReadOnlyList<string> AvailableActions,
     IReadOnlyList<ReconciliationCaseEventDto> Events,
@@ -62,8 +61,7 @@ public sealed record ReconciliationCaseDto(
     LicenceHistoryReviewDto? LicenceHistory = null);
 
 /// <summary>
-/// Safe, versioned historical licence evidence for a LicenseHistoryReview case (and legacy #903
-/// provenance cases with the <c>OfflineLicenceHistory.</c> prefix). Contains no raw signed tokens,
+/// Safe, versioned historical licence evidence for a LicenseHistoryReview case. Contains no raw signed tokens,
 /// unbounded client strings, commercial plan details, or inaccessible parties.
 /// </summary>
 public sealed record LicenceHistoryReviewDto(

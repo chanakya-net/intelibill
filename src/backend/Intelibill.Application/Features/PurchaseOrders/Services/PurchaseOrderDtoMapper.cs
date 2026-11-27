@@ -76,5 +76,5 @@ public static class PurchaseOrderDtoMapper
                 line.TaxRatePercent,
                 line.TaxIncluded,
                 line.PurchaseTaxIncluded,
-                line.ClientLineId ?? line.Id)).ToList());
+                line.ClientLineId)).ToList());
 }

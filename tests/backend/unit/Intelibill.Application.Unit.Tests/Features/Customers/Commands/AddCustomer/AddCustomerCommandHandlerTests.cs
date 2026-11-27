@@ -41,7 +41,8 @@ public class AddCustomerCommandHandlerTests
             "  +919876543210  ",
             "  12 Market Road  ",
             true,
-            250m), CancellationToken.None);
+            250m,
+            CreditPolicyMode.Enforced), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("John Doe", result.Value.Name);
@@ -69,17 +70,6 @@ public class AddCustomerCommandHandlerTests
     }
 
     [Fact]
-    public async Task Add_without_policy_is_labelled_legacy_advisory()
-    {
-        var shopId = Guid.NewGuid();
-        var handler = CreateHandler();
-
-        var result = await handler.HandleAsync(new AddCustomerCommand(AddMember(shopId), "A", "+911234567890", null, true, 100m), CancellationToken.None);
-
-        Assert.Equal(CreditPolicyMode.LegacyAdvisory, result.Value.CreditPolicyMode);
-    }
-
-    [Fact]
     public async Task Add_with_explicit_no_credit_is_saved()
     {
         var shopId = Guid.NewGuid();
@@ -87,7 +77,7 @@ public class AddCustomerCommandHandlerTests
         var handler = CreateHandler();
 
         var result = await handler.HandleAsync(
-            new AddCustomerCommand(owner, "A", "+911234567890", null, true, 0m, CreditPolicyMode: CreditPolicyMode.NoCredit),
+            new AddCustomerCommand(owner, "A", "+911234567890", null, true, 0m, CreditPolicyMode.NoCredit),
             CancellationToken.None);
 
         Assert.Equal(CreditPolicyMode.NoCredit, result.Value.CreditPolicyMode);
@@ -100,11 +90,24 @@ public class AddCustomerCommandHandlerTests
         var staff = AddMember(shopId, ShopRole.Staff);
         var handler = CreateHandler();
 
-        var plain = await handler.HandleAsync(new AddCustomerCommand(staff, "A", "+911234567890", null, true, 0m), CancellationToken.None);
-        var granting = await handler.HandleAsync(new AddCustomerCommand(staff, "B", "+911234567891", null, true, 500m), CancellationToken.None);
+        var plain = await handler.HandleAsync(new AddCustomerCommand(staff, "A", "+911234567890", null, true, 0m, CreditPolicyMode.NoCredit), CancellationToken.None);
+        var granting = await handler.HandleAsync(new AddCustomerCommand(staff, "B", "+911234567891", null, true, 500m, CreditPolicyMode.NoCredit), CancellationToken.None);
+        var enforcing = await handler.HandleAsync(new AddCustomerCommand(staff, "C", "+911234567892", null, true, 0m, CreditPolicyMode.Enforced), CancellationToken.None);
 
         Assert.Equal(CreditPolicyMode.NoCredit, plain.Value.CreditPolicyMode);
         Assert.Equal(Errors.CustomerCredit.SettingsChangeNotPermitted.Code, granting.FirstError.Code);
+        Assert.Equal(Errors.CustomerCredit.SettingsChangeNotPermitted.Code, enforcing.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Add_with_terms_saves_them_with_the_policy()
+    {
+        var result = await CreateHandler().HandleAsync(
+            new AddCustomerCommand(AddMember(Guid.NewGuid()), "A", "+911234567890", null, true, 100m, CreditPolicyMode.Enforced, CreditTermsDays: 30),
+            CancellationToken.None);
+
+        Assert.Equal(CreditPolicyMode.Enforced, result.Value.CreditPolicyMode);
+        Assert.Equal(30, result.Value.CreditTermsDays);
     }
 
     [Fact]
@@ -113,7 +116,7 @@ public class AddCustomerCommandHandlerTests
         var handler = CreateHandler();
 
         var result = await handler.HandleAsync(
-            new AddCustomerCommand(AddMember(Guid.NewGuid()), "A", "+911234567890", null, true, 0m, null, null, CreditPolicyMode.Enforced),
+            new AddCustomerCommand(AddMember(Guid.NewGuid()), "A", "+911234567890", null, true, 0m, CreditPolicyMode.Enforced),
             CancellationToken.None);
 
         Assert.Equal("Customer.EnforcedCreditRequiresLimit", result.FirstError.Code);
@@ -136,7 +139,7 @@ public class AddCustomerCommandHandlerTests
         if (refusal == "revoked")
             _authority.IsValidAsync(session, Ct).Returns(false);
 
-        var result = await CreateHandler().HandleAsync(new(session, "A", "+911234567890", null, true, 0m), Ct);
+        var result = await CreateHandler().HandleAsync(new(session, "A", "+911234567890", null, true, 0m, CreditPolicyMode.NoCredit), Ct);
 
         Assert.Equal(expected, result.FirstError.Code);
         await _customerRepository.DidNotReceive().AddAsync(Arg.Any<Customer>(), Ct);

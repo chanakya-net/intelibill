@@ -1,9 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -94,14 +90,6 @@ public sealed partial class P0203Tests
             "SELECT count(*) FROM public.billing_account_invitations"));
         Assert.Equal(0L, await P0202Fixture.RuntimeScalarAsync(host.Fixture, account, named.Actor,
             "SELECT count(*) FROM public.billing_invitation_issue_receipts"));
-
-        await using var migration = host.Fixture.OpenMigrationContext();
-        Assert.False(migration.Database.HasPendingModelChanges());
-        var migrator = migration.GetService<IMigrator>();
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() =>
-            migrator.MigrateAsync("20261115142000_BillingAccountsAndPlanLifecycle"));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(failure is PostgresException ? failure : failure.InnerException).SqlState);
-        Assert.Single(await InboxAsync(named.Client));
     }
 
     private Task SetMerchantUserAsync(Guid user, string set) => LicensingPostgreSqlFixture.ExecuteAsync(

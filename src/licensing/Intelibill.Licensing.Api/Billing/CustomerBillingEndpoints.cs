@@ -1,6 +1,8 @@
 using ErrorOr;
+using Intelibill.Licensing.Api.Documents;
 using Intelibill.Licensing.Api.Restrictions;
 using Intelibill.Licensing.Api.Payments;
+using Intelibill.Licensing.Api.Refunds;
 using Intelibill.Licensing.Api.Subscriptions;
 using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Api.Status;
@@ -42,6 +44,10 @@ internal static class CustomerBillingEndpoints
         app.MapBillingMembers(policy);
         app.MapOwnershipTransfers(policy);
         app.MapShopAffiliations(policy);
+        app.MapCoverageSlots(policy);
+        app.MapCoverageReplacements(policy);
+        app.MapCoverageReplacementExceptions(policy);
+        app.MapCoverageTransfers(policy);
         app.MapCustomerSubscriptionStatus(policy);
         app.MapCustomerSubscriptionCancellation(policy);
         app.MapCustomerClosures(policy);
@@ -49,6 +55,10 @@ internal static class CustomerBillingEndpoints
         app.MapShopTrials(policy);
         app.MapCustomerCheckout(policy);
         app.MapCustomerPayments(policy);
+        app.MapCustomerBillingDocuments(policy);
+        app.MapCustomerCapacityChangeQuotes(policy);
+        app.MapCustomerCapacityReductions(policy);
+        app.MapCustomerRefundRequests(policy);
     }
 
     private static async Task<IResult> GetAccessAsync(

@@ -14,6 +14,8 @@ public sealed class SimulateCheckoutCaptureHandler(IBillingDelegationAccess acce
     {
         var found = await access.ExecuteAsync<StoredPaymentAttempt>(proof, async (_, token) =>
         {
+            if (!await status.MayAccessOrderAsync(account, order, proof.ActorId, token))
+                return BillingDelegationErrors.Denied;
             if (!request.IsValid())
                 return CheckoutPaymentErrors.Invalid;
             if (await store.FindAttemptAsync(account, attemptId, false, token) is not { ProviderOrderReference: not null } attempt ||

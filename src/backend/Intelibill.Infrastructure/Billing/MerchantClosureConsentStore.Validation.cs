@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
@@ -27,7 +28,7 @@ internal sealed partial class MerchantClosureConsentStore
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var entries = await LockTargetsAsync(request, ct);
             if (clock.GetUtcNow() >= request.ExpiresAt)
                 return ValidationUnavailable;

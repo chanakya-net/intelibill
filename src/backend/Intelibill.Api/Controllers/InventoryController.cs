@@ -159,7 +159,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
                         row.PerformedAt,
                         row.HsnCode))
                     .ToArray(),
-                request.OperationKey,
+                request.OperationKey ?? string.Empty,
                 SessionClaims.TryRead(User)),
             cancellationToken);
 

@@ -23,7 +23,6 @@ public static class SupplierReturnPolicy
         var latestReceipt = receivedBy <= now ? receivedBy : now;
         if (receipts.Count == 0 || receipts.Any(receipt =>
             receipt.ShopId != lease.ShopId || receipt.SupplierId != supplierId ||
-            !receipt.IsResolved || receipt.EffectiveTotalCost is null ||
             receipt.ReceivedAt == default || receipt.ReceivedAt > latestReceipt))
             return SourceIneligible;
 

@@ -122,7 +122,7 @@ public sealed class SaleReturnPersistenceTests(PostgreSqlTestFixture fixture) : 
             isPriceIncludingTax: false,
             hasPriceMismatch: false);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             $"INV-{Guid.NewGuid():N}",
             customerId: null,
@@ -232,7 +232,7 @@ public sealed class SaleReturnPersistenceTests(PostgreSqlTestFixture fixture) : 
             isPriceIncludingTax: true,
             hasPriceMismatch: false);
 
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             $"INV-SVC-{Guid.NewGuid():N}",
             customerId: null,

@@ -251,6 +251,7 @@ describe('OfflineSaleStateService', () => {
       customerId: null,
       customerName: null,
       customerPhone: null,
+      issuedByUserId: 'user-1',
     };
     await queue.savePendingSale({ ...payload, payload });
     const before = await queue.getQueuedSale('shop-1', 'device-1', id);

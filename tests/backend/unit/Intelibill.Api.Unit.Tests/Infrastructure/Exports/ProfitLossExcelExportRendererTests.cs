@@ -71,10 +71,12 @@ public sealed class ProfitLossExcelExportRendererTests
             "customer",
             "xlsx");
 
-        var summary = new ProfitLossExportSummaryDto(120m, 220m, 100m, 12.5m, 2, 0, 0);
+        var economics = new ProfitLossEconomicsDto(2, "recorded-sale-cost/1", 100m, 80m, 0m, 0m, 20m, 0m, 20m, 20m, 25m, 0, 0m, "Complete", []);
+        var summary = new ProfitLossExportSummaryDto(120m, 220m, 100m, 12.5m, 2, 0, 0, economics);
         var rows = new List<ProfitLossExportRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Sale", "Alice", 80m, 0m, 100m, 118m, 20m, 38m, 47.5m),
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Sale", "Alice", 80m, 0m, 100m, 118m, 20m, 38m, 47.5m,
+                new(2, 100m, 80m, 0m, 0m, 20m, 20m, 25m, false)),
         };
         var dataset = new ProfitLossExportDatasetDto(metadata, summary, rows);
 

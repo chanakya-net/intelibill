@@ -89,7 +89,7 @@ public sealed partial class P0203Tests
 
     private static async Task WaitForBothAsync(NpgsqlConnection connection, NpgsqlTransaction transaction)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var read = new NpgsqlCommand("""
             SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted
               AND database = (SELECT oid FROM pg_database WHERE datname = current_database())

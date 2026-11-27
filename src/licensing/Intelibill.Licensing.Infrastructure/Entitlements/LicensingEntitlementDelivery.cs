@@ -10,22 +10,39 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Licensing.Infrastructure.Entitlements;
 
 internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, EntitlementPublisher publisher,
-    LicensingEntitlementTransport transport, IHttpClientFactory clients) : ILeasedHttpDestination
+    LicensingEntitlementTransport transport, IHttpClientFactory clients,
+    Subscriptions.ScheduledCapacityReductionStore reductions, CoverageTransferAcknowledgements transfers) : ILeasedHttpDestination
 {
     public bool Enabled => transport.Origin is not null;
 
     public async Task<string?> SendAsync(LeasedHttpMessage message, CancellationToken ct)
     {
-        if (transport.Origin is not { } origin || message.Kind != "Snapshot")
+        var path = message.Kind switch
+        {
+            CoverageTransferApprovalsV1.Prepare or CoverageTransferApprovalsV1.Consume or CoverageTransferApprovalsV1.Abort =>
+                CoverageTransferApprovalsV1.CommandPath,
+            "Snapshot" => EntitlementSnapshotsV1.SnapshotPath,
+            CapacityReservationV1.Reserve => CapacityReservationV1.ReservePath,
+            CapacityReservationV1.Consume => CapacityReservationV1.ConsumePath,
+            ReductionTransportV1.ManifestKind => ReductionTransportV1.ManifestPath,
+            ReductionTransportV1.ReserveKind => ReductionTransportV1.ReservePath,
+            ReductionTransportV1.ConsumeKind => ReductionTransportV1.ConsumePath,
+            CoverageReplacementExceptionsV1.PrepareKind => CoverageReplacementExceptionsV1.PreparePath,
+            CoverageReplacementExceptionsV1.ConsumeKind => CoverageReplacementExceptionsV1.ConsumePath,
+            CoverageReplacementExceptionsV1.AbortKind => CoverageReplacementExceptionsV1.AbortPath,
+            _ => null,
+        };
+        if (transport.Origin is not { } origin || path is null)
             return "Unavailable";
         try
         {
-            if (await transport.SignAsync(message.Payload, ct) is not { } assertion)
+            if (await transport.SignAsync(message.Payload, ct, path) is not { } assertion)
                 return "Unavailable";
             using var client = clients.CreateClient(LeasedHttpDeliveryPump.ClientName);
-            using var response = await LeasedHttpDeliveryPump.PostAsync(client, origin, EntitlementSnapshotsV1.SnapshotPath,
+            using var response = await LeasedHttpDeliveryPump.PostAsync(client, origin, path,
                 message.Payload, assertion, ct);
-            return await CheckResponseAsync(response, message, ct);
+            if (message.Kind == "Snapshot") return await CheckResponseAsync(response, message, ct);
+            return response.StatusCode == HttpStatusCode.NoContent ? null : DeliveryFailure(response);
         }
         catch (RequestFailedException)
         {
@@ -33,11 +50,24 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
         }
     }
 
-    private static async Task<string?> CheckResponseAsync(HttpResponseMessage response, LeasedHttpMessage message, CancellationToken ct)
+    private static string DeliveryFailure(HttpResponseMessage response) =>
+        response.IsSuccessStatusCode ? "InvalidResponse" :
+            response.StatusCode >= HttpStatusCode.InternalServerError ? "Unavailable" : "Rejected";
+
+    private async Task<string?> CheckResponseAsync(HttpResponseMessage response, LeasedHttpMessage message, CancellationToken ct)
     {
+        if (response.StatusCode == HttpStatusCode.Locked)
+        {
+            var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(message.Payload, EntitlementSnapshotsV1.Json);
+            if (snapshot?.Shop is { ReplacementId: not null, AccessEndsAt: { } end } && publisher.Now < end)
+                return CoverageReplacementsV1.AwaitingRelease;
+            if (snapshot?.Shop is { ReplacementExceptionId: not null, ReplacementExceptionLeg: CoverageReplacementExceptionsV1.IncomingPaidLeg or CoverageReplacementExceptionsV1.IncomingCourtesyLeg, AccessEndsAt: { } exEnd }
+                && publisher.Now < exEnd)
+                return CoverageReplacementExceptionsV1.AwaitingRelease;
+            return "Rejected";
+        }
         if (response.StatusCode != HttpStatusCode.OK)
-            return response.IsSuccessStatusCode ? "InvalidResponse" :
-                response.StatusCode >= HttpStatusCode.InternalServerError ? "Unavailable" : "Rejected";
+            return DeliveryFailure(response);
         if (response.Content.Headers.ContentType?.MediaType != "application/json" ||
             response.Content.Headers.ContentLength > EntitlementSnapshotsV1.BodyLimit)
             return "InvalidResponse";
@@ -62,10 +92,24 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
     public async Task QueueDueAsync(CancellationToken ct)
     {
         var now = publisher.Now;
+        await transfers.QueueDueAsync(now,ct);
+        var dueReductions = await db.Database.SqlQuery<DueReduction>(
+            $"SELECT * FROM public.due_scheduled_capacity_reductions({now})").ToListAsync(ct);
+        foreach (var item in dueReductions)
+            await QueueDueReductionAsync(item, now, ct);
+
         var due = await db.Database.SqlQuery<SourceBinding>(
             $"SELECT * FROM public.due_entitlement_verification({now})").ToListAsync(ct);
         foreach (var binding in due)
             await PublishDueAsync(binding, now, ct);
+    }
+
+    private async Task QueueDueReductionAsync(DueReduction item, DateTimeOffset now, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await EntitlementMerchantEvents.EnterAccountAsync(db, item.AccountId, ct);
+        if (await reductions.QueueDueAttemptAsync(item.AccountId, item.ScheduleId, now, ct))
+            await tx.CommitAsync(ct);
     }
 
     private async Task PublishDueAsync(SourceBinding binding, DateTimeOffset now, CancellationToken ct)
@@ -81,4 +125,5 @@ internal sealed class LicensingEntitlementDelivery(LicensingDbContext db, Entitl
     }
 
     private sealed record SourceBinding(Guid AccountId, Guid ShopId);
+    private sealed record DueReduction(Guid AccountId, Guid ScheduleId);
 }

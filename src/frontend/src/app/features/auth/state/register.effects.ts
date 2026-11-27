@@ -11,8 +11,8 @@ export class RegisterEffects {
   readonly register$ = createEffect(() =>
     this.actions$.pipe(
       ofType(RegisterActions.requested),
-      exhaustMap(({ email, claim }) =>
-        this.authService.registerWithEmail(email, claim ?? false).pipe(
+      exhaustMap(({ email }) =>
+        this.authService.registerWithEmail(email).pipe(
           map(() => RegisterActions.succeeded()),
           catchError((error) => of(RegisterActions.failed({ errorMessage: identityError(error) }))),
         ),

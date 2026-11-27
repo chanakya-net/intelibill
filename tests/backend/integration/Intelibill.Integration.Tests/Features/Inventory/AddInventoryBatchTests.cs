@@ -81,6 +81,7 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         request.Content = JsonContent.Create(new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new object[]
             {
                 new
@@ -133,6 +134,7 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
             batchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
             batchRequest.Content = JsonContent.Create(new
             {
+                operationKey = $"intake-{Guid.NewGuid():N}",
                 items = new object[]
                 {
                     new
@@ -188,6 +190,7 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         request.Content = JsonContent.Create(new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new object[]
             {
                 new

@@ -35,7 +35,19 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
 
             var source = await store.SourceAsync(account, request.TermId, request.ShopIds!, token);
             var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
+            if (source?.Prior is { ActiveReductionId: not null } priorTerm &&
+                (priorTerm.BlocksRestoredAccess || now < priorTerm.EndsAt + GracePolicy.EligiblePaidGrace))
+                return CheckoutOrderErrors.Changed;
             if (source is null || BuildQuote(account, offer, request, source, now) is not { } quote)
+                return CheckoutOrderErrors.Invalid;
+            if (CheckoutRenewalPolicy.IsRenewal(quote) && await store.ReplacementAsync(account, request.TermId!.Value,
+                    quote.Capacity, quote.MembersPerShop, quote.PreviewStartsAt, now, token) is { } replacement)
+            {
+                quote = quote with { Replacement = replacement, ShopHash = CheckoutOrdersV1.ShopHash(source.OrderShopIds(replacement)) };
+                quote = quote with { SnapshotHash = CheckoutOrdersV1.SnapshotHash(quote) };
+            }
+            if (await store.HasConflictingPaidCoverageAsync(account, source.OrderShopIds(quote.Replacement),
+                    request.TermId, quote.PreviewStartsAt, quote.PreviewEndsAt, token))
                 return CheckoutOrderErrors.Invalid;
             await store.SaveAsync(quote, source, proof.ActorId, request.OperationKey, hash, proof.ReplayId, token);
             return new CheckoutQuoteCreation(quote, true);
@@ -78,7 +90,7 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
         if (prior.Basis != "Paid" || prior.Period != request.Period || prior.Capacity != capacity ||
             prior.CalendarVersion != BillingCalendar.Version || prior.AccessPolicyVersion != GracePolicy.Version ||
             (prior.StartsAt > now && !prior.Renewed) || prior.CancellationRevision % 2 == 1 ||
-            source.Shops.Any(s => s.CoverageEndsAt != prior.EndsAt))
+            source.Shops.Any(s => !ValidCoverageEnd(s, prior)))
             return null;
 
         var anchor = new BillingAnchor(prior.AnchorLocal, BillingCalendar.Zone, period);
@@ -86,7 +98,16 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             BillingCalendar.TryBoundary(anchor, prior.Ordinal + 1) != prior.EndsAt ||
             BillingCalendar.TryBoundary(anchor, prior.Ordinal + 2) is null)
             return null;
-        return RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
-            RestoredAccessAt: now, RoundFreshStartUp: true));
+        var decision = RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
+            RestoredAccessAt: now, RoundFreshStartUp: true, RefundAccessEndsAt: prior.RefundAccessEndsAt));
+        if (prior.ActiveReductionId is not null &&
+            (decision.Start != RenewalStart.RestoredAccess || prior.BlocksRestoredAccess))
+            return null;
+        return decision;
     }
+
+    private static bool ValidCoverageEnd(CheckoutSourceShop shop, CheckoutRenewalSource prior) =>
+        prior.RefundAccessEndsAt is null
+            ? shop.CoverageEndsAt == prior.EndsAt
+            : shop.CoverageEndsAt is { } end && end > prior.StartsAt && end <= prior.EndsAt;
 }

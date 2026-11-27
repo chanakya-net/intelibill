@@ -15,8 +15,8 @@ internal static class IdentityTestMailbox
     internal static Task<HttpResponseMessage> EnrollAsync<T>(this HttpClient client, T request) => Factories.GetValue(client, _ => throw new InvalidOperationException("Test client is not registered.")).EnrollAsync(client, request);
     internal static async Task<HttpResponseMessage> SeedVerifiedStaffAsync(this HttpClient client, HttpRequestMessage request)
     {
-        // Fixture-only persisted identity/membership, representing existing verified staff.
-        // The public direct staff-creation endpoint is intentionally disabled pending invitations.
+        // Fixture-only persisted identity/membership, representing existing verified staff. Staff
+        // join a shop through invitations; this seeds the end state without running that flow.
         var values = await request.Content!.ReadFromJsonAsync<JsonElement>();
         using var scope = Factories.GetValue(client, _ => throw new InvalidOperationException()).Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

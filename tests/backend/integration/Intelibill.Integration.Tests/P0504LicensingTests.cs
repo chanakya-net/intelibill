@@ -148,7 +148,7 @@ public sealed partial class P0504LicensingTests(PostgreSqlTestFixture fixture, I
         var batch = stream.Records.Single(x => x.GetProperty("type").GetString() == "batch").GetProperty("batch");
         return JsonSerializer.SerializeToNode(new
         {
-            clientSaleId = Guid.NewGuid().ToString("N"), invoiceNumber = number, soldAt, issuedByUserId = user,
+            clientSaleId = Guid.NewGuid().ToString("N"), invoiceNumber = number, soldAt, issuedByUserId = user, calculationVersion = 1,
             paymentMethod = (int)PaymentMethod.Cash, paidAmount = 2, subtotalBeforeDiscount = 2,
             totalBeforeDiscount = 2, totalAmount = 2, items = new[] { new
             {

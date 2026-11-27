@@ -180,7 +180,6 @@ public sealed class ReconciliationCaseMapper(
             Person(issue.CreatedBy, names),
             issue.ResolvedAt,
             issue.ResolvedBy is { } resolver ? Person(resolver, names) : null,
-            issue.OfflineSubmissionId is not null,
             submission is null ? null : ToSubmission(submission, lease, names),
             actions.Select(action => action.ToString()).ToList(),
             events

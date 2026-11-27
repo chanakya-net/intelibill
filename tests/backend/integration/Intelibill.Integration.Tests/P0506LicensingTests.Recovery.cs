@@ -283,4 +283,14 @@ public sealed partial class P0506LicensingTests
         copy["invoiceNumber"] = invoiceNumber;
         return copy;
     }
+
+    // The unversioned historical vector re-shaped as the current web client sends it: stamped with its
+    // issuer and the version 1 arithmetic contract its amounts satisfy.
+    private static JsonObject AsCurrentInvoice(JsonNode template, Guid issuer)
+    {
+        var copy = template.DeepClone().AsObject();
+        copy["issuedByUserId"] = issuer.ToString("D");
+        copy["calculationVersion"] = 1;
+        return copy;
+    }
 }

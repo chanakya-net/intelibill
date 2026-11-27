@@ -17,7 +17,7 @@ public sealed partial class P0415LicensingTests
     {
         using var key = RSA.Create(2048);
         var pause = new PauseResult("RecordPayment");
-        using var host = CreateHost(key, services => services.AddControllers(options => options.Filters.Add(pause)));
+        using var host = CreateHost(key, services => services.AddControllers(options => options.Filters.Add(pause)), productionLockBudgets: true);
         await host.InitializeAsync();
         using var merchant = CreateClient(host);
         using var delivery = CreateClient(host);
@@ -29,6 +29,7 @@ public sealed partial class P0415LicensingTests
         using var added = await merchant.PostAsJsonAsync("/api/customers", new
         {
             name = "Payment fixture", phoneNumber = "+919812345678", isActive = true,
+            creditLimit = 1_000_000m, creditPolicyMode = "Enforced",
         }, Ct);
         var customer = (await ReadSuccessAsync(added)).GetProperty("customerId").GetGuid();
         await CreateSaleAsync(merchant, customer);

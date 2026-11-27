@@ -297,7 +297,7 @@ public sealed class RateLimitPolicyResolverTests
         var actionDescriptor = new ControllerActionDescriptor
         {
             ControllerTypeInfo = typeof(Intelibill.Api.Controllers.AuthController).GetTypeInfo(),
-            MethodInfo = typeof(Intelibill.Api.Controllers.AuthController).GetMethod(nameof(Intelibill.Api.Controllers.AuthController.LoginWithEmail))!
+            MethodInfo = typeof(Intelibill.Api.Controllers.AuthController).GetMethod(nameof(Intelibill.Api.Controllers.AuthController.Login))!
         };
 
         var policy = resolver.Resolve(CreateContext(actionDescriptor));

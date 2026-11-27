@@ -205,7 +205,7 @@ public class InventoryControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var result = await _controller.AddInventoryBatch(new AddInventoryBatchRequest(Array.Empty<AddInventoryBatchRowRequest>()), CancellationToken.None);
+        var result = await _controller.AddInventoryBatch(new AddInventoryBatchRequest(Array.Empty<AddInventoryBatchRowRequest>(), "intake-1"), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
@@ -250,7 +250,8 @@ public class InventoryControllerTests
             {
                 CreateBatchRow("row-1", "Rice", "111"),
                 CreateBatchRow("row-2", "Dal", "222"),
-            });
+            },
+            "intake-1");
 
         var result = await _controller.AddInventoryBatch(request, CancellationToken.None);
 
@@ -283,7 +284,7 @@ public class InventoryControllerTests
             .Select(index => CreateBatchRow($"row-{index}", $"Item-{index}", $"BC-{index}"))
             .ToArray();
 
-        var result = await _controller.AddInventoryBatch(new AddInventoryBatchRequest(rows), CancellationToken.None);
+        var result = await _controller.AddInventoryBatch(new AddInventoryBatchRequest(rows, "intake-1"), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);

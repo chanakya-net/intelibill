@@ -2,9 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0215Fixture;
@@ -103,32 +100,18 @@ public sealed partial class P0215Tests
     }
 
     [Fact]
-    public async Task MigrationPreservesOriginalFactsAndIsolatesRetainedEvidence()
+    public async Task ScheduledCancellationKeepsOriginalFactsAndIsolatesRetainedEvidence()
     {
-        const string previous = "20261116200000_EntitlementDelivery";
         await using var fixture = await P0213Fixture.StartAsync(database);
         var owner = await SignInAsync(fixture.Hosts, ShopRole.Owner);
         var account = await CreateAccountAsync(owner.Client);
         var term = await SeedPaidAsync(fixture.Hosts, owner, account, owner);
         var before = await PaidFactsAsync(fixture, term);
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        var migrator = context.GetService<IMigrator>();
-        await migrator.MigrateAsync(previous);
-        Assert.Equal(false, await fixture.SourceScalarAsync("SELECT to_regclass('public.scheduled_subscription_changes') IS NOT NULL"));
-        // Mirror the migrator's default grants from scripts/db/local-licensing-role.sql.
-        await context.Database.ExecuteSqlRawAsync("""
-            ALTER DEFAULT PRIVILEGES IN SCHEMA public
-                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO licensing_runtime
-            """);
-        await context.Database.MigrateAsync();
-        Assert.Equal(before, await PaidFactsAsync(fixture, term));
         var path = CancellationPath(account, term);
         using var scheduled = await owner.Client.PostAsJsonAsync(path, Accept(await PreviewAsync(owner, path), Guid.NewGuid()));
         await ReadAsync(scheduled);
         await CheckIsolationAsync(fixture, account, owner);
         await AssertIncompleteEvidenceRejectedAsync(fixture, owner, account);
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(previous));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
         Assert.Equal(before, await PaidFactsAsync(fixture, term));
     }
 

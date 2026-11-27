@@ -78,11 +78,11 @@ async function installPosRoutes(page: Page, options: PosScenarioOptions): Promis
     route.fulfill({ json: {
       customerId: customer.customerId,
       isActive: true,
-      creditPolicyMode: 'LegacyAdvisory',
+      creditPolicyMode: 'NoCredit',
       creditLimit: 0,
       creditTermsDays: null,
       currentExposure: 0,
-      availableCredit: null,
+      availableCredit: 0,
     } }),
   );
   await page.route('**/api/items/details?**', async (route) =>

@@ -69,18 +69,6 @@
             [disabled]="isSubmitting()"
             [label]="'identity.sendVerification' | transloco"
           ></button>
-          <aside class="recovery-panel">
-            <p>{{ 'identity.claimDescription' | transloco }}</p>
-            <button
-              pButton
-              type="button"
-              severity="secondary"
-              [outlined]="true"
-              (click)="onClaim()"
-              [disabled]="isSubmitting()"
-              [label]="'identity.claimLegacy' | transloco"
-            ></button>
-          </aside>
         </form>
       }
       @if (serverError()) {

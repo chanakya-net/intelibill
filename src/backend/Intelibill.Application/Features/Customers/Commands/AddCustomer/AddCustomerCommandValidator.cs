@@ -42,7 +42,6 @@ public sealed class AddCustomerCommandValidator : AbstractValidator<AddCustomerC
 
         RuleFor(x => x.CreditPolicyMode)
             .IsInEnum()
-            .When(x => x.CreditPolicyMode is not null)
             .WithErrorCode(DomainErrors.CustomerCredit.PolicyModeInvalid.Code)
             .WithMessage(DomainErrors.CustomerCredit.PolicyModeInvalid.Description);
 

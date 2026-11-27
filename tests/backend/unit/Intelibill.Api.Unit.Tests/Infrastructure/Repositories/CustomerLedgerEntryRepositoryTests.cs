@@ -14,7 +14,7 @@ public sealed class CustomerLedgerEntryRepositoryTests
         await using var context = await CreateContextAsync();
         var (shop, customerA, saleA, actorId) = await SeedCustomerAsync(context, invoiceNumber: "INV-001", phoneNumber: "+919000000001");
         var customerB = Customer.Create(shop.Id, "Customer B", "+919000000002", null, true);
-        var saleB = Sale.Create(
+        var saleB = TestSales.Create(
             shop.Id,
             "INV-002",
             customerB.Id,
@@ -29,7 +29,7 @@ public sealed class CustomerLedgerEntryRepositoryTests
             []);
         var otherShop = Shop.Create("Other", "Address", "City", "State", "560001", null, null, null);
         var otherCustomer = Customer.Create(otherShop.Id, "Customer C", "+919000000003", null, true);
-        var otherSale = Sale.Create(
+        var otherSale = TestSales.Create(
             otherShop.Id,
             "INV-003",
             otherCustomer.Id,
@@ -184,7 +184,7 @@ public sealed class CustomerLedgerEntryRepositoryTests
         var actorId = Guid.NewGuid();
         shop ??= Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         var customer = Customer.Create(shop.Id, $"Customer {invoiceNumber}", phoneNumber, null, true);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             invoiceNumber,
             customer.Id,

@@ -17,8 +17,6 @@ export interface Item {
   readonly unitCode: string | null;
   /** Decimal places a quantity of this item may carry (0 = whole units, at most 3). */
   readonly quantityScale: number;
-  /** A legacy item whose unit or precision could not be classified safely; an owner should review it. */
-  readonly unitReviewRequired: boolean;
 }
 
 export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive' | 'inStock' | 'runningLow' | 'critical';
@@ -97,7 +95,7 @@ export interface AddInventoryBatchRowRequest {
 export interface AddInventoryBatchRequest {
   readonly items: readonly AddInventoryBatchRowRequest[];
   /** Durable identity of this chunk; resending the same rows under it never posts them twice. */
-  readonly operationKey?: string;
+  readonly operationKey: string;
 }
 
 export interface AddInventoryBatchRowError {
@@ -170,7 +168,6 @@ export interface InventoryBatchDto {
   readonly version: number;
   /** The receipt value recorded for this lot; null when no receipt value exists. */
   readonly receiptValueId: string | null;
-  /** `LegacyUnresolved` receipts carry no amounts on record and cannot be cost-corrected. */
   readonly receiptStatus: PurchaseReceiptStatus | null;
   /** Total the supplier payable was first posted with; never changes. */
   readonly receiptOriginalTotalCost: number | null;
@@ -178,13 +175,13 @@ export interface InventoryBatchDto {
   readonly receiptTotalCost: number | null;
   /** Receipt row version; a cost correction is accepted only against the version it was made at. */
   readonly receiptVersion: number | null;
-  /** The item's unit label; absent from an API that predates units. */
-  readonly uom?: string | null;
-  /** Decimal places the item's unit allows (0 = whole units); absent from an API that predates units. */
-  readonly quantityScale?: number;
+  /** The item's unit label. */
+  readonly uom: string | null;
+  /** Decimal places the item's unit allows (0 = whole units). */
+  readonly quantityScale: number;
 }
 
-export type PurchaseReceiptStatus = 'Resolved' | 'LegacyUnresolved';
+export type PurchaseReceiptStatus = 'Resolved';
 
 /** Retail price and lot details only: stock is changed by a count, purchase cost by a receipt correction. */
 export interface UpdateBatchPricesRequest {

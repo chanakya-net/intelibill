@@ -400,23 +400,6 @@ public class AuthSessionServiceTests
         await _sessions.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 
-    /// <summary>
-    /// A refresh row written before sessions existed names none. It is refused rather than adopted
-    /// by a session invented for it, which is what makes the cutover a fresh sign-in.
-    /// </summary>
-    [Fact]
-    public async Task RotateAsync_WhenTheCredentialNamesNoSession_RefusesItWithoutLocking()
-    {
-        _refreshTokens.FindOwnerByHashAsync(RefreshTokenSecrets.Hash("held"), Arg.Any<CancellationToken>())
-            .Returns(new RefreshTokenOwner(Guid.NewGuid(), Guid.NewGuid(), AuthSessionId: null));
-
-        var result = await Service().RotateAsync("held", null, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.Auth.InvalidRefreshToken.Code, result.FirstError.Code);
-        await _sessions.DidNotReceive().LockUserAuthorityAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-    }
-
     [Fact]
     public async Task RotateAsync_WhenTheSessionWasRevoked_RefusesTheCredential()
     {

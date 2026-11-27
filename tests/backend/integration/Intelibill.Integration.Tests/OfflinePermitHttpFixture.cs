@@ -118,7 +118,7 @@ public abstract class OfflinePermitHttpFixture(PostgreSqlTestFixture fixture, IT
         try
         {
             var client = CreateClient(host);
-            using var login = await client.PostAsJsonAsync("/api/auth/login/email", new { email = actor.Email, password = OwnerPassword }, Ct);
+            using var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = actor.Email, password = OwnerPassword }, Ct);
             await SwitchClientShopAsync(client, (await ReadSuccessAsync(login)).GetProperty("accessToken").GetString()!, actor.Shop, authUntil);
             return client;
         }
@@ -315,7 +315,7 @@ public abstract class OfflinePermitHttpFixture(PostgreSqlTestFixture fixture, IT
         var batch = stream.Records.Single(x => x.GetProperty("type").GetString() == "batch").GetProperty("batch");
         return JsonSerializer.SerializeToNode(new
         {
-            clientSaleId = Guid.NewGuid().ToString("N"), invoiceNumber = number, soldAt, issuedByUserId = user,
+            clientSaleId = Guid.NewGuid().ToString("N"), invoiceNumber = number, soldAt, issuedByUserId = user, calculationVersion = 1,
             paymentMethod = (int)PaymentMethod.Cash, paidAmount = 2, subtotalBeforeDiscount = 2,
             totalBeforeDiscount = 2, totalAmount = 2,
             items = new[]

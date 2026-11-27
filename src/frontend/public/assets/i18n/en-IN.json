@@ -571,7 +571,6 @@
       "status": "Status",
       "actions": "Actions",
       "statusReversed": "Reversed",
-      "statusLegacy": "Legacy (method not recorded)",
       "statusPosted": "Posted",
       "reverse": "Reverse",
       "reversalReason": "Reason for reversal",
@@ -636,13 +635,11 @@
       "available": "Available credit",
       "modes": {
         "NoCredit": "No credit",
-        "Enforced": "Enforced limit",
-        "LegacyAdvisory": "Legacy limit (not enforced)"
+        "Enforced": "Enforced limit"
       },
       "hints": {
         "NoCredit": "Every sale is paid in full; no new due can be added.",
-        "Enforced": "New due is refused once the account would go over the credit limit.",
-        "LegacyAdvisory": "Recorded before credit policies: the limit is shown but not enforced. Choose a policy to enforce it."
+        "Enforced": "New due is refused once the account would go over the credit limit."
       },
       "staffReadOnly": "Only an owner or manager can change credit settings."
     }
@@ -919,12 +916,6 @@
       "catalogHint": "Fixed by this unit.",
       "customHint": "How finely this unit can be sold or counted."
     },
-    "unitReview": {
-      "badge": "Review unit",
-      "badgeHint": "This item's unit was set before quantity precision existed. Open it to choose how its quantity may be divided.",
-      "note": "This item's unit was set before quantity precision existed. Choose the precision that fits its unit; it must cover the stock on hand.",
-      "confirmNote": "This item's unit was set before quantity precision existed. Save to confirm its unit and precision."
-    },
     "quantityPrecisionExceeded": "A quantity has more decimal places than its item's unit allows. Correct it and try again."
   },
   "hsn": {
@@ -1195,7 +1186,6 @@
       "membershipVersionConflict": "This membership changed while you were editing it. Reload and try again.",
       "memberCapacityReached": "All member seats are in use: {{activeMembers}} of {{memberAllowance}} taken. Suspend or remove a member, or increase the shop's member allowance, then try again.",
       "memberCapacityReachedNoDetail": "All member seats are in use. Suspend or remove a member, or increase the shop's member allowance, then try again.",
-      "membershipOperationRequired": "Shop administration changes a membership, not an account. Update the role and status instead.",
       "membershipNotFound": "This person is not a member of this shop.",
       "membershipStatusNotSupported": "Status must be Active, Suspended or Removed.",
       "cannotModifyOwnMembership": "You cannot change your own membership from this screen."
@@ -1616,7 +1606,6 @@
         "ariaLabel": "Customer credit",
         "available": "Available credit",
         "balance": "Current balance",
-        "advisoryNotice": "This limit is not enforced yet; ask an owner to choose a credit policy.",
         "overrideReason": "Reason for going over the limit",
         "approveOverride": "Approve override",
         "withdrawOverride": "Withdraw",
@@ -1860,7 +1849,6 @@
         "Complete": "Full-period classified operating profit",
         "FilteredActivity": "Filtered activity: operating profit is unavailable",
         "UnclassifiedExpenses": "Classify remaining expenses to see operating profit",
-        "AccountingReview": "Return accounting needs review",
         "ServiceCostsUnmodeled": "Service costs are unmodeled: operating profit is unavailable"
       },
       "limitations": {
@@ -1869,7 +1857,6 @@
         "receipt-cost-corrections-not-revalued": "Later receipt cost corrections do not revalue COGS.",
         "filtered-activity": "Activity filters exclude shop-wide operating figures.",
         "unclassified-expenses": "Some period expenses remain unclassified.",
-        "return-accounting-review": "Return accounting needs review.",
         "service-costs-unmodeled": "Service costs are not modeled."
       }
     },
@@ -2162,10 +2149,6 @@
         "reviewTitle": "Held for review",
         "reviewHint": "The server kept these invoices for an owner or manager. Open the case to see why.",
         "noCase": "No review case was recorded for this invoice.",
-        "resubmit": "Send to server for review",
-        "resubmitInvoice": "Send invoice {{invoice}} to the server for review",
-        "resubmitHint": "The server has no copy of this invoice as billed. Send it once so an owner or manager can review it.",
-        "resubmitFailed": "Invoice {{invoice}} could not be sent. Check the connection and try again.",
         "awaitingTitle": "Waiting for another cashier",
         "awaitingHint": "Billed by another user. They must sign in on this browser to send these, or an owner or manager can recover them with a support bundle.",
         "issuedBy": "Issued by user {{id}}",
@@ -2228,8 +2211,6 @@
         "resolutionReason": "Resolution note",
         "linkedSale": "Posted sale",
         "printSale": "Print posted invoice",
-        "noEnvelope": "Original envelope not recorded",
-        "noEnvelopeHint": "This case was filed before original invoices were kept, so only its summary is available.",
         "quantitiesTitle": "Stock",
         "quantities": {
           "printed": "Printed",
@@ -3033,14 +3014,10 @@
     "resend": "Resend verification email",
     "useAnotherEmail": "Use another email",
     "sendVerification": "Send verification email",
-    "claimDescription": "Recover an older unverified account only if it has no business history. Business accounts require support review.",
-    "claimLegacy": "Request legacy account recovery",
     "deliveryUnavailable": "Verification email is unavailable or this address cannot be used. Try again later or contact support.",
     "invalidLink": "This link is invalid, expired, already used or replaced. Request a fresh link.",
     "wrongAccount": "This link belongs to another account. Sign in with the original account to confirm.",
     "supportRequired": "This account requires support-assisted recovery. Contact your operator; your shop data is preserved.",
-    "verificationRequired": "Email ownership must be verified. Request explicit legacy recovery, or contact support for an existing business account.",
-    "invitationRequired": "Staff access requires an invitation. Direct account creation is unavailable; contact your operator until invitations are enabled.",
     "emailChangeRequired": "Change email through Account security. Your current email stays unchanged until you verify the new address.",
     "tryAgain": "Try again",
     "confirmEmailChange": "Confirm email change",
@@ -3433,6 +3410,39 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "replacement": {
+      "heading": "Replace a covered shop at renewal",
+      "outgoing": "Outgoing shop",
+      "incoming": "Incoming shop",
+      "selection": "I confirm the selected shops.",
+      "renewal": "Keep the current shop covered until renewal.",
+      "permitWait": "Wait for outstanding offline permits to end.",
+      "permit": "Latest known offline permission ends",
+      "unknown": "No active permit reported. Disconnected devices are checked before activation.",
+      "scheduled": "Scheduled for renewal",
+      "waiting": "Renewal verified. Waiting for existing permission to end."
+    },
+    "slot": {
+      "heading": "Assign an unused paid slot",
+      "remaining": "Unused paid slots: {{count}}",
+      "shared": "I accept the package end date shown above.",
+      "free": "No additional fee is due.",
+      "confirm": "Confirm coverage",
+      "Applying": "Activating coverage",
+      "AppliedLocally": "Applied on this shop, awaiting billing confirmation",
+      "Acknowledged": "Active, confirmed by the shop",
+      "Closed": "Closed",
+      "changed": "Coverage could not be assigned. Review the current selection.",
+      "pendingConflict": "An earlier unconfirmed action is still pending. Review and retry it before starting another.",
+      "pendingNotice": "Pending action: {{ action }} for {{ shop }}.",
+      "retryNamed": "Retry {{ action }} for {{ shop }}",
+      "actions": {
+        "assign": "Assign unused slot",
+        "grant": "Grant consent",
+        "accept": "Confirm coverage",
+        "revoke": "Revoke consent"
+      }
+    },
     "reopening": {
       "received": "Reopening decision received by the merchant service.",
       "reopenedAt": "Reopening saved at {{time}}.",
@@ -3521,6 +3531,7 @@
       "restrictedGap": "The restricted gap is not charged.",
       "start": {
         "Fulfilment": "The term starts when the purchase can be fulfilled. These dates are a preview.",
+        "CapacityIncrease": "The increase keeps your existing paid-through date.",
         "PriorPaidThrough": "The term extends from the previous paid-through date.",
         "RestoredAccess": "The term starts when access is restored. These dates are a preview."
       },
@@ -3558,6 +3569,7 @@
         "restorationAdjustment": "Latest service-restoration adjustment ({{count}} recorded)",
         "restorationReference": "Grant reference",
         "reviewUnverified": "Payment is not yet verified and needs support review. Keep checking this original payment; do not pay again.",
+        "capacityPending": "Payment verified. The capacity increase is awaiting confirmation from your shops.",
         "reviewPayment": "Your payment is recorded, but this order needs review before access is applied.",
         "term": "Paid term",
         "failed": "Payment failed. No funds were captured for this checkout.",
@@ -3584,7 +3596,8 @@
           "expired": "This quote expired before payment started. Review a new quote.",
           "changed": "The quote or its covered shops changed. Review a new quote.",
           "denied": "You no longer have access to this billing account."
-        }
+        },
+        "reductionPending": "Payment verified. Your scheduled reduction is funded and will apply at renewal; current paid access remains unchanged until your paid-through date."
       },
       "renewal": {
         "title": "Renewal from your original renewal date",
@@ -3727,6 +3740,7 @@
         "Granted": "Consent granted",
         "Revoked": "Consent revoked",
         "Accepted": "Accepted · applying affiliation",
+        "Transferred": "Transferred to another payer",
         "Applied": "Affiliated",
         "NeedsReview": "Needs review",
         "Stale": "Consent expired with the previous owner authority",
@@ -3921,6 +3935,265 @@
         "EvidenceIncomplete": "Facts incomplete",
         "NeedsReview": "Needs review"
       }
+    },
+    "changes": {
+      "open": "Review a capacity increase",
+      "heading": "Capacity increase preview",
+      "description": "Prices the extra capacity for the time left in this paid term. Your renewal date does not change.",
+      "plan": "Package",
+      "capacity": "Shops after the increase",
+      "submit": "Preview increase",
+      "quoteHeading": "Capacity increase quote",
+      "target": "Package",
+      "oldCapacity": "Current shops",
+      "newCapacity": "Shops after increase",
+      "members": "Members per shop",
+      "intervalStart": "Paid period starts",
+      "paidThrough": "Paid through (renewal date kept)",
+      "evaluatedAt": "Quoted at",
+      "remaining": "Time left in term",
+      "seconds": "{{ remaining }} of {{ total }} seconds",
+      "purchasedGross": "Price paid for this term",
+      "targetGross": "Price of the larger package",
+      "amount": "Due now for the increase",
+      "anchorKept": "Your renewal date stays {{ time }}.",
+      "checkoutLink": "Open renewal or purchase review",
+      "suspension": "A saved suspension stays in effect. Paying for this change does not release it.",
+      "coveredShops": "Shops covered now: {{ count }}",
+      "expired": "This preview has expired. Request a new preview to see a current price.",
+      "validUntil": "This preview is valid until {{ time }}.",
+      "previewOnly": "This is a preview only. Nothing is charged and coverage does not change.",
+      "again": "Request a new preview",
+      "outcomes": {
+        "Payable": "The increase can be paid now for the time left in this term.",
+        "AtRenewalOrCourtesy": "No payment is due now. Apply the change at renewal or ask for a courtesy grant.",
+        "RenewalRequired": "This term has reached its paid-through date. Renew first; the change is priced on the renewal.",
+        "NewTermRequired": "This term's grace has ended. Buy a new term with the capacity you need.",
+        "TrialConversion": "A trial converts through a full paid purchase of the package you choose.",
+        "PaymentUnavailable": "Payment for this increase is not available right now. Try again later."
+      },
+      "reasons": {
+        "NonPositiveDifference": "The larger package does not cost more than the price you already paid.",
+        "RoundedToZero": "The charge for the time left rounds to zero.",
+        "BelowProviderMinimum": "The charge is below the smallest amount the payment provider accepts. No surcharge is added.",
+        "PaidThroughReached": "The paid-through date has passed.",
+        "GraceEnded": "The grace period has ended.",
+        "TrialSource": "This term is a trial.",
+        "AmountUnsupported": "The payment provider cannot take this amount.",
+        "ProviderUnavailable": "No payment provider is available."
+      },
+      "errors": {
+        "invalid": "Choose a published package that increases capacity without reducing members per shop.",
+        "changed": "This subscription changed. Refresh the status and try again.",
+        "review": "This subscription needs provider review before a change can be quoted.",
+        "notFound": "This subscription term was not found.",
+        "mismatch": "This request was already used with different details. Request a new preview.",
+        "unavailable": "The preview could not be loaded right now. Try again shortly."
+      }
+    },
+    "refunds": {
+      "link": "Refund requests",
+      "requestFromConfirmation": "Request a refund",
+      "heading": "Refund requests",
+      "description": "Submit a refund request for a verified payment confirmation and track its recorded status.",
+      "noAccessChangeNotice": "A refund request does not approve a refund, move money, or change your subscription term or shop access.",
+      "submitted": "Refund request recorded. It has not been approved yet and your access has not changed.",
+      "pendingRetryNotice": "Your refund request did not receive a final answer. Retry to send the same request without creating a duplicate.",
+      "pendingConflictNotice": "An earlier unconfirmed refund request for this payment confirmation is already saved. Review and retry that saved request before submitting a different one.",
+      "unreadableDraftNotice": "A saved refund request on this device for this payment confirmation could not be read. Check the recorded refund requests below before clearing it so you do not create a duplicate.",
+      "clearUnreadableDraft": "Clear unreadable saved request",
+      "retry": "Retry saved request",
+      "formHeading": "Request a refund",
+      "confirmationLabel": "Payment confirmation",
+      "verifiedAmountLabel": "Verified payment amount",
+      "amountLabel": "Requested amount (INR)",
+      "reasonLabel": "Reason for refund",
+      "submit": "Submit refund request",
+      "listHeading": "Recorded refund requests",
+      "empty": "No refund requests have been recorded for this billing account.",
+      "approvedAmount": "Approved amount",
+      "confirmedAmount": "Confirmed amount",
+      "accessDecision": "Access decision",
+      "providerStatuses": {
+        "Reserved": "Refund reserved",
+        "Manual": "Manual follow-up",
+        "Historical": "Historical approval"
+      },
+      "Reserved": "Amount reserved for refund.",
+      "Manual": "Finance is reviewing the manual refund.",
+      "Historical": "Finance is verifying the historical refund.",
+      "AwaitingConfirmation": "Awaiting refund confirmation",
+      "NeedsReview": "Review required",
+      "Applied": "Applied",
+      "requestedAmountLabel": "Requested amount",
+      "requestedAtLabel": "Requested at",
+      "more": "Load more refund requests",
+      "statuses": {
+        "Requested": "Requested",
+        "Pending": "Pending provider",
+        "Confirmed": "Refund confirmed",
+        "Failed": "Refund failed",
+        "Unknown": "Status unknown"
+      },
+      "statusDetails": {
+        "Requested": "Your request is recorded for review. It is not approved, no money has moved, and access is unchanged.",
+        "Pending": "An approved refund is waiting for confirmation from the original payment provider.",
+        "Confirmed": "The original payment provider confirmed the refund.",
+        "Failed": "The refund attempt failed at the original payment provider. Contact support for follow-up.",
+        "Unknown": "The provider outcome is uncertain and is being reconciled through the original payment provider."
+      },
+      "errors": {
+        "invalid": "Enter a valid verified payment reference and refund reason.",
+        "amountInvalid": "Enter a positive amount in INR up to the verified payment amount.",
+        "notFound": "That verified payment confirmation was not found for this billing account.",
+        "mismatch": "This request key was already used with different details. Review the form and try again.",
+        "denied": "You do not have permission to manage refund requests for this billing account.",
+        "unknown": "The request outcome is unknown. Retry the saved request to avoid creating a duplicate.",
+        "unavailable": "Refund requests could not be loaded or saved right now. Try again shortly."
+      }
+    },
+    "reductions": {
+      "open": "Schedule a capacity reduction for renewal",
+      "heading": "Capacity reduction at renewal",
+      "description": "Choose a smaller published package for your next renewal. You must explicitly select which shops to keep; no shop or member is removed automatically.",
+      "noPlans": "No smaller published package is available for this subscription term.",
+      "plan": "Smaller renewal package",
+      "capacity": "Shops after renewal",
+      "previewSubmit": "Preview reduction and check live members",
+      "previewHeading": "Capacity reduction preview",
+      "target": "Target package",
+      "capacityChange": "Shop capacity",
+      "membersChange": "Members per shop",
+      "currentPaidThrough": "Current paid through",
+      "renewalWindow": "Next renewal term",
+      "effectiveAt": "Applies at renewal",
+      "amount": "Full renewal price",
+      "keepCurrentNote": "Your current paid capacity stays active through {{ time }}. Scheduling a reduction adds no extra grace.",
+      "unusedSlotsNote": "Unused paid slots removed at renewal: {{ count }}.",
+      "conflictSummary": "{{ count }} shop(s) exceed the target limit of {{ allowance }} active members. Resolve active members before selecting them.",
+      "selectPrompt": "Select up to {{ max }} shop(s) to keep ({{ selected }} selected). No shop is preselected.",
+      "activeMembers": "{{ count }} active / {{ limit }} max",
+      "exceedsAllowance": "Exceeds limit by {{ excess }}",
+      "expired": "This preview has expired. Request a fresh preview before scheduling.",
+      "validUntil": "Preview valid until {{ time }}.",
+      "confirmText": "I confirm the retained shops, that unselected shops lose paid coverage at renewal, and accept Terms {{ terms }} and Refund Policy {{ refund }}.",
+      "scheduleSubmit": "Schedule reduction for renewal",
+      "again": "Start a new reduction preview",
+      "scheduledHeading": "Scheduled capacity reduction",
+      "retained": "Retained at renewal",
+      "omitted": "Ends at current paid-through",
+      "proceedToPayment": "Proceed to renewal payment",
+      "needsResolutionNotice": "Active member counts or coverage drifted before renewal. Nobody was removed automatically. Resolve the conflicts below, then re-verify to apply using your original payment.",
+      "resolveSubmit": "Re-verify and apply with original payment",
+      "needsReviewNotice": "Coverage changed before renewal. Your payment evidence is preserved for finance review; no different package was applied.",
+      "appliedNotice": "Applied at renewal (term {{ termId }}).",
+      "states": {
+        "Scheduled": "Scheduled for renewal",
+        "Funded": "Funded — waiting for renewal",
+        "Applying": "Applying at renewal",
+        "Applied": "Applied",
+        "NeedsResolution": "Needs resolution",
+        "NeedsReview": "Needs finance review"
+      },
+      "errors": {
+        "invalid": "Choose a smaller published package and explicitly select valid retained shops.",
+        "notFound": "This subscription term or scheduled reduction was not found.",
+        "changed": "Active member counts or covered shops changed. Refresh and review again.",
+        "expired": "This preview expired. Request a fresh preview.",
+        "memberConflict": "One or more retained shops exceed the target active-member allowance. Resolve memberships first.",
+        "alreadyScheduled": "A capacity reduction is already scheduled for this subscription term.",
+        "alreadyFunded": "This scheduled capacity reduction is already funded.",
+        "review": "This subscription needs provider review before a reduction can be scheduled.",
+        "mismatch": "This operation key was already used with different details.",
+        "unavailable": "Could not load or save the capacity reduction right now. Try again shortly."
+      }
+    },
+    "earlyReplacement": {
+      "heading": "Request an early shop replacement",
+      "earlyStart": "Requested early start (UTC ISO-8601)",
+      "paidCutover": "Paid slot cutover (UTC ISO-8601)",
+      "disposition": "Overlap treatment",
+      "wait": "Wait until paid cutover (no overlap)",
+      "courtesyBridge": "Separate auditable courtesy bridge (non-paid overlap)",
+      "reason": "Reason for early replacement",
+      "ackSelection": "I confirm the selected outgoing and incoming shops.",
+      "ackAllocation": "I understand the remaining paid access moves only once at the paid cutover without duplicating the paid slot.",
+      "ackPermits": "I understand existing offline permits cannot be remotely revoked and must be respected.",
+      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
+      "submit": "Submit for owner consents and provider review",
+      "outgoingConsentLink": "Outgoing owner consent",
+      "incomingConsentLink": "Incoming owner consent"
+    },
+    "coverageTransfer": {
+      "heading": "Transfer a shop's coverage to another billing account",
+      "open": "Request a coverage transfer",
+      "incoming": "Coverage transfer requests",
+      "noChange": "A request or consent changes nothing. Coverage, access and bills stay as they are until the provider reviews and approves the transfer.",
+      "shop": "Shop to transfer",
+      "destination": "Destination billing account ID",
+      "treatment": "Remaining paid access",
+      "retain": "Keep access with the current account until its paid-through date",
+      "reviewed": "Move this shop’s existing paid slot at the selected cutover until its original paid-through date",
+      "cutover": "Proposed cutover (UTC ISO-8601)",
+      "review": "Review the impact",
+      "previewFailed": "The impact could not be shown. Check the shop, destination account and dates.",
+      "reason": "Reason for the transfer",
+      "ackShop": "I confirm this is the shop to transfer.",
+      "ackTreatment": "I confirm the requested treatment of the remaining paid access.",
+      "ackPermits": "I understand existing offline permits cannot be remotely revoked.",
+      "ackUnknown": "I understand disconnected device queues are unknown to the server.",
+      "ackBills": "I understand past bills and payment documents stay with the current billing account.",
+      "submit": "Request the transfer and collect consents",
+      "unknownQueues": "Disconnected device queues are unknown.",
+      "progress": "{{accepted}} of 3 consents recorded",
+      "accept": "Give consent",
+      "revoke": "Withdraw consent",
+      "shopConsentLink": "Shop owner consent page",
+      "pending": "A decision is waiting to be confirmed",
+      "retry": "Send the same decision again",
+      "deliveryPending": "Recorded here, waiting to reach billing",
+      "state": {
+        "AwaitingConsents": "Awaiting consents",
+        "Preparing": "Checking transfer",
+        "Scheduled": "Scheduled",
+        "Consuming": "Applying transfer",
+        "PendingActivation": "Awaiting shop activation",
+        "Applied": "Transfer applied",
+        "NeedsReview": "Provider review needed",
+        "ConsentsCollected": "All consents collected · awaiting provider review",
+        "Expired": "Expired",
+        "Retired": "No longer current"
+      },
+      "purpose": {
+        "SourceBillingOwner": "Current billing owner",
+        "DestinationBillingOwner": "Destination billing owner",
+        "ShopOwner": "Shop owner"
+      },
+      "status": {
+        "AwaitingConsent": "Awaiting consent",
+        "Accepted": "Consent given",
+        "Revoked": "Consent withdrawn",
+        "Stale": "Needs fresh consent (ownership changed)"
+      }
+    },
+    "documents": {
+      "heading": "Accounting invoice",
+      "purpose": "Provider-issued accounting invoice, separate from your automatic payment confirmation.",
+      "view": "View accounting invoices",
+      "download": "Download accounting invoice (PDF)",
+      "empty": "No accounting invoice has been attached for this order yet.",
+      "error": "Could not load or verify the accounting invoice. Try again.",
+      "issuer": "Issuer",
+      "reference": "Invoice reference",
+      "issuedOn": "Issued on",
+      "version": "Version",
+      "hash": "Document hash (SHA-256)",
+      "status": "Version status",
+      "current": "Current",
+      "historical": "Historical",
+      "supersedes": "Supersedes version",
+      "loadOlder": "Load older versions",
+      "refresh": "Refresh accounting invoices"
     }
   }
 }

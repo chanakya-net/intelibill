@@ -24,10 +24,6 @@ export function identityError(error: { error?: ApiErrorPayload }): string {
       return 'identity.phoneChangeRequiresProof';
     case 'Auth.InvalidCredentials':
       return 'errors.auth.invalidCredentials';
-    case 'Auth.EmailVerificationRequired':
-      return 'identity.verificationRequired';
-    case 'Auth.InvitationRequired':
-      return 'identity.invitationRequired';
     case 'Auth.EmailChangeRequired':
       return 'identity.emailChangeRequired';
     default:

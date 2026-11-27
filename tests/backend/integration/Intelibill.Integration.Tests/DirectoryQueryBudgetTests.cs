@@ -185,9 +185,9 @@ public sealed class DirectoryQueryBudgetTests(PostgreSqlTestFixture fixture, Xun
             new(customer.Name, null, null, null, null, null), true, true,
             [new(_shop, sale.Id, sale.Items[0].Id, item.Id, batch.Id, movement.Id, 2, "Goods", "KGS", 60, 200, 120)])).Value;
         db.AddRange(item, batch, sale, movement, cancellation);
-        db.Add(Sale.Create(_shop, "IN-MONTH", customer.Id, customer.Name, null, PaymentMethod.Cash, start, 100, 0, 100, 0, []));
-        db.Add(Sale.Create(_shop, "BEFORE", customer.Id, customer.Name, null, PaymentMethod.Cash, start.AddSeconds(-1), 999, 0, 999, 0, []));
-        db.Add(Sale.Create(_shop, "AFTER", customer.Id, customer.Name, null, PaymentMethod.Cash, end, 777, 0, 777, 0, []));
+        db.Add(TestSales.Create(_shop, "IN-MONTH", customer.Id, customer.Name, null, PaymentMethod.Cash, start, 100, 0, 100, 0, []));
+        db.Add(TestSales.Create(_shop, "BEFORE", customer.Id, customer.Name, null, PaymentMethod.Cash, start.AddSeconds(-1), 999, 0, 999, 0, []));
+        db.Add(TestSales.Create(_shop, "AFTER", customer.Id, customer.Name, null, PaymentMethod.Cash, end, 777, 0, 777, 0, []));
         await db.SaveChangesAsync();
         var page = await Get("/api/customers/directory");
         Assert.Equal(100m, page.GetProperty("summary").GetProperty("monthlyRevenue").GetDecimal());
@@ -318,7 +318,7 @@ public sealed class DirectoryQueryBudgetTests(PostgreSqlTestFixture fixture, Xun
             var actor = await db.ShopMemberships.Where(m => m.ShopId == _shop).Select(m => m.UserId).FirstAsync();
             var service = Service.Create(_shop, "BUDGET", "Service", null, 1, null, 0, false, true, actor);
             var line = SaleItem.CreateService(_shop, service.Id, "Service", "BUDGET", 1, 0, 1, 1, 0, false, false);
-            var sale = Sale.Create(_shop, "OVERSIZED", null, "Buyer", null, PaymentMethod.Cash, new(2026, 6, 10, 9, 0, 0, TimeSpan.Zero), lines, 0, lines, 0, [line]);
+            var sale = TestSales.Create(_shop, "OVERSIZED", null, "Buyer", null, PaymentMethod.Cash, new(2026, 6, 10, 9, 0, 0, TimeSpan.Zero), lines, 0, lines, 0, [line]);
             db.AddRange(service, sale);
             await db.SaveChangesAsync();
             // Avoid evaluating jsonb_populate_record separately for every sale_items column.

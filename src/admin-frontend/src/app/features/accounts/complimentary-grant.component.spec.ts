@@ -177,7 +177,7 @@ describe('complimentary grant editor', () => {
     confirm();
     expect(page.querySelector('[data-testid="grant-error"]')!.textContent).toContain('Preview again');
     expect(grantDrafts.read('admin-1', account)).toBeNull();
-    grantDrafts.write({ adminId: 'admin-1', accountId: account, command: { ...preview, operationKey: 'x', confirmed: true } });
+    grantDrafts.write({ adminId: 'admin-1', accountId: account, createdAt: 1, command: { ...preview, operationKey: 'x', confirmed: true } });
     TestBed.resetTestingModule();
     const other = render({}, 'admin-2');
     expect(other.page.querySelector('[data-testid="grant-pending"]')).toBeNull();

@@ -7,7 +7,6 @@ using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
-using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
@@ -158,45 +157,6 @@ public sealed partial class InventoryController
             cancellationToken);
 
         return result.ToActionResult(Ok);
-    }
-
-    /// <summary>
-    /// Legacy whole-batch edit: applies prices and lot details in place and refuses quantity, cost
-    /// and supplier changes with a code naming the action that makes them.
-    /// </summary>
-    [HttpPut("batches/{batchId:guid}")]
-    [Authorize(Policy = "OwnerOrManager")]
-    [LicenceAction(LicenceAction.GeneralStock)]
-    public async Task<IActionResult> UpdateInventoryBatch(Guid batchId, [FromBody] UpdateInventoryBatchRequest request, CancellationToken cancellationToken)
-    {
-        var auth = CheckAuthAndShop();
-        if (auth is not null) return auth;
-
-        var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new UpdateInventoryBatchCommand(
-                batchId,
-                UserId!.Value,
-                ActiveShopId!.Value,
-                request.NewBatchNumber,
-                request.Quantity,
-                request.CostPrice,
-                request.Mrp,
-                request.SalesPrice,
-                request.TaxRatePercent,
-                request.TaxIncluded,
-                request.ExpiryDate,
-                request.ManufacturingDate,
-                request.SupplierId,
-                request.Notes,
-                request.EntryDate,
-                SessionClaims.TryRead(User),
-                request.ExpectedVersion),
-            cancellationToken);
-
-        if (result.IsError)
-            return result.Errors.ToList().ToProblemResult();
-
-        return Ok();
     }
 
     [HttpPost("batches/{batchId:guid}/reassign-supplier")]

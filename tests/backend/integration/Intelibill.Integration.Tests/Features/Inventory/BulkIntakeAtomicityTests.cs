@@ -52,7 +52,7 @@ public sealed class BulkIntakeAtomicityTests(PostgreSqlTestFixture fixture) : IA
         var validBarcode = Barcode();
         var failedBarcode = Barcode();
 
-        var response = await PostBatchAsync(client, ownerToken, null,
+        var response = await PostBatchAsync(client, ownerToken, OperationKey(),
             Row("row-1", validBarcode, "B-1", 4m, 400m),
             Row("row-2", failedBarcode, "B-2", 3m, 300m, supplierId: Guid.NewGuid()));
 
@@ -73,7 +73,7 @@ public sealed class BulkIntakeAtomicityTests(PostgreSqlTestFixture fixture) : IA
         var failedBarcode = Barcode();
         var validBarcode = Barcode();
 
-        var response = await PostBatchAsync(client, ownerToken, null,
+        var response = await PostBatchAsync(client, ownerToken, OperationKey(),
             Row("row-1", failedBarcode, "B-1", 3m, 300m, supplierId: Guid.NewGuid()),
             Row("row-2", validBarcode, "B-2", 4m, 400m));
 
@@ -89,7 +89,7 @@ public sealed class BulkIntakeAtomicityTests(PostgreSqlTestFixture fixture) : IA
         var (shopId, ownerToken) = await CreateShopAsync(client, await RegisterAsync(client));
         var barcode = Barcode();
 
-        var response = await PostBatchAsync(client, ownerToken, null, Row("row-1", barcode, "FREE-1", 5m, 0m));
+        var response = await PostBatchAsync(client, ownerToken, OperationKey(), Row("row-1", barcode, "FREE-1", 5m, 0m));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -113,7 +113,7 @@ public sealed class BulkIntakeAtomicityTests(PostgreSqlTestFixture fixture) : IA
         var (shopId, ownerToken) = await CreateShopAsync(client, await RegisterAsync(client));
         var barcode = Barcode();
 
-        var response = await PostBatchAsync(client, ownerToken, null, Row("row-1", barcode, "FREE-1", 5m, 0m));
+        var response = await PostBatchAsync(client, ownerToken, OperationKey(), Row("row-1", barcode, "FREE-1", 5m, 0m));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         var batchId = body.GetProperty("succeeded")[0].GetProperty("result").GetProperty("inventoryBatchId").GetGuid();
@@ -390,7 +390,7 @@ public sealed class BulkIntakeAtomicityTests(PostgreSqlTestFixture fixture) : IA
         };
 
     private static async Task<HttpResponseMessage> PostBatchAsync(
-        HttpClient client, string token, string? operationKey, params object[] rows)
+        HttpClient client, string token, string operationKey, params object[] rows)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

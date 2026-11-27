@@ -68,9 +68,9 @@ public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
         var accessToken = registerPayload.GetProperty("accessToken").GetString();
         Assert.False(string.IsNullOrWhiteSpace(accessToken));
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email,
+            identifier = email,
             password = "Pass123!Aa"
         });
 

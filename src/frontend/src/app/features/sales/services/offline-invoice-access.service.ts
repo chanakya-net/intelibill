@@ -58,10 +58,9 @@ export class OfflineInvoiceAccessService {
       record.shopId === shopId && record.deviceId === deviceId && payload.shopId === shopId && payload.deviceId === deviceId;
     if (!belongsHere) return deny('NOT_FOUND');
 
-    // Payloads queued before issuers were recorded name none; their shop and device have been checked above. Another
-    // cashier's invoice is for an owner or manager reviewing the device's queue, and only on a live session: offline
-    // grace never widens what a person may see.
-    if (payload.issuedByUserId && payload.issuedByUserId !== userId && !this.canReviewDeviceQueue(shopId)) {
+    // Another cashier's invoice is for an owner or manager reviewing the device's queue, and only on a live session:
+    // offline grace never widens what a person may see.
+    if (payload.issuedByUserId !== userId && !this.canReviewDeviceQueue(shopId)) {
       return deny('NOT_OWNER');
     }
 

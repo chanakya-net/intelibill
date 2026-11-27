@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -25,7 +26,7 @@ internal sealed class BatchDispositionRepository(ApplicationDbContext db) : IBat
     {
         if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("Disposition requires the source transaction.");
         var previousTimeout = (await db.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").ToListAsync(ct)).Single();
-        await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+        await db.SetLockTimeoutAsync(LockWait.Standard, ct);
 
         // Read without locking: a batch never moves to another item, and an item has one total row.
         var wanted = batchIds.Distinct().Order().ToArray();

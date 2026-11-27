@@ -63,11 +63,10 @@ public sealed class SaleReturn : BaseEntity
     public Guid? VoidedBy { get; private set; }
     public string? VoidReason { get; private set; }
 
-    // The posted accounting snapshot. Null until posted; legacy rows carry what the backfill could
-    // evidence, with NeedsReview where it could not.
+    // The posted accounting snapshot. Null only between Record and PostAccounting: the return handler
+    // posts every return before it is saved.
     public ReturnAccountingStatus? AccountingStatus { get; private set; }
     public string? AccountingPolicyVersion { get; private set; }
-    public string? AccountingReviewReason { get; private set; }
     public decimal? AdjustmentTaxableAmount { get; private set; }
     public decimal? AdjustmentTaxAmount { get; private set; }
     public decimal? AdjustmentNonTaxAmount { get; private set; }
@@ -243,7 +242,6 @@ public sealed class SaleReturn : BaseEntity
 
         AccountingStatus = ReturnAccountingStatus.Balanced;
         AccountingPolicyVersion = snapshot.PolicyVersion;
-        AccountingReviewReason = null;
         AdjustmentTaxableAmount = snapshot.TaxableAmount;
         AdjustmentTaxAmount = snapshot.TaxAmount;
         AdjustmentNonTaxAmount = snapshot.NonTaxAmount;

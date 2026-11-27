@@ -97,7 +97,7 @@ export async function startLicensingHistoryFixture(root: string) {
         receipts: posted ? [{
           receiptId: receipt.receiptId, amount: receipt.amount, method: 'Cash',
           externalReference: null, businessDate: posts[0]['paymentDate'], ledgerEntryId: receipt.entryId,
-          isLegacy: false, isReversed: false, allocatedAmount: 25, unallocatedAmount: 0,
+          isReversed: false, allocatedAmount: 25, unallocatedAmount: 0,
         }] : [],
       });
     }

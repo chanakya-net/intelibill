@@ -46,6 +46,7 @@ public sealed partial class P0408cLicensingTests
     {
         using var posted = await client.PostAsJsonAsync("/api/inventory/inbound/batch", new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new[] { InboundInput("Bulk system", null), InboundInput("Bulk foreign", foreignSupplier) },
         }, Ct);
         Assert.Equal(HttpStatusCode.MultiStatus, posted.StatusCode);
@@ -108,6 +109,7 @@ public sealed partial class P0408cLicensingTests
             InboundInput("Restricted single", null, existingItem: item), Ct);
         using var bulk = await client.PostAsJsonAsync("/api/inventory/inbound/batch", new
         {
+            operationKey = $"intake-{Guid.NewGuid():N}",
             items = new[]
             {
                 InboundInput("Restricted bulk", null, existingItem: item),

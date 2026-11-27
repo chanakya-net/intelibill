@@ -13,24 +13,6 @@ public sealed class TillPersistenceTests(PostgreSqlTestFixture fixture)
 {
     private static readonly string[] Tables = ["tills", "till_sessions", "till_source_records", "till_movements", "till_closes", "till_close_reviews", "till_late_postings", "shop_till_settings", "shop_till_setting_events"];
 
-    [Theory]
-    [InlineData("AddOwnerTillSettings")]
-    [InlineData("AddTillSessions")]
-    [InlineData("AddSaleTillEvidence")]
-    [InlineData("AddPaymentExpenseSettlementEvidence")]
-    [InlineData("AddReturnTillSettlementEvidence")]
-    [InlineData("AddTillReconciliationEvidence")]
-    public void EveryFeatureMigration_RefusesDownBeforeEmittingDestructiveOperations(string name)
-    {
-        var type = typeof(ApplicationDbContext).Assembly.GetType($"Intelibill.Infrastructure.Migrations.{name}")!;
-        var migration = (Microsoft.EntityFrameworkCore.Migrations.Migration)Activator.CreateInstance(type)!;
-        var builder = new Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
-        var down = type.GetMethod("Down", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration, [builder]));
-        Assert.IsType<NotSupportedException>(error.InnerException);
-        Assert.Empty(builder.Operations);
-    }
-
     [Fact]
     public async Task Migration_EnforcesTenantPoliciesOnEveryTillTable()
     {

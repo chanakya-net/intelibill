@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Entitlements;
 using ErrorOr;
 using Intelibill.Licensing.Application.Billing;
@@ -21,7 +22,7 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var affiliation = await UseShopAsync(consent.ShopId, ct);
             if (affiliation is { } bound)
             {
@@ -59,7 +60,7 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
             """, ct);
         return await db.Database.SqlQuery<TrialAffiliation>($"""
             SELECT a.account_id, coalesce(a.term_id, p.term_id) AS term_id, a.applied_at
-            FROM public.shop_affiliations a
+            FROM public.current_shop_affiliations a
             LEFT JOIN LATERAL (SELECT p.term_id FROM public.payment_fulfilment_shops p
                 WHERE p.shop_id = a.shop_id AND p.account_id = a.account_id LIMIT 1) p ON true
             WHERE a.shop_id = {shop}

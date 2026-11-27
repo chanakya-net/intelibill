@@ -17,11 +17,8 @@ public sealed class RefreshToken : BaseEntity
     public long SecurityVersion { get; private set; }
     public Guid UserId { get; private set; }
 
-    /// <summary>
-    /// The device session this credential belongs to. Null only on rows written before sessions
-    /// existed; those are refused rather than adopted by a session.
-    /// </summary>
-    public Guid? AuthSessionId { get; private set; }
+    /// <summary>The device session this credential belongs to.</summary>
+    public Guid AuthSessionId { get; private set; }
 
     /// <summary>The credential this one replaced; null for the first one a sign-in issued.</summary>
     public Guid? ParentTokenId { get; private set; }
@@ -75,14 +72,12 @@ public sealed class RefreshToken : BaseEntity
     /// </summary>
     public RefreshToken Rotate(string successorHash, DateTimeOffset successorExpiresAt, DateTimeOffset now)
     {
-        if (AuthSessionId is not Guid sessionId)
-            throw new InvalidOperationException("A credential that names no session cannot be renewed.");
         if (!IsUsableAt(now))
             throw new InvalidOperationException("Only a usable credential can be renewed.");
 
         ConsumedAt = now;
 
-        var successor = Issue(UserId, sessionId, SecurityVersion, successorHash, successorExpiresAt);
+        var successor = Issue(UserId, AuthSessionId, SecurityVersion, successorHash, successorExpiresAt);
         successor.ParentTokenId = Id;
         return successor;
     }

@@ -137,8 +137,6 @@ test.describe('offline-reconciliation', () => {
 
       await page.locator('.case-row', { hasText: 'OFF-2026-27-0005' }).locator('.case-open-btn').click();
       await expect(detail.locator('.quantity-cell.unresolved')).toContainText('2');
-      await page.locator('.case-row').nth(2).locator('.case-open-btn').click();
-      await expect(detail.locator('.envelope-missing')).toContainText('Original envelope not recorded');
       await detail.locator('.close-detail-btn').click();
       await expect(detail).toHaveCount(0);
 
@@ -920,7 +918,6 @@ function caseDetail(caseId: string, overrides: Partial<ReconciliationCase> = {})
     linkedOperationId: null,
     resolutionStockTransactionId: null,
     resolvedBy: null,
-    hasOriginalEnvelope: !isLegacy,
     submission: isLegacy
       ? null
       : {

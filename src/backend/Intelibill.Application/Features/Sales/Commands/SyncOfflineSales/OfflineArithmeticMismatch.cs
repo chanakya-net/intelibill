@@ -18,7 +18,6 @@ internal static class OfflineArithmeticMismatchCodes
 
 internal sealed record OfflineArithmeticVerdict(string Contract, IReadOnlyList<OfflineArithmeticMismatch> Mismatches)
 {
-    internal const string LegacyContract = "legacy";
     internal const string Version1Contract = "v1";
     internal const string UnsupportedContract = "unsupported";
 

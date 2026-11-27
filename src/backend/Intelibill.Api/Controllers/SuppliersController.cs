@@ -175,7 +175,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaymentDate,
                 request.Notes,
-                request.OperationKey,
+                request.OperationKey ?? string.Empty,
                 request.Method,
                 request.BankAccountId,
                 request.ExternalReference,
@@ -209,14 +209,13 @@ public sealed record EditSupplierRequest(
     bool IsPreferred);
 
 /// <param name="OperationKey">
-/// Durable identity of this payment. A retry with the same key replays the committed result;
-/// optional only until every client sends one.
+/// Required durable identity of this payment. A retry with the same key replays the committed result.
 /// </param>
 public sealed record MakePaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
     string? Notes,
-    string? OperationKey = null,
+    string? OperationKey,
     ReceiptTenderMethod? Method = null,
     Guid? BankAccountId = null,
     string? ExternalReference = null,

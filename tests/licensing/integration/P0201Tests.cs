@@ -84,8 +84,8 @@ public sealed partial class P0201Tests(LicensingPostgreSqlFixture database)
 
     internal static async Task<string> LoginAsync(HttpClient client, string email = Email)
     {
-        using var response = await client.PostAsJsonAsync(new Uri("/api/auth/login/email", UriKind.Relative),
-            new { email, password = Password });
+        using var response = await client.PostAsJsonAsync(new Uri("/api/auth/login", UriKind.Relative),
+            new { identifier = email, password = Password });
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<JsonElement>();
         return result.GetProperty("accessToken").GetString()!;

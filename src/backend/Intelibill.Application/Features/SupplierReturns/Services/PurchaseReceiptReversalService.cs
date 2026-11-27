@@ -66,8 +66,8 @@ public sealed class PurchaseReceiptReversalService(
                 var reference=$"RR-{Guid.NewGuid():N}";
                 var movement=StockTransaction.Create(shopId,receipt.ItemId,batch.Id,StockTransactionType.Reversal,-receipt.ReceivedQuantity,reference,reason,now,actor,actor).Value;
                 SupplierLedgerEntry? entry=null;
-                if(receipt.EffectiveTotalCost>0) {entry=SupplierLedgerEntry.Create(shopId,supplierId.Value,batch.Id,SupplierLedgerEntryType.Reversal,-receipt.EffectiveTotalCost.Value,clock.Today(auth.Value.BusinessTimeZoneId),reference,actor).Value; await ledger.AddAsync(entry,token);}
-                var reversal=PurchaseReceiptReversal.Create(shopId,receipt.Id,group?targetId:null,actor,reason,now,clock.Today(auth.Value.BusinessTimeZoneId),auth.Value.BusinessTimeZoneId,receipt.ReceivedQuantity,receipt.EffectiveTotalCost!.Value,movement.Id,entry?.Id,reference).Value;
+                if(receipt.EffectiveTotalCost>0) {entry=SupplierLedgerEntry.Create(shopId,supplierId.Value,batch.Id,SupplierLedgerEntryType.Reversal,-receipt.EffectiveTotalCost,clock.Today(auth.Value.BusinessTimeZoneId),reference,actor).Value; await ledger.AddAsync(entry,token);}
+                var reversal=PurchaseReceiptReversal.Create(shopId,receipt.Id,group?targetId:null,actor,reason,now,clock.Today(auth.Value.BusinessTimeZoneId),auth.Value.BusinessTimeZoneId,receipt.ReceivedQuantity,receipt.EffectiveTotalCost,movement.Id,entry?.Id,reference).Value;
                 await movements.AddAsync(movement,token); await reversals.AddAsync(reversal,token); batch.Void(actor); batches.Update(batch); inventory.Update(stock); receipts.Update(receipt); results.Add(MapReversal(reversal));
             }
             if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId.Value, clock, now) is { } denied) return denied;

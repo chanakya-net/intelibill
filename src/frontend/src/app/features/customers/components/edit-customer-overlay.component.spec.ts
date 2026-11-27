@@ -46,6 +46,7 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 1500,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,
@@ -63,6 +64,7 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 1500,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,
@@ -79,32 +81,29 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 2500,
-      creditPolicyMode: 'LegacyAdvisory',
+      creditPolicyMode: 'NoCredit',
       creditTermsDays: null,
-      gstin: '',
-      stateCode: '',
+      gstin: null,
+      stateCode: null,
     });
   });
 
-  it('keeps legacy advisory selectable only for a customer already on it', () => {
+  it('offers only the selectable policies and patches the stored one', () => {
     const base: Customer = {
       customerId: 'c9',
-      name: 'Legacy',
+      name: 'Policy',
       phoneNumber: '+919812345670',
       address: null,
       isActive: true,
       creditLimit: 100,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,
     };
-    const legacy = setup(base);
-    expect(legacy.component.creditPolicyOptions().map((option) => option.value)).toEqual(['NoCredit', 'Enforced', 'LegacyAdvisory']);
-    expect(legacy.component.form.controls.creditPolicyMode.value).toBe('LegacyAdvisory');
-
-    TestBed.resetTestingModule();
     const enforced = setup({ ...base, creditPolicyMode: 'Enforced', creditTermsDays: 30 });
     expect(enforced.component.creditPolicyOptions().map((option) => option.value)).toEqual(['NoCredit', 'Enforced']);
+    expect(enforced.component.form.controls.creditPolicyMode.value).toBe('Enforced');
     expect(enforced.component.form.controls.creditTermsDays.value).toBe(30);
   });
 
@@ -116,6 +115,7 @@ describe('EditCustomerOverlayComponent', () => {
       address: '5 Market Lane',
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,
@@ -135,7 +135,7 @@ describe('EditCustomerOverlayComponent', () => {
     // An emptied GSTIN is sent as '' so the server clears it rather than keeping the recorded one.
     component.form.patchValue({ gstin: '', stateCode: '27' });
     component.onSubmit();
-    expect(facade.editCustomer).toHaveBeenCalledWith('c2', expect.objectContaining({ gstin: '', stateCode: '27' }));
+    expect(facade.editCustomer).toHaveBeenCalledWith('c2', expect.objectContaining({ gstin: null, stateCode: '27' }));
   });
 
   it('rejects overly large creditLimit', () => {
@@ -146,6 +146,7 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 1500,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,
@@ -168,6 +169,7 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 0,
       lifetimeRevenue: 0,
       currentMonthRevenue: 0,

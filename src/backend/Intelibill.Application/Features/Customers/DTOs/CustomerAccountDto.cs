@@ -25,8 +25,8 @@ public sealed record CustomerAccountDto(
 
     public int? CreditTermsDays { get; init; }
 
-    /// <summary>New due the account can take now under an enforced policy; null when the limit is advisory.</summary>
-    public decimal? AvailableCredit { get; init; }
+    /// <summary>New due the account can take now (0 unless an active customer has an enforced limit).</summary>
+    public decimal AvailableCredit { get; init; }
 
     /// <summary>The balance before the first entry of the window (0 when the window starts at the beginning).</summary>
     public decimal OpeningBalance { get; init; }

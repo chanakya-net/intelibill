@@ -4,7 +4,7 @@ using Intelibill.Application.Features.Inventory.DTOs;
 
 namespace Intelibill.Application.Features.Inventory.Services;
 
-/// <summary>The durable identity of one row of a keyed bulk intake.</summary>
+/// <summary>The durable identity of one row of a bulk intake.</summary>
 /// <param name="Key">Unique per shop for this row of this operation; see <c>AddInventoryBatchCommandHandler</c>.</param>
 /// <param name="RequestHash">Hash of the row's business payload; a resend with another hash is refused.</param>
 public sealed record InboundRowOperation(string Key, string RequestHash);
@@ -19,15 +19,14 @@ public sealed record InboundRowOperation(string Key, string RequestHash);
 /// all. Nothing a rejected row staged can reach a later row's save.
 /// </para>
 /// <para>
-/// With an <see cref="InboundRowOperation"/> the row runs under a financial operation receipt: a
+/// The row runs under the financial operation receipt of its <see cref="InboundRowOperation"/>: a
 /// row already committed under that key replays its stored result without running again.
 /// </para>
 /// <para>
-/// A business rejection comes back as its own errors. For a keyed row, an unplanned failure while
-/// the row is being staged and saved — a dropped connection, a lost unique-index race — comes back
-/// as <c>Inventory.RowRetryable</c>, and nothing was committed. A failure that may follow a commit
-/// (completing or committing the receipt, replaying it) and any failure of an unkeyed row throw.
-/// Cancellation is never swallowed.
+/// A business rejection comes back as its own errors. An unplanned failure while the row is being
+/// staged and saved — a dropped connection, a lost unique-index race — comes back as
+/// <c>Inventory.RowRetryable</c>, and nothing was committed. A failure that may follow a commit
+/// (completing or committing the receipt, replaying it) throws. Cancellation is never swallowed.
 /// </para>
 /// </remarks>
 public interface IInboundRowExecutor
@@ -35,7 +34,7 @@ public interface IInboundRowExecutor
     Task<ErrorOr<AddInventoryResultDto>> ExecuteAsync(
         Guid shopId,
         Guid actorUserId,
-        InboundRowOperation? operation,
+        InboundRowOperation operation,
         InboundInventoryLineInput row,
         SessionClaims? session,
         CancellationToken cancellationToken);

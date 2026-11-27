@@ -16,8 +16,7 @@ public sealed record ItemDto(
     decimal DefaultTaxRatePercent,
     bool DefaultTaxIncluded,
     string? UnitCode,
-    int QuantityScale,
-    bool UnitReviewRequired);
+    int QuantityScale);
 
 public sealed record ItemCatalogResultDto(
     IReadOnlyList<ItemDto> Items,

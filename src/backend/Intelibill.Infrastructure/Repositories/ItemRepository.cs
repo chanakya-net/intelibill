@@ -42,22 +42,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             .Where(i => i.ShopId == shopId && barcodes.Contains(i.Barcode))
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Item>> GetByIdsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken = default)
-    {
-        var items = await DbSet
+    public async Task<IReadOnlyList<Item>> GetByIdsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken = default) =>
+        await DbSet
             .Where(i => i.ShopId == shopId && itemIds.Contains(i.Id))
             .ToListAsync(cancellationToken);
-
-        if (items.Count > 0 || itemIds.Count == 0)
-        {
-            return items;
-        }
-
-        // Fallback for legacy or inconsistent records where shop linkage drifted.
-        return await DbSet
-            .Where(i => itemIds.Contains(i.Id))
-            .ToListAsync(cancellationToken);
-    }
 
     public async Task<ItemStockHistory> GetStockHistoryAsync(Guid shopId, Guid itemId, CancellationToken cancellationToken = default)
     {
@@ -66,16 +54,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         var hasMovements = hasBatches || await _context.StockTransactions
             .AnyAsync(t => t.ShopId == shopId && t.ItemId == itemId, cancellationToken);
 
-        if (!hasMovements)
-            return ItemStockHistory.None;
-
-        var onHand = await _context.InventoryBatches
-            .AsNoTracking()
-            .Where(b => b.ShopId == shopId && b.ItemId == itemId && !b.IsVoided && b.Quantity > 0m)
-            .Select(b => b.Quantity)
-            .ToListAsync(cancellationToken);
-
-        return new ItemStockHistory(true, onHand.Count == 0 ? 0 : onHand.Max(QuantityPolicy.ScaleOf));
+        return hasMovements ? new ItemStockHistory(true) : ItemStockHistory.None;
     }
 
 	    public async Task<ItemCatalogResultReadModel> GetCatalogAsync(
@@ -124,8 +103,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                 item.DefaultTaxRatePercent,
                 item.DefaultTaxIncluded,
                 item.UnitCode,
-                item.QuantityScale,
-                item.UnitReviewRequired))
+                item.QuantityScale))
             .ToListAsync(cancellationToken);
 
         var summary = new ItemCatalogSummaryReadModel(
@@ -171,8 +149,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                 item.DefaultTaxRatePercent,
                 item.DefaultTaxIncluded,
                 item.UnitCode,
-                item.QuantityScale,
-                item.UnitReviewRequired))
+                item.QuantityScale))
             .ToListAsync(cancellationToken);
 
         var catalog = pageRows
@@ -192,8 +169,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                 item.DefaultTaxRatePercent,
                 item.DefaultTaxIncluded,
                 item.UnitCode,
-                item.QuantityScale,
-                item.UnitReviewRequired))
+                item.QuantityScale))
             .ToList();
 
         return new ItemCatalogResultReadModel(catalog, totalCount, summary);
@@ -296,6 +272,5 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         decimal DefaultTaxRatePercent,
         bool DefaultTaxIncluded,
         string? UnitCode,
-        int QuantityScale,
-        bool UnitReviewRequired);
+        int QuantityScale);
 }

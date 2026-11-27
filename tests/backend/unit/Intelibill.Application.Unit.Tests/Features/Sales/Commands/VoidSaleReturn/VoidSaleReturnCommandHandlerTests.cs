@@ -414,7 +414,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             taxRatePercent: 10m,
             isPriceIncludingTax: false,
             hasPriceMismatch: false);
-        var sale = Sale.Create(
+        var sale = TestSales.Create(
             shop.Id,
             "INV-001",
             customerId,

@@ -85,20 +85,20 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         startRow++;
 
         var e = summary.Economics;
-        WriteSummaryRow(worksheet, startRow++, "Net sales excluding tax", e?.NetSalesExcludingTax, true);
-        WriteSummaryRow(worksheet, startRow++, "COGS", e?.Cogs, true);
-        WriteSummaryRow(worksheet, startRow++, "Stock loss", e?.StockLoss, true);
-        WriteSummaryRow(worksheet, startRow++, "Returned goods wastage (already included in COGS)", e?.ReturnedGoodsWastageIncludedInCogs, true);
-        WriteSummaryRow(worksheet, startRow++, "Gross trading profit", e?.GrossTradingProfit, true);
-        WriteSummaryRow(worksheet, startRow++, "Operating expenses", e?.OperatingExpenses, true);
-        WriteSummaryRow(worksheet, startRow++, "Operating profit", e?.OperatingProfit, true);
-        WriteSummaryRow(worksheet, startRow++, "Gross margin %", e?.GrossMarginPercent, false);
-        WriteSummaryRow(worksheet, startRow++, "Markup %", e?.MarkupPercent, false);
+        WriteSummaryRow(worksheet, startRow++, "Net sales excluding tax", e.NetSalesExcludingTax, true);
+        WriteSummaryRow(worksheet, startRow++, "COGS", e.Cogs, true);
+        WriteSummaryRow(worksheet, startRow++, "Stock loss", e.StockLoss, true);
+        WriteSummaryRow(worksheet, startRow++, "Returned goods wastage (already included in COGS)", e.ReturnedGoodsWastageIncludedInCogs, true);
+        WriteSummaryRow(worksheet, startRow++, "Gross trading profit", e.GrossTradingProfit, true);
+        WriteSummaryRow(worksheet, startRow++, "Operating expenses", e.OperatingExpenses, true);
+        WriteSummaryRow(worksheet, startRow++, "Operating profit", e.OperatingProfit, true);
+        WriteSummaryRow(worksheet, startRow++, "Gross margin %", e.GrossMarginPercent, false);
+        WriteSummaryRow(worksheet, startRow++, "Markup %", e.MarkupPercent, false);
         worksheet.Cell(startRow, 1).Value = "Operating profit status";
-        worksheet.Cell(startRow++, 2).Value = e?.OperatingProfitStatus ?? "Not available";
-        WriteSummaryRow(worksheet, startRow++, "Period-wide unclassified expenses", e?.UnclassifiedExpenseAmount, true);
+        worksheet.Cell(startRow++, 2).Value = e.OperatingProfitStatus;
+        WriteSummaryRow(worksheet, startRow++, "Period-wide unclassified expenses", e.UnclassifiedExpenseAmount, true);
         worksheet.Cell(startRow, 1).Value = "Limitations";
-        worksheet.Cell(startRow++, 2).Value = e is null ? "Legacy dataset: version2 economics unavailable" : string.Join(", ", e.Limitations);
+        worksheet.Cell(startRow++, 2).Value = string.Join(", ", e.Limitations);
         WriteSummaryRow(worksheet, startRow++, "Invoice Count", summary.InvoiceCount, false);
         WriteSummaryRow(worksheet, startRow++, "Return Count", summary.ReturnCount, false);
         WriteSummaryRow(worksheet, startRow++, "Adjustment Count", summary.AdjustmentCount, false);
@@ -167,17 +167,17 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         worksheet.Cell(rowNumber, 3).Value = row.RowType;
         worksheet.Cell(rowNumber, 4).Value = row.CustomerName ?? string.Empty;
         var economics = row.Economics;
-        Set(5, economics?.Cogs);
-        Set(6, economics?.StockLoss);
-        Set(7, economics?.NetSalesExcludingTax);
+        Set(5, economics.Cogs);
+        Set(6, economics.StockLoss);
+        Set(7, economics.NetSalesExcludingTax);
         worksheet.Cell(rowNumber, 8).Value = row.RevenueAfterTax;
-        Set(9, economics?.GrossTradingProfit);
-        Set(10, economics?.GrossMarginPercent);
-        Set(11, economics?.MarkupPercent);
-        Set(12, economics?.ReturnedGoodsWastageIncludedInCogs);
+        Set(9, economics.GrossTradingProfit);
+        Set(10, economics.GrossMarginPercent);
+        Set(11, economics.MarkupPercent);
+        Set(12, economics.ReturnedGoodsWastageIncludedInCogs);
         worksheet.Cell(rowNumber, 13).Value = string.Join(", ", new[] {
-            row.IsReversal ? "Reversal" : null, row.NeedsAccountingReview ? "Needs accounting review" : null,
-            economics?.HasUnmodeledServiceCost == true ? "Service costs unmodeled" : null }.OfType<string>());
+            row.IsReversal ? "Reversal" : null,
+            economics.HasUnmodeledServiceCost ? "Service costs unmodeled" : null }.OfType<string>());
         for (var col = 5; col <= 12; col++) worksheet.Cell(rowNumber, col).Style.NumberFormat.Format = col is 10 or 11 ? "0.##" : "#,##0.00";
 
         void Set(int col, decimal? value)

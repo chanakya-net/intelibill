@@ -1,0 +1,138 @@
+<section class="ib-panel">
+  <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+  <h1 id="transfer-heading" class="ib-page-title">{{ 'billing.coverageTransfer.heading' | transloco }}</h1>
+  <p role="note" data-testid="transfer-no-change">{{ 'billing.coverageTransfer.noChange' | transloco }}</p>
+
+  @if (scope(); as s) {
+    @if (draft(); as pending) {
+      <article data-testid="transfer-pending" role="status">
+        <p>{{ 'billing.coverageTransfer.pending' | transloco }} · {{ pending.label }}</p>
+        <button type="button" data-testid="transfer-retry" [disabled]="busy()" (click)="dispatch(pending, true)">
+          {{ 'billing.coverageTransfer.retry' | transloco }}
+        </button>
+      </article>
+    }
+
+    @if (s.term && !draft() && shops().length) {
+      <fieldset aria-labelledby="transfer-heading" [disabled]="busy()" data-testid="transfer-request-form">
+        <label>{{ 'billing.coverageTransfer.shop' | transloco }}
+          <select #shop data-testid="transfer-shop" [value]="shopId()" (change)="edit(setShop(shop.value))">
+            <option value="">—</option>
+            @for (row of shops(); track row.shopId) {
+              <option [value]="row.shopId">{{ row.shopName }}</option>
+            }
+          </select>
+        </label>
+        <label>{{ 'billing.coverageTransfer.destination' | transloco }}
+          <input #dest type="text" data-testid="transfer-destination" [value]="destination()"
+            (input)="edit(setDestination(dest.value))" />
+        </label>
+        <label>{{ 'billing.coverageTransfer.treatment' | transloco }}
+          <select #treat data-testid="transfer-treatment" [value]="treatment()" (change)="edit(setTreatment(treat.value))">
+            <option value="RetainUntilPaidThrough">{{ 'billing.coverageTransfer.retain' | transloco }}</option>
+            <option value="ReviewedAllocation">{{ 'billing.coverageTransfer.reviewed' | transloco }}</option>
+          </select>
+        </label>
+        @if (treatment() === 'ReviewedAllocation') {
+          <label>{{ 'billing.coverageTransfer.cutover' | transloco }}
+            <input #cut type="text" data-testid="transfer-cutover" [value]="cutover()" (input)="edit(setCutover(cut.value))" />
+          </label>
+        }
+        <button type="button" data-testid="transfer-preview" [disabled]="!canReview()" (click)="preview()">
+          {{ 'billing.coverageTransfer.review' | transloco }}
+        </button>
+
+        @if (review(); as p) {
+          <article data-testid="transfer-review">
+            <p data-testid="transfer-review-shop">{{ p.shopName }} → {{ p.destinationAccountId }}</p>
+            <p>{{ 'billing.status.paidThrough' | transloco }} ·
+              <time data-testid="transfer-review-paid-through" [attr.datetime]="p.sourcePaidThroughAt">{{ instant(p.sourcePaidThroughAt) }}</time></p>
+            <p data-testid="transfer-review-treatment">{{ 'billing.coverageTransfer.' + (p.treatment === 'ReviewedAllocation' ? 'reviewed' : 'retain') | transloco }}
+              @if (p.cutoverAt) { · {{ instant(p.cutoverAt) }} }</p>
+            <p data-testid="transfer-review-permit">{{ 'billing.replacement.permit' | transloco }} ·
+              {{ p.observedPermitDeadline ? instant(p.observedPermitDeadline) : ('billing.replacement.unknown' | transloco) }}</p>
+            <p role="note" data-testid="transfer-unknown-queues">{{ p.disconnectedQueuesNotice }}</p>
+          </article>
+          <label>{{ 'billing.coverageTransfer.reason' | transloco }}
+            <textarea rows="2" maxlength="500" data-testid="transfer-reason" [value]="reason()"
+              (input)="reason.set($any($event.target).value)"></textarea>
+          </label>
+          @for (key of acks; track key; let i = $index) {
+            <label><input #box type="checkbox" [attr.data-testid]="'transfer-' + key" [checked]="confirms()[i]" (change)="tick(i, box.checked)" />
+              {{ 'billing.coverageTransfer.' + key | transloco }}</label>
+          }
+          <button type="button" class="ib-btn-primary" data-testid="transfer-submit" [disabled]="!ready()" (click)="request()">
+            {{ 'billing.coverageTransfer.submit' | transloco }}
+          </button>
+        }
+      </fieldset>
+    }
+
+    @for (item of items() ?? []; track item.transferId) {
+      <article data-testid="transfer-item">
+        <h2 data-testid="transfer-item-shop">{{ item.shopName }}</h2>
+        <p data-testid="transfer-parties">{{ item.sourceAccountName }} → {{ item.destinationAccountName ?? item.destinationAccountId }}</p>
+        <p>{{ 'billing.coverageTransfer.ackBills' | transloco }}</p>
+        <p data-testid="transfer-treatment-shown">{{ 'billing.coverageTransfer.' + (item.treatment === 'ReviewedAllocation' ? 'reviewed' : 'retain') | transloco }}
+          · {{ 'billing.status.paidThrough' | transloco }} {{ instant(item.sourcePaidThroughAt) }}
+          @if (item.cutoverAt) { · {{ instant(item.cutoverAt) }} }</p>
+        <p>{{ 'billing.replacement.permit' | transloco }} ·
+          {{ item.observedPermitDeadline ? instant(item.observedPermitDeadline) : ('billing.replacement.unknown' | transloco) }}
+          · {{ 'billing.coverageTransfer.unknownQueues' | transloco }}</p>
+        <p data-testid="transfer-state" [attr.data-state]="item.state">{{ 'billing.coverageTransfer.state.' + item.state | transloco }}</p>
+        <ul>
+          @for (consent of item.consents; track consent.purpose) {
+            <li [attr.data-testid]="'transfer-consent-' + consent.purpose" [attr.data-status]="consent.status">
+              {{ 'billing.coverageTransfer.purpose.' + consent.purpose | transloco }} · {{ 'billing.coverageTransfer.status.' + consent.status | transloco }}</li>
+          }
+        </ul>
+        <p data-testid="transfer-progress">{{ 'billing.coverageTransfer.progress' | transloco: { accepted: accepted(item) } }}</p>
+        @if (canDecide(item.state)) {
+          @for (purpose of item.viewerPurposes; track purpose) {
+            @if (status(item, purpose) === 'Accepted') {
+              <button type="button" [attr.data-testid]="'transfer-revoke-' + purpose" [disabled]="busy() || !!draft()"
+                (click)="decide('revoke', purpose, item)">{{ 'billing.coverageTransfer.revoke' | transloco }}</button>
+            } @else {
+              <button type="button" class="ib-btn-primary" [attr.data-testid]="'transfer-accept-' + purpose"
+                [disabled]="busy() || !!draft()" (click)="decide('accept', purpose, item)">
+                {{ 'billing.coverageTransfer.accept' | transloco }} · {{ 'billing.coverageTransfer.purpose.' + purpose | transloco }}</button>
+            }
+          }
+          <a data-testid="transfer-shop-link"
+            [routerLink]="['/billing/transfer-consent', item.sourceAccountId, item.shopId, item.transferId]">
+            {{ 'billing.coverageTransfer.shopConsentLink' | transloco }}</a>
+        }
+      </article>
+    }
+
+    @if (owner(); as o) {
+      <article data-testid="transfer-owner">
+        <h2 data-testid="transfer-owner-shop">{{ o.shopName }}</h2>
+        <p data-testid="transfer-parties">{{ o.sourceAccountName }} → {{ o.destinationAccountName ?? o.destinationAccountId }}</p>
+        <p>{{ 'billing.coverageTransfer.ackBills' | transloco }}</p>
+        <p data-testid="transfer-treatment-shown">{{ 'billing.coverageTransfer.' + (o.treatment === 'ReviewedAllocation' ? 'reviewed' : 'retain') | transloco }}
+          · {{ 'billing.status.paidThrough' | transloco }} {{ instant(o.sourcePaidThroughAt) }}
+          @if (o.cutoverAt) { · {{ instant(o.cutoverAt) }} }</p>
+        <p>{{ 'billing.replacement.permit' | transloco }} ·
+          {{ o.observedPermitDeadline ? instant(o.observedPermitDeadline) : ('billing.replacement.unknown' | transloco) }}</p>
+        <p role="note" data-testid="transfer-unknown-queues">{{ 'billing.coverageTransfer.unknownQueues' | transloco }}</p>
+        <p>{{ 'billing.coverageTransfer.state.' + o.state | transloco }}</p>
+        <p data-testid="transfer-owner-status" [attr.data-status]="o.consentStatus" [attr.data-delivery]="o.delivery">
+          {{ 'billing.coverageTransfer.purpose.ShopOwner' | transloco }} · {{ 'billing.coverageTransfer.status.' + o.consentStatus | transloco }}
+          @if (o.delivery === 'Pending') { · {{ 'billing.coverageTransfer.deliveryPending' | transloco }} }</p>
+        @if (canDecide(o.state)) {
+          @if (o.consentStatus === 'Accepted') {
+            <button type="button" data-testid="transfer-revoke-ShopOwner" [disabled]="busy() || !!draft()"
+              (click)="decide('revoke', 'ShopOwner', o)">{{ 'billing.coverageTransfer.revoke' | transloco }}</button>
+          } @else {
+            <button type="button" class="ib-btn-primary" data-testid="transfer-accept-ShopOwner" [disabled]="busy() || !!draft()"
+              (click)="decide('accept', 'ShopOwner', o)">
+              {{ 'billing.coverageTransfer.accept' | transloco }} · {{ 'billing.coverageTransfer.purpose.ShopOwner' | transloco }}</button>
+          }
+        }
+      </article>
+    }
+  }
+
+  @if (error()) { <p role="alert" data-testid="transfer-error">{{ error() | transloco }}</p> }
+</section>

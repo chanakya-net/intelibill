@@ -70,7 +70,7 @@ public sealed class SupplierReturnService(
             foreach(var input in request.Lines.OrderBy(x=>x.ReceiptValueId))
             {
                 var receipt=rows.Single(x=>x.Id==input.ReceiptValueId);
-                if(!receipt.IsResolved || receipt.EffectiveTotalCost is null || receipt.SupplierId!=supplier.Id) return Invalid("ProvenanceInvalid","Each lot must have resolved source evidence from this supplier.");
+                if(receipt.SupplierId!=supplier.Id) return Invalid("ProvenanceInvalid","Each lot must have resolved source evidence from this supplier.");
                 var batch=await batches.GetByIdAsync(receipt.InventoryBatchId,token);
                 if(batch is null || batch.ShopId!=shopId || batch.IsVoided) return Missing;
                 if(receipt.Version!=input.ExpectedReceiptVersion || batch.Version!=input.ExpectedBatchVersion || input.ExpectedBatchVersion==0 || input.ExpectedReceiptVersion==0) return VersionConflict;
@@ -80,7 +80,7 @@ public sealed class SupplierReturnService(
                 if(input.Quantity<=0 || !QuantityPolicy.FitsScale(input.Quantity,item.QuantityScale) || input.Quantity>SupplierReturnPolicy.ReturnableQuantity(batch.UnquarantinedQuantity,receipt.ReceivedQuantity,shipped)) return Invalid("QuantityInvalid","Quantity exceeds available receipt goods or item precision.");
                 var stock=await inventory.GetByItemAsync(shopId,receipt.ItemId,token); if(stock is null) return Missing;
                 var movement=StockTransaction.Create(shopId,receipt.ItemId,batch.Id,StockTransactionType.SupplierReturn,-input.Quantity,document.ReturnNumber,request.Reason,now,actor,actor).Value;
-                var line=SupplierReturnLine.Create(shopId,document.Id,receipt.Id,batch.Id,receipt.ItemId,receipt.PurchaseOrderReceiptLineId,input.Quantity,input.ProposedCreditAmount,receipt.ReceivedQuantity,receipt.EffectiveTotalCost.Value,item.Name,item.DocumentUnit,receipt.SourceReference,movement.Id,batch.BatchNumber);
+                var line=SupplierReturnLine.Create(shopId,document.Id,receipt.Id,batch.Id,receipt.ItemId,receipt.PurchaseOrderReceiptLineId,input.Quantity,input.ProposedCreditAmount,receipt.ReceivedQuantity,receipt.EffectiveTotalCost,item.Name,item.DocumentUnit,receipt.SourceReference,movement.Id,batch.BatchNumber);
                 if(line.IsError) return line.Errors;
                 document.AddLine(line.Value);
                 var reduced=batch.SubtractQuantity(input.Quantity,actor); if(reduced.IsError) return reduced.Errors;
@@ -170,13 +170,13 @@ public sealed class SupplierReturnService(
         var shipped=history.SelectMany(x=>x.Lines).Where(x=>x.ReceiptValueId==receipt.Id).Sum(x=>x.Quantity);
         var credited=history.Where(x=>x.Credit is not null).SelectMany(x=>x.Credit!.Lines).Where(x=>x.ReceiptValueId==receipt.Id).Sum(x=>x.AcceptedAmount);
         var allocated=(await payments.GetActiveAllocatedByTargetAsync(receipt.ShopId,PaymentAllocationTargetType.SupplierReceipt,[receipt.Id],ct)).GetValueOrDefault(receipt.Id);
-        var net=batch.IsVoided || reversed.Count>0 ? 0m : Math.Max(0,(receipt.EffectiveTotalCost??0)-credited); var ceiling=SupplierReturnPolicy.ReturnableQuantity(batch.UnquarantinedQuantity,receipt.ReceivedQuantity,shipped);
+        var net=batch.IsVoided || reversed.Count>0 ? 0m : Math.Max(0,receipt.EffectiveTotalCost-credited); var ceiling=SupplierReturnPolicy.ReturnableQuantity(batch.UnquarantinedQuantity,receipt.ReceivedQuantity,shipped);
         var reasons=await reversalPolicy.GetReasonsAsync(receipt,batch,allocated,ct);
         var supplier=receipt.SupplierId.HasValue?await suppliers.GetByIdAsync(receipt.SupplierId.Value,ct):null;
         if (supplier is null) reasons.Add("PurchaseReceipt.SupplierMissing");
         if (supplier is null || supplier.IsSystem) ceiling = 0;
-        if(!receipt.IsResolved || batch.IsVoided) ceiling=0;
-        return new(receipt.Id,batch.Id,item.Id,receipt.SupplierId,receipt.PurchaseOrderReceiptLineId,batch.BatchNumber,item.Name,item.DocumentUnit,item.QuantityScale,receipt.Version,batch.Version,receipt.ReceivedQuantity,batch.Quantity,shipped,reversed.Sum(x=>x.Quantity),receipt.ReceivedQuantity-shipped-reversed.Sum(x=>x.Quantity),ceiling,receipt.EffectiveTotalCost,credited,allocated,net,Math.Max(0,net-allocated),Math.Max(0,allocated-net),Math.Min(net,decimal.Round((receipt.EffectiveTotalCost??0)*ceiling/receipt.ReceivedQuantity,2,MidpointRounding.AwayFromZero)),batch.IsVoided,reasons,history.Select(Map).ToArray(),reversed.Select(MapReversal).ToArray());
+        if(batch.IsVoided) ceiling=0;
+        return new(receipt.Id,batch.Id,item.Id,receipt.SupplierId,receipt.PurchaseOrderReceiptLineId,batch.BatchNumber,item.Name,item.DocumentUnit,item.QuantityScale,receipt.Version,batch.Version,receipt.ReceivedQuantity,batch.Quantity,shipped,reversed.Sum(x=>x.Quantity),receipt.ReceivedQuantity-shipped-reversed.Sum(x=>x.Quantity),ceiling,receipt.EffectiveTotalCost,credited,allocated,net,Math.Max(0,net-allocated),Math.Max(0,allocated-net),Math.Min(net,decimal.Round(receipt.EffectiveTotalCost*ceiling/receipt.ReceivedQuantity,2,MidpointRounding.AwayFromZero)),batch.IsVoided,reasons,history.Select(Map).ToArray(),reversed.Select(MapReversal).ToArray());
     }
     public async Task<ErrorOr<SupplierReturnPreviewDto>> PreviewAsync(Guid actor,Guid shopId,SupplierReturnPreviewRequest request,CancellationToken ct)
     {
@@ -187,7 +187,7 @@ public sealed class SupplierReturnService(
         {
             var receipt=await receipts.GetByIdAsync(input.ReceiptValueId,ct); if(receipt is null || receipt.ShopId!=shopId || receipt.SupplierId!=request.SupplierId) return Missing;
             var detail=await ReceiptDetail(receipt,ct);
-            result.Add(detail with {SuggestedCreditAmount=Math.Min(detail.NetPayableAmount,decimal.Round((receipt.EffectiveTotalCost??0)*Math.Max(0,input.Quantity)/receipt.ReceivedQuantity,2,MidpointRounding.AwayFromZero))});
+            result.Add(detail with {SuggestedCreditAmount=Math.Min(detail.NetPayableAmount,decimal.Round(receipt.EffectiveTotalCost*Math.Max(0,input.Quantity)/receipt.ReceivedQuantity,2,MidpointRounding.AwayFromZero))});
         }
         return new SupplierReturnPreviewDto(result);
     }

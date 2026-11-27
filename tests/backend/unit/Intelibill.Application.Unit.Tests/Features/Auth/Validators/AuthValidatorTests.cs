@@ -1,9 +1,6 @@
 using FluentValidation.TestHelper;
 using Intelibill.Application.Features.Auth.Commands.Login;
-using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
-using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
-using Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.Commands.ResetPassword;
 using Intelibill.Application.Features.Auth.Commands.RevokeToken;
@@ -26,69 +23,6 @@ public class LoginCommandValidatorTests
 
     [Fact] public void Validate_WhenValid_NoErrors() =>
         _v.TestValidate(new LoginCommand("a@b.com", "secret123")).ShouldNotHaveAnyValidationErrors();
-}
-
-public class LoginWithEmailCommandValidatorTests
-{
-    private readonly LoginWithEmailCommandValidator _v = new();
-
-    [Fact] public void Validate_WhenEmailEmpty_ReturnsError() =>
-        _v.TestValidate(new LoginWithEmailCommand("", "password")).ShouldHaveValidationErrorFor(x => x.Email);
-
-    [Fact] public void Validate_WhenEmailInvalid_ReturnsError() =>
-        _v.TestValidate(new LoginWithEmailCommand("notanemail", "password")).ShouldHaveValidationErrorFor(x => x.Email);
-
-    [Fact] public void Validate_WhenPasswordEmpty_ReturnsError() =>
-        _v.TestValidate(new LoginWithEmailCommand("a@b.com", "")).ShouldHaveValidationErrorFor(x => x.Password);
-
-    [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new LoginWithEmailCommand("a@b.com", "secret123")).ShouldNotHaveAnyValidationErrors();
-}
-
-public class RegisterWithEmailCommandValidatorTests
-{
-    private readonly RegisterWithEmailCommandValidator _v = new();
-
-    [Fact] public void Validate_WhenEmailEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("", "Pass1234!", "First", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.Email);
-
-    [Fact] public void Validate_WhenPasswordTooShort_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "short", "First", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.Password);
-
-    [Fact] public void Validate_WhenPasswordTooLong_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", new string('x', 101), "First", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.Password);
-
-    [Fact] public void Validate_WhenFirstNameEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.FirstName);
-
-    [Fact] public void Validate_WhenLastNameEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "", "+1234567890")).ShouldHaveValidationErrorFor(x => x.LastName);
-
-    [Fact] public void Validate_WhenPhoneEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last", "")).ShouldHaveValidationErrorFor(x => x.PhoneNumber);
-
-    [Fact] public void Validate_WhenPhoneTooLong_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last", new string('+', 21))).ShouldHaveValidationErrorFor(x => x.PhoneNumber);
-
-    [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last", "+919876543210")).ShouldNotHaveAnyValidationErrors();
-}
-
-public class RegisterWithPhoneCommandValidatorTests
-{
-    private readonly RegisterWithPhoneCommandValidator _v = new();
-
-    [Fact] public void Validate_WhenPhoneEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithPhoneCommand("", "F", "L")).ShouldHaveValidationErrorFor(x => x.PhoneNumber);
-
-    [Fact] public void Validate_WhenPhoneNotE164_ReturnsError() =>
-        _v.TestValidate(new RegisterWithPhoneCommand("9876543210", "F", "L")).ShouldHaveValidationErrorFor(x => x.PhoneNumber);
-
-    [Fact] public void Validate_WhenFirstNameEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithPhoneCommand("+919876543210", "", "L")).ShouldHaveValidationErrorFor(x => x.FirstName);
-
-    [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new RegisterWithPhoneCommand("+919876543210", "First", "Last")).ShouldNotHaveAnyValidationErrors();
 }
 
 public class RefreshTokenCommandValidatorTests

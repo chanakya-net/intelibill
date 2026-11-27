@@ -1,6 +1,5 @@
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -41,18 +40,15 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .HasColumnType("numeric(10,2)")
             .HasDefaultValue(0m);
 
-        // Customers recorded before credit policies existed keep their old, unenforced behaviour,
-        // labelled as legacy advisory until the merchant chooses a policy.
+        // Every customer is created with an explicit policy, so the column has no default.
         builder.Property(c => c.CreditPolicyMode)
-            .IsRequired()
-            .HasDefaultValue(CreditPolicyMode.LegacyAdvisory)
-            .HasSentinel((CreditPolicyMode)0);
+            .IsRequired();
 
         builder.Property(c => c.CreditTermsDays);
 
         builder.ToTable("customers", t =>
         {
-            t.HasCheckConstraint("ck_customers_credit_policy_mode", "credit_policy_mode IN (1, 2, 3)");
+            t.HasCheckConstraint("ck_customers_credit_policy_mode", "credit_policy_mode IN (1, 2)");
             t.HasCheckConstraint("ck_customers_credit_terms_days", "credit_terms_days IS NULL OR credit_terms_days BETWEEN 0 AND 365");
         });
 

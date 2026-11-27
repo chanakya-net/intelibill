@@ -91,6 +91,7 @@ public sealed partial class P0506LicensingTests(PostgreSqlTestFixture fixture, I
         invoice["invoiceNumber"] = "A/2627/000002";
         invoice["soldAt"] = "2027-01-20T11:50:00.000Z";
         invoice["issuedByUserId"] = actor.User.ToString("D");
+        invoice["calculationVersion"] = 1;
         invoice["items"]![0]!["inventoryBatchId"] = batchId.ToString("D");
 
         _clock.Now = applyAt;

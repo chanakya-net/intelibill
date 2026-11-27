@@ -42,8 +42,8 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             {
                 ReturnNumbers = string.Join(", ", adjustments.Select(a => a.Label)),
                 ReturnAmount = adjustments.Sum(a => a.FinancialAdjustment),
-                ReturnTaxableAmount = adjustments.Sum(a => a.TaxableAdjustment ?? 0m),
-                ReturnTaxAmount = adjustments.Sum(a => a.TaxAdjustment ?? 0m),
+                ReturnTaxableAmount = adjustments.Sum(a => a.TaxableAdjustment),
+                ReturnTaxAmount = adjustments.Sum(a => a.TaxAdjustment),
                 NetSalesAmount = row.TotalAmount - adjustments.Sum(a => a.FinancialAdjustment),
                 HasReturns = true,
                 IssuedCreditNoteCodes = codes.Count == 0 ? null : string.Join(", ", codes),

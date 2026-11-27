@@ -24,8 +24,7 @@ public static class PaymentConfirmationBuilder
             $"Verified receipt: {Instant(r.VerifiedAt)}", $"Effective receipt: {Instant(snapshot.EffectiveAt)}",
             $"Effective time basis: {snapshot.EffectiveTimeBasis}", $"Issued: {Instant(r.IssuedAt)}",
             $"Issuance basis: {r.IssuanceBasis}",
-            r.IssuanceBasis == "Retained" ? "Historical receipt; party details below are current at issuance, not reconstructed historical details."
-                : "Party details below were recorded at confirmation issuance.",
+            "Party details below were recorded at confirmation issuance.",
             $"Billing account name at issuance: {Text(snapshot.Party.AccountNameAtIssuance)}",
             $"Accepted by merchant user ID: {snapshot.Party.AcceptedByMerchantUserId:D}",
             "Legal party name, address and tax identity: not recorded by this confirmation.",

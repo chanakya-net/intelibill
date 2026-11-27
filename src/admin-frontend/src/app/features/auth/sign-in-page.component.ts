@@ -73,7 +73,15 @@ export class SignInPageComponent {
     const account = params.get('paymentAccount');
     const order = params.get('paymentOrder');
     const reviewAccount = params.get('reviewAccount');
-    if (reviewAccount) {
+    const refundAccount = params.get('refundAccount');
+    const refundRequest = params.get('refundRequest');
+    const invoiceAccount = params.get('invoiceAccount');
+    const invoiceOrder = params.get('invoiceOrder');
+    if (invoiceAccount && invoiceOrder) {
+      void this.router.navigate(['/payments/documents'], { queryParams: { account: invoiceAccount, order: invoiceOrder } });
+    } else if (refundAccount && refundRequest) {
+      void this.router.navigate(['/payments/refunds', refundAccount, refundRequest, 'approve']);
+    } else if (reviewAccount) {
       void this.router.navigate(['/payments/review'], { queryParams: { account: reviewAccount, case: params.get('reviewCase') } });
     } else if (account && order) {
       void this.router.navigate(['/payments'], { queryParams: { account, order } });

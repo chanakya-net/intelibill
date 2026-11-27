@@ -75,7 +75,7 @@ public sealed partial class P0417Tests(LicensingPostgreSqlFixture database) : IC
 
     private static string ClosurePath(Merchant owner) => $"/api/licensing/shops/{owner.ShopId:D}/closure";
 
-    private static async Task<string> CloseShopAsync(Merchant owner, Guid account) =>
+    internal static async Task<string> CloseShopAsync(Merchant owner, Guid account) =>
         ReopeningRoute(owner, account, await SaveClosureAsync(owner, await CloseCommandAsync(owner, ClosurePath(owner))));
 
     private static async Task<JsonElement> SaveClosureAsync(Merchant owner,

@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ internal sealed class PostgresAdminSignInBudget(LicensingDbContext context) : IA
     public async Task<DateTimeOffset?> TakeAsync(string accountSubject, DateTimeOffset now, CancellationToken cancellationToken)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Brief, cancellationToken);
         var reset = await TakeBucketAsync("global", 60, now, now.AddMinutes(5), cancellationToken);
         if (reset is null)
         {

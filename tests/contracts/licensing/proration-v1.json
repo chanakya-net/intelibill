@@ -1,0 +1,306 @@
+{
+  "schemaVersion": 1,
+  "policy": "proration/1",
+  "quotePolicy": "capacity-change-quote/1",
+  "rules": [
+    "Positive gross difference (target minus purchased) for the remaining fraction of the actual calendar interval [startsAt, endsAt).",
+    "Integer paise and integer seconds; remainingSeconds = floor((endsAt - evaluatedAt) / 1 second); boundaries are whole UTC seconds.",
+    "Exactly one half-up rounding of the final charge: add one paisa when 2 x remainder >= totalSeconds; 128-bit product.",
+    "A nonpositive difference, a zero rounded charge or a charge below the provider minimum is never payable; no minimum surcharge.",
+    "evaluatedAt must lie in [startsAt, endsAt); otherwise the interval is not priced."
+  ],
+  "vectors": [
+    {
+      "name": "leap-month-demo",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 33000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T04:30:00Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1296000,
+        "differencePaise": 21000,
+        "chargePaise": 10862,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "month-end-to-february-28",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 27000,
+      "startsAt": "2027-01-31T04:30:00Z",
+      "endsAt": "2027-02-28T04:30:00Z",
+      "evaluatedAt": "2027-02-14T04:30:00Z",
+      "expected": {
+        "totalSeconds": 2419200,
+        "remainingSeconds": 1209600,
+        "differencePaise": 15000,
+        "chargePaise": 7500,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "annual-from-february-29-clips-to-february-28",
+      "purchasedGrossPaise": 120000,
+      "targetGrossPaise": 270000,
+      "startsAt": "2028-02-29T04:30:00Z",
+      "endsAt": "2029-02-28T04:30:00Z",
+      "evaluatedAt": "2028-08-29T04:30:00Z",
+      "expected": {
+        "totalSeconds": 31536000,
+        "remainingSeconds": 15811200,
+        "differencePaise": 150000,
+        "chargePaise": 75205,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "annual-366-day-term",
+      "purchasedGrossPaise": 120000,
+      "targetGrossPaise": 270000,
+      "startsAt": "2027-03-01T04:30:00Z",
+      "endsAt": "2028-03-01T04:30:00Z",
+      "evaluatedAt": "2027-09-01T04:30:00Z",
+      "expected": {
+        "totalSeconds": 31622400,
+        "remainingSeconds": 15724800,
+        "differencePaise": 150000,
+        "chargePaise": 74590,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "evaluated-at-start-charges-full-difference",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 27000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-01-31T04:30:00Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 2505600,
+        "differencePaise": 15000,
+        "chargePaise": 15000,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "last-whole-second",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 2505612000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-29T04:29:59Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1,
+        "differencePaise": 2505600000,
+        "chargePaise": 1000,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "last-subsecond-rounds-to-zero",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 27000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-29T04:29:59.5Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 0,
+        "differencePaise": 15000,
+        "chargePaise": 0,
+        "outcome": "AtRenewalOrCourtesy",
+        "reason": "RoundedToZero"
+      }
+    },
+    {
+      "name": "subsecond-evaluation-counts-whole-remaining-seconds",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 33000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T04:30:00.75Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1295999,
+        "differencePaise": 21000,
+        "chargePaise": 10862,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "exact-half-rounds-up",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12003,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T16:30:00Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1252800,
+        "differencePaise": 3,
+        "chargePaise": 2,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "just-below-half-rounds-down",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12003,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T16:30:01Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1252799,
+        "differencePaise": 3,
+        "chargePaise": 1,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "just-above-half-rounds-up",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12003,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T16:29:59Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1252801,
+        "differencePaise": 3,
+        "chargePaise": 2,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "largest-price-product-exceeds-int64",
+      "purchasedGrossPaise": 0,
+      "targetGrossPaise": 1000000000000,
+      "startsAt": "2027-03-01T04:30:00Z",
+      "endsAt": "2028-03-01T04:30:00Z",
+      "evaluatedAt": "2027-03-01T04:30:01Z",
+      "expected": {
+        "totalSeconds": 31622400,
+        "remainingSeconds": 31622399,
+        "differencePaise": 1000000000000,
+        "chargePaise": 999999968377,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "zero-difference",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T04:30:00Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1296000,
+        "differencePaise": 0,
+        "chargePaise": 0,
+        "outcome": "AtRenewalOrCourtesy",
+        "reason": "NonPositiveDifference"
+      }
+    },
+    {
+      "name": "negative-difference",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 9000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T04:30:00Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1296000,
+        "differencePaise": -3000,
+        "chargePaise": 0,
+        "outcome": "AtRenewalOrCourtesy",
+        "reason": "NonPositiveDifference"
+      }
+    },
+    {
+      "name": "positive-difference-rounds-to-zero",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12001,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-28T04:30:00Z",
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 86400,
+        "differencePaise": 1,
+        "chargePaise": 0,
+        "outcome": "AtRenewalOrCourtesy",
+        "reason": "RoundedToZero"
+      }
+    },
+    {
+      "name": "below-provider-minimum-99",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12198,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T16:30:00Z",
+      "providerMinimumPaise": 100,
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1252800,
+        "differencePaise": 198,
+        "chargePaise": 99,
+        "outcome": "AtRenewalOrCourtesy",
+        "reason": "BelowProviderMinimum"
+      }
+    },
+    {
+      "name": "at-provider-minimum-100",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 12200,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-14T16:30:00Z",
+      "providerMinimumPaise": 100,
+      "expected": {
+        "totalSeconds": 2505600,
+        "remainingSeconds": 1252800,
+        "differencePaise": 200,
+        "chargePaise": 100,
+        "outcome": "Payable",
+        "reason": null
+      }
+    },
+    {
+      "name": "evaluated-at-paid-through-is-not-priced",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 27000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-02-29T04:30:00Z",
+      "invalid": true
+    },
+    {
+      "name": "evaluated-before-start-is-not-priced",
+      "purchasedGrossPaise": 12000,
+      "targetGrossPaise": 27000,
+      "startsAt": "2028-01-31T04:30:00Z",
+      "endsAt": "2028-02-29T04:30:00Z",
+      "evaluatedAt": "2028-01-31T04:29:59Z",
+      "invalid": true
+    }
+  ]
+}

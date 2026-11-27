@@ -25,6 +25,25 @@ internal static class BillingDelegationRegistration
         services.AddScoped<IBillingAccountStore, BillingAccountStore>();
         services.AddScoped<IShopAffiliationStore, ShopAffiliationStore>();
         services.AddScoped<ShopAffiliationHandlers>();
+        services.AddScoped<ICoverageSlotAssignmentStore, CoverageSlotAssignmentStore>();
+        services.AddScoped<AssignUnusedCoverageSlotHandler>();
+        services.AddScoped<ICoverageReplacementStore, CoverageReplacementStore>();
+        services.AddScoped<ScheduleCoverageReplacementHandler>();
+        services.AddScoped<ICoverageReplacementExceptionStore, CoverageReplacementExceptionStore>();
+        services.AddScoped<RequestCoverageReplacementExceptionHandler>();
+        services.AddScoped(provider => new ApproveCoverageReplacementHandler(
+            provider.GetRequiredService<ICoverageReplacementExceptionStore>(),
+            provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
+            provider.GetRequiredService<TimeProvider>()));
+        services.AddScoped<CoverageTransferStore>();
+        services.AddScoped<ICoverageTransferApprovalStore>(provider => provider.GetRequiredService<CoverageTransferStore>());
+        services.AddScoped<ApproveCoverageTransferHandler>();
+        services.AddScoped<ICoverageTransferStore>(provider => provider.GetRequiredService<CoverageTransferStore>());
+        services.AddScoped<ICoverageTransferReviewStore>(provider => provider.GetRequiredService<CoverageTransferStore>());
+        services.AddScoped<IMerchantCoverageTransferAuthority, MerchantCoverageTransferAuthorityClient>();
+        services.AddScoped<RequestCoverageTransferHandler>();
+        services.AddScoped<CoverageTransferConsentHandler>();
+        services.AddScoped<CoverageTransferAuthority>();
         services.AddScoped<IBillingInvitationStore, BillingInvitationStore>();
         services.AddScoped<BillingInvitationSecrets>();
         services.AddScoped<BillingInvitationHandlers>();

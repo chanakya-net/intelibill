@@ -7,7 +7,6 @@ using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 
@@ -16,21 +15,20 @@ namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A keyed request first commits a manifest receipt naming every row id and row hash in order, so
-/// the same key can never stand for two different submissions. Each row then runs under a receipt
+/// The request first commits a manifest receipt naming every row id and row hash in order, so the
+/// same key can never stand for two different submissions. Each row then runs under a receipt
 /// of its own: a resend after a lost response replays committed rows and runs only the rest.
 /// </para>
 /// <para>
 /// A rejected row leaves nothing behind, so it is not recorded; a resend evaluates it again.
 /// </para>
 /// </remarks>
-public sealed partial class AddInventoryBatchCommandHandler(
+public sealed class AddInventoryBatchCommandHandler(
     IUserRepository userRepository,
     IInboundRowExecutor inboundRowExecutor,
     IFinancialOperationExecutor operationExecutor,
     StockIntakeAccess access,
-    ISuspensionAccessReader suspension,
-    ILogger<AddInventoryBatchCommandHandler> logger)
+    ISuspensionAccessReader suspension)
 {
     private const int MaxBatchSize = 100;
     private const int MaxClientRowIdLength = 64;
@@ -63,25 +61,19 @@ public sealed partial class AddInventoryBatchCommandHandler(
         if (await CheckAuthorityAsync(command, cancellationToken) is { } denied)
             return denied;
 
-        var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
+        var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey)
+            ?? throw new InvalidOperationException("The shape check requires an operation key.");
         var rowHashes = command.Items.Select(row => FinancialOperationHasher.Compute(ToPayload(row))).ToArray();
 
-        if (operationKey is null)
-        {
-            LogUnkeyedIntake(logger, command.ActiveShopId);
-        }
-        else
-        {
-            var manifest = await ReserveManifestAsync(command, operationKey, rowHashes, cancellationToken);
-            if (manifest.IsError)
-                return manifest.Errors;
-        }
+        var manifest = await ReserveManifestAsync(command, operationKey, rowHashes, cancellationToken);
+        if (manifest.IsError)
+            return manifest.Errors;
 
         return await ReceiveRowsAsync(command, operationKey, rowHashes, cancellationToken);
     }
 
     private async Task<ErrorOr<AddInventoryBatchResultDto>> ReceiveRowsAsync(
-        AddInventoryBatchCommand command, string? operationKey, string[] rowHashes, CancellationToken cancellationToken)
+        AddInventoryBatchCommand command, string operationKey, string[] rowHashes, CancellationToken cancellationToken)
     {
         var succeeded = new List<AddInventoryBatchSucceededRowDto>();
         var failed = new List<AddInventoryBatchFailedRowDto>();
@@ -100,9 +92,7 @@ public sealed partial class AddInventoryBatchCommandHandler(
                 continue;
             }
 
-            var operation = operationKey is null
-                ? null
-                : new InboundRowOperation(RowKey(operationKey, row.ClientRowId), rowHashes[index]);
+            var operation = new InboundRowOperation(RowKey(operationKey, row.ClientRowId), rowHashes[index]);
 
             var rowResult = await inboundRowExecutor.ExecuteAsync(
                 command.ActiveShopId,
@@ -114,7 +104,7 @@ public sealed partial class AddInventoryBatchCommandHandler(
 
             if (rowResult.IsError)
             {
-                if (IsRecoveryRefusal(rowResult.FirstError, operation is not null))
+                if (IsRecoveryRefusal(rowResult.FirstError))
                     return rowResult.Errors;
                 failed.Add(ToFailedRow(row, rowResult.Errors));
                 continue;
@@ -136,12 +126,12 @@ public sealed partial class AddInventoryBatchCommandHandler(
             failed);
     }
 
-    private static bool IsRecoveryRefusal(Error error, bool keyed) =>
+    private static bool IsRecoveryRefusal(Error error) =>
         error.Type is ErrorType.Unauthorized || error.Code == Errors.Shop.MembershipNotFound.Code
         || error.Code == Errors.Inventory.UserIsNotOwnerOrManager.Code || error.Code == Errors.Licence.ScopeMismatch.Code
         || error.Code == Errors.Licence.SecuritySuspended.Code || error.Code == Errors.Operation.PayloadMismatch.Code
         // A busy recovery fence may be hiding a committed outcome.
-        || (keyed && error.Code == Errors.Licence.BusyCode);
+        || error.Code == Errors.Licence.BusyCode;
 
     private Task<Error?> CheckAuthorityAsync(AddInventoryBatchCommand command, CancellationToken ct) =>
         access.CheckAuthorityAsync(command.ActorUserId, command.ActiveShopId, command.Session, ct);
@@ -152,8 +142,7 @@ public sealed partial class AddInventoryBatchCommandHandler(
 
     private static Error? ValidateShape(AddInventoryBatchCommand command)
     {
-        if (command.OperationKey is not null
-            && FinancialOperationHasher.NormalizeKey(command.OperationKey) is not { Length: <= MaxOperationKeyLength })
+        if (FinancialOperationHasher.NormalizeKey(command.OperationKey) is not { Length: <= MaxOperationKeyLength })
             return Errors.Inventory.BatchOperationKeyInvalid;
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -293,11 +282,6 @@ public sealed partial class AddInventoryBatchCommandHandler(
 
     private static string? Optional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    [LoggerMessage(
-        Level = LogLevel.Warning,
-        Message = "Legacy unkeyed financial command: bulk stock intake without an operation key in shop {ShopId}.")]
-    private static partial void LogUnkeyedIntake(ILogger logger, Guid shopId);
 
     /// <summary>The business content of one row; the hash a resend must match.</summary>
     private sealed record RowPayload(

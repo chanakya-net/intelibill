@@ -111,7 +111,6 @@ public sealed partial class P0401LicensingTests
     public sealed partial class PostgreSql(PostgreSqlTestFixture fixture)
     {
         private readonly TestClock _clock = new(Deadline.AddMinutes(-1));
-        private string? _isolatedDatabase;
         private static CancellationToken Ct => CancellationToken.None;
 
         [Fact]
@@ -339,9 +338,7 @@ public sealed partial class P0401LicensingTests
             return binding;
         }
 
-        private string MigratorConnection => _isolatedDatabase is null
-            ? fixture.MigratorConnectionString
-            : SharedPostgres.ConnectionStringFor(_isolatedDatabase);
+        private string MigratorConnection => fixture.MigratorConnectionString;
 
         private ApplicationDbContext CreateDb(bool owner = false) =>
             Open(owner ? MigratorConnection : RestrictedRuntimeRole.ConnectionStringFor(MigratorConnection));

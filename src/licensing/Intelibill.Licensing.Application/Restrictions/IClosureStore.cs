@@ -9,7 +9,6 @@ public interface IClosureStore
     Task<ReopeningOperation?> ReadReopeningOperationAsync(Guid account, Guid operation, CancellationToken ct);
     Task<bool> UsedReopeningConsentAsync(Guid account, Guid shop, string reference, CancellationToken ct);
     Task<ShopClosureStatus> ReadShopClosureStatusAsync(Guid account, Guid shop, CancellationToken ct);
-    Task<bool> ReopeningPublishersReadyAsync(CancellationToken ct);
     Task<ProviderClosureV1[]> ReadProviderClosuresAsync(Guid account, CancellationToken ct);
     Task SaveReopeningAsync(NewReopening reopening, CancellationToken ct);
     Task<CheckoutClosureStatus[]> ReadCheckoutClosuresAsync(Guid account, Guid[] shops, CancellationToken ct);
@@ -21,8 +20,8 @@ public interface IClosureStore
     Task<SavedClosureProposal?> ProposalByOperationAsync(Guid account, Guid operation, CancellationToken ct);
     Task InsertProposalAsync(SavedClosureProposal proposal, CancellationToken ct);
     Task<Guid[]> ReadNoticesAsync(Guid account, Guid proposal, CancellationToken ct);
-    Task<bool?> FindConsentOutcomeAsync(OwnerClosureNoticeV1 notice, Guid shop, Guid actor, Guid operation, CancellationToken ct);
-    Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid? operation, CancellationToken ct);
+    Task<bool> FindConsentOutcomeAsync(OwnerClosureNoticeV1 notice, Guid shop, Guid actor, Guid operation, CancellationToken ct);
+    Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid operation, CancellationToken ct);
     Task LockAccountAsync(Guid account, CancellationToken ct);
     Task<ClosureTargetV1[]> TargetsAsync(Guid account, Guid? shop, CancellationToken ct);
     Task<SavedClosure?> ReadOperationAsync(Guid account, Guid operation, CancellationToken ct);

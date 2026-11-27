@@ -85,7 +85,6 @@ async function fixtures(page: Page) {
               method: 'Cash',
               externalReference: null,
               businessDate: posted.paymentDate,
-              isLegacy: false,
               isReversed: false,
               allocatedAmount: 0,
               unallocatedAmount: posted.amount,

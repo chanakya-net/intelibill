@@ -15,7 +15,6 @@ public sealed class ReviewReopeningHandler(IClosureStore closures, ISuspensionSt
         var target = await closures.ReadReopeningTargetAsync(account, closure, shop, token);
         if (target is null) return ReopeningErrors.Missing;
         if (target.Reopened) return ReopeningErrors.Reopened;
-        if (!await closures.ReopeningPublishersReadyAsync(token)) return ReopeningErrors.CutoverRequired;
         return await ImpactAsync(account, target, token);
     }, ct);
 
@@ -36,7 +35,6 @@ public sealed class ReviewReopeningHandler(IClosureStore closures, ISuspensionSt
         var target = await closures.ReadReopeningTargetAsync(account, closure, shop, ct);
         if (target is null) return ReopeningErrors.Missing;
         if (target.Reopened) return ReopeningErrors.Reopened;
-        if (!await closures.ReopeningPublishersReadyAsync(ct)) return ReopeningErrors.CutoverRequired;
         var impact = await ImpactAsync(account, target, ct);
         if (impact.Version != command.ExpectedVersion || impact.ImpactDigest != command.ImpactDigest)
             return ReopeningErrors.Conflict;

@@ -23,8 +23,31 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         ["Payments:ReconcileInBackground"] = "false",
     };
 
-    /// <summary>The runtime grant step for tables a test re-creates by migrating down and up again.</summary>
+    /// <summary>Runtime grants the checkout fixture applies to its licensing database.</summary>
     internal const string RuntimeGrant = """
+        GRANT SELECT ON public.current_shop_affiliations TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.coverage_transfer_approvals, public.coverage_transfer_progress,
+            public.coverage_transfer_bindings TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.billing_document_versions TO licensing_runtime;
+        GRANT SELECT, INSERT, UPDATE ON public.coverage_replacement_exceptions, public.coverage_replacement_exception_approvals TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.paid_slot_handoffs TO licensing_runtime;
+        GRANT SELECT, INSERT, UPDATE ON public.coverage_replacements TO licensing_runtime;
+        GRANT SELECT, INSERT, UPDATE ON public.coverage_slot_assignments TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.coverage_slot_assignment_deliveries TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.capacity_change_quotes, public.capacity_change_quote_shops TO licensing_runtime;
+        GRANT SELECT, INSERT, UPDATE ON public.capacity_increases TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.capacity_reduction_previews, public.capacity_reduction_preview_shops,
+            public.scheduled_capacity_reduction_shops, public.scheduled_capacity_reduction_resolutions TO licensing_runtime;
+        GRANT SELECT, INSERT, UPDATE ON public.scheduled_capacity_reductions TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.due_transfer_applications(timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.claim_refund(timestamptz,uuid), public.start_refund_send(uuid,timestamptz), public.finish_refund(uuid,timestamptz,text,text,text),
+            public.refund_outcome(uuid,uuid), public.refund_finance_observation(uuid,uuid), public.recheck_refund(uuid,uuid,timestamptz,text),
+            public.receive_refund_hint(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO licensing_runtime;
+        GRANT SELECT,INSERT ON public.development_gateway_refunds TO licensing_runtime;
+        GRANT SELECT ON public.development_refund_controls TO licensing_runtime;
+        GRANT SELECT ON public.refund_attempts, public.refund_applications, public.applied_refund_decisions TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.refund_approvals, public.refund_access_decisions TO licensing_runtime;
         GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_orders, public.checkout_order_shops,
             public.checkout_order_acceptances, public.payment_attempts, public.payment_attempt_sessions,
             public.payment_events, public.verified_payments, public.payment_fulfilments, public.payment_fulfilment_shops,
@@ -58,20 +81,21 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
     internal P0201Clock CheckoutClock { get; } = checkout;
 
     internal static async Task<P0302Fixture> StartAsync(LicensingPostgreSqlFixture database, P0201Clock checkout,
-        IReadOnlyDictionary<string, string?>? settings = null, Action<IServiceCollection>? services = null, bool browser = false)
+        IReadOnlyDictionary<string, string?>? settings = null, Action<IServiceCollection>? services = null, bool browser = false,
+        IReadOnlyDictionary<string, string?>? merchantExtras = null, Action<IServiceCollection>? merchantServices = null)
     {
         var delivery = await P0213Fixture.StartAsync(database, browser, settings ?? SimulatorSettings, collection =>
         {
             collection.AddKeyedSingleton<TimeProvider>(CheckoutOrdersV1.Policy, checkout);
             collection.AddKeyedSingleton<TimeProvider>("pending-payment-lease", checkout);
             services?.Invoke(collection);
-        }, prepareProvider: true, businessClock: checkout);
+        }, prepareProvider: true, businessClock: checkout, merchantExtras: merchantExtras, merchantServices: merchantServices);
         await LicensingPostgreSqlFixture.ExecuteAsync(delivery.Hosts.LicensingOwner, RuntimeGrant);
         return new(delivery, checkout);
     }
 
     /// <summary>One billing owner, <paramref name="count"/> really affiliated shops and an accepted monthly quote.</summary>
-    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null, bool legacyQuote = false,
+    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null,
         long monthlyPricePaise = 12000L)
     {
         var payer = await SignInAsync(Hosts, ShopRole.Owner);
@@ -89,7 +113,6 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         var ids = shops.Select(shop => shop.ShopId).ToArray();
         var quote = await P0301Tests.CreateQuoteAsync(payer.Client, account,
             new(Guid.NewGuid(), plan, "Month", ids, Math.Max(0, count - 3), 1));
-        if (legacyQuote) quote = await P0309Fixture.RepresentLegacyQuoteAsync(Hosts.LicensingOwner, quote);
         using var accepted = await payer.Client.PostAsJsonAsync(P0301Tests.AcceptPath(quote), P0301Tests.Accept(quote));
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         return new(payer, account, [.. shops], (await accepted.Content.ReadFromJsonAsync<CheckoutQuoteV1>())!);

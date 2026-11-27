@@ -397,7 +397,7 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
             false,
             false);
 
-        return Sale.Create(
+        return TestSales.Create(
             shopId,
             invoiceNumber,
             null,

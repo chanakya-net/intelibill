@@ -1,0 +1,179 @@
+@let current = view();
+@switch (current.kind) {
+  @case ('closed') {
+    <button class="ib-btn-secondary" type="button" data-testid="reduction-open" (click)="open()">
+      {{ 'billing.reductions.open' | transloco }}
+    </button>
+  }
+  @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
+  @case ('form') {
+    <form class="ib-panel" data-testid="reduction-form" (ngSubmit)="preview()" [attr.aria-labelledby]="'reduction-heading-' + term().termId">
+      <h3 [id]="'reduction-heading-' + term().termId">{{ 'billing.reductions.heading' | transloco }}</h3>
+      <p>{{ 'billing.reductions.description' | transloco }}</p>
+      @if (current.plans.length === 0) {
+        <p data-testid="reduction-no-plans">{{ 'billing.reductions.noPlans' | transloco }}</p>
+      } @else {
+        <label>
+          {{ 'billing.reductions.plan' | transloco }}
+          <select name="plan" data-testid="reduction-plan" [ngModel]="planId()" (ngModelChange)="selectPlan($event)" required>
+            @for (plan of current.plans; track plan.versionId) {
+              <option [value]="plan.versionId">{{ plan.name }} · v{{ plan.versionNumber }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          {{ 'billing.reductions.capacity' | transloco }}
+          <input name="capacity" type="number" data-testid="reduction-capacity"
+            [min]="selectedPlan()?.includedShops ?? 1" [max]="maxCapacity(selectedPlan())"
+            [readOnly]="!selectedPlan()?.extraShopsOffered"
+            [ngModel]="capacity()" (ngModelChange)="capacity.set(+$event)" required />
+        </label>
+        <button class="ib-btn-primary" type="submit" data-testid="reduction-preview-submit" [disabled]="!planId()">
+          {{ 'billing.reductions.previewSubmit' | transloco }}
+        </button>
+      }
+    </form>
+  }
+  @case ('failed') {
+    <section class="ib-panel" role="alert" data-testid="reduction-failed">
+      <p>{{ 'billing.reductions.errors.' + current.code | transloco }}</p>
+      <button class="ib-btn-secondary" type="button" data-testid="reduction-retry" (click)="startOver()">
+        {{ 'billing.reductions.again' | transloco }}
+      </button>
+    </section>
+  }
+  @case ('preview') {
+    @let p = current.preview;
+    <section class="ib-panel" data-testid="reduction-preview" [attr.data-preview-id]="p.previewId"
+      [attr.aria-labelledby]="'reduction-preview-heading-' + term().termId">
+      <h3 [id]="'reduction-preview-heading-' + term().termId">{{ 'billing.reductions.previewHeading' | transloco }}</h3>
+      @if (p.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }
+      <dl>
+        <dt>{{ 'billing.reductions.target' | transloco }}</dt><dd data-testid="reduction-target-plan">{{ p.targetPlanName }}</dd>
+        <dt>{{ 'billing.reductions.capacityChange' | transloco }}</dt>
+        <dd data-testid="reduction-capacity-change">{{ p.priorCapacity }} → {{ p.targetCapacity }}</dd>
+        <dt>{{ 'billing.reductions.membersChange' | transloco }}</dt>
+        <dd data-testid="reduction-members-change">{{ p.priorMemberAllowance }} → {{ p.targetMemberAllowance }}</dd>
+        <dt>{{ 'billing.reductions.currentPaidThrough' | transloco }}</dt>
+        <dd data-testid="reduction-paid-through">{{ instant(p.currentPaidThrough) }}</dd>
+        <dt>{{ 'billing.reductions.renewalWindow' | transloco }}</dt>
+        <dd data-testid="reduction-renewal-window">{{ instant(p.renewalStartsAt) }} – {{ instant(p.renewalEndsAt) }}</dd>
+        <dt>{{ 'billing.reductions.amount' | transloco }}</dt>
+        <dd data-testid="reduction-amount"><strong>{{ rupees(p.amountPaise) | localeMoney }}</strong></dd>
+      </dl>
+      <p data-testid="reduction-keep-note">{{ 'billing.reductions.keepCurrentNote' | transloco: { time: instant(p.currentPaidThrough) } }}</p>
+      @if (p.unusedSlots > 0) {
+        <p data-testid="reduction-unused-slots">{{ 'billing.reductions.unusedSlotsNote' | transloco: { count: p.unusedSlots } }}</p>
+      }
+      @if (p.hasMemberConflicts) {
+        <p role="status" data-testid="reduction-conflict-summary">
+          {{ 'billing.reductions.conflictSummary' | transloco: { count: p.conflictedShopCount, allowance: p.targetMemberAllowance } }}
+        </p>
+      }
+      @if (p.suspensionDisclosed) {
+        <p data-testid="reduction-suspension">{{ 'billing.changes.suspension' | transloco }}</p>
+      }
+      <p>{{ 'billing.reductions.selectPrompt' | transloco: { max: p.targetCapacity, selected: selectedShops().size } }}</p>
+      <ul class="shop-list" data-testid="reduction-preview-shops">
+        @for (shop of current.shops; track shop.shopId) {
+          <li class="shop-row" [attr.data-shop-id]="shop.shopId">
+            <label>
+              <input type="checkbox" data-testid="reduction-shop-checkbox"
+                [checked]="selectedShops().has(shop.shopId)"
+                [disabled]="shopDisabled(shop, p)"
+                (change)="toggleShop(shop.shopId, $any($event.target).checked)" />
+              <span>{{ shop.name }}</span>
+            </label>
+            <span data-testid="reduction-shop-members">
+              {{ 'billing.reductions.activeMembers' | transloco: { count: shop.activeMembers, limit: p.targetMemberAllowance } }}
+            </span>
+            @if (shop.exceedsAllowance) {
+              <span class="conflict-badge" data-testid="reduction-shop-conflict">
+                {{ 'billing.reductions.exceedsAllowance' | transloco: { excess: shop.excessMembers } }}
+              </span>
+            }
+          </li>
+        }
+      </ul>
+      @if (expired(p)) {
+        <p role="status" data-testid="reduction-expired">{{ 'billing.reductions.expired' | transloco }}</p>
+      } @else {
+        <p data-testid="reduction-valid-until">{{ 'billing.reductions.validUntil' | transloco: { time: instant(p.expiresAt) } }}</p>
+      }
+      <label>
+        <input type="checkbox" data-testid="reduction-confirm-check" [checked]="confirmed()"
+          (change)="confirmed.set($any($event.target).checked)" />
+        <span>{{ 'billing.reductions.confirmText' | transloco: { terms: p.customerTermsVersion, refund: p.refundPolicyVersion } }}</span>
+      </label>
+      <div>
+        <button class="ib-btn-primary" type="button" data-testid="reduction-schedule-submit"
+          [disabled]="busy() || !canSchedule()" (click)="confirmSchedule()">
+          {{ 'billing.reductions.scheduleSubmit' | transloco }}
+        </button>
+        <button class="ib-btn-secondary" type="button" data-testid="reduction-preview-again" (click)="startOver()">
+          {{ 'billing.reductions.again' | transloco }}
+        </button>
+      </div>
+    </section>
+  }
+  @case ('scheduled') {
+    @let s = current.schedule;
+    <section class="ib-panel" data-testid="reduction-scheduled" [attr.data-schedule-id]="s.scheduleId"
+      [attr.aria-labelledby]="'reduction-scheduled-heading-' + term().termId">
+      <h3 [id]="'reduction-scheduled-heading-' + term().termId">{{ 'billing.reductions.scheduledHeading' | transloco }}</h3>
+      <p data-testid="reduction-state"><strong>{{ 'billing.reductions.states.' + s.state | transloco }}</strong></p>
+      @if (current.errorCode) {
+        <p role="alert" data-testid="reduction-action-error">{{ 'billing.reductions.errors.' + current.errorCode | transloco }}</p>
+      }
+      <dl>
+        <dt>{{ 'billing.reductions.target' | transloco }}</dt><dd>{{ s.targetPlanName }}</dd>
+        <dt>{{ 'billing.reductions.capacityChange' | transloco }}</dt><dd>{{ s.priorCapacity }} → {{ s.targetCapacity }}</dd>
+        <dt>{{ 'billing.reductions.membersChange' | transloco }}</dt><dd>{{ s.priorMemberAllowance }} → {{ s.targetMemberAllowance }}</dd>
+        <dt>{{ 'billing.reductions.effectiveAt' | transloco }}</dt><dd data-testid="reduction-effective-at">{{ instant(s.effectiveAt) }}</dd>
+        <dt>{{ 'billing.reductions.amount' | transloco }}</dt><dd data-testid="reduction-scheduled-amount">{{ rupees(s.amountPaise) | localeMoney }}</dd>
+      </dl>
+      <ul class="shop-list" data-testid="reduction-frozen-shops">
+        @for (shop of current.shops; track shop.shopId) {
+          <li [attr.data-shop-id]="shop.shopId">
+            {{ shop.name }} ·
+            <strong>{{ (shop.retained ? 'billing.reductions.retained' : 'billing.reductions.omitted') | transloco }}</strong>
+          </li>
+        }
+      </ul>
+      @if (s.state === 'Scheduled') {
+        <button class="ib-btn-primary" type="button" data-testid="reduction-order-start"
+          [disabled]="busy()" (click)="startOrder()">
+          {{ 'billing.reductions.proceedToPayment' | transloco }}
+        </button>
+      }
+      @if (s.orderId) {
+        <p>
+          <a data-testid="reduction-order-link" [routerLink]="['/billing/accounts', account(), 'checkout']"
+            [queryParams]="{ order: s.orderId }">{{ 'billing.checkout.title' | transloco }} · {{ s.orderId }}</a>
+        </p>
+      }
+      @if (s.state === 'NeedsResolution') {
+        <p role="alert" data-testid="reduction-reason">{{ 'billing.reductions.needsResolutionNotice' | transloco }}</p>
+        @if (s.conflicts?.length) {
+          <ul data-testid="reduction-conflicts">
+            @for (conflict of s.conflicts; track conflict.shopId) {
+              <li data-testid="reduction-conflict">
+                {{ conflict.shopName }}: {{ conflict.activeMembers }} / {{ conflict.targetAllowance }}
+              </li>
+            }
+          </ul>
+        }
+        <button class="ib-btn-primary" type="button" data-testid="reduction-resolve-submit"
+          [disabled]="busy()" (click)="resolve()">
+          {{ 'billing.reductions.resolveSubmit' | transloco }}
+        </button>
+      }
+      @if (s.state === 'NeedsReview') {
+        <p role="alert" data-testid="reduction-review-notice">{{ 'billing.reductions.needsReviewNotice' | transloco }}</p>
+      }
+      @if (s.appliedTermId) {
+        <p data-testid="reduction-applied-term">{{ 'billing.reductions.appliedNotice' | transloco: { termId: s.appliedTermId } }}</p>
+      }
+    </section>
+  }
+}

@@ -38,12 +38,11 @@ internal sealed class PaymentReceiptConfiguration : IEntityTypeConfiguration<Pay
         builder.Property(r => r.BusinessDate).IsRequired();
         builder.Property(r => r.ReceivedAt).IsRequired();
         builder.Property(r => r.LedgerEntryId).IsRequired();
-        builder.Property(r => r.IsLegacy).IsRequired();
         builder.Property(r => r.CreatedBy).IsRequired();
 
         builder.HasIndex(r => new { r.ShopId, r.PartyType, r.PartyId, r.BusinessDate });
 
-        // One receipt per payment ledger entry: the backfill and a new write can never both own it.
+        // One receipt per payment ledger entry.
         builder.HasIndex(r => new { r.PartyType, r.LedgerEntryId }).IsUnique();
 
         builder.HasOne<Shop>()

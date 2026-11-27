@@ -94,15 +94,6 @@ public sealed partial class P0416Tests
         Assert.Equal(HttpStatusCode.Conflict, absent.StatusCode);
         Assert.Equal(ShopClosuresV1.ReviewChangedCode, await P0206Fixture.CodeAsync(absent));
         Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closure_consent_notices"));
-
-        // A legacy shop-level acknowledgement cannot prove which request arrived.
-        await fixture.SourceScalarAsync($"""
-            INSERT INTO public.operational_closure_consent_notices (proposal_id, account_id, shop_id)
-            VALUES ('{proposal.GetProperty("id").GetGuid():D}', '{account:D}', '{owner.ShopId:D}') RETURNING shop_id
-            """);
-        using var ambiguous = await owner.Client.PostAsJsonAsync(path, unused);
-        Assert.Equal(HttpStatusCode.NotFound, ambiguous.StatusCode);
-        Assert.Equal(2L, await fixture.Trial.CountAsync("operational_closure_consent_notices"));
         Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closures"));
         Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closure_targets"));
     }

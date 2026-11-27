@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -9,7 +10,6 @@ namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class PostingPeriodRepository(ApplicationDbContext context) : IPostingPeriodRepository
 {
-    private const string LockTimeout = "5s";
 
     public async Task EnsureExistsAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default)
     {
@@ -57,7 +57,7 @@ internal sealed class PostingPeriodRepository(ApplicationDbContext context) : IP
         var previousTimeout = (await context.Database
             .SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"")
             .ToListAsync(cancellationToken)).Single();
-        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockTimeout}, true)", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Standard, cancellationToken);
 
         List<PostingPeriod> rows;
         try

@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Data;
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
@@ -14,7 +15,6 @@ namespace Intelibill.Infrastructure.Licensing;
 public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPolicy policy, TimeProvider clock)
     : IShopLicenceFence
 {
-    internal const string LockTimeout = "3s";
     private const string Savepoint = "shop_licence_fence";
 
     public Task<ErrorOr<ShopLicenceLease>> EnterAsync(Guid shopId, LicenceAction action, CancellationToken cancellationToken)
@@ -30,6 +30,22 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         WithinBudgetAsync<Success>(async () =>
         {
             await LockAsync(accountId, shopId, shared: false, ct);
+            return Result.Success;
+        }, ct);
+
+    internal Task<ErrorOr<Success>> EnterDualProjectionAsync(Guid accountId, Guid firstShopId, Guid secondShopId, CancellationToken ct) =>
+        WithinBudgetAsync<Success>(async () =>
+        {
+            foreach (var shopId in new[] { firstShopId, secondShopId }.Distinct().Order())
+                await LockAsync(accountId, shopId, shared: false, ct);
+            return Result.Success;
+        }, ct);
+
+    internal Task<ErrorOr<Success>> EnterObservationAsync(Guid accountId, Guid[] shopIds, CancellationToken ct) =>
+        WithinBudgetAsync<Success>(async () =>
+        {
+            foreach (var shopId in shopIds.Order())
+                await LockAsync(accountId, shopId, shared: true, ct);
             return Result.Success;
         }, ct);
 
@@ -50,26 +66,75 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         if (shop?.AccountId != accountId)
             return LicenceErrors.Busy;
 
+        if (shop is { Basis: "Paid", TermId: { } paidTerm })
+            await ApplyExceptionCutoffAsync(shop, paidTerm, ct);
+
         var account = accountId is { } id
             ? await db.Set<AccountLicenseRestriction>().AsNoTracking().SingleOrDefaultAsync(row => row.AccountId == id, ct)
             : null;
         var proofs = shop is null ? null : await ReadProofIssuanceAsync(shopId, ct);
+        // A sibling can advance the shared account head; the shop's own slot activation still gates its trading.
+        var pending = await CoverageActivationEvidence.IsPendingAsync(db, shop, ct);
         var now = clock.GetUtcNow();
         return new ShopLicenceLease(shopId, accountId, account?.Revision, shop?.Revision,
-            policy.Decide(action, shop, account, proofs, now))
+            policy.Decide(action, shop, account, proofs, now, pending))
         {
-            Reevaluate = () => policy.Decide(action, shop, account, proofs, clock.GetUtcNow()),
+            Reevaluate = () => policy.Decide(action, shop, account, proofs, clock.GetUtcNow(), pending),
             EffectiveSuspension = LicenseProjectionPolicy.EffectiveSuspension(shop, account, now),
             ReleasedAccountRestriction = account?.ReleasedRevision ?? account?.PreviousReleaseRevision,
             ReleasedShopRestriction = Math.Max(shop?.ReleasedRevision ?? 0, shop?.ReopenedRevision ?? 0),
             UndatedTradingRestriction = shop?.State == "Closed" ||
                 (shop?.State == "Suspended" && shop.SuspensionEffectiveAt is null) ||
                 (account?.Restriction == "Trading" && account.SuspensionEffectiveAt is null),
-            MemberAllowance = shop?.MemberAllowance,
+            MemberAllowance = shop is { TermId: { } term, EnforcementActivatedAt: not null } && action == LicenceAction.OperationalCapacity
+                ? await AppliedAllowanceAsync(shop, term, now, ct) ?? shop.MemberAllowance : shop?.MemberAllowance,
             AffiliationRequestId = shop?.AffiliationRequestId,
             AccountEvidenceId = account?.EvidenceId,
             ShopEvidenceId = shop?.EvidenceId,
         };
+    }
+
+    private async Task ApplyExceptionCutoffAsync(ShopLicenseState shop, Guid termId, CancellationToken ct)
+    {
+        var cutoff = await db.Database.SqlQuery<DateTimeOffset?>($"""
+            SELECT least(public.transfer_source_cutoff({shop.ShopId},{shop.AffiliationRequestId}),min(cutoff_at)) AS "Value"
+            FROM public.merchant_coverage_exception_cutoffs
+            WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
+                AND affiliation_request_id = {shop.AffiliationRequestId} AND term_id = {termId}
+            """).SingleAsync(ct);
+        if (cutoff is not { } end) return;
+        var nextEnd = shop.AccessEndsAt is { } current && current < end ? current : end;
+        var nextBoundary = shop.NextBoundary is { } bound && bound < end ? bound : end;
+        shop.Apply(shop.Revision, shop.UpstreamVerifiedAt, shop.State, shop.TermId, shop.Basis, shop.StartsAt,
+            nextEnd, nextBoundary, shop.ShopCapacity, shop.MemberAllowance, shop.EvidenceId, shop.SuspensionMode,
+            shop.SuspensionEffectiveAt, shop.SuspensionExplanation, shop.ReleasedRevision, shop.ReopenedRevision, shop.ClosureRevision);
+    }
+
+    private async Task<int?> AppliedAllowanceAsync(ShopLicenseState shop, Guid term, DateTimeOffset now, CancellationToken ct)
+    {
+        var reduced = await db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_reductions
+            WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
+                AND predecessor_term_id = {term} AND affiliation_id = {shop.AffiliationRequestId}
+                AND starts_at <= {now} AND paid_through > {now}
+            ORDER BY generation DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
+        if (reduced is not null) return reduced;
+
+        var increased = await db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_capacity WHERE shop_id = {shop.ShopId}
+                AND account_id = {shop.AccountId} AND term_id = {term} AND affiliation_id = {shop.AffiliationRequestId}
+                AND paid_through > {now} ORDER BY revision DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
+        if (increased is not null) return increased;
+
+        return await db.Database.SqlQuery<int?>($"""
+            SELECT members AS "Value" FROM public.applied_shop_reductions
+            WHERE shop_id = {shop.ShopId} AND account_id = {shop.AccountId}
+                AND successor_term_id = {term} AND affiliation_id = {shop.AffiliationRequestId}
+                AND starts_at <= {now} AND paid_through > {now}
+            ORDER BY generation DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
     }
 
     // The account head may rest on a sibling shop's evidence, which row security rightly hides from this shop.
@@ -86,7 +151,7 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         {
             var previous = await db.Database.SqlQuery<string>(
                 $"SELECT current_setting('lock_timeout') AS \"Value\"").SingleAsync(ct);
-            await SetTimeoutAsync(LockTimeout, ct);
+            await SetTimeoutAsync(DatabaseLockTimeouts.Value(db, LockWait.Brief), ct);
             result = await acquire();
             if (!result.IsError)
                 await SetTimeoutAsync(previous, ct);

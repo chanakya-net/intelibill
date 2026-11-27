@@ -180,47 +180,6 @@ export class OfflineSalesQueueSyncService {
     }
   }
 
-  /**
-   * Sends one held (NeedsReview) invoice through the normal sync request once more, at the user's request: an
-   * invoice held before the server kept original invoices, or one held with no review case, so the server can
-   * file it for review. Only the signed-in issuer's (or an unstamped) invoice is sent. Automatic and bulk syncs
-   * never resend held invoices, and a request that cannot reach the server puts the record back exactly as it was
-   * held, so it never becomes an automatic retry. A server `failed` answer (or a missing result) leaves the
-   * record `Failed`, which automatic sync then retries like any failed record; only a failed request restores
-   * `NeedsReview`.
-   */
-  async resubmitForReview(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineSalesSyncRunResult> {
-    if (!this.networkStatus.canReachApi()) {
-      return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'API_UNREACHABLE' };
-    }
-
-    const lockKey = this.buildLockKey(shopId, deviceId);
-    const existing = this.locks.get(lockKey);
-    if (existing) return await existing;
-
-    const run = this.queueDb.getQueuedSale(shopId, deviceId, clientSaleId)
-      .then((record) => {
-        if (!record || record.status !== 'NeedsReview' || !isSubmittableBy(record, this.currentUserId())) {
-          return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'NOT_RETRYABLE' } satisfies OfflineSalesSyncRunResult;
-        }
-
-        return this.syncRecords(shopId, deviceId, [record], () => ({
-          status: 'NeedsReview',
-          errorCode: record.errorCode,
-          errorMessage: record.errorMessage,
-          reviewCaseId: record.reviewCaseId ?? null,
-          mismatches: record.mismatches ?? [],
-        }));
-      });
-    this.locks.set(lockKey, run);
-
-    try {
-      return await run;
-    } finally {
-      this.locks.delete(lockKey);
-    }
-  }
-
   async retryForShop(shopId: string, deviceId: string): Promise<OfflineSalesSyncRunResult> {
     if (!this.networkStatus.canReachApi()) {
       return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'API_UNREACHABLE' };
@@ -418,7 +377,7 @@ export class OfflineSalesQueueSyncService {
         clientSaleId: record.clientSaleId,
         invoiceNumber: record.invoiceNumber,
         soldAt: record.soldAt,
-        issuedByUserId: record.payload.issuedByUserId as string,
+        issuedByUserId: record.payload.issuedByUserId,
         status: record.status as 'Pending' | 'Failed',
       }));
   }

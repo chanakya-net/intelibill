@@ -10,11 +10,8 @@ import { Observable } from 'rxjs';
 
 import { environment } from '../../../../environments/environment';
 
-/**
- * How new due is judged against the saved credit limit. `LegacyAdvisory` is a setting recorded
- * before credit policies existed: shown, never enforced, until an owner or manager chooses.
- */
-export type CreditPolicyMode = 'NoCredit' | 'Enforced' | 'LegacyAdvisory';
+/** How new due is judged against the saved credit limit. */
+export type CreditPolicyMode = 'NoCredit' | 'Enforced';
 
 export interface Customer {
   customerId: string;
@@ -31,8 +28,7 @@ export interface Customer {
   gstin?: string | null;
   /** GST state code; absent only from responses that predate customer GST details. */
   stateCode?: string | null;
-  /** Absent only from responses that predate credit policies (treat as legacy advisory). */
-  creditPolicyMode?: CreditPolicyMode;
+  creditPolicyMode: CreditPolicyMode;
   /** Agreed days to pay a due sale; null when no terms were agreed. */
   creditTermsDays?: number | null;
 }
@@ -45,8 +41,8 @@ export interface AddCustomerRequest {
   creditLimit: number;
   gstin: string | null;
   stateCode: string | null;
-  /** The web app always sends a policy; the API labels an absent one legacy advisory. */
-  creditPolicyMode?: CreditPolicyMode;
+  /** Required: the API refuses a create without one. */
+  creditPolicyMode: CreditPolicyMode;
   creditTermsDays?: number | null;
 }
 
@@ -56,12 +52,12 @@ export interface EditCustomerRequest {
   address: string | null;
   isActive: boolean;
   creditLimit: number;
-  /** An empty string clears the recorded GSTIN; null keeps it. */
+  /** Saved as sent: null records no GSTIN. */
   gstin: string | null;
-  /** An empty string clears the recorded state; null keeps it. */
+  /** Saved as sent: null takes the GSTIN's own state, if any. */
   stateCode: string | null;
-  /** With terms: both are saved as sent (null terms = none). Absent keeps the stored policy and terms. */
-  creditPolicyMode?: CreditPolicyMode;
+  /** Required, with terms: both are saved as sent (null terms = none). */
+  creditPolicyMode: CreditPolicyMode;
   creditTermsDays?: number | null;
 }
 
@@ -88,7 +84,7 @@ export interface CustomerAccountSale {
   isOverdue?: boolean;
 }
 
-/** How the money moved, as the API names it. `UnknownRecordedMethod` = not recorded (legacy). */
+/** How the money moved, as the API names it. `UnknownRecordedMethod` = no method was recorded. */
 export type ReceiptTenderMethod =
   | 'Cash'
   | 'Upi'
@@ -158,7 +154,6 @@ export interface PaymentReceiptSummary {
   method: ReceiptTenderMethod;
   externalReference: string | null;
   businessDate: string;
-  isLegacy: boolean;
   isReversed: boolean;
   allocatedAmount: number;
   unallocatedAmount: number;
@@ -179,10 +174,10 @@ export interface CustomerAccount {
   /** The saved credit limit, exactly as configured. */
   creditLimit?: number;
   isActive?: boolean;
-  creditPolicyMode?: CreditPolicyMode;
+  creditPolicyMode: CreditPolicyMode;
   creditTermsDays?: number | null;
-  /** New due the account can take now under an enforced policy; null when the limit is advisory. */
-  availableCredit?: number | null;
+  /** New due the account can take now (0 unless an active customer has an enforced limit). */
+  availableCredit: number;
   /** The balance before the statement window (0 when it starts at the beginning). */
   openingBalance?: number;
   /** Opening balance plus the window's signed entries. */
@@ -202,8 +197,8 @@ export interface CustomerCreditStatus {
   creditTermsDays: number | null;
   /** The signed account balance now (negative = the customer is in credit). */
   currentExposure: number;
-  /** New due the account can take now; null when the limit is advisory (not enforced). */
-  availableCredit: number | null;
+  /** New due the account can take now (0 unless an active customer has an enforced limit). */
+  availableCredit: number;
 }
 
 export interface PaymentAllocationRequest {
@@ -232,7 +227,6 @@ export interface PaymentReceiptDetail {
   businessDate: string;
   receivedAt: string;
   notes: string | null;
-  isLegacy: boolean;
   createdByName: string | null;
   allocatedAmount: number;
   unallocatedAmount: number;

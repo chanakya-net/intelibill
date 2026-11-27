@@ -262,8 +262,6 @@ public sealed class RecordSaleCommandHandler
                     return replay;
 
                 creditCheck = creditOrError.Value;
-                if (creditCheck.Decision.ExceedsAdvisoryLimit)
-                    warnings.Add($"Customer due {creditCheck.Decision.ExposureAfter:0.00} exceeds the advisory credit limit {creditCheck.Decision.CreditLimit:0.00} (not enforced).");
             }
 
             var invoiceNumberOrError = await invoiceNumberAllocator.AllocateAsync(series, cancellationToken);

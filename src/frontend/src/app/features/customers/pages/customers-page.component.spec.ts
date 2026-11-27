@@ -42,6 +42,8 @@ const account: CustomerAccount = {
   name: 'Alice Cooper',
   phoneNumber: '9999999999',
   outstandingDue: 150,
+  creditPolicyMode: 'NoCredit',
+  availableCredit: 0,
   unallocatedCredit: 20,
   sales: [
     {
@@ -98,7 +100,6 @@ const account: CustomerAccount = {
       method: 'Upi',
       externalReference: 'UPI-1',
       businessDate: '2026-11-04',
-      isLegacy: false,
       isReversed: false,
       allocatedAmount: 10,
       unallocatedAmount: 20,
@@ -122,6 +123,7 @@ describe('CustomersPageComponent', () => {
       address: 'Main Street',
       isActive: true,
       creditLimit: 500,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 4,
       lifetimeRevenue: 2400,
       currentMonthRevenue: 600,
@@ -134,6 +136,7 @@ describe('CustomersPageComponent', () => {
       address: 'Warehouse Road',
       isActive: true,
       creditLimit: 200,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 2,
       lifetimeRevenue: 800,
       currentMonthRevenue: 80,
@@ -146,6 +149,7 @@ describe('CustomersPageComponent', () => {
       address: 'Old Town',
       isActive: false,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit',
       purchaseCount: 1,
       lifetimeRevenue: 100,
       currentMonthRevenue: 0,
@@ -573,11 +577,11 @@ describe('CustomersPageComponent', () => {
     );
   });
 
-  it('labels a response without a policy as legacy advisory with no promised credit', () => {
+  it('shows the account policy and its available credit once the statement loads', () => {
     component.onOpenCustomerAccount(customersSignal()[0]);
 
-    expect(component.selectedAccountCreditPolicy()).toBe('LegacyAdvisory');
-    expect(component.selectedAccountAvailableCredit()).toBeNull();
+    expect(component.selectedAccountCreditPolicy()).toBe('NoCredit');
+    expect(component.selectedAccountAvailableCredit()).toBe(0);
   });
 
   it('uses the server opening and closing balances, not a displayed row (RF5)', () => {

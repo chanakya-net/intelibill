@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
@@ -33,7 +34,7 @@ internal sealed class TrialActivationConsentStore(ApplicationDbContext db, ShopA
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             if (await authority.LockOwnerAsync(caller, shop, ct) is not { } owner)
                 return Error.Forbidden("Trial.OwnerRequired", "Only the active shop's owner can start or recover its trial.");
             var result = await action(owner, ct);

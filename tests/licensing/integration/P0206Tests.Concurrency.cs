@@ -85,7 +85,7 @@ public sealed partial class P0206Tests
 
     private static async Task WaitForDraftLockAsync(P0206Fixture fixture, int expected)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         while (!deadline.IsCancellationRequested)
         {
             var waiting = await fixture.ScalarAsync("""

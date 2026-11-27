@@ -284,17 +284,17 @@ internal sealed partial class AuthSessionService(
     /// <summary>
     /// Finds the credential by its hash and takes the locks a decision about it needs, in the one
     /// order every security transition uses: account, session, credential. Everything returned was
-    /// read under those locks. Null when the credential is unknown or predates sessions; neither is
-    /// grounds to revoke anything, since an unknown value proves nothing about any session.
+    /// read under those locks. Null when the credential is unknown, which is no grounds to revoke
+    /// anything, since an unknown value proves nothing about any session.
     /// </summary>
     private async Task<PresentedCredential?> LockPresentedAsync(string refreshToken, CancellationToken ct)
     {
         var owner = await refreshTokens.FindOwnerByHashAsync(RefreshTokenSecrets.Hash(refreshToken), ct);
-        if (owner?.AuthSessionId is not Guid sessionId)
+        if (owner is null)
             return null;
 
         var authority = await sessions.LockUserAuthorityAsync(owner.UserId, ct);
-        var session = await sessions.LockAsync(owner.UserId, sessionId, ct);
+        var session = await sessions.LockAsync(owner.UserId, owner.AuthSessionId, ct);
         var credential = await refreshTokens.LockAsync(owner.TokenId, ct);
 
         // Gone between the lookup and the lock: the account or session was deleted, taking its
