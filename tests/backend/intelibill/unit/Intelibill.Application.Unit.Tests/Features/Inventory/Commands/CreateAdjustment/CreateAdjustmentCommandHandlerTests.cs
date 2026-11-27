@@ -340,16 +340,19 @@ public sealed class CreateAdjustmentCommandHandlerTests
             _userRepository,
             _batchRepository,
             _inventoryRepository,
-            _stockTransactionRepository,
-            _adjustmentRepository,
-            _numberGenerator,
             _unitOfWork,
             _itemRepository,
             _shops,
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
-            Substitute.For<IShopLicenceFence>(),
-            Substitute.For<ILiveSessionAuthority>());
+            new StockCorrectionAccess(_shops, Substitute.For<IShopLicenceFence>(), Substitute.For<ILiveSessionAuthority>()),
+            new StockAdjustmentPoster(
+                _batchRepository,
+                _inventoryRepository,
+                _stockTransactionRepository,
+                _adjustmentRepository,
+                _numberGenerator,
+                BusinessTestDoubles.RealClock()));
 
     [Fact]
     public async Task ClosedPeriod_RefusesAdjustment_OnItsPerformedDate_AndChangesNothing()

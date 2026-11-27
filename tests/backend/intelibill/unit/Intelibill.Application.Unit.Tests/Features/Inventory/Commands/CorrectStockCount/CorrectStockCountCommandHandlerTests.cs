@@ -270,18 +270,20 @@ public sealed class CorrectStockCountCommandHandlerTests
             _userRepository,
             _batchRepository,
             _inventoryRepository,
-            _stockTransactionRepository,
-            _adjustmentRepository,
-            _stockCountRepository,
-            _numberGenerator,
             _unitOfWork,
             _operationExecutor,
             _itemRepository,
             _shops,
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
-            Substitute.For<IShopLicenceFence>(),
-            Substitute.For<ILiveSessionAuthority>());
+            new StockCorrectionAccess(_shops, Substitute.For<IShopLicenceFence>(), Substitute.For<ILiveSessionAuthority>()),
+            new StockCountPoster(
+                _batchRepository,
+                _inventoryRepository,
+                _stockTransactionRepository,
+                _adjustmentRepository,
+                _stockCountRepository,
+                _numberGenerator));
 
     [Fact]
     public async Task ClosedPeriod_RefusesCount_UnkeyedAndKeyed_WithoutWriting()

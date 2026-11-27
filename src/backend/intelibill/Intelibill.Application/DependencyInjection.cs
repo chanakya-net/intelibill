@@ -44,6 +44,11 @@ public static class DependencyInjection
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.OfflineTillReconciliationEligibility>();
         services.AddScoped<Features.Expiry.BatchExpiryRevisionService>();
         services.AddScoped<Features.Inventory.Services.StockIntakeAccess>();
+        services.AddScoped<Features.Inventory.Commands.AddInventory.ReceiptIntakeResolver>();
+        services.AddScoped<Features.Inventory.Commands.AddInventory.ReceiptStockAndPayablePoster>();
+        services.AddScoped<Features.Inventory.Services.StockCorrectionAccess>();
+        services.AddScoped<Features.Inventory.Commands.CorrectStockCount.StockCountPoster>();
+        services.AddScoped<Features.Inventory.Commands.CreateAdjustment.StockAdjustmentPoster>();
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderTrading>();
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderHistory>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();

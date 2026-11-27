@@ -513,7 +513,9 @@ public class AddInventoryCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Dates(), IntakeAccess());
+        new(_userRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), IntakeAccess(),
+            new ReceiptIntakeResolver(_supplierRepository, _itemRepository, _inventoryBatchRepository, ExpiryTestDoubles.Dates()),
+            new ReceiptStockAndPayablePoster(_inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, BusinessTestDoubles.RealClock()));
 
     private static StockIntakeAccess IntakeAccess()
     {
