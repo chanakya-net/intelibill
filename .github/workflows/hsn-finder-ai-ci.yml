@@ -10,6 +10,7 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - src/backend/hsn-finder-ai/**
       - tests/backend/hsn-finder-ai/**
       - global.json
+      - .dockerignore
   push:
     branches:
       - main
@@ -18,6 +19,7 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - src/backend/hsn-finder-ai/**
       - tests/backend/hsn-finder-ai/**
       - global.json
+      - .dockerignore
   workflow_dispatch:
 
 permissions:
@@ -54,3 +56,6 @@ jobs:
 
       - name: Test
         run: dotnet test "${SOLUTION}" --configuration Release --no-build --no-restore
+
+      - name: Build container image
+        run: docker build -f src/backend/hsn-finder-ai/Dockerfile -t hsn-finder-ai-pr .

@@ -15,6 +15,7 @@
 !**/.env.example
 **/appsettings.Development.json
 **/appsettings.Local.json
+**/appsettings.secrets.json
 **/secrets.json
 **/*.pfx
 **/*.p12

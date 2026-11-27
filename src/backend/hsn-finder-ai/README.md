@@ -19,6 +19,7 @@ Package versions are pinned in `Sankra.HsnFinder.Api/HsnFinder.Api.csproj`. The 
 ```text
 src/backend/hsn-finder-ai/
   Sankra.HsnFinder.sln
+  Dockerfile                    # container image (build context: repository root)
   Directory.Build.props, Directory.Packages.props   # isolate from root MSBuild/CPM
   Sankra.HsnFinder.Api/
     HsnFinder.Api.csproj        # root namespace HsnFinder.Api
@@ -113,9 +114,19 @@ dotnet test src/backend/hsn-finder-ai/Sankra.HsnFinder.sln
 
 `tests/backend/hsn-finder-ai/HsnFinder.Api.Tests` covers the lookup service (parsing, caching, retries, cancellation, the messages sent), the chat options built from settings, the OpenAI client wiring against a stubbed HTTP handler, startup validation of the `Ai` settings, and `POST /api/hsn` end to end (`401`, `200`, `400`, `503`) through `WebApplicationFactory`. No test calls a real provider. The endpoint tests override the whole `Ai` settings object (endpoint, key, model, API, reasoning effort, verbosity, web search), `Cache:TtlDays` and `ApiKey:Key` after all configuration sources, so a local `appsettings.secrets.json` or user secrets do not affect them.
 
+## Docker
+
+`Dockerfile` builds the API with the repository root as the build context (it copies `global.json` and this folder only, not the root `Directory.*.props`). The image runs as a non-root user on port 8080, defaults to `ASPNETCORE_ENVIRONMENT=Production` and carries `appsettings.json` but never `appsettings.secrets.json`: the root `.dockerignore` excludes it, because that file is loaded after environment variables and would override them. Provider key, model and shared key therefore come from environment variables.
+
+```bash
+docker build -f src/backend/hsn-finder-ai/Dockerfile -t hsn-finder-ai .
+```
+
+`docker compose --profile full up -d --build` starts it as `hsn-finder` on `http://127.0.0.1:5279` (override with `INTELIBILL_HSN_FINDER_PORT`), health-checked on `/openapi/v1.json`. The compose file sets a placeholder `Ai__ApiKey` so the stack starts without a provider key; lookups answer `503` until you set `INTELIBILL_HSN_AI_API_KEY` (and, if needed, `INTELIBILL_HSN_AI_MODEL`, `INTELIBILL_HSN_AI_ENDPOINT`, `INTELIBILL_HSN_SERVICE_KEY`) in the git-ignored root `.env` or your shell. The stack's merchant API reaches it at `http://hsn-finder:8080` with the same shared key (`HsnService__BaseUrl`, `HsnService__ApiKey`).
+
 ## CI
 
-[`.github/workflows/hsn-finder-ai-ci.yml`](../../../.github/workflows/hsn-finder-ai-ci.yml) restores, builds (`Release`) and runs `dotnet test` on the solution for pull requests to and pushes on `main` that touch `src/backend/hsn-finder-ai/**`, `tests/backend/hsn-finder-ai/**`, the workflow file, or `global.json`. The repository has no Dockerfile or deployment workflow for this service.
+[`.github/workflows/hsn-finder-ai-ci.yml`](../../../.github/workflows/hsn-finder-ai-ci.yml) restores, builds (`Release`) and runs `dotnet test` on the solution for pull requests to and pushes on `main` that touch `src/backend/hsn-finder-ai/**`, `tests/backend/hsn-finder-ai/**`, the workflow file, or `global.json`. The workflow also builds the container image (`docker build`, no push) and re-runs when `.dockerignore` changes. The repository has no deployment workflow for this service.
 
 ## Docs
 

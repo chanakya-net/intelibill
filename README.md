@@ -140,7 +140,7 @@ See [src/mobile/android/intelibill_mobile/README.md](src/mobile/android/intelibi
 # DB only (for local backend dev)
 docker compose up -d
 
-# Full stack: merchant API/web, licensing API/admin web, explicit migrations, Mailpit
+# Full stack: merchant API/web, licensing API/admin web, HSN Finder, explicit migrations, Mailpit
 docker compose --profile full up -d --build
 ```
 
@@ -154,6 +154,17 @@ restricted login (`intelibill_app`, `intelibill_licensing_app`) that cannot open
 the other's database, change schema or bypass row-level security. A failure in
 one branch never holds the other back. Details, configuration and
 troubleshooting: [docs/licensing-rollout.md](docs/licensing-rollout.md).
+
+HSN Finder (`hsn-finder`) is a third, independent branch: it has no database,
+nothing waits on it (the merchant API is configured to call it at
+`http://hsn-finder:8080` but does not depend on it starting), and it starts
+without a provider key. Until you supply one, HSN lookups answer `503`. Put the
+real values in the git-ignored root `.env` (or export them in your shell), not in
+`docker-compose.yml`: `INTELIBILL_HSN_AI_API_KEY` (provider key),
+`INTELIBILL_HSN_AI_MODEL`, `INTELIBILL_HSN_AI_ENDPOINT` and
+`INTELIBILL_HSN_SERVICE_KEY` (the shared `X-Api-Key` value, used by both
+services). A developer's local `appsettings.secrets.json` is kept out of the
+image. See [src/backend/hsn-finder-ai/README.md](src/backend/hsn-finder-ai/README.md#docker).
 
 When you run the DB-only profile and develop the API on the host, apply the
 merchant schema yourself with the `dotnet ef database update` command under
@@ -176,6 +187,7 @@ setting in any environment but Development or Testing.
 | Merchant web | `http://127.0.0.1:4000` |
 | Licensing API | `http://127.0.0.1:5278` |
 | Admin web | `http://127.0.0.1:4001` |
+| HSN Finder | `http://127.0.0.1:5279` |
 | Mail capture | `http://127.0.0.1:8025` |
 | PostgreSQL | `localhost:5432` |
 

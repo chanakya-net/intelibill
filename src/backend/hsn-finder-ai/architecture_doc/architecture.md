@@ -1,6 +1,6 @@
 # HSN Finder AI Architecture
 
-HSN Finder AI is a single-project ASP.NET Core API (`Sankra.HsnFinder.Api/HsnFinder.Api.csproj`, namespace `HsnFinder.Api`). It exposes one endpoint that turns a product name into GST HSN code(s) and tax-rate scenarios by asking an AI model through an OpenAI-compatible endpoint (OpenAI by default). It has no database and no dependency on other projects in the repository. For setup and commands see [../README.md](../README.md).
+HSN Finder AI is a single-project ASP.NET Core API (`Sankra.HsnFinder.Api/HsnFinder.Api.csproj`, namespace `HsnFinder.Api`). It exposes one endpoint that turns a product name into GST HSN code(s) and tax-rate scenarios by asking an AI model through an OpenAI-compatible endpoint (OpenAI by default). It has no database and no dependency on other projects in the repository. A `Dockerfile` in the project folder builds its image, and the local Docker stack runs it as `hsn-finder`; there is no deployment workflow. For setup and commands see [../README.md](../README.md).
 
 ## Components
 
@@ -43,6 +43,12 @@ Bound in `Program.cs` from the sections `Ai`, `ApiKey`, `Cache` and `RateLimit`.
 - Rate-limit values are read once at startup; non-positive or missing values fall back to 10 permits per 60 seconds.
 - `Cache:TtlDays` has no fallback and is passed directly to `IMemoryCache.Set` as a relative expiration, so it must be greater than 0.
 - `Ai` options are validated at startup (`ValidateOnStart`): `Ai:Endpoint` must be an absolute http(s) URL, `Ai:ApiKey` and `Ai:Model` must be non-empty, and `Ai:ReasoningEffort`, when set, must be a valid `ReasoningEffort` name. A violation stops the host with an `OptionsValidationException` that names the key and does not contain its value. The `ApiKey`, `Cache` and `RateLimit` options are not validated.
+
+## Container and local stack
+
+The image (`Dockerfile`, build context = repository root) is built from the digest-pinned SDK and ASP.NET images the other APIs use, runs as a non-root user on port 8080 and defaults to `ASPNETCORE_ENVIRONMENT=Production`. It copies only `global.json` and this project, so the local `Directory.Build.props` / `Directory.Packages.props` apply. The root `.dockerignore` excludes `appsettings.secrets.json` from every build context; since `Program.cs` loads that file after environment variables, it would otherwise override the container's configuration. All secrets reach the container as environment variables.
+
+In `docker-compose.yml` (profile `full`) the `hsn-finder` service publishes `127.0.0.1:5279`, is health-checked on `/openapi/v1.json` (served without the API key) and has no `depends_on`. It sets `Ai__ApiKey` to a placeholder when `INTELIBILL_HSN_AI_API_KEY` is unset, so the host starts (it refuses a blank key) and lookups answer `503` until a real key is supplied. The merchant API is given `HsnService__BaseUrl=http://hsn-finder:8080` and the same shared key, but does not depend on this service starting.
 
 ## Authentication and rate limiting
 
