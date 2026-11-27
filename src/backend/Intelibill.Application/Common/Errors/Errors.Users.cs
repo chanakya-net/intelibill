@@ -27,15 +27,6 @@ public static partial class Errors
         public static Error MembershipNotFound =>
             Error.NotFound("Users.MembershipNotFound", "This person is not a member of this shop.");
 
-        /// <summary>
-        /// The pre-invitation payload edited the global account. It is refused explicitly rather
-        /// than partially applied, so an old client cannot silently keep cross-tenant control.
-        /// </summary>
-        public static Error MembershipOperationRequired =>
-            Error.Conflict(
-                "Users.MembershipOperationRequired",
-                "Shop administration changes a membership, not an account. Use the shop member role and status endpoint; the account holder changes their own sign-in details.");
-
         public static Error InvitationNotFound =>
             Error.NotFound("Users.InvitationNotFound", "This invitation is no longer available.");
 

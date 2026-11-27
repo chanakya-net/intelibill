@@ -5,7 +5,7 @@ namespace Intelibill.Application.Common.Security;
 /// <summary>
 /// The claims a request must carry to be considered at all. A token that names no session, or whose
 /// identifiers do not parse, never produces one of these — it is refused before any lookup, so no
-/// session is ever invented for a legacy or malformed token.
+/// session is ever invented for a malformed token.
 /// </summary>
 public sealed record SessionClaims(
     Guid UserId,

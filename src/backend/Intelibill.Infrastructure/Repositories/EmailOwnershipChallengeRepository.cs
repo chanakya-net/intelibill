@@ -55,8 +55,8 @@ internal sealed class EmailOwnershipChallengeRepository(ApplicationDbContext db,
         // account row while it touches the session; acquiring these the other way round here would
         // make the two deadlock. Callers that already hold this lock simply re-acquire it.
         _ = await db.Database.SqlQuery<Guid>($"SELECT id AS \"Value\" FROM users WHERE id = {userId} FOR UPDATE").ToListAsync(ct);
-        // Sessions as well as refresh families: a claimed account's previously signed-in devices
-        // must not survive the claim.
+        // Sessions as well as refresh families: devices signed in before the credential change
+        // must not survive it.
         await db.AuthSessions.Where(x => x.UserId == userId && x.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now).SetProperty(x => x.RevocationReason, "credentials-invalidated"), ct);
         await db.RefreshTokens.Where(x => x.UserId == userId).RevokeAsync("credentials-invalidated", now, ct);
         await db.PasswordResetTokens.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);

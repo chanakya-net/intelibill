@@ -144,7 +144,7 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
     {
         using var scope = _factory.Services.CreateScope();
         var email = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.Where(x => x.Id == actor).Select(x => x.Email).SingleAsync();
-        using var signed = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password = "Pass123!Aa" });
+        using var signed = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
         Assert.True(signed.IsSuccessStatusCode, await signed.Content.ReadAsStringAsync());
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await signed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString());
         using var switched = await client.PostAsJsonAsync("/api/shops/switch", new { shopId });

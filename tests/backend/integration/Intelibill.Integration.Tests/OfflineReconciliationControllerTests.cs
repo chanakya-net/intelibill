@@ -946,7 +946,7 @@ public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisp
         var seeded = await client.SeedVerifiedStaffAsync(request);
         seeded.EnsureSuccessStatusCode();
 
-        var login = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         login.EnsureSuccessStatusCode();
         var token = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
         return new StaffContext(token, Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(token).Subject));

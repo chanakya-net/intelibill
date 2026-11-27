@@ -394,7 +394,7 @@ public sealed class FinancialOperationTests(PostgreSqlTestFixture fixture) : IAs
 
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password });
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("accessToken").GetString()!;

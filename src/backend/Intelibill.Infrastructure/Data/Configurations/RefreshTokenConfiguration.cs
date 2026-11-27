@@ -12,11 +12,10 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.HasKey(rt => rt.Id);
 
-        // Hex SHA-256. Optional only while rows written before hashing remain; the contract
-        // migration that drops the legacy raw-token column makes this required.
+        // Hex SHA-256 of the secret handed to the client; the secret itself is never stored.
         builder.Property(rt => rt.TokenHash)
             .HasMaxLength(64)
-            .IsRequired(false);
+            .IsRequired();
 
         builder.HasIndex(rt => rt.TokenHash)
             .IsUnique();
@@ -38,8 +37,7 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
             .HasForeignKey(rt => rt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Nullable for the rows that predate sessions; a null session is refused on rotation
-        // rather than adopted, so no device is ever invented from a legacy credential.
+        // Every credential belongs to exactly one device session, which is its rotation family.
         builder.HasOne<AuthSession>()
             .WithMany()
             .HasForeignKey(rt => rt.AuthSessionId)

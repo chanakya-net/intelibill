@@ -176,7 +176,7 @@ public sealed partial class P0506LicensingTests
         _clock.Now = EntitlementSnapshotsV1.Instant(TimeProvider.System);
         try
         {
-            using var login = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password = OwnerPassword }, Ct);
+            using var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = OwnerPassword }, Ct);
             var initialToken = (await ReadSuccessAsync(login)).GetProperty("accessToken").GetString()!;
             await SwitchClientShopAsync(client, initialToken, shopId, authUntil);
             var token = client.DefaultRequestHeaders.Authorization!.Parameter!;

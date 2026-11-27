@@ -154,7 +154,6 @@ export class UsersEffects {
 function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.code ?? error?.title ?? '';
   if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
-  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Auth.EmailAlreadyInUse') {
     return 'errors.auth.emailAlreadyInUseByAnother';
@@ -170,7 +169,6 @@ function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): strin
 function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.code ?? error?.title ?? '';
   if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
-  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Auth.InvalidCurrentPassword') {
     return 'errors.auth.invalidCurrentPassword';
@@ -221,8 +219,6 @@ function getUpdateMembershipErrorMessage(error: ApiErrorPayload | undefined): st
   switch (title) {
     case 'Users.MembershipVersionConflict':
       return 'errors.users.membershipVersionConflict';
-    case 'Users.MembershipOperationRequired':
-      return 'errors.users.membershipOperationRequired';
     case 'Users.CannotModifyOwner':
       return 'errors.users.ownerCannotBeModified';
     case 'Users.CannotModifyOwnMembership':

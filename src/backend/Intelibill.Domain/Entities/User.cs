@@ -27,9 +27,8 @@ public sealed class User : BaseEntity
     public bool IsEmailVerified { get; private set; }
 
     /// <summary>
-    /// True only after the holder proved a code sent to <see cref="PhoneNumber"/>. False is also
-    /// the backfill value for every account that predates verification: unknown is not verified.
-    /// While this is false the number is contact information, never a credential.
+    /// True only after the holder proved a code sent to <see cref="PhoneNumber"/>. While this is
+    /// false the number is contact information, never a credential.
     /// </summary>
     public bool IsPhoneVerified { get; private set; }
 
@@ -104,14 +103,6 @@ public sealed class User : BaseEntity
         if (hadVerifiedPhone) SecurityVersion++;
     }
 
-    public void ClaimEmail(string email, string passwordHash, string firstName, string lastName)
-    {
-        VerifyEmail(email);
-        PasswordHash = passwordHash;
-        FirstName = firstName.Trim();
-        LastName = lastName.Trim();
-        ClearVerifiedPhone();
-    }
     public void InvalidateSessions() => SecurityVersion++;
 
     public void AddShopMembership(ShopMembership membership)
@@ -156,14 +147,5 @@ public sealed class User : BaseEntity
         Language = SupportedLanguages.Contains(normalizedLanguage)
             ? normalizedLanguage
             : DefaultLanguage;
-    }
-
-    public void UpdateShopUserProfile(string email, string firstName, string lastName, string phoneNumber)
-    {
-        FirstName = firstName.Trim();
-        LastName = lastName.Trim();
-        // Shop administration never reaches a verified sign-in factor on a global account.
-        if (!IsPhoneVerified)
-            PhoneNumber = phoneNumber.Trim();
     }
 }

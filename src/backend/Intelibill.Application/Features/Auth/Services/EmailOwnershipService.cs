@@ -16,59 +16,34 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
     private static readonly Error Conflict = Error.Conflict("Auth.EmailUnavailable", "This email is unavailable. Request a new verification or sign in to your existing account.");
     private static readonly Error Reauth = Error.Unauthorized("Auth.ReauthenticationRequired", "Please authenticate again.");
     private static readonly Error Unavailable = Error.Failure("Auth.EmailUnavailable", "Email verification delivery is unavailable. Please try again later.");
-    private static readonly Error RecoverySupportRequired = Error.Conflict("Auth.RecoverySupportRequired", "This legacy account requires an ownership review. Contact support; your data has been preserved.");
-    public Task<ErrorOr<Guid>> RequestAsync(string email, CancellationToken ct) => RequestCoreAsync(email, "enrollment", ct);
-    public Task<ErrorOr<Guid>> RequestClaimAsync(string email, CancellationToken ct) => RequestCoreAsync(email, "claim", ct);
-    private async Task<ErrorOr<Guid>> RequestCoreAsync(string email, string purpose, CancellationToken ct)
+    private static readonly Error RecoverySupportRequired = Error.Conflict("Auth.RecoverySupportRequired", "This account requires an ownership review. Contact support; your data has been preserved.");
+    public async Task<ErrorOr<Guid>> RequestAsync(string email, CancellationToken ct)
     {
         if (!ValidEmail(email)) return Error.Validation("Auth.InvalidEmail", "Enter a valid email address.");
         if (!mail.Enabled) return Unavailable;
         email = email.Trim().ToLowerInvariant();
         await using var transaction = await repository.BeginAsync(ct);
-        var user = await users.GetByEmailAsync(email, ct);
-        if (purpose == "enrollment" ? user is not null : user is null || user.IsEmailVerified) return Guid.Empty;
+        if (await users.GetByEmailAsync(email, ct) is not null) return Guid.Empty;
         if (!await repository.HasSendBudgetAsync(email, clock.GetUtcNow(), ct)) return Guid.Empty;
-        var challenge = await CreateAsync(email, purpose, user, ct);
+        var challenge = await CreateAsync(email, "enrollment", null, ct);
         return await repository.CommitAsync(ct) ? challenge.Id : Conflict;
     }
-    public Task<ErrorOr<AuthResult>> ConfirmEnrollmentAsync(Guid challengeId, string token, string password, string firstName, string lastName, CancellationToken ct) =>
-        ConfirmAccountAsync(challengeId, token, password, firstName, lastName, "enrollment", ct);
-    public Task<ErrorOr<AuthResult>> ConfirmClaimAsync(Guid challengeId, string token, string password, string firstName, string lastName, CancellationToken ct) =>
-        ConfirmAccountAsync(challengeId, token, password, firstName, lastName, "claim", ct);
-    private async Task<ErrorOr<AuthResult>> ConfirmAccountAsync(Guid id, string token, string password, string firstName, string lastName, string purpose, CancellationToken ct)
+    public async Task<ErrorOr<AuthResult>> ConfirmEnrollmentAsync(Guid challengeId, string token, string password, string firstName, string lastName, CancellationToken ct)
     {
-        var validation = new EnrollmentValidator().Validate(new EnrollmentInput(id, token, password, firstName, lastName));
+        var validation = new EnrollmentValidator().Validate(new EnrollmentInput(challengeId, token, password, firstName, lastName));
         if (!validation.IsValid) return validation.Errors.Select(x => Error.Validation(x.PropertyName, x.ErrorMessage)).ToList();
         await using var transaction = await repository.BeginAsync(ct);
-        var challenge = await ValidChallengeAsync(id, token, purpose, ct);
+        var challenge = await ValidChallengeAsync(challengeId, token, "enrollment", ct);
         if (challenge is null) return Invalid;
-        var user = await users.GetByEmailAsync(challenge.Destination, ct);
-        if (purpose == "claim")
-        {
-            if (user is null || user.IsEmailVerified || user.Id != challenge.UserId || user.SecurityVersion != challenge.SecurityVersion) return Invalid;
-            if (!user.IsLoginEnabled || await repository.HasBusinessHistoryAsync(user.Id, ct))
-                return Error.Conflict("Auth.RecoverySupportRequired", "This legacy account has business access. Contact support for an ownership review; your data has been preserved.");
-            user.ClaimEmail(challenge.Destination, hasher.Hash(password), firstName, lastName);
-            await repository.InvalidateCredentialsAsync(user.Id, ct);
-        }
-        else
-        {
-            if (user is not null) return Conflict;
-            user = User.CreateWithEmail(challenge.Destination, hasher.Hash(password), firstName.Trim(), lastName.Trim());
-            user.VerifyEmail(challenge.Destination);
-            await users.AddAsync(user, ct);
-        }
+        if (await users.GetByEmailAsync(challenge.Destination, ct) is not null) return Conflict;
+        var user = User.CreateWithEmail(challenge.Destination, hasher.Hash(password), firstName.Trim(), lastName.Trim());
+        user.VerifyEmail(challenge.Destination);
+        await users.AddAsync(user, ct);
         challenge.Consume(clock.GetUtcNow());
-        // Inside this transaction, which already holds the identity advisory lock and has just
-        // consumed the single-use mailbox proof, so the session is created under the same authority
-        // that authorised it.
-        // Enrollment creates the account in this transaction; a claim takes over an existing one on
-        // the strength of the single-use mailbox proof just consumed, and names the challenge and
-        // the account version that authorised it.
-        var proof = purpose == "claim"
-            ? AuthenticationProof.FromEmailOwnership(user.Id, challenge.SecurityVersion, challenge.Id, clock.GetUtcNow())
-            : AuthenticationProof.FromRegistration(user.Id, clock.GetUtcNow());
-        var result = await sessions.IssueForProvedAccountAsync(user, proof, preferredShopId: null, ct);
+        // Inside this transaction, which already holds the identity advisory lock, has just consumed
+        // the single-use mailbox proof and created the account, so the session is created under the
+        // same authority that authorised it.
+        var result = await sessions.IssueForProvedAccountAsync(user, AuthenticationProof.FromRegistration(user.Id, clock.GetUtcNow()), preferredShopId: null, ct);
         if (!await repository.CommitAsync(ct)) return Conflict;
         return result;
     }

@@ -1,9 +1,6 @@
 # kind	entry point	licence action	parent matrix row	request classification
 handler	Intelibill.Application.Features.Auth.Commands.Login.LoginCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Auth.Commands.LoginWithEmail.LoginWithEmailCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.RefreshToken.RefreshTokenCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Auth.Commands.RegisterWithEmail.RegisterWithEmailCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Auth.Commands.RegisterWithPhone.RegisterWithPhoneCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.RequestPasswordReset.RequestPasswordResetCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommandHandler.HandleAsync	Authentication	M01	-
 handler	Intelibill.Application.Features.Auth.Commands.RevokeToken.RevokeTokenCommandHandler.HandleAsync	Authentication	M01	-
@@ -135,9 +132,7 @@ handler	Intelibill.Application.Features.Tills.Queries.GetTillSession.GetTillSess
 handler	Intelibill.Application.Features.Tills.Queries.GetTillSessions.GetTillSessionsQueryHandler.HandleAsync	History	M05	-
 handler	Intelibill.Application.Features.Tills.Queries.GetTills.GetTillsQueryHandler.HandleAsync	History	M05	-
 handler	Intelibill.Application.Features.Users.Commands.AcceptShopInvitation.AcceptShopInvitationCommandHandler.HandleAsync	OperationalCapacity	M04	-
-handler	Intelibill.Application.Features.Users.Commands.AddShopUser.AddShopUserCommandHandler.HandleAsync	OperationalCapacity	M04	-
 handler	Intelibill.Application.Features.Users.Commands.ChangeMyPassword.ChangeMyPasswordCommandHandler.HandleAsync	Authentication	M01	-
-handler	Intelibill.Application.Features.Users.Commands.EditShopUser.EditShopUserCommandHandler.HandleAsync	OperationalCapacity	M04	-
 handler	Intelibill.Application.Features.Users.Commands.InviteShopMember.InviteShopMemberCommandHandler.HandleAsync	OperationalCapacity	M04	-
 handler	Intelibill.Application.Features.Users.Commands.RevokeShopInvitation.RevokeShopInvitationCommandHandler.HandleAsync	MemberRemoval	M13	-
 handler	Intelibill.Application.Features.Users.Commands.UpdateMyProfile.UpdateMyProfileCommandHandler.HandleAsync	Authentication	M01	-
@@ -293,12 +288,9 @@ route	POST /internal/merchant/v1/capacity-reductions/observe	InternalService	int
 route	POST /internal/merchant/v1/closures/validate	InternalService	internal	anonymous/request
 route	POST api/auth/email-change/confirm	Authentication	M01	protected/request
 route	POST api/auth/email-change/request	Authentication	M01	protected/request
-route	POST api/auth/enrollment/email/claim/confirm	Authentication	M01	protected/request
-route	POST api/auth/enrollment/email/claim/request	Authentication	M01	protected/request
 route	POST api/auth/enrollment/email/confirm	Authentication	M01	protected/request
 route	POST api/auth/enrollment/email/request	Authentication	M01	protected/request
 route	POST api/auth/login	Authentication	M01	protected/request
-route	POST api/auth/login/email	Authentication	M01	protected/request
 route	POST api/auth/password-reset/confirm	Authentication	M01	protected/request
 route	POST api/auth/password-reset/request	Authentication	M01	protected/request
 route	POST api/auth/phone/change/confirm	Authentication	M01	protected/request
@@ -308,8 +300,6 @@ route	POST api/auth/phone/enrollment/request	Authentication	M01	protected/reques
 route	POST api/auth/phone/login/confirm	Authentication	M01	protected/request
 route	POST api/auth/phone/login/request	Authentication	M01	protected/request
 route	POST api/auth/reauthenticate	Authentication	M01	protected/request
-route	POST api/auth/register/email	Authentication	M01	protected/request
-route	POST api/auth/register/phone	Authentication	M01	protected/request
 route	POST api/auth/token/refresh	Authentication	M01	protected/request
 route	POST api/auth/token/revoke	Authentication	M01	protected/request
 route	POST api/bank-accounts	OperationalCapacity	M04	protected/source
@@ -407,7 +397,6 @@ route	POST api/tills/sessions/{id:guid}/cash-movements	OperationalCapacity	M04	p
 route	POST api/tills/sessions/{id:guid}/close	TillCompletion	M06	protected/source
 route	POST api/tills/sessions/{id:guid}/review	TillCompletion	M06	protected/source
 route	POST api/tills/{id:guid}/sessions	OperationalCapacity	M04	protected/source
-route	POST api/users	OperationalCapacity	M04	protected/request
 route	POST api/users/me/change-password	Authentication	M01	protected/request
 route	POST api/users/me/sessions/revoke-all	Authentication	M01	protected/request
 route	PUT api/bank-accounts/{id:guid}	OperationalCapacity	M04	protected/source
@@ -425,7 +414,6 @@ route	PUT api/shops/{shopId:guid}/tax-profile	BasicShopSetup	M02	protected/sourc
 route	PUT api/shops/{shopId:guid}/till-settings	OperationalCapacity	M04	protected/source
 route	PUT api/suppliers/{supplierId:guid}	OperationalCapacity	M04	protected/request
 route	PUT api/users/me	Authentication	M01	protected/request
-route	PUT api/users/{targetUserId:guid}	OperationalCapacity	M04	protected/request
 route	GET api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId:guid}/{transferId:guid}/consent	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents	Billing	M01/M13	protected/request
 route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/billing-documents/before/{beforeVersion:int}	Billing	M01/M13	protected/request

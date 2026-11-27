@@ -88,7 +88,7 @@ public sealed partial class P0413cLicensingTests
         var email = await db.Users.Where(x => x.Id == membership.UserId).Select(x => x.Email).SingleAsync(Ct);
         membership.SetRole(ShopRole.Staff);
         await db.SaveChangesAsync(Ct);
-        var login = await PostAsync(client, "/api/auth/login/email", new { email, password = "Pass123!Aa" });
+        var login = await PostAsync(client, "/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
         client.DefaultRequestHeaders.Authorization = new("Bearer", login.GetProperty("accessToken").GetString());
 
         await AssertProblemAsync(await client.PostAsJsonAsync(route, body, Ct), HttpStatusCode.Forbidden, "SupplierReturn.Forbidden");

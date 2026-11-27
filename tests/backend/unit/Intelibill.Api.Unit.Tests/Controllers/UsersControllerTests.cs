@@ -4,9 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
-using Intelibill.Application.Features.Users.Commands.AddShopUser;
 using Intelibill.Application.Features.Users.Commands.ChangeMyPassword;
-using Intelibill.Application.Features.Users.Commands.EditShopUser;
 using Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 using Intelibill.Application.Features.Users.DTOs;
 using Intelibill.Application.Features.Users.Queries.GetShopUsers;
@@ -183,85 +181,6 @@ public class UsersControllerTests
 
         await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<ShopUserDto>>>(
             Arg.Is<GetShopUsersQuery>(q => q.UserId == userId && q.ShopId == shopId),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task AddShopUser_WhenSuccessful_ReturnsCreatedAndDispatchesCommand()
-    {
-        var userId = Guid.NewGuid();
-        var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
-
-        var request = new AddShopUserRequest([shopId], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff");
-        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", "sales@test.com", "+15551231234", "Staff", "Active", 0, []);
-        ArrangeBusResponse<ShopUserDto>(createdUser);
-
-        var result = await _controller.AddShopUser(request, CancellationToken.None);
-
-        var created = Assert.IsType<CreatedAtActionResult>(result);
-        Assert.Equal(nameof(UsersController.GetShopUsers), created.ActionName);
-        Assert.Equal(createdUser, created.Value);
-
-        await _bus.Received(1).InvokeAsync<ErrorOr<ShopUserDto>>(
-            Arg.Is<AddShopUserCommand>(c =>
-                c.ActorUserId == userId
-                && c.ShopIds.Count == 1
-                && c.ShopIds[0] == shopId
-                && c.Email == request.Email
-                && c.FirstName == request.FirstName
-                && c.LastName == request.LastName
-                && c.PhoneNumber == request.PhoneNumber
-                && c.Password == request.Password
-                && c.ConfirmPassword == request.ConfirmPassword
-                && c.Role == request.Role),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task AddShopUser_WhenUserMissing_ReturnsUnauthorized()
-    {
-        SetUserClaims();
-
-        var result = await _controller.AddShopUser(
-            new AddShopUserRequest([Guid.NewGuid()], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff"),
-            CancellationToken.None);
-
-        Assert.IsType<UnauthorizedResult>(result);
-    }
-
-    [Fact]
-    public async Task EditShopUser_WhenSuccessful_ReturnsOkAndDispatchesCommand()
-    {
-        var actorUserId = Guid.NewGuid();
-        var activeShopId = Guid.NewGuid();
-        var targetUserId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, actorUserId.ToString()),
-            new Claim("active_shop_id", activeShopId.ToString()));
-
-        var request = new EditShopUserRequest("updated.sales@test.com", "Sales", "User", "+15551230000", "Manager", true);
-        var updatedUser = new ShopUserDto(targetUserId, "Sales", "User", "updated.sales@test.com", "+15551230000", "Manager", "Active", 1, []);
-        ArrangeBusResponse<ShopUserDto>(updatedUser);
-
-        var result = await _controller.EditShopUser(targetUserId, request, CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(updatedUser, ok.Value);
-
-        await _bus.Received(1).InvokeAsync<ErrorOr<ShopUserDto>>(
-            Arg.Is<EditShopUserCommand>(c =>
-                c.ActorUserId == actorUserId
-                && c.ActiveShopId == activeShopId
-                && c.TargetUserId == targetUserId
-                && c.Email == request.Email
-                && c.FirstName == request.FirstName
-                && c.LastName == request.LastName
-                && c.PhoneNumber == request.PhoneNumber
-                && c.Role == request.Role
-                && c.IsLoginEnabled == request.IsLoginEnabled),
             Arg.Any<CancellationToken>());
     }
 

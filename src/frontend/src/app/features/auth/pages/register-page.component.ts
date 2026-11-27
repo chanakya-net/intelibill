@@ -15,7 +15,6 @@ import {
   selectRegisterSubmitting,
   selectRegisterAccepted,
   selectRegisterEmail,
-  selectRegisterClaim,
 } from '../state/register.selectors';
 @Component({
   selector: 'app-register-page',
@@ -31,7 +30,6 @@ export class RegisterPageComponent implements OnInit {
   readonly isSubmitting = this.store.selectSignal(selectRegisterSubmitting);
   readonly accepted = this.store.selectSignal(selectRegisterAccepted);
   readonly email = this.store.selectSignal(selectRegisterEmail);
-  readonly claim = this.store.selectSignal(selectRegisterClaim);
   readonly supportedLanguages = this.localizationService.supportedLanguages;
   readonly currentLanguage = this.localizationService.currentLanguage;
   readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
@@ -40,29 +38,20 @@ export class RegisterPageComponent implements OnInit {
     this.store.dispatch(RegisterActions.clearError());
   }
   onSubmit(): void {
-    this.request(false);
-  }
-  onClaim(): void {
-    this.request(true);
+    if (this.isSubmitting()) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.store.dispatch(RegisterActions.requested({ email: this.form.controls.email.value.trim() }));
   }
   onResend(): void {
-    if (!this.isSubmitting())
-      this.store.dispatch(RegisterActions.requested({ email: this.email(), claim: this.claim() }));
+    if (!this.isSubmitting()) this.store.dispatch(RegisterActions.requested({ email: this.email() }));
   }
   onStartOver(): void {
     this.store.dispatch(RegisterActions.reset());
   }
   async onLanguageChanged(language: string): Promise<void> {
     await this.localizationService.setLanguage(language as SupportedLanguage);
-  }
-  private request(claim: boolean): void {
-    if (this.isSubmitting()) return;
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
-    this.store.dispatch(
-      RegisterActions.requested({ email: this.form.controls.email.value.trim(), claim }),
-    );
   }
 }

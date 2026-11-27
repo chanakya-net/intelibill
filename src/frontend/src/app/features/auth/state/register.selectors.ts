@@ -18,4 +18,3 @@ export const selectRegisterAccepted = createSelector(
   (state) => state.accepted,
 );
 export const selectRegisterEmail = createSelector(selectRegisterState, (state) => state.email);
-export const selectRegisterClaim = createSelector(selectRegisterState, (state) => state.claim);

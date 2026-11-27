@@ -9,7 +9,7 @@ export type IdentityOutcome = 'email-pending';
 export interface EmailVerification {
   challengeId: string;
   token: string;
-  purpose: 'enrollment' | 'claim' | 'email-change';
+  purpose: 'enrollment' | 'email-change';
 }
 const INVALID_CHALLENGE = 'Auth.InvalidChallenge';
 const VERIFICATION_KEY = 'intelibill.identity.verification';

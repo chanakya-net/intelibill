@@ -91,22 +91,6 @@ public class UserVerifiedPhoneTests
         Assert.Equal(before + 1, user.SecurityVersion);
     }
 
-    /// <summary>
-    /// Claiming an account with a mailbox drops its phone number. Leaving the verified flag behind
-    /// would have the account claim a proved factor for a number it no longer holds.
-    /// </summary>
-    [Fact]
-    public void ClaimEmail_ClearsVerifiedPhone()
-    {
-        var user = WithVerifiedPhone();
-
-        user.ClaimEmail("owner@test.com", "hash", "Real", "Owner");
-
-        Assert.Null(user.PhoneNumber);
-        Assert.False(user.IsPhoneVerified);
-        Assert.Null(user.PhoneVerifiedAt);
-    }
-
     [Fact]
     public void UpdateProfile_CannotMoveAVerifiedPhone()
     {
@@ -127,15 +111,5 @@ public class UserVerifiedPhoneTests
 
         Assert.Equal("+919000000000", user.PhoneNumber);
         Assert.False(user.IsPhoneVerified);
-    }
-
-    [Fact]
-    public void UpdateShopUserProfile_CannotMoveAVerifiedPhone()
-    {
-        var user = WithVerifiedPhone();
-
-        user.UpdateShopUserProfile("staff@test.com", "Staff", "Member", "+919000000000");
-
-        Assert.Equal("+919876543210", user.PhoneNumber);
     }
 }

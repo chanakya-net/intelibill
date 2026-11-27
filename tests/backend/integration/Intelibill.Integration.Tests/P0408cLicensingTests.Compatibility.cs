@@ -156,7 +156,7 @@ public sealed partial class P0408cLicensingTests
         });
         using var seeded = await owner.SeedVerifiedStaffAsync(seed);
         seeded.EnsureSuccessStatusCode();
-        using var login = await staff.PostAsJsonAsync("/api/auth/login/email", new { email, password }, Ct);
+        using var login = await staff.PostAsJsonAsync("/api/auth/login", new { identifier = email, password }, Ct);
         staff.DefaultRequestHeaders.Authorization = new("Bearer", (await ReadSuccessAsync(login)).GetProperty("accessToken").GetString());
     }
 }

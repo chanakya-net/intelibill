@@ -23,7 +23,7 @@ public sealed partial class ShopSetupTests
         };
         var account = await ReadAsync(await member.SeedVerifiedStaffAsync(seed));
         var user = account.GetProperty("userId").GetGuid();
-        SetToken(member, await ReadAsync(await member.PostAsJsonAsync("/api/auth/login/email", new { email, password })));
+        SetToken(member, await ReadAsync(await member.PostAsJsonAsync("/api/auth/login", new { identifier = email, password })));
         SetToken(member, await ReadAsync(await member.PostAsJsonAsync("/api/shops/switch", new { shopId = shop })));
 
         var status = await GetStatusAsync(member, shop);

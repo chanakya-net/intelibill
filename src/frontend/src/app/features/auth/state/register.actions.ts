@@ -2,7 +2,6 @@ import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 export interface RegisterRequestedPayload {
   readonly email: string;
-  readonly claim?: boolean;
 }
 
 export const RegisterActions = createActionGroup({

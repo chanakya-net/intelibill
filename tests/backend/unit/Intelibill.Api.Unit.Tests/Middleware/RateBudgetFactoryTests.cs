@@ -178,8 +178,8 @@ public sealed class RateBudgetFactoryTests
 
     private static ActionExecutingContext Context(
         object? argument = null,
-        string path = "/api/auth/login/email",
-        string template = "api/auth/login/email",
+        string path = "/api/auth/login",
+        string template = "api/auth/login",
         string address = "198.51.100.7",
         string? user = null)
     {

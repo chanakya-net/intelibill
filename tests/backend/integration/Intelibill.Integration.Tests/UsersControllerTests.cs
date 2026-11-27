@@ -2,12 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Intelibill.Application.Common.Interfaces;
-using Intelibill.Domain.Entities;
-using Intelibill.Domain.Enums;
-using Intelibill.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Intelibill.Integration.Tests;
@@ -37,7 +31,6 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     });
 
     private static string UniqueEmail() => $"users-{Guid.NewGuid():N}@test.com";
-    private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
     private static async Task<(string AccessToken, string Email)> RegisterAsync(HttpClient client)
     {
@@ -71,20 +64,6 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("activeShopId").GetGuid(), body.GetProperty("accessToken").GetString()!);
-    }
-
-    private async Task<(Guid UserId, string Email)> AddShopUserAsync(HttpClient client, string ownerToken, Guid shopId, string role = "Manager")
-    {
-        _ = (client, ownerToken);
-        // Existing verified staff fixture. New staff onboarding is intentionally gated pending invitations.
-        var email = UniqueEmail();
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("StaffPass1!"), "Staff", "Member", UniquePhone());
-        user.VerifyEmail(email);
-        user.AddShopMembership(ShopMembership.Create(shopId, user.Id, Enum.Parse<ShopRole>(role), true));
-        db.Users.Add(user); await db.SaveChangesAsync();
-        return (user.Id, email);
     }
 
     // ── GET /api/users ───────────────────────────────────────────────────────────
@@ -128,237 +107,6 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(body.GetArrayLength() >= 1);
         Assert.Equal("Owner", body[0].GetProperty("role").GetString());
-    }
-
-    // ── POST /api/users ──────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task AddShopUser_WithoutOwnerClaim_Returns403()
-    {
-        using var client = CreateClient();
-        var (noShopToken, _) = await RegisterAsync(client);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", noShopToken);
-        request.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { Guid.NewGuid() },
-            email = UniqueEmail(),
-            firstName = "Staff",
-            lastName = "Member",
-            phoneNumber = UniquePhone(),
-            password = "StaffPass1!",
-            confirmPassword = "StaffPass1!",
-            role = "Manager"
-        });
-        var response = await client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task AddShopUser_AsOwner_WithManagerRole_RequiresInvitation()
-    {
-        using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
-        var (shopId, ownerToken) = await CreateShopAsync(client, token);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email = UniqueEmail(),
-            firstName = "New",
-            lastName = "Manager",
-            phoneNumber = UniquePhone(),
-            password = "StaffPass1!",
-            confirmPassword = "StaffPass1!",
-            role = "Manager"
-        });
-        var response = await client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("Auth.InvitationRequired", await response.Content.ReadAsStringAsync());
-    }
-
-    [Fact]
-    public async Task AddShopUser_AsOwner_WithStaffRole_RequiresInvitation()
-    {
-        using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
-        var (shopId, ownerToken) = await CreateShopAsync(client, token);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email = UniqueEmail(),
-            firstName = "New",
-            lastName = "Staff",
-            phoneNumber = UniquePhone(),
-            password = "StaffPass1!",
-            confirmPassword = "StaffPass1!",
-            role = "Staff"
-        });
-        var response = await client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("Auth.InvitationRequired", await response.Content.ReadAsStringAsync());
-    }
-
-    [Fact]
-    public async Task AddShopUser_WithInvalidRole_Returns400()
-    {
-        using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
-        var (shopId, ownerToken) = await CreateShopAsync(client, token);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email = UniqueEmail(),
-            firstName = "Test",
-            lastName = "User",
-            phoneNumber = UniquePhone(),
-            password = "Pass123!Aa",
-            confirmPassword = "Pass123!Aa",
-            role = "Owner" // Cannot assign Owner role
-        });
-        var response = await client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task AddShopUser_WithDuplicateEmail_Returns409()
-    {
-        using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
-        var (shopId, ownerToken) = await CreateShopAsync(client, token);
-        var duplicateEmail = UniqueEmail();
-
-        using var request1 = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request1.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request1.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email = duplicateEmail,
-            firstName = "First",
-            lastName = "User",
-            phoneNumber = UniquePhone(),
-            password = "Pass123!Aa",
-            confirmPassword = "Pass123!Aa",
-            role = "Manager"
-        });
-        await client.SendAsync(request1);
-
-        using var request2 = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request2.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email = duplicateEmail,
-            firstName = "Second",
-            lastName = "User",
-            phoneNumber = UniquePhone(),
-            password = "Pass123!Aa",
-            confirmPassword = "Pass123!Aa",
-            role = "Manager"
-        });
-        var response = await client.SendAsync(request2);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-    }
-
-    // ── PUT /api/users/{targetUserId} ────────────────────────────────────────────
-
-    [Fact]
-    public async Task EditShopUser_WithoutOwnerClaim_Returns403()
-    {
-        using var client = CreateClient();
-        var (noShopToken, _) = await RegisterAsync(client);
-
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{Guid.NewGuid()}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", noShopToken);
-        request.Content = JsonContent.Create(new
-        {
-            email = UniqueEmail(),
-            firstName = "Test",
-            lastName = "User",
-            phoneNumber = UniquePhone(),
-            role = "Manager",
-            isLoginEnabled = true
-        });
-        var response = await client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    /// <summary>
-    /// The owner edit used to rewrite the target's global account. It is now refused outright, so
-    /// an old client cannot keep any part of that control channel; role and status move through
-    /// PATCH /api/shops/{shopId}/members/{userId} instead.
-    /// </summary>
-    [Fact]
-    public async Task EditShopUser_AsOwner_RefusesGlobalIdentityPayload()
-    {
-        using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
-        var (shopId, ownerToken) = await CreateShopAsync(client, token);
-        var (targetUserId, targetEmail) = await AddShopUserAsync(client, ownerToken, shopId);
-
-        using var editRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{targetUserId}");
-        editRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        editRequest.Content = JsonContent.Create(new
-        {
-            email = targetEmail,
-            firstName = "Updated",
-            lastName = "Name",
-            phoneNumber = UniquePhone(),
-            role = "Staff",
-            isLoginEnabled = false
-        });
-        var response = await client.SendAsync(editRequest);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("Users.MembershipOperationRequired", await response.Content.ReadAsStringAsync());
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var target = await db.Users.AsNoTracking().SingleAsync(u => u.Id == targetUserId);
-        Assert.Equal(targetEmail, target.Email);
-        Assert.Equal("Staff", target.FirstName);
-        Assert.True(target.IsLoginEnabled);
-    }
-
-    [Fact]
-    public async Task EditShopUser_TargetNotInShop_IsRefusedWithoutRevealingTheAccount()
-    {
-        using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
-        var (_, ownerToken) = await CreateShopAsync(client, token);
-
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{Guid.NewGuid()}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new
-        {
-            email = UniqueEmail(),
-            firstName = "Test",
-            lastName = "User",
-            phoneNumber = UniquePhone(),
-            role = "Manager",
-            isLoginEnabled = true
-        });
-        var response = await client.SendAsync(request);
-
-        // The payload is refused before the target is looked up at all, so the response says
-        // nothing about whether that account exists.
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("Users.MembershipOperationRequired", await response.Content.ReadAsStringAsync());
     }
 
     // ── PUT /api/users/me ────────────────────────────────────────────────────────

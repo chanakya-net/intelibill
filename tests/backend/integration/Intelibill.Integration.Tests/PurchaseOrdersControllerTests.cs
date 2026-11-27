@@ -74,9 +74,9 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
 
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
         {
-            email,
+            identifier = email,
             password,
         });
         response.EnsureSuccessStatusCode();

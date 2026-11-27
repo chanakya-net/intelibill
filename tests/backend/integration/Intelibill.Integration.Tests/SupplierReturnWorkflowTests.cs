@@ -269,7 +269,7 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         {
             var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var receipt=await db.PurchaseReceiptValues.SingleAsync(r=>r.Id==x.Receipt);var membership=await db.ShopMemberships.SingleAsync(m=>m.ShopId==receipt.ShopId);membership.SetRole(ShopRole.Manager);email=(await db.Users.SingleAsync(u=>u.Id==membership.UserId)).Email;await db.SaveChangesAsync();
         }
-        var login=await JsonAsync(await client.PostAsJsonAsync("/api/auth/login/email",new{email,password="Pass123!Aa"}));client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",login.GetProperty("accessToken").GetString());
+        var login=await JsonAsync(await client.PostAsJsonAsync("/api/auth/login",new{identifier = email,password="Pass123!Aa"}));client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",login.GetProperty("accessToken").GetString());
         var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));var key=Guid.NewGuid().ToString();var pending=Shipment(detail,x.Supplier,x.Receipt,key);
         Assert.Equal(HttpStatusCode.Forbidden,(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString(),accepted:true))).StatusCode);
         var result=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",pending));

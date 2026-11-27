@@ -114,10 +114,10 @@ public sealed class RateLimitFilterTests
         var store = new RecordingStore(Allow(10));
         var filter = CreateFilter(store, new RateLimitPolicy(10, 1, 3) { Subject = RateLimitSubject.Account });
 
-        await ExecuteAsync(filter, CreateContext("/api/auth/login/email", string.Empty, "POST", new Subject("a@example.com")));
+        await ExecuteAsync(filter, CreateContext("/api/auth/login", string.Empty, "POST", new Subject("a@example.com")));
 
         var call = Assert.Single(store.Calls);
-        Assert.Equal(["req:POST api/auth/login/email", "subj:account"], call.Select(b => b.PolicyId));
+        Assert.Equal(["req:POST api/auth/login", "subj:account"], call.Select(b => b.PolicyId));
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class RateLimitFilterTests
     {
         var store = new RecordingStore(new RateLimitStoreUnavailableException(new TimeoutException()));
         var filter = CreateFilter(store, new RateLimitPolicy(10, 1, 3) { FailClosed = true });
-        var context = CreateContext("/api/auth/login/email", string.Empty, "POST");
+        var context = CreateContext("/api/auth/login", string.Empty, "POST");
 
         var nextCalled = await ExecuteAsync(filter, context);
 
@@ -162,10 +162,10 @@ public sealed class RateLimitFilterTests
             new RateLimitPolicy(10, 1, 3) { Subject = RateLimitSubject.Account },
             new RateLimitingOptions { BucketKey = Key, SubjectMode = SubjectBudgetMode.Shadow });
 
-        var nextCalled = await ExecuteAsync(filter, CreateContext("/api/auth/login/email", string.Empty, "POST", new Subject("a@example.com")));
+        var nextCalled = await ExecuteAsync(filter, CreateContext("/api/auth/login", string.Empty, "POST", new Subject("a@example.com")));
 
         Assert.True(nextCalled);
-        Assert.Equal(["req:POST api/auth/login/email"], store.Calls[0].Select(b => b.PolicyId));
+        Assert.Equal(["req:POST api/auth/login"], store.Calls[0].Select(b => b.PolicyId));
         Assert.Equal(["subj:account"], store.Calls[1].Select(b => b.PolicyId));
     }
 

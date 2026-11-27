@@ -145,7 +145,6 @@ export class LoginPageComponent implements OnInit {
 
 function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.code ?? error?.title ?? '';
-  if (title === 'Auth.EmailVerificationRequired') return 'identity.verificationRequired';
   if (title === 'Auth.RecoverySupportRequired') return 'identity.supportRequired';
 
   if (title === 'Auth.InvalidCredentials') {

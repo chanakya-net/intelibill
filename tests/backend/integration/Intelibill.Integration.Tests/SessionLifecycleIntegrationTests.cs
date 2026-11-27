@@ -292,11 +292,11 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(theirs, HttpMethod.Get, "/api/shops/me", theirAccess)).StatusCode);
     }
 
-    // ── Legacy tokens are not sessions ───────────────────────────────────────────
+    // ── Tokens without a session are refused ─────────────────────────────────────
 
     /// <summary>
     /// A cryptographically valid token that names no session is refused rather than treated as a
-    /// device of its own. This is the cutover rule: no session is ever invented from a legacy token.
+    /// device of its own: no session is ever invented for a token that does not name one.
     /// </summary>
     [Fact]
     public async Task AccessTokenWithoutSessionClaim_IsRefused()
@@ -314,7 +314,7 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
             securityVersion = (await db.Users.AsNoTracking().SingleAsync(x => x.Id == userId)).SecurityVersion;
         }
 
-        var legacy = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
+        var sessionless = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
             issuer: "inventory.ai.integration",
             audience: "inventory.ai.integration",
             claims:
@@ -330,7 +330,7 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-secret-key-must-be-at-least-32-chars!")),
                 SecurityAlgorithms.HmacSha256)));
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", legacy)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", sessionless)).StatusCode);
     }
 
     // ── Recovery ends every path, including the hidden issuers ───────────────────

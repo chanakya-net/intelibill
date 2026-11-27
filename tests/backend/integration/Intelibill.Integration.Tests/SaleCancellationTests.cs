@@ -328,7 +328,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
             (await db.ShopMemberships.SingleAsync(x => x.ShopId == s.ShopId)).SetRole(ShopRole.Staff); await db.SaveChangesAsync();
             var email = (await db.Users.SingleAsync(x => x.Id == s.ActorId)).Email;
             s.Client.DefaultRequestHeaders.Authorization = null;
-            var login = await s.Client.PostAsJsonAsync("/api/auth/login/email", new { email, password = "Pass123!Aa" });
+            var login = await s.Client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
             login.EnsureSuccessStatusCode();
             var token = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
             s.Client.DefaultRequestHeaders.Authorization = new("Bearer", token);

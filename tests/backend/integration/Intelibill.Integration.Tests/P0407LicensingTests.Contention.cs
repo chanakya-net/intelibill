@@ -152,7 +152,7 @@ public sealed partial class P0407LicensingTests
     {
         var jwt = new JwtSecurityToken(original.DefaultRequestHeaders.Authorization!.Parameter);
         var email = jwt.Claims.Single(x => x.Type == "email").Value;
-        using var response = await second.PostAsJsonAsync("/api/auth/login/email", new { email, password = "Pass123!Aa" }, Ct);
+        using var response = await second.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" }, Ct);
         var token = (await ReadSuccessAsync(response)).GetProperty("accessToken").GetString();
         second.DefaultRequestHeaders.Authorization = new("Bearer", token);
     }

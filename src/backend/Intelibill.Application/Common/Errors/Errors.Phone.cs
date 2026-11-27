@@ -5,21 +5,10 @@ namespace Intelibill.Application.Common.Errors;
 public static partial class Errors
 {
     /// <summary>
-    /// Phone authentication errors. Every code is stable: clients branch on it, and the market
-    /// readiness review names <c>Auth.PhoneEnrollmentUnavailable</c> as the response a closed
-    /// enrollment route must give.
+    /// Phone authentication errors. Every code is stable: clients branch on it.
     /// </summary>
     public static class Phone
     {
-        /// <summary>
-        /// The legacy phone/name registration route. It granted a session on an unproved number,
-        /// which left the registrant unable to sign in again once the session was gone and let
-        /// anyone reserve someone else's number. It is closed; enrollment runs on proved
-        /// challenges instead.
-        /// </summary>
-        public static Error EnrollmentUnavailable =>
-            Error.Failure("Auth.PhoneEnrollmentUnavailable", "Phone sign-up is not available on this route. Verify a phone number, or create your account with an email address.");
-
         /// <summary>Phone authentication is switched off for this deployment.</summary>
         public static Error AuthenticationDisabled =>
             Error.Failure("Auth.PhoneEnrollmentUnavailable", "Phone sign-in is unavailable. Use your email address to sign in or recover your account.");

@@ -118,7 +118,7 @@ public abstract class OfflinePermitHttpFixture(PostgreSqlTestFixture fixture, IT
         try
         {
             var client = CreateClient(host);
-            using var login = await client.PostAsJsonAsync("/api/auth/login/email", new { email = actor.Email, password = OwnerPassword }, Ct);
+            using var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = actor.Email, password = OwnerPassword }, Ct);
             await SwitchClientShopAsync(client, (await ReadSuccessAsync(login)).GetProperty("accessToken").GetString()!, actor.Shop, authUntil);
             return client;
         }

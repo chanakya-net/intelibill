@@ -57,30 +57,18 @@ describe('VerifyEmailPageComponent', () => {
       confirmPassword: 'Chosen123!',
     });
     component.onSubmit();
-    expect(auth.confirmEmailEnrollment).toHaveBeenCalledWith(
-      {
-        challengeId: 'id',
-        token: 'bearer',
-        password: 'Chosen123!',
-        firstName: 'Ada',
-        lastName: 'L',
-      },
-      false,
-    );
-  });
-  it('claim completion is explicit and uses newly chosen credentials', () => {
-    const { component } = setup('challengeId=id&token=bearer&purpose=claim');
-    component.form.patchValue({
+    expect(auth.confirmEmailEnrollment).toHaveBeenCalledWith({
+      challengeId: 'id',
+      token: 'bearer',
+      password: 'Chosen123!',
       firstName: 'Ada',
       lastName: 'L',
-      password: 'Chosen123!',
-      confirmPassword: 'Chosen123!',
     });
-    component.onSubmit();
-    expect(auth.confirmEmailEnrollment).toHaveBeenLastCalledWith(
-      expect.objectContaining({ password: 'Chosen123!' }),
-      true,
-    );
+  });
+  it('refuses a link whose purpose is not enrollment or email change', () => {
+    const { component } = setup('challengeId=id&token=bearer&purpose=claim');
+    expect(component.error()).toBe('identity.invalidLink');
+    expect(component.valid()).toBe(false);
   });
   it('rejects whitespace-only names and mismatched passwords', () => {
     const { component } = setup();
@@ -167,14 +155,11 @@ describe('VerifyEmailPageComponent', () => {
     ) as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/account/security');
   });
-  it.each(['enrollment', 'claim'])(
-    '%s fresh-link action stays in enrollment/recovery',
-    (purpose) => {
-      const { fixture } = setup('challengeId=id&token=bearer&purpose=' + purpose);
-      const link = Array.from(fixture.nativeElement.querySelectorAll('a')).find((element: any) =>
-        element.textContent.includes('identity.requestFreshLink'),
-      ) as HTMLAnchorElement;
-      expect(link.getAttribute('href')).toBe('/register');
-    },
-  );
+  it('enrollment fresh-link action stays in enrollment', () => {
+    const { fixture } = setup('challengeId=id&token=bearer&purpose=enrollment');
+    const link = Array.from(fixture.nativeElement.querySelectorAll('a')).find((element: any) =>
+      element.textContent.includes('identity.requestFreshLink'),
+    ) as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/register');
+  });
 });

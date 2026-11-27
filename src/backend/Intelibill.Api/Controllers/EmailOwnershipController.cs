@@ -31,15 +31,6 @@ public sealed class EmailOwnershipController(IEmailOwnershipService ownership) :
     [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> ConfirmEnrollment(EmailEnrollmentConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmEnrollmentAsync(request.ChallengeId, request.Token, request.Password, request.FirstName, request.LastName, ct)).ToActionResult(Ok);
-    [HttpPost("enrollment/email/claim/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
-    [LicenceAction(LicenceAction.Authentication)]
-    public async Task<IActionResult> RequestClaim(EmailOwnershipRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestClaimAsync(request.Email, ct));
-    [HttpPost("enrollment/email/claim/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
-    [LicenceAction(LicenceAction.Authentication)]
-    public async Task<IActionResult> ConfirmClaim(EmailEnrollmentConfirmation request, CancellationToken ct) =>
-        (await ownership.ConfirmClaimAsync(request.ChallengeId, request.Token, request.Password, request.FirstName, request.LastName, ct)).ToActionResult(Ok);
     [Authorize]
     [HttpPost("reauthenticate")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]

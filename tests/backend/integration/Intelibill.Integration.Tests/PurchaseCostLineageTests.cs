@@ -616,7 +616,7 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         var response = await client.SeedVerifiedStaffAsync(request);
         response.EnsureSuccessStatusCode();
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password });
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         loginResponse.EnsureSuccessStatusCode();
         return (await loginResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
     }

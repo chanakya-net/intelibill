@@ -725,7 +725,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
             phoneNumber = $"+91{Random.Shared.NextInt64(6_000_000_000, 9_999_999_999)}", password, confirmPassword = password, role });
         using var seeded = await client.SeedVerifiedStaffAsync(request);
         seeded.EnsureSuccessStatusCode();
-        using var login = await client.PostAsJsonAsync("/api/auth/login/email", new { email, password });
+        using var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         login.EnsureSuccessStatusCode();
         var token = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
         return new(token, owner.ShopId, Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(token).Subject));

@@ -71,11 +71,10 @@ internal static partial class IdentityTestPhone
     private static partial Regex CodePattern();
 
     /// <summary>
-    /// Seeds the kind of account the closed <c>register/phone</c> route used to create — a
-    /// phone-only identity with no email and no password — and returns a live session for it.
-    /// Tests that describe how such an account behaves need one without the route that made it.
+    /// Seeds a phone-only identity — a proved number, no email and no password — and returns a
+    /// live session for it, without going through the SMS challenge.
     /// </summary>
-    internal static async Task<AuthResult> SeedLegacyPhoneSessionAsync(
+    internal static async Task<AuthResult> SeedPhoneSessionAsync(
         WebApplicationFactory<Program> factory,
         string phone,
         string firstName = "Phone",
@@ -86,6 +85,7 @@ internal static partial class IdentityTestPhone
         {
             var db = seed.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var user = User.CreateWithPhone(phone, firstName, lastName);
+            user.VerifyPhone(phone, DateTimeOffset.UtcNow);
             db.Users.Add(user);
             await db.SaveChangesAsync();
             userId = user.Id;

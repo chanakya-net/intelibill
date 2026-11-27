@@ -88,7 +88,7 @@ mail_delivery = {
 }
 ```
 
-4. Use the normal reviewed infrastructure deployment process to install these references before the application cutover below. No infrastructure source edit is needed. Names are single Key Vault name segments (1–127 letters/digits/hyphens), never URLs, paths, versions, or values. Container Apps resolves `Email__Password` and `Identity__OutboxKey` from versionless Key Vault URIs under the application managed identity. OpenTofu does not read their values into state or outputs. The reference URI and names are deployment metadata.
+4. Use the normal reviewed infrastructure deployment process to install these references before the application release below. No infrastructure source edit is needed. Names are single Key Vault name segments (1–127 letters/digits/hyphens), never URLs, paths, versions, or values. Container Apps resolves `Email__Password` and `Identity__OutboxKey` from versionless Key Vault URIs under the application managed identity. OpenTofu does not read their values into state or outputs. The reference URI and names are deployment metadata.
 5. Verify the new API revision can resolve both secrets and has `Email__Enabled=true`, `Email__UseStartTls=true`, and `Email__LocalCapture=false` without displaying secret values. Invalid SMTP options can prevent startup; missing/invalid outbox key causes verification requests to fail with 503. Confirm inbox receipt using the smoke checklist before opening signup.
 
 The infrastructure requires authenticated STARTTLS for enabled delivery. The API never connects opportunistically: `Email__UseStartTls=false` means implicit TLS (`SslOnConnect`), never plaintext. Setting `enabled=false` is no longer a sending pause in a deployed environment — the API refuses to start — so a pause means withdrawing the revision while retaining both secret names and the vault values; pending mail keeps its ciphertext and still expires. Retaining the key is essential for later inspection/recovery.
@@ -109,11 +109,9 @@ Verification tokens are stored as hashes. The mail queue needs the actual link t
 
 For rotation, first close identity requests and let pending delivery finish or expire; security notices may remain eligible for one day. Retain the old key with its database backups. After confirming that no live queued ciphertext needs it, replace the vault value and coordinate a new API revision/restart across every replica before reopening writes. Versionless vault references can refresh independently, so do not update the key during active processing. This release has one active encryption key and no old-key fallback. SMTP API key rotation is separate: publish the replacement credential, restart/verify delivery, then revoke the prior credential in Resend.
 
-## 3. Apply the migration before the new release
+## 3. Apply migrations before the release
 
-Back up the intended database and confirm the target environment first. Schedule the identity cutover and temporarily close public authentication/identity writes before migration. Do not let the old API continue creating identities after the migration resets historical verification evidence: it still has the old verification/linking semantics.
-
-Deployed environments use the existing migration job, which must succeed before the new API/frontend revisions serve traffic. API startup does not apply migrations. Deploy the new API and matching frontend, retire the old API revision, verify configuration, then reopen authentication traffic. The existing migration-before-deployment pipeline alone does not provide this maintenance gate.
+Deployed environments use the existing migration job, which must succeed before the new API/frontend revisions serve traffic. API startup does not apply migrations.
 
 For an explicitly selected local development database:
 
@@ -123,44 +121,19 @@ dotnet ef database update \
   --startup-project src/backend/Intelibill.Api
 ```
 
-Supply the mail settings, link origin, and shared outbox key before enabling the new enrollment flow. Deploy the matching API and frontend contracts together.
+Supply the mail settings, link origin, and shared outbox key before enabling enrollment. Deploy the matching API and frontend contracts together.
 
-## 4. Handle the session and legacy-account cutover
+## 4. Ownership review
 
-The migration revokes existing refresh tokens, invalidates old access tokens, and resets historical email-verification flags that were not supported by ownership evidence. Every pre-cutover account is conservatively marked for operator review because absence of deleted business history cannot be established from the current records. **Existing email/password users need an ownership-recovery plan before applying this migration.** The same migration drops `user_external_logins`: external identity providers are gone, so an account whose only credential was a provider link can no longer sign in and must be recovered through the operator procedure below.
+Every account that has ever held a shop membership carries `users.requires_operator_recovery`, set by the database when the membership is inserted and never cleared by an ordinary write. Such an account cannot bind a first verified email or phone through a self-service route: the request answers `409 Auth.RecoverySupportRequired`, and the account's shop and financial records stay intact. A support-required response must not be bypassed by changing database flags.
 
-Ownership/security changes invalidate prior access and refresh credentials.
+Do not bulk set `IsEmailVerified=true` because an address exists. An email match is insufficient evidence of account ownership. Ownership/security changes invalidate prior access and refresh credentials.
 
-Do not bulk set `IsEmailVerified=true` because an address exists. An email match is insufficient evidence of account ownership.
+Establish verified email through Account security **before creating or joining a shop**. Account security is available without a shop.
 
-Explicit self-service claims are limited to eligible unverified accounts created after the cutover without business history. Pre-cutover accounts and accounts that have held shop/business access require operator-assisted ownership review. Keep their shop and financial records intact. A support-required response must not be bypassed by changing database flags.
+Resolve ownership with the merchant and a reviewed recovery procedure that removes untrusted credentials and invalidates sessions atomically. **No privileged operator recovery console or turnkey recovery command is implemented.** Mailbox access alone must not silently transfer an existing business account, and flipping recovery/verification flags is not a recovery procedure.
 
-Establish verified email through Account security **before creating or joining a shop**. Account security is available without a shop. Once an unverified account has business history, adding or changing its recovery email requires operator review.
-
-Before public rollout, inventory these accounts using counts and opaque user IDs. With an authorized read-only reporting connection to the intended database, run the following **after migration**, in a read-only transaction. The actual schema uses `users.requires_operator_recovery` and `users.is_email_verified`:
-
-```sql
-BEGIN READ ONLY;
-SELECT count(*) AS total_accounts,
-       count(*) FILTER (WHERE requires_operator_recovery) AS operator_review_accounts,
-       count(*) FILTER (WHERE email IS NOT NULL AND NOT is_email_verified)
-         AS unverified_email_accounts
-FROM public.users;
-
-SELECT id AS user_id, requires_operator_recovery, is_email_verified
-FROM public.users
-WHERE requires_operator_recovery
-ORDER BY id;
-COMMIT;
-```
-
-These queries expose no email, password hashes, tokens, or mail payloads. Keep even opaque IDs in restricted operational records. The recovery marker includes every pre-cutover user and subsequent accounts with membership access; it cannot distinguish deleted historical business access. Do not infer self-service eligibility from the absence of current memberships.
-
-Resolve ownership with the merchant and a reviewed recovery procedure that removes untrusted credentials and invalidates sessions atomically. **No privileged operator recovery console or turnkey recovery command is implemented by this change.** Arrange and review that procedure before migrating existing email/password users; otherwise keep their rollout blocked. Mailbox access alone must not silently transfer an existing business account, and flipping recovery/verification flags is not a recovery procedure.
-
-Employee invitation/acceptance, complete per-device session management, general authentication budgets, and the broader recovery-delivery work remain separate readiness projects. Do not treat this feature as completing those projects.
-
-The old owner-created-password staff onboarding path now returns HTTP 409 `Auth.InvitationRequired`. It cannot create unverified login identities that reserve another person's email. Plan the verified staff invitation work before relying on that onboarding path for a public launch. This release does not complete the broader session/authentication, membership/invitation, or password/account recovery readiness plans (including plans 03, 08, and 10).
+Staff join a shop through invitations (`POST /api/shops/{shopId}/invitations`): the invited person accepts from their own verified account, and the shop receives a membership, never control of that person's sign-in details.
 
 ## 5. Perform a delivery and security smoke test
 
@@ -173,8 +146,7 @@ Use a dedicated test mailbox and disposable development data:
 5. Confirm the removed provider endpoints are gone: `POST /api/auth/login/external`, `login/external/init`, `login/external/callback` and the `GET /auth/{google,facebook}/callback` relays all answer 404, and the sign-in page offers no provider button.
 6. With a verified account and no shop, open Account security from shop setup, verify email, then return to shop setup. Confirm mandatory onboarding resumes when leaving Account security; authentication must still be required.
 7. Request an email change. Confirmation requires a session for the same existing account as well as the mailbox token; on a different device, sign in with the original email first. Confirm anonymous and different-account attempts fail without consuming the proof. The old address remains active until confirmation, notifications reach the appropriate addresses, and old access/refresh credentials fail afterward.
-8. Exercise a newly eligible unverified account claim and the pre-cutover/business-account support-required outcome. Confirm business data remains intact. Existing email/password users must use the separately reviewed operator recovery procedure.
-9. With queued mail present, restart the API using the same outbox key. Confirm delivery can continue. Simulate a provider outage and verify retries do not create additional usable proofs.
+8. With queued mail present, restart the API using the same outbox key. Confirm delivery can continue. Simulate a provider outage and verify retries do not create additional usable proofs.
 
 Record timestamps, safe message IDs, and pass/fail outcomes. Actual inbox receipt is a manual external check; SMTP acceptance alone is insufficient evidence.
 
@@ -182,6 +154,6 @@ Record timestamps, safe message IDs, and pass/fail outcomes. Actual inbox receip
 
 Run normal backend build/tests and frontend tests/build without hiding dependency-audit failures. Feature tests executed with diagnostic overrides do not establish a clean release gate. Fix any outstanding vulnerable dependencies before public release.
 
-Rollback must stop new enrollment and preserve challenge, audit, encrypted mail, and key material needed for inspection or recovery. Do not restore an older API that automatically links accounts by matching email. Keep schema compatibility and token cutover behavior in the rollback decision.
+Rollback must stop new enrollment and preserve challenge, audit, encrypted mail, and key material needed for inspection or recovery. Do not restore an older API that automatically links accounts by matching email. Keep schema compatibility in the rollback decision.
 
-No live Resend account/domain setup, Azure secret resolution, infrastructure apply, production migration/cutover, or actual inbox delivery is established by automated tests. Complete and record these external checks manually; a passing mocked transport test does not validate delivery or a safe production rollout.
+No live Resend account/domain setup, Azure secret resolution, infrastructure apply, production migration, or actual inbox delivery is established by automated tests. Complete and record these external checks manually; a passing mocked transport test does not validate delivery or a safe production rollout.

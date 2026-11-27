@@ -93,7 +93,7 @@ public sealed partial class P0413dLicensingTests
         await AssertRecoverySessionRejectedAsync(owner, source, version, key);
 
         var email = await db.Users.Where(x => x.Id == membership.UserId).Select(x => x.Email).SingleAsync(Ct);
-        var login = await PostAsync(owner, "/api/auth/login/email", new { email, password = "Pass123!Aa" });
+        var login = await PostAsync(owner, "/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
         owner.DefaultRequestHeaders.Authorization = new("Bearer", login.GetProperty("accessToken").GetString());
         using var manager = await CorrectAsync(owner, source.Receipt, version, 1100, key);
         Assert.Equal(HttpStatusCode.Forbidden, manager.StatusCode);

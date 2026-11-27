@@ -953,7 +953,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
 
     private static async Task<Shop> SwitchTokenAsync(Shop shop)
     {
-        using var login = await shop.Client.PostAsJsonAsync("/api/auth/login/email", new { email = shop.Email, password = "Pass123!Aa" });
+        using var login = await shop.Client.PostAsJsonAsync("/api/auth/login", new { identifier = shop.Email, password = "Pass123!Aa" });
         var loginBody = await login.Content.ReadAsStringAsync();
         Assert.True(login.StatusCode == HttpStatusCode.OK, loginBody);
         var signedIn = shop with { Token = JsonDocument.Parse(loginBody).RootElement.GetProperty("accessToken").GetString()! };

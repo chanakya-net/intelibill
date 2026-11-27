@@ -95,21 +95,10 @@ no replayable copy of a successor is kept. If a renewal reached the server but i
 ends that device's session; the person signs in again. The same happens if a copy of the credential is
 used elsewhere — which is the point. Other devices on the account are unaffected.
 
-**Schema rollout.** `20261101090000_HashRefreshTokensAndChainRotations` is the expand step: `token`
-stays (nullable, emptied) and `is_revoked` stays in step with `revoked_at` while the previous revision
-serves. Every pre-existing credential and live session is revoked, so everyone signs in once. The
-contract migration (separate change) re-runs the hash-and-revoke step for rows the previous revision
-wrote during the deploy window, ends the sessions that hold no hashed credential, drops `token` and its
-index, and makes `token_hash` required.
-
 ## Verified Phone Credentials
 
-Phone sign-in is off unless a deployment sets `PhoneAuth:Enabled`. The legacy
-`POST /api/auth/register/phone` is closed outright: it granted a session on a number nobody had
-proved, so a registrant could not sign in again once the session was gone, and anyone could reserve
-someone else's number. It still answers, with `503 Auth.PhoneEnrollmentUnavailable`, so an
-un-updated client gets a documented refusal rather than a 404. Accounts it created keep their data
-and their sessions.
+Phone sign-in is off unless a deployment sets `PhoneAuth:Enabled`. Enrollment and sign-in run only
+on proved challenges; no route grants a session on an unproved number.
 
 **Challenges.** `phone_challenges` holds one purpose-bound proof — `enrollment`, `login` or
 `phone-change` — carrying a keyed HMAC-SHA256 of a six-digit code under `Identity:PhoneCodeKey`,
@@ -230,7 +219,7 @@ or not, and never reach headers: `X-RateLimit-*` describe the request budget onl
 answers the existing 429 body with `Retry-After` capped at a day. Sign-in, reset confirmation,
 reauthentication and password change are Account endpoints; every endpoint that sends mail or SMS —
 including shop invitations — is a Destination endpoint, so one mailbox shares one allowance across
-registration, reset, claim, change and invitation.
+registration, reset, change and invitation.
 Per-challenge attempts stay with the challenge (`PhoneAuth:MaxAttempts`).
 
 **Ordering.** The filter is registered at order -3000, ahead of `ModelStateInvalidFilter`
