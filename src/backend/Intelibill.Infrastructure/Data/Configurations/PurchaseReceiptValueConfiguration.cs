@@ -34,8 +34,6 @@ internal sealed class PurchaseReceiptValueConfiguration : IEntityTypeConfigurati
             .HasMaxLength(20)
             .IsRequired();
 
-        builder.Ignore(r => r.IsResolved);
-
         // One receipt per physical lot.
         builder.HasIndex(r => new { r.ShopId, r.InventoryBatchId }).IsUnique();
         builder.HasIndex(r => new { r.ShopId, r.SupplierId });
@@ -68,7 +66,6 @@ internal sealed class PurchaseReceiptValueConfiguration : IEntityTypeConfigurati
         {
             PurchaseReceiptSource.DirectInbound => "DIRECT_INBOUND",
             PurchaseReceiptSource.PurchaseOrder => "PURCHASE_ORDER",
-            PurchaseReceiptSource.LegacyBackfill => "LEGACY_BACKFILL",
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown receipt source."),
         };
 
@@ -77,7 +74,6 @@ internal sealed class PurchaseReceiptValueConfiguration : IEntityTypeConfigurati
         {
             "DIRECT_INBOUND" => PurchaseReceiptSource.DirectInbound,
             "PURCHASE_ORDER" => PurchaseReceiptSource.PurchaseOrder,
-            "LEGACY_BACKFILL" => PurchaseReceiptSource.LegacyBackfill,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown receipt source."),
         };
 
@@ -85,7 +81,6 @@ internal sealed class PurchaseReceiptValueConfiguration : IEntityTypeConfigurati
         status switch
         {
             PurchaseReceiptValueStatus.Resolved => "RESOLVED",
-            PurchaseReceiptValueStatus.LegacyUnresolved => "LEGACY_UNRESOLVED",
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown receipt status."),
         };
 
@@ -93,7 +88,6 @@ internal sealed class PurchaseReceiptValueConfiguration : IEntityTypeConfigurati
         value switch
         {
             "RESOLVED" => PurchaseReceiptValueStatus.Resolved,
-            "LEGACY_UNRESOLVED" => PurchaseReceiptValueStatus.LegacyUnresolved,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown receipt status."),
         };
 }

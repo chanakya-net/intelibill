@@ -1161,7 +1161,6 @@ for (const width of [1440, 390]) {
       uom: 'kg',
       unitCode: 'KGM',
       quantityScale: 3,
-      unitReviewRequired: false,
       isActive: true,
       currentStock: 10,
       unitPrice: 50,

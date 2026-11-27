@@ -82,7 +82,6 @@ describe('InventoryEffects', () => {
         defaultTaxIncluded: false,
         unitCode: null,
         quantityScale: 0,
-        unitReviewRequired: false,
       })
     );
 
@@ -121,7 +120,6 @@ describe('InventoryEffects', () => {
           defaultTaxIncluded: false,
           unitCode: null,
           quantityScale: 0,
-          unitReviewRequired: false,
         },
       })
     );
@@ -207,7 +205,6 @@ describe('InventoryEffects', () => {
             defaultTaxIncluded: false,
             unitCode: null,
             quantityScale: 0,
-            unitReviewRequired: false,
           },
         ],
         totalCount: 12,
@@ -257,7 +254,6 @@ describe('InventoryEffects', () => {
             defaultTaxIncluded: false,
             unitCode: null,
             quantityScale: 0,
-            unitReviewRequired: false,
           },
         ],
         totalCount: 12,
@@ -306,7 +302,6 @@ describe('InventoryEffects', () => {
         defaultTaxIncluded: false,
         unitCode: null,
         quantityScale: 0,
-        unitReviewRequired: false,
       })
     );
 
@@ -331,7 +326,6 @@ describe('InventoryEffects', () => {
           defaultTaxIncluded: false,
           unitCode: null,
           quantityScale: 0,
-          unitReviewRequired: false,
         },
       })
     );

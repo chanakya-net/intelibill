@@ -43,7 +43,6 @@ handler	Intelibill.Application.Features.Inventory.Commands.CorrectStockCount.Cor
 handler	Intelibill.Application.Features.Inventory.Commands.CreateAdjustment.CreateAdjustmentCommandHandler.HandleAsync	GeneralStock	M10	-
 handler	Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier.ReassignBatchSupplierCommandHandler.HandleAsync	SourceCorrection	M09	-
 handler	Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices.UpdateBatchPricesCommandHandler.HandleAsync	OperationalCapacity	M04	-
-handler	Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch.UpdateInventoryBatchCommandHandler.Handle	GeneralStock	M10	-
 handler	Intelibill.Application.Features.Inventory.Commands.VoidAdjustment.VoidAdjustmentCommandHandler.HandleAsync	SourceCorrection	M09	-
 handler	Intelibill.Application.Features.Inventory.Commands.VoidBatch.VoidBatchCommandHandler.HandleAsync	SourceCorrection	M09	-
 handler	Intelibill.Application.Features.Inventory.Events.InventoryBatchPricingChangedDomainHandler.HandleAsync	InternalService	internal	-
@@ -404,7 +403,6 @@ route	PUT api/customers/{customerId:guid}	OperationalCapacity	M04	protected/requ
 route	PUT api/discounts/{id:guid}	OperationalCapacity	M04	protected/request
 route	PUT api/expiry-policies	OperationalCapacity	M04	protected/source
 route	PUT api/expiry-policies/items/{id:guid}	OperationalCapacity	M04	protected/source
-route	PUT api/inventory/batches/{batchId:guid}	GeneralStock	M10	protected/request
 route	PUT api/inventory/batches/{batchId:guid}/prices	OperationalCapacity	M04	protected/request
 route	PUT api/purchase-orders/{purchaseOrderId:guid}	NewTrading	M03	protected/request
 route	PUT api/shops/{shopId:guid}	BasicShopSetup	M02	protected/source

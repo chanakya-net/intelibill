@@ -104,7 +104,7 @@ public sealed class VoidBatchCommandHandler(
             return Errors.Inventory.BatchAlreadyVoided;
 
         var receiptValue=await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId,batch.Id,cancellationToken);
-        if(receiptValue is not {IsResolved:true,EffectiveTotalCost:not null})
+        if(receiptValue is not {EffectiveTotalCost:not null})
             return Error.Conflict("PurchaseReceipt.EvidenceMissing","Full reversal requires a resolved source receipt amount. Review and correct the source evidence first.");
         if(receiptValue.SupplierId is null)
             return Error.Conflict("PurchaseReceipt.SupplierMissing","The source receipt needs a supplier before it can be reversed.");

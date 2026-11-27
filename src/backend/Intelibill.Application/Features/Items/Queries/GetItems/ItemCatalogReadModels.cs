@@ -35,8 +35,7 @@ public sealed record ItemCatalogReadModel(
     decimal DefaultTaxRatePercent,
     bool DefaultTaxIncluded,
     string? UnitCode,
-    int QuantityScale,
-    bool UnitReviewRequired);
+    int QuantityScale);
 
 public sealed record ItemCatalogSummaryReadModel(
     int TotalItems,

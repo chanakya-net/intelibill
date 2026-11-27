@@ -154,7 +154,6 @@ public sealed partial class ShopSetupTests
     [InlineData("DELETE FROM inventory WHERE shop_id = @shop", "Sale.InventoryAggregateNotFound")]
     [InlineData("UPDATE inventory SET quantity = 0 WHERE shop_id = @shop", "ShopSetup.AggregateStockInsufficient")]
     [InlineData("UPDATE inventory_batches SET quantity = 0.125 WHERE shop_id = @shop", "Sale.QuantityPrecisionExceeded")]
-    [InlineData("UPDATE items SET unit_review_required = true WHERE shop_id = @shop", "ShopSetup.UnitReviewRequired")]
     public async Task Readiness_RejectsUnsellableGoodsFacts(string change, string code)
     {
         using var client = CreateClient();

@@ -38,6 +38,8 @@ describe('BatchesTableComponent', () => {
       receiptOriginalTotalCost: 720,
       receiptTotalCost: 720,
       receiptVersion: 3,
+      uom: null,
+      quantityScale: 3,
     },
   ];
 

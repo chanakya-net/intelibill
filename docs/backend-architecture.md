@@ -417,16 +417,13 @@ the web closes the dialog, refreshes and asks for a recount. Counts never touch 
 **Voids.** `POST inventory/batches/{batchId}/void` (owner) reverses an unconsumed receipt: one
 `Reversal(-quantity)`, the same off the aggregate and a `REVERSAL` payable entry, in one save. A
 receipt that was sold from, returned to or adjusted (live adjustment, or any OUT/RET/REJ/DMG/STOL
-movement other than a voided adjustment's or a legacy correction's own) answers 409
+movement other than a voided adjustment's own) answers 409
 `Inventory.BatchConsumed`; remaining stock is removed by counting it to zero, which leaves the
 original payable owed. Supplier returns are a separate flow.
 
-**Legacy correction.** `PUT inventory/batches/{batchId}` no longer voids and recreates the batch. It
-applies prices and lot details in place exactly like `PUT .../prices` (below) and refuses what would
-move stock or money with a code naming the action that does it now: a quantity change answers 400
-`Inventory.BatchQuantityEditMoved` (count), a cost change `Inventory.BatchCostEditMoved` (receipt cost
-correction) and a supplier change `Inventory.BatchSupplierEditMoved` (reassign). An `expectedVersion`
-older than the batch answers 409 `Inventory.BatchVersionConflict`. Adjustment quantities are stored to
+**No whole-batch edit.** There is no `PUT inventory/batches/{batchId}`: stock moves only through a
+count or adjustment, cost through a receipt cost correction, the supplier through reassignment, and
+retail prices and lot details through `PUT .../prices` (below). Adjustment quantities are stored to
 three places, like stock.
 
 ## Purchase Receipts, Price Revisions and Cost Corrections
@@ -434,8 +431,8 @@ three places, like stock.
 **Lot vs receipt.** `InventoryBatch.Id` is the physical lot for its whole life; no flow replaces a
 batch, so sales, returns and counts always find their lot. Each receipt also writes one
 `purchase_receipt_values` row (single, bulk and PO intake, all in the same save as the batch):
-received quantity, supplier, source (`DIRECT_INBOUND` / `PURCHASE_ORDER` with the receipt-line link /
-`LEGACY_BACKFILL`), `original_total_cost` (the rounded total the payable was posted with, so the
+received quantity, supplier, source (`DIRECT_INBOUND` / `PURCHASE_ORDER` with the receipt-line link),
+`original_total_cost` (the rounded total the payable was posted with, so the
 per-unit rounding remainder is not lost) and `effective_total_cost` (original plus corrections). Its
 `xmin` is the receipt version. `GET inventory/batches` returns `receiptValueId`, `receiptStatus`,
 `receiptOriginalTotalCost`, `receiptTotalCost` and `receiptVersion`.
@@ -505,23 +502,11 @@ current supplier and skips the lock for a batch with no receipt row. Whichever c
 still fails its row-version check. Pinned by `SupplierReturnWorkflowTests.*_Behind*Locks_*`, which
 hold a shipment's or reversal's locks in a plain session so the collision happens every time.
 
-**Voids and reassignment.** A void reverses the receipt's effective total to the receipt's supplier
-(falling back to `original quantity × unit cost` and the batch supplier only for batches without a
-resolved receipt value), so a corrected, unconsumed receipt nets to zero. Reassigning a batch from the
+**Voids and reassignment.** A void reverses the receipt's effective total to the receipt's supplier,
+so a corrected, unconsumed receipt nets to zero; a batch without a receipt value answers 409
+`PurchaseReceipt.EvidenceMissing`. Reassigning a batch from the
 placeholder supplier moves the goods-received entry, every cost-adjustment entry and the receipt value
 together; a voided batch cannot be reassigned, and a lost race answers 409 `Inventory.ConcurrentChange`.
-
-**Legacy evidence.** The migration backfills receipt values for active batches that have none;
-`scripts/db/backfill-purchase-receipt-values.sql` is the same idempotent statement, to re-run as the
-migrator role once every API instance runs the new version (an old instance can create batches
-between the migration job and the rollout). A receipt is
-`RESOLVED` only with an opening `IN` movement of the full received quantity that is not a legacy
-`Batch Correction`, at most one goods-received payable, and agreement with its PO line when present.
-Everything else is `LEGACY_UNRESOLVED` with null amounts — never estimated from remaining stock — and
-a correction answers 400 `PurchaseReceipt.EvidenceMissing`. Sales from batches the old PUT already
-replaced still point at the voided batch and cannot be restocked; choosing a destination lot for
-those returns is a pending policy decision. Rollback: disable correction writes; never drop the
-append-only rows or restore destructive replacement.
 
 ## Sale Return Serialization
 
@@ -1077,8 +1062,8 @@ convention; dropping the migrations drops the columns and tables, the instants a
 
 ## Quantity Precision
 
-- **The item owns its unit and scale.** `Item` carries `UnitCode`, `QuantityScale` (0 to 3) and
-  `UnitReviewRequired`. `QuantityUnits` (`Domain/ValueObjects`) is the catalog pinned by
+- **The item owns its unit and scale.** `Item` carries `UnitCode` and `QuantityScale` (0 to 3).
+  `QuantityUnits` (`Domain/ValueObjects`) is the catalog pinned by
   `tests/contracts/quantity-units-v1.json`: a label (trimmed, upper-cased) matching an alias resolves to a
   code with a fixed scale and document unit (UQC), for example `KG` is scale 3 and `KGS`, `PCS` is scale 0
   and `NOS`, `G`, `ML` and `CM` are whole-number units. A custom label stores `UnitCode` null and the
@@ -1096,38 +1081,16 @@ convention; dropping the migrations drops the columns and tables, the instants a
   fractional line stays returnable even when the item is now classified whole-unit.
 - **Unit changes.** `Item.ChangeUnit(uom, quantityScale, history)` takes an `ItemStockHistory`
   (movements, batches or sale lines exist). With history, changing the unit or scale is refused with 409
-  `Item.UnitChangeWithHistory`; a relabel that keeps code and scale (`kg` to `KGS`) is allowed. A legacy
-  item flagged `UnitReviewRequired` may be classified once to a scale that covers its on-hand
-  stock, which clears the flag. Saving a flagged item at the unit and scale it already has clears the flag
-  when that scale covers the stock on hand (otherwise the flag stays and the other edits save). An item
-  nobody has classified yet (`UnitCode` null) saved with a label naming the same catalog unit as its
-  stored label, at a catalog scale that covers the stock on hand, is classified, not changed: no 409.
-  The update handler loads the stock history for a flagged item too.
+  `Item.UnitChangeWithHistory`; a relabel that keeps code and scale (`kg` to `KGS`) is allowed.
 - **Documents.** `InvoiceDocumentBuilder` prints the item's document unit on each goods line (`KGS`,
   `MTR`, `NOS`), and a service line still prints `NA`. Offline sync takes the document unit from the live
-  `Item.DocumentUnit` at sync time, not the device's frozen value. The only case where a reprint can
-  differ from the device copy is a review-flagged legacy item reclassified between the offline sale and
-  its sync.
+  `Item.DocumentUnit` at sync time, not the device's frozen value.
 - **Out of scope.** Purchase-order quantities stay integer (backlog 30); receiving a purchase order still
   passes the item policy. Carton to piece conversion, scale integration and barcode-embedded weight
   (backlog 28) are not advertised.
 
-**Rollout and rollback.** Migration `20261105155114_AddItemQuantityPrecision` adds `unit_code`,
-`quantity_scale` and `unit_review_required`, maps known labels through the catalog and flags an item
-classified whole-unit whose recorded quantities carry decimals. Defaults keep old instances working. Once
-every API instance runs the new version, run `scripts/db/backfill-item-quantity-precision.sql` once as
-the migrator role for items an old instance created in between (idempotent: an item with a `unit_code`
-is never touched). Both the migration and the script run shop by shop with `app.active_shop_id` set,
-because FORCE row level security binds the migrator as table owner; a backfill without a shop context
-updates no rows. `ItemQuantityPrecisionUpgradeTests` applies the migration and the script as a
-`NOSUPERUSER NOBYPASSRLS` owner role to prove it. Rollout window caveat: an old instance that relabels an
-already-mapped item (for example `kg` to `pcs`) updates `uom` but not `unit_code`, and the script skips the
-row because `unit_code` is set. Spot such rows with
-`SELECT id, uom, unit_code FROM items WHERE unit_code IS NOT NULL` compared against the catalog (a
-label that no longer resolves to its `unit_code`), and fix them by clearing `unit_code`, `quantity_scale`
-and `unit_review_required` on those rows (per shop context) before re-running the script; stocked items
-should be reviewed by the merchant rather than silently remapped. Rolling back means deploying the previous API: it ignores the new columns, fractional
-data stays valid in `numeric(18,3)`, and no quantity is downgraded.
+**Schema.** `ck_items_quantity_scale` bounds `quantity_scale` to the storage ceiling;
+`ItemQuantityPrecisionUpgradeTests` proves it as a `NOSUPERUSER NOBYPASSRLS` owner role.
 
 ## Test Structure
 

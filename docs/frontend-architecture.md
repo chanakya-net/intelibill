@@ -427,12 +427,10 @@ immutable for a year).
 - **Stock count and adjustment.** `InventoryBatchDto` carries the item's `uom` and `quantityScale`. Both forms
   take up to 3 decimals, refuse an entry finer than the item's unit before submit
   (`shared/quantity/quantity-messages.ts` names the unit and the allowed decimals) and preview the result
-  unrounded. An API that predates units sends neither field, and the storage ceiling of 3 applies.
+  unrounded.
 - **Item form.** Add and edit item overlays pick a unit and a precision. A catalog unit fixes the
   precision; a custom name offers a 0 to 3 decimals select (changing back from a catalog label restores the
-  custom precision the item had, whole numbers by default), and an item flagged for review shows a badge until
-  the merchant saves it: a catalog-unit item is told that saving confirms the unit, a custom one to choose the
-  precision.
+  custom precision the item had, whole numbers by default).
 - **Returns.** The return form allows `max(item scale, scale of the sold quantity)` decimals per line. A typed
   quantity above the returnable amount is kept and refused by the form's validation, never clamped.
 - **Mocked UI proof.** The fractional-sale flow runs against mocked APIs in

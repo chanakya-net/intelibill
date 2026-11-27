@@ -121,7 +121,7 @@ public sealed class ShopSetupSampleBuilder(
         if (decision.RequiresApproval)
             return Error.Conflict("Expiry.ApprovalRequired", "This lot needs an expiry warning approval.");
         var catalogUnit = QuantityUnits.Resolve(item.Uom);
-        if (item.UnitReviewRequired || string.IsNullOrWhiteSpace(item.Uom) || item.QuantityScale is < 0 or > QuantityUnits.MaxScale
+        if (string.IsNullOrWhiteSpace(item.Uom) || item.QuantityScale is < 0 or > QuantityUnits.MaxScale
             || item.UnitCode != catalogUnit?.Code || (catalogUnit is not null && item.QuantityScale != catalogUnit.Scale))
             return Error.Conflict("ShopSetup.UnitReviewRequired", "Review the item's unit and quantity precision.");
 

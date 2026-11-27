@@ -53,7 +53,7 @@ public class ItemsControllerTests
         var resultDto = new ItemCatalogResultDto(
             Items:
             [
-                new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, 42m, 420m, 12m, "reorder", "0401", 5m, false, null, 0, false),
+                new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, 42m, 420m, 12m, "reorder", "0401", 5m, false, null, 0),
             ],
             TotalCount: 1,
             PageNumber: 1,
@@ -166,8 +166,7 @@ public class ItemsControllerTests
             request.DefaultTaxRatePercent,
             false,
             null,
-            0,
-            false);
+            0);
 
         _bus.InvokeAsync<ErrorOr<ItemDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 

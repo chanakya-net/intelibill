@@ -78,17 +78,6 @@
     <section class="form-section ib-form-section">
       <p class="section-label ib-section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
 
-      @if (item.unitReviewRequired) {
-        <div class="info-banner" role="note" data-testid="unit-review-note">
-          {{
-            (form.controls.quantityScale.disabled
-              ? 'inventory.unitReview.confirmNote'
-              : 'inventory.unitReview.note'
-            ) | transloco
-          }}
-        </div>
-      }
-
       <div class="editor-grid ib-form-grid">
         <div class="field ib-field">
           <label for="edit-product-uom">{{ 'inventory.uom' | transloco }}</label>

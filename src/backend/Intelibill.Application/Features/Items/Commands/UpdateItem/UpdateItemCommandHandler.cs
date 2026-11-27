@@ -75,7 +75,7 @@ public sealed class UpdateItemCommandHandler(
                 return Errors.Item.BarcodeAlreadyExists;
         }
 
-        var history = item.UnitReviewRequired || item.WouldChangeUnit(normalizedUom, command.QuantityScale)
+        var history = item.WouldChangeUnit(normalizedUom, command.QuantityScale)
             ? await itemRepository.GetStockHistoryAsync(command.ActiveShopId, item.Id, cancellationToken)
             : ItemStockHistory.None;
 

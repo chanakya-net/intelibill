@@ -68,7 +68,6 @@ describe('EditItemOverlayComponent', () => {
     defaultTaxIncluded: false,
     unitCode: null,
     quantityScale: 0,
-    unitReviewRequired: false,
   };
 
   function setup(item: Item = mockItem): EditItemOverlayComponent {
@@ -351,66 +350,6 @@ describe('EditItemOverlayComponent', () => {
         payload: expect.objectContaining({ uom: 'Bundle', quantityScale: 2 }),
       }),
     );
-  });
-
-  it('shows the review note only while the unit needs review', () => {
-    TestBed.configureTestingModule({
-      imports: [
-        EditItemOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
-      ],
-      providers: [
-        ...knownExpiryPolicyProviders(),
-        { provide: Store, useValue: store },
-        { provide: InventoryService, useValue: inventoryService },
-      ],
-    });
-    const fixture = TestBed.createComponent(EditItemOverlayComponent);
-    fixture.componentInstance.item = { ...mockItem, unitReviewRequired: true };
-    fixture.detectChanges();
-
-    expect(document.body.querySelector('[data-testid="unit-review-note"]')).not.toBeNull();
-  });
-
-  it('tells a flagged catalog-unit item that saving confirms its unit', () => {
-    TestBed.configureTestingModule({
-      imports: [
-        EditItemOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
-      ],
-      providers: [
-        ...knownExpiryPolicyProviders(),
-        { provide: Store, useValue: store },
-        { provide: InventoryService, useValue: inventoryService },
-      ],
-    });
-    const fixture = TestBed.createComponent(EditItemOverlayComponent);
-    fixture.componentInstance.item = { ...mockItem, uom: 'PCS', quantityScale: 0, unitReviewRequired: true };
-    fixture.detectChanges();
-
-    const note = document.body.querySelector('[data-testid="unit-review-note"]');
-    expect(note?.textContent).toContain('inventory.unitReview.confirmNote');
-    expect(note?.textContent).not.toContain('inventory.unitReview.note');
-  });
-
-  it('asks a flagged custom-unit item to choose a precision', () => {
-    TestBed.configureTestingModule({
-      imports: [
-        EditItemOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
-      ],
-      providers: [
-        ...knownExpiryPolicyProviders(),
-        { provide: Store, useValue: store },
-        { provide: InventoryService, useValue: inventoryService },
-      ],
-    });
-    const fixture = TestBed.createComponent(EditItemOverlayComponent);
-    fixture.componentInstance.item = { ...mockItem, uom: 'Strip', quantityScale: 0, unitReviewRequired: true };
-    fixture.detectChanges();
-
-    const note = document.body.querySelector('[data-testid="unit-review-note"]');
-    expect(note?.textContent).toContain('inventory.unitReview.note');
   });
 
   it('restores the previous custom precision when a catalog label is replaced by a custom one', () => {

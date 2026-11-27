@@ -1,6 +1,6 @@
 # P04 online enforcement acceptance
 
-[P04 §8](https://github.com/chanakya-net/intelibill/issues/826) defines the action matrix. [The entry-point inventory](p04-enforcement-inventory.tsv) pins 232 merchant route entries, 140 Wolverine handler calls, 12 writer types, and all six reconciliation actions. The writer entries include the scheduled writers, offline poster, and bulk row executors. `LicenceActionClassificationTests` compares live discovery against that inventory. Mixed entry points still decide from the actual source action, including a member removal, quarantine disposal, or existing committed outcome.
+[P04 §8](https://github.com/chanakya-net/intelibill/issues/826) defines the action matrix. [The entry-point inventory](p04-enforcement-inventory.tsv) pins 231 merchant route entries, 139 Wolverine handler calls, 12 writer types, and all six reconciliation actions. The writer entries include the scheduled writers, offline poster, and bulk row executors. `LicenceActionClassificationTests` compares live discovery against that inventory. Mixed entry points still decide from the actual source action, including a member removal, quarantine disposal, or existing committed outcome.
 
 ## Matrix and regression evidence
 

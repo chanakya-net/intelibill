@@ -47,8 +47,8 @@ public sealed class ItemStockHistoryPersistenceTests(PostgreSqlTestFixture fixtu
         await db.SaveChangesAsync();
 
         Assert.Equal(Intelibill.Domain.ValueObjects.ItemStockHistory.None, await repository.GetStockHistoryAsync(shop.Id, untouched.Id));
-        Assert.Equal(new Intelibill.Domain.ValueObjects.ItemStockHistory(true, 1), await repository.GetStockHistoryAsync(shop.Id, fractional.Id));
-        Assert.Equal(new Intelibill.Domain.ValueObjects.ItemStockHistory(true, 0), await repository.GetStockHistoryAsync(shop.Id, voidedOnly.Id));
+        Assert.Equal(new Intelibill.Domain.ValueObjects.ItemStockHistory(true), await repository.GetStockHistoryAsync(shop.Id, fractional.Id));
+        Assert.Equal(new Intelibill.Domain.ValueObjects.ItemStockHistory(true), await repository.GetStockHistoryAsync(shop.Id, voidedOnly.Id));
     }
 
     private static InventoryBatch NewBatch(Guid shopId, Guid itemId, decimal quantity, Guid actor) =>

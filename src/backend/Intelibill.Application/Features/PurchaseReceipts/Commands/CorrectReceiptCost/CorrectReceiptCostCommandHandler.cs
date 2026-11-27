@@ -203,7 +203,7 @@ public sealed class CorrectReceiptCostCommandHandler(
     {
         if (receipt.HasSupplierReturns)
             return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments; its cost cannot change.");
-        if (!receipt.IsResolved || receipt.OriginalTotalCost is null || receipt.EffectiveTotalCost is null)
+        if (receipt.OriginalTotalCost is null || receipt.EffectiveTotalCost is null)
             return Errors.PurchaseReceipt.EvidenceMissing;
         return null;
     }

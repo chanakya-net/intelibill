@@ -193,27 +193,6 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
     }
 
     [Fact]
-    public async Task MissingLegacyReceiptEvidence_BlocksFinancialCorrection()
-    {
-        using var client = CreateClient();
-        var shop = await CreateShopAsync(client);
-        var receipt = await ReceiveAsync(client, shop.OwnerToken, 10m, 1000m);
-        await MarkLegacyUnresolvedAsync(receipt.BatchId);
-        var batch = await BatchAsync(client, shop.OwnerToken, receipt.BatchId);
-        Assert.Equal("LegacyUnresolved", batch.ReceiptStatus);
-        Assert.Null(batch.ReceiptTotalCost);
-
-        var response = await CorrectCostAsync(client, shop.OwnerToken, batch.ReceiptValueId!.Value, batch.ReceiptVersion!.Value, 1100m, "Invoice");
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("PurchaseReceipt.EvidenceMissing", await TitleAsync(response));
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False(await db.PurchaseReceiptCostAdjustments.AnyAsync(a => a.InventoryBatchId == receipt.BatchId));
-        await AssertPayableAsync(receipt.BatchId, 1000m);
-    }
-
-    [Fact]
     public async Task CostCorrection_KeyedResend_ReplaysWithoutSecondDelta()
     {
         using var client = CreateClient();
@@ -314,68 +293,11 @@ public sealed class PurchaseCostLineageTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal("Inventory.PriceVersionRequired", await TitleAsync(response));
     }
 
-    [Fact]
-    public async Task Backfill_ResolvesClearReceiptsAndLeavesLegacyCorrectionsUnresolved()
-    {
-        using var client = CreateClient();
-        var shop = await CreateShopAsync(client);
-        var clear = await ReceiveAsync(client, shop.OwnerToken, 3m, 100m);
-        var replaced = await ReceiveAsync(client, shop.OwnerToken, 6m, 660m);
-
-        await using (var scope = _factory.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-            // Both as they stood before receipt values; the second as the old destructive PUT left a
-            // replacement batch: its only movement is the correction's own.
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM purchase_receipt_values WHERE inventory_batch_id IN ({clear.BatchId}, {replaced.BatchId})");
-            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE stock_transactions SET reference_number = 'Batch Correction' WHERE inventory_batch_id = {replaced.BatchId}");
-
-            var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), "scripts", "db", "backfill-purchase-receipt-values.sql"));
-            await db.Database.ExecuteSqlRawAsync(script);
-            Assert.Equal(0, await db.Database.ExecuteSqlRawAsync(script));
-        }
-
-        await using var verify = _factory.Services.CreateAsyncScope();
-        var stored = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var resolved = await stored.PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == clear.BatchId);
-        Assert.Equal(PurchaseReceiptValueStatus.Resolved, resolved.Status);
-        Assert.Equal(PurchaseReceiptSource.LegacyBackfill, resolved.Source);
-        Assert.Equal(100m, resolved.OriginalTotalCost);
-        Assert.Equal(clear.SupplierId, resolved.SupplierId);
-
-        var unresolved = await stored.PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == replaced.BatchId);
-        Assert.Equal(PurchaseReceiptValueStatus.LegacyUnresolved, unresolved.Status);
-        Assert.Null(unresolved.OriginalTotalCost);
-        Assert.Null(unresolved.EffectiveTotalCost);
-    }
-
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
-            directory = directory.Parent;
-
-        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
-    }
-
     private async Task<decimal> SoldCostAsync(Guid saleId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return (await db.Sales.Include(s => s.Items).SingleAsync(s => s.Id == saleId)).Items.Single().CostPrice;
-    }
-
-    private async Task MarkLegacyUnresolvedAsync(Guid batchId)
-    {
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var updated = await db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE purchase_receipt_values
-            SET status = 'LEGACY_UNRESOLVED', source = 'LEGACY_BACKFILL', original_total_cost = NULL, effective_total_cost = NULL
-            WHERE inventory_batch_id = {batchId}
-            """);
-        Assert.Equal(1, updated);
     }
 
     private async Task AssertPayableAsync(Guid batchId, decimal expected)

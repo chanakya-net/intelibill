@@ -70,7 +70,7 @@ public sealed class SupplierReturnService(
             foreach(var input in request.Lines.OrderBy(x=>x.ReceiptValueId))
             {
                 var receipt=rows.Single(x=>x.Id==input.ReceiptValueId);
-                if(!receipt.IsResolved || receipt.EffectiveTotalCost is null || receipt.SupplierId!=supplier.Id) return Invalid("ProvenanceInvalid","Each lot must have resolved source evidence from this supplier.");
+                if(receipt.EffectiveTotalCost is null || receipt.SupplierId!=supplier.Id) return Invalid("ProvenanceInvalid","Each lot must have resolved source evidence from this supplier.");
                 var batch=await batches.GetByIdAsync(receipt.InventoryBatchId,token);
                 if(batch is null || batch.ShopId!=shopId || batch.IsVoided) return Missing;
                 if(receipt.Version!=input.ExpectedReceiptVersion || batch.Version!=input.ExpectedBatchVersion || input.ExpectedBatchVersion==0 || input.ExpectedReceiptVersion==0) return VersionConflict;
@@ -175,7 +175,7 @@ public sealed class SupplierReturnService(
         var supplier=receipt.SupplierId.HasValue?await suppliers.GetByIdAsync(receipt.SupplierId.Value,ct):null;
         if (supplier is null) reasons.Add("PurchaseReceipt.SupplierMissing");
         if (supplier is null || supplier.IsSystem) ceiling = 0;
-        if(!receipt.IsResolved || batch.IsVoided) ceiling=0;
+        if(batch.IsVoided) ceiling=0;
         return new(receipt.Id,batch.Id,item.Id,receipt.SupplierId,receipt.PurchaseOrderReceiptLineId,batch.BatchNumber,item.Name,item.DocumentUnit,item.QuantityScale,receipt.Version,batch.Version,receipt.ReceivedQuantity,batch.Quantity,shipped,reversed.Sum(x=>x.Quantity),receipt.ReceivedQuantity-shipped-reversed.Sum(x=>x.Quantity),ceiling,receipt.EffectiveTotalCost,credited,allocated,net,Math.Max(0,net-allocated),Math.Max(0,allocated-net),Math.Min(net,decimal.Round((receipt.EffectiveTotalCost??0)*ceiling/receipt.ReceivedQuantity,2,MidpointRounding.AwayFromZero)),batch.IsVoided,reasons,history.Select(Map).ToArray(),reversed.Select(MapReversal).ToArray());
     }
     public async Task<ErrorOr<SupplierReturnPreviewDto>> PreviewAsync(Guid actor,Guid shopId,SupplierReturnPreviewRequest request,CancellationToken ct)

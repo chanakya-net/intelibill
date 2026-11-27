@@ -17,7 +17,6 @@ public sealed partial class P0418LicensingTests
     [InlineData("item-reactivate")]
     [InlineData("barcode-generate")]
     [InlineData("batch-prices")]
-    [InlineData("legacy-batch-prices")]
     public async Task Sources_operational_capacity_writes_refuse_after_expiry(string route)
     {
         using var host = CreateHost();
@@ -128,15 +127,6 @@ public sealed partial class P0418LicensingTests
                 {
                     expectedVersion = version, mrp = 5m, salesPrice = 5m, taxRatePercent = 0m, taxIncluded = false,
                     reason = "Price change after expiry",
-                }, Ct);
-            }
-            case "legacy-batch-prices":
-            {
-                var batch = await SeedGoodsAsync(client, $"Fixture stock {Guid.NewGuid():N}");
-                return () => client.PutAsJsonAsync($"/api/inventory/batches/{batch}", new
-                {
-                    quantity = 10m, costPrice = 1m, mrp = 5m, salesPrice = 5m, taxRatePercent = 0m,
-                    taxIncluded = false, notes = "New retail terms",
                 }, Ct);
             }
             case "supplier-delete":

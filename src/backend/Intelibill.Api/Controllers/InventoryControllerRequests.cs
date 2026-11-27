@@ -59,21 +59,6 @@ public sealed record AddInventoryBatchResponse(
     IReadOnlyList<AddInventoryBatchSucceededRow> Succeeded,
     IReadOnlyList<AddInventoryBatchFailedRow> Failed);
 
-public sealed record UpdateInventoryBatchRequest(
-    string? NewBatchNumber,
-    decimal Quantity,
-    decimal CostPrice,
-    decimal Mrp,
-    decimal SalesPrice,
-    decimal TaxRatePercent,
-    bool TaxIncluded,
-    DateOnly? ExpiryDate,
-    DateOnly? ManufacturingDate,
-    Guid? SupplierId,
-    string? Notes,
-    DateOnly? EntryDate,
-    uint? ExpectedVersion = null);
-
 public sealed record ReassignBatchSupplierRequest(Guid NewSupplierId);
 
 public sealed record CreateAdjustmentRequest(

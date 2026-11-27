@@ -19,7 +19,6 @@ const milkItem: Item = {
   defaultTaxIncluded: false,
   unitCode: null,
   quantityScale: 0,
-  unitReviewRequired: false,
 };
 
 describe('inventoryReducer', () => {

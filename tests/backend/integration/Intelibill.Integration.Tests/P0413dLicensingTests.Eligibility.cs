@@ -79,23 +79,7 @@ public sealed partial class P0413dLicensingTests
         version = await ReceiptVersionAsync(source.Receipt);
         await AssertProblemAsync(await CorrectAsync(client, source.Receipt, version, 1000.01m, NewKey()),
             HttpStatusCode.BadRequest, "PurchaseReceipt.CostUnchanged");
-
-        await MarkLegacyUnresolvedAsync(source.Receipt);
-        var unresolved = await FactsAsync(source);
-        version = await ReceiptVersionAsync(source.Receipt);
-        await AssertProblemAsync(await CorrectAsync(client, source.Receipt, version, 1050, NewKey()),
-            HttpStatusCode.BadRequest, "PurchaseReceipt.EvidenceMissing");
-        Assert.Equal(unresolved, await FactsAsync(source));
-        _output.WriteLine("950 remains allocated; 949.99 rejected (409); +0.01 posted; stale version 409 and unresolved evidence 400 wrote no new facts.");
-    }
-
-    private async Task MarkLegacyUnresolvedAsync(Guid receipt)
-    {
-        await using var db = Open(Migrator);
-        Assert.Equal(1, await db.Database.ExecuteSqlAsync($"""
-            UPDATE purchase_receipt_values SET status = 'LEGACY_UNRESOLVED', source = 'LEGACY_BACKFILL',
-                original_total_cost = NULL, effective_total_cost = NULL WHERE id = {receipt}
-            """, Ct));
+        _output.WriteLine("950 remains allocated; 949.99 rejected (409); +0.01 posted; stale version 409 wrote no new facts.");
     }
 
     [Fact]

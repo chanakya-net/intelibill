@@ -59,8 +59,7 @@ public class GetItemsQueryHandlerTests
                     5m,
                     false,
                     null,
-                    0,
-                    false),
+                    0),
                 new ItemCatalogReadModel(
                     Guid.NewGuid(),
                     "Rice",
@@ -77,8 +76,7 @@ public class GetItemsQueryHandlerTests
                     0m,
                     false,
                     "KG",
-                    3,
-                    true),
+                    3),
             ],
             TotalCount: 2,
             Summary: new ItemCatalogSummaryReadModel(
