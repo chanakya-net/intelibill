@@ -1,6 +1,6 @@
 # Infrastructure Implementation Guide
 
-Step-by-step runbook for building the infrastructure described in [infrastructure-architecture.md](infrastructure-architecture.md). Rationale for every choice lives in [infrastructure-decisions.md](infrastructure-decisions.md).
+Step-by-step runbook for building the infrastructure described in [infrastructure-architecture.md](../architecture_doc/infrastructure-architecture.md). Rationale for every choice lives in [infrastructure-decisions.md](infrastructure-decisions.md).
 
 Each step states what it does, why it exists, how to verify it worked, and how it typically fails. **Verify before moving on.** Several steps fail silently, and the symptom appears three phases later.
 
@@ -21,7 +21,7 @@ This section supersedes conflicting examples later in the original runbook. The 
 | 5 Shared infrastructure | Incorrect as written | Prefer public GHCR; ~~use separate DB servers~~ **overridden: one shared server, see [decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases)**; add PostgreSQL `tenant_id`; ~~choose public-firewall exception or private production network~~ **locked: public** | DB `$16.09/month` lean; optional ACR `+$5.07` |
 | 6 DNS | Operationally risky | **⏸ DEFERRED to ~2026-08-25.** When resumed: inventory/copy all DNS and DNSSEC records before delegation, or keep current authoritative DNS and add only app records | `$0` while deferred; Azure DNS `$0.50/month` + queries later |
 | 7 Database bootstrap | Topology and network dependent | Bootstrap each server independently; create Entra principals, default privileges, cache table, and isolation/RLS tests. Run from a routed in-Azure job for private DB | no separate service fee |
-| 8 Application changes | ✅ **Applied 2026-07-26** — see [status](#status--2026-07-26) | Complete every gate in [architecture §6](infrastructure-architecture.md#6-application-production-contract), including migrations, web routing, health, CORS/proxy, SignalR, OAuth state, cache, and secrets | engineering effort |
+| 8 Application changes | ✅ **Applied 2026-07-26** — see [status](#status--2026-07-26) | Complete every gate in [architecture §6](../architecture_doc/infrastructure-architecture.md#6-application-production-contract), including migrations, web routing, health, CORS/proxy, SignalR, OAuth state, cache, and secrets | engineering effort |
 | 9 Secret values | Sequenced before the vault exists | First create vault/identity/RBAC; then add different per-env values. Never read values through an OpenTofu data source | Key Vault `<$0.10/month` expected |
 | 10 Environment infrastructure | Incomplete HCL | Add ingress/target ports, complete configuration, versionless Key Vault URIs, probes, network path, web app, and migration job. API max replicas is 1 initially | Container Apps about `$10–34/month` prod at assumed hours |
 | 11 Pipelines | ✅ **Implemented on `infra-setup` 2026-07-27; activation awaits merge and public GHCR packages** | Build all three images once, dev then prod sequentially; tests/scans; migration job; smoke tests; digest rollback. Routine deploy identity is separate from infrastructure apply | Actions `$0` for standard public-repo runners |
@@ -66,7 +66,7 @@ The audited East US monthly scenarios are:
 - **Scale-ready with public DB networking:** about **$130**, including prod B2s, dev B1ms, and Azure SignalR Standard.
 - **Scale-ready with private production network:** about **$152–156**.
 
-These totals exclude tax, egress, domain registration, and third-party email/API services. CPU-active business hours add about $23.81/month versus the mostly-idle example; 10 GB total Log Analytics ingest adds $11.50. The detailed arithmetic, usage drivers, one-time labour range, and official sources are in [architecture §10](infrastructure-architecture.md#10-cost-model).
+These totals exclude tax, egress, domain registration, and third-party email/API services. CPU-active business hours add about $23.81/month versus the mostly-idle example; 10 GB total Log Analytics ingest adds $11.50. The detailed arithmetic, usage drivers, one-time labour range, and official sources are in [architecture §10](../architecture_doc/infrastructure-architecture.md#10-cost-model).
 
 ---
 

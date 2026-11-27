@@ -4,7 +4,7 @@ Azure infrastructure for intelibill, provisioned with OpenTofu and deployed thro
 
 **Status:** design reviewed against the application source on 2026-07-25. Nothing in this document is built yet. The earlier design was not production-deployable as written; this revision makes the required corrections explicit.
 
-For the rationale and superseded choices, see [infrastructure-decisions.md](infrastructure-decisions.md). For executable sequencing, see [infrastructure-implementation-guide.md](infrastructure-implementation-guide.md).
+For the rationale and superseded choices, see [infrastructure-decisions.md](../docs/infrastructure-decisions.md). For executable sequencing, see [infrastructure-implementation-guide.md](../docs/infrastructure-implementation-guide.md).
 
 ---
 
@@ -33,7 +33,7 @@ Use two environments, each with an Angular web container and an ASP.NET Core API
 
 - Keep OpenTofu state in an Azure Storage account using Entra data-plane authentication.
 - Because the repository is public, use public GHCR by default: GitHub documents public packages as free and anonymous pulls require no stored credential. ACR Basic remains an optional Azure-local private registry for about $5.07/month.
-- ~~Use a PostgreSQL Flexible Server per environment.~~ **Overridden on cost:** one shared server with a database per environment, accepting that development load, maintenance windows, point-in-time recovery, and CPU credits are shared, and that dev/prod separation rests on in-database grants — [decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases).
+- ~~Use a PostgreSQL Flexible Server per environment.~~ **Overridden on cost:** one shared server with a database per environment, accepting that development load, maintenance windows, point-in-time recovery, and CPU credits are shared, and that dev/prod separation rests on in-database grants — [decision §8](../docs/infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases).
 - For a controlled lean launch, use one B1ms for the shared server and cap the API at one replica. Note that both environments then draw from a single server's connection limit. Moving to B2s erases the sharing saving, at which point separate servers are the better trade.
 - ~~For real customer data, prefer a production Container Apps environment integrated with a custom VNet and PostgreSQL private access.~~ **Locked to public access** with a narrow firewall allowlist, on cost. This is the lower-cost launch exception rather than the preferred end state; it is defensible here only because Entra-only authentication means no database password exists to guess.
 - Use the application's existing OpenTelemetry pipeline to export traces/logs; do not install the New Relic .NET agent as a second instrumentation stack.
@@ -108,7 +108,7 @@ Use separate identities for separate duties:
 | Identity | Minimum scope |
 |---|---|
 | plan | Reader on every planned resource plus `Storage Blob Data Reader` on its state container |
-| infrastructure apply | Contributor + RBAC Administrator on the single resource group. One group means one blast radius: "create" cannot be scoped below group level, so this cannot be narrowed without splitting the group — [decision §19](infrastructure-decisions.md#19-one-resource-group-for-everything) |
+| infrastructure apply | Contributor + RBAC Administrator on the single resource group. One group means one blast radius: "create" cannot be scoped below group level, so this cannot be narrowed without splitting the group — [decision §19](../docs/infrastructure-decisions.md#19-one-resource-group-for-everything) |
 | deploy | Push image if using ACR, update Container Apps, start migration job; no general resource creation |
 | application runtime | Key Vault secret read; optional registry pull; database DML only |
 | migrator | Database DDL/DML for its environment only |
@@ -187,7 +187,7 @@ The product has no required durable local filesystem state. PostgreSQL and the d
 Required production configuration includes:
 
 - `Database__Host`, `Database__Port`, `Database__Database`, `Database__Username`, Entra mode, pool size, and SSL;
-- `Jwt__SigningMode`, `Jwt__KeyVaultKeyId`, issuer, audience, and expiry settings (no `Jwt__Secret` in a deployed environment — see [decision §21](infrastructure-decisions.md#21-jwt-signing-moves-into-key-vault));
+- `Jwt__SigningMode`, `Jwt__KeyVaultKeyId`, issuer, audience, and expiry settings (no `Jwt__Secret` in a deployed environment — see [decision §21](../docs/infrastructure-decisions.md#21-jwt-signing-moves-into-key-vault));
 - `App__BaseUrl`, exact CORS origins, and trusted proxy/network settings;
 - enabled email and external-auth credentials/callback URLs;
 - product lookup and HSN service URLs/keys;
@@ -204,7 +204,7 @@ Use this dependency order:
 2. Grant state blob data-plane roles; migrate state and verify locking/versioning.
 3. Create narrowly scoped plan/apply/deploy identities and OIDC federated credentials.
 4. Configure GitHub `dev` and `prod` environments, required reviewers, concurrency locks, and non-secret IDs.
-5. Provision registry choice, DNS records, and one shared PostgreSQL server with a database per environment ([decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases)). The public-network path is locked in, so there is no VNet or private DNS to provision.
+5. Provision registry choice, DNS records, and one shared PostgreSQL server with a database per environment ([decision §8](../docs/infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases)). The public-network path is locked in, so there is no VNet or private DNS to provision.
 6. Create environment Key Vaults and runtime/migrator identities with RBAC and purge protection.
 7. Add secret values out of band. Do not read their values through an OpenTofu data source: sensitive data sources are still persisted in state. Construct versionless URIs as `${vault_uri}secrets/<name>` and let Container Apps resolve them.
 8. Bootstrap database principals, revoke inappropriate public access, create the cache table, and test cross-environment denial and RLS.

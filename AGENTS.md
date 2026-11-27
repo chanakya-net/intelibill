@@ -1,6 +1,6 @@
 # intelibill — Agent Guide
 
-`CLAUDE.md` and `GEMINI.md` symlink to this file. Keep this guide concise; put detailed subsystem specs and rollout notes in `docs/` and link them below.
+`CLAUDE.md` and `GEMINI.md` symlink to this file. Keep this guide concise; put architecture docs in `architecture_doc/` and detailed subsystem/rollout notes in `docs/`, and link them below.
 
 ## Build & Test
 
@@ -21,7 +21,7 @@ dotnet ef migrations add <MigrationName> --project src/backend/Intelibill.Infras
 dotnet ef database update --project src/backend/Intelibill.Infrastructure --startup-project src/backend/Intelibill.Api
 ```
 For licensing migrations, target `--project src/licensing/Intelibill.Licensing.Infrastructure --startup-project src/licensing/Intelibill.Licensing.Api --context LicensingDbContext`.
-Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `docs/backend-architecture.md`).
+Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `architecture_doc/backend-architecture.md`).
 
 **Web Workspaces** (Bun `1.3.11` only — never `npm` or `yarn`; single root `bun.lock`):
 - Merchant web (`src/frontend`): `bun install`, `bun run start`, `bun run build`, `bun run test --watch=false` (or `--run <spec>`)
@@ -97,7 +97,8 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 ## Documentation Index (Read Before Editing a Subsystem)
 
 - `README.md` — overview & local setup
-- `docs/architectural_patterns.md` — shared design & code patterns
-- `docs/backend-architecture.md` — tenancy, auth, financial ops, credit, returns, stock/purchase receipts, posting periods, offline sync/reconciliation, locking orders, integration parallelism
-- `docs/frontend-architecture.md` — shop context transitions, protected API service worker, offline pack & printing, shared styles
-- `docs/mobile-architecture.md` — Flutter app architecture
+- `architecture_doc/architectural_patterns.md` — shared design & code patterns
+- `architecture_doc/backend-architecture.md` — tenancy, auth, financial ops, credit, returns, stock/purchase receipts, posting periods, offline sync/reconciliation, locking orders, integration parallelism
+- `architecture_doc/frontend-architecture.md` — shop context transitions, protected API service worker, offline pack & printing, shared styles
+- `architecture_doc/mobile-architecture.md` — Flutter app architecture
+- `architecture_doc/infrastructure-architecture.md` — Azure/OpenTofu infrastructure architecture

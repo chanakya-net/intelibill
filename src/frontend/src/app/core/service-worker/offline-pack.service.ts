@@ -103,7 +103,7 @@ interface ManifestJson {
  *
  * Without a service worker (development builds, unsupported browsers) every step is skipped and
  * offline billing is enabled as before this existed: such a page never had an offline pack.
- * See docs/frontend-architecture.md § Offline Pack.
+ * See architecture_doc/frontend-architecture.md § Offline Pack.
  */
 @Injectable({ providedIn: 'root' })
 export class OfflinePackService {

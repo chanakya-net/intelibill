@@ -1,6 +1,6 @@
 # Backend Architecture
 
-> High-level architecture reference. For implementation patterns (DI, Repository, ErrorOr, Options, etc.) see [`docs/architectural_patterns.md`](architectural_patterns.md). For build commands, config, and test snapshots see [`AGENTS.md`](../AGENTS.md) at repo root.
+> High-level architecture reference. For implementation patterns (DI, Repository, ErrorOr, Options, etc.) see [`architecture_doc/architectural_patterns.md`](architectural_patterns.md). For build commands, config, and test snapshots see [`AGENTS.md`](../AGENTS.md) at repo root.
 
 ## Stack
 
@@ -64,7 +64,7 @@ Setup is an advisory projection of the active shop's saved facts. Live Owner, Ma
 
 The status and sample share the candidate evaluation. A service can support setup readiness without inventory. Goods use the current expiry fence, eligible lot availability, aggregate stock and the item's unit precision. The sample uses the existing pricing and document builders with a transient cash sale. An evaluation loads and groups the active discount rules at most once and clears the document number before returning the sample. The API performs no save and takes no sequence number. Only a deliberate owner acknowledgement records a timestamp and actor. Checkout applies its normal posting policies independently.
 
-See [Guided merchant onboarding rollout](guided-merchant-onboarding-rollout.md) for the endpoints and release order.
+See [Guided merchant onboarding rollout](../docs/guided-merchant-onboarding-rollout.md) for the endpoints and release order.
 
 ## Refresh Credentials
 
@@ -128,7 +128,7 @@ account with no business history is released to whoever proves it rather than me
 on a bounded retry lease with no transaction held across the network call. `ISmsSender` takes a
 rendered body, not a code and a template id, so no transport is in a position to log a code; local
 capture, restricted to Development and Testing by `PhoneAuthOptionsValidator`, is the one place a
-code is logged. See [auth-phone-setup.md](auth-phone-setup.md) for the transports, the TRAI DLT
+code is logged. See [auth-phone-setup.md](../docs/auth-phone-setup.md) for the transports, the TRAI DLT
 routes and the enablement gate.
 
 ## Realtime Notifications
@@ -1215,7 +1215,7 @@ Owner setup is persisted separately from deployment eligibility: `shop_till_sett
 
 Till sessions attach recorded external settlement and non-drawer settlement totals to one physical till, named cashier and shop-local business date. Seven tenant tables (`tills`, `till_sessions`, `till_source_records`, `till_movements`, `till_closes`, `till_close_reviews`, `till_late_postings`) use forced RLS and composite tenant foreign keys. A partial unique index prevents two open sessions per till. Immutable sources are globally unique by shop/type/source/purpose; movements add line and session sequence uniqueness. An all-due sale still appends a source and advances session `xmin`, protecting close from a stale zero-cash boundary.
 
-`TillSessions` defaults to `Enabled=false`, `AllowedShopIds=[]`, `MixedTenderEnabled=false`; enablement requires both gate and exact shop. Mixed tender is unsupported. Explicit new evidence with a disabled gate is refused; absent fields retain legacy behavior/hash. Deploy the five migrations and every API/read/write path before a separately approved pilot. All five Down methods refuse schema rollback. See [Till rollout](till-sessions-rollout.md) for ordered migrations, contracts, verification and operational limits.
+`TillSessions` defaults to `Enabled=false`, `AllowedShopIds=[]`, `MixedTenderEnabled=false`; enablement requires both gate and exact shop. Mixed tender is unsupported. Explicit new evidence with a disabled gate is refused; absent fields retain legacy behavior/hash. Deploy the five migrations and every API/read/write path before a separately approved pilot. All five Down methods refuse schema rollback. See [Till rollout](../docs/till-sessions-rollout.md) for ordered migrations, contracts, verification and operational limits.
 
 `ITillPostingService.AcquireAsync` is called freshly inside the source's transaction after sorted period fences. It locks and reloads the same session used by close, enforces active cashier/manager override and same-day trading, then `AppendAsync` stages immutable source/movement facts without saving. Transaction order is operation receipt → reconciliation case where applicable → sorted posting periods → till/session → customer/supplier → sale/receipt → credit notes → batches/items. Each source owns one save/commit; keyed returns use the coordinator's pre-business-lock hook under the executor's existing transaction. Never reuse an acquired session across commit, rollback or retry.
 
@@ -1239,7 +1239,7 @@ Schema4 catalogs persist immutable seven-day `OfflineExpiryEvidence` before yiel
 
 `InventoryBatch.QuarantinedQuantity` is a physical subset. Expired/required-undated recovered returns and cancellations retain exact roots in `batch_disposition_changes`; child balances equal batch quarantine via deferred PostgreSQL checks. `GET/POST /api/inventory/batches/{id}/dispositions` provides history and Owner-only keyed Release/Dispose (operation27; result `/api/financial-operations/batch-disposition/{key}`). Originally expired roots cannot release; missing-date roots require audited correction/current eligibility. Dispose reduces both quantities and recognizes dated independent loss at recorded cost. Quarantine itself is no write-off; return/cancellation COGS reverses once. Source void reverses exact untouched roots; counts/adjustments/supplier/reversal writers preserve quarantine and journal history. All new tables have forced RLS, tenant manifest entries and immutable history triggers; source disposition and disposal links are protected.
 
-See [expiry rollout](expiry-aware-selling-rollout.md) for the four ordered migrations, every-writer deployment, explicit-shop read-only audit, nonregulated/offline/accounting limits and forward-only recovery. No merchant policy is enabled by deployment; retain schema/evidence and compatible readers/writers on rollback.
+See [expiry rollout](../docs/expiry-aware-selling-rollout.md) for the four ordered migrations, every-writer deployment, explicit-shop read-only audit, nonregulated/offline/accounting limits and forward-only recovery. No merchant policy is enabled by deployment; retain schema/evidence and compatible readers/writers on rollback.
 
 
 ## Bounded Sales Exports and Party Directories
@@ -1257,7 +1257,7 @@ include all data-bearing adjustment sections: both an in-window return and its i
 cancellation headers/lines, XLSX summary adjustment aggregates and XML headers/lines. Source counts
 deduplicate overlapping original-sale dependencies and cover children, settlements and fallback
 records. SQL aggregates may scan more rows but do not materialize histories. See
-[the verification contract](bounded-reads-verification.md) for the exact format-specific formulas.
+[the verification contract](../docs/bounded-reads-verification.md) for the exact format-specific formulas.
 Over-limit preflight returns `Export.PdfRowLimitExceeded`, `Export.RowLimitExceeded` or
 `Export.ReadLimitExceeded` with a narrow-date-range remedy; it performs no detail read or rendering.
 Accepted files are never silently truncated.
@@ -1291,7 +1291,7 @@ Legacy `GET /api/customers` and `GET /api/suppliers` retain array compatibility 
 their balances use grouped SQL, but they are not a scalable replacement for the directory routes.
 No schema/index changes were required. Deploy API routes before/with the web client; rollback keeps
 legacy arrays available. Local verification is documented in
-[bounded reads verification](bounded-reads-verification.md), without a production capacity claim.
+[bounded reads verification](../docs/bounded-reads-verification.md), without a production capacity claim.
 
 ## Licensing Payment Provider Resolution
 

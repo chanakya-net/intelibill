@@ -7,7 +7,7 @@ import { Generator, type Config, type Filesystem } from '@angular/service-worker
 import { describe, expect, it } from 'vitest';
 
 /**
- * Spike for the offline pack (docs/frontend-architecture.md § Offline Pack).
+ * Spike for the offline pack (architecture_doc/frontend-architecture.md § Offline Pack).
  *
  * Runs Angular's own published worker (`@angular/service-worker/ngsw-worker.js`, the file the build
  * copies to `ngsw-angular-worker.js`) against an in-memory Cache Storage and a `self.fetch` that

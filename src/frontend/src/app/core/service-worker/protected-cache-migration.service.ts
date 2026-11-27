@@ -51,7 +51,7 @@ type WorkerCheck = 'none' | 'protected' | 'replaced' | 'stale';
  * removes the answers earlier workers stored, so none stays on disk.
  * Only the caches named by `isLegacyProtectedCacheName` are touched: app assets, other caches and
  * every IndexedDB database stay as they are. Each step is safe to repeat.
- * See docs/frontend-architecture.md § Protected API Cache Isolation.
+ * See architecture_doc/frontend-architecture.md § Protected API Cache Isolation.
  */
 @Injectable({ providedIn: 'root' })
 export class ProtectedCacheMigrationService {

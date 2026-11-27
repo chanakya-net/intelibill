@@ -9,7 +9,7 @@ namespace Intelibill.Api.Middleware;
 /// under another identity. The header is written before the endpoint runs and again as the response
 /// starts, so neither an endpoint's own policy nor an error answer written further in can replace it.
 /// Health probes and anything outside these paths keep the policy they set.
-/// See docs/frontend-architecture.md § Protected API Cache Isolation.
+/// See architecture_doc/frontend-architecture.md § Protected API Cache Isolation.
 /// </remarks>
 public sealed class ProtectedResponseCacheMiddleware(RequestDelegate next)
 {
