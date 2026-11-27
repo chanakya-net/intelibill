@@ -29,6 +29,9 @@ public static class DependencyInjection
         // and only this assembly can see the internal implementation.
         services.AddScoped<Features.Expiry.BatchDispositionService>();
         services.AddScoped<Features.Expiry.ExpiryPolicyService>();
+        services.AddScoped<Features.Expiry.BatchDisposalPoster>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationStockRestorer>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationRecorder>();
         services.AddScoped<Features.Expiry.SaleExpiryGuard>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SaleReplayReader>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SalePostingContextReader>();

@@ -27,16 +27,12 @@ public sealed class SaleCancellationService(
     IBusinessClock clock,
     IPostingPeriodPolicy periods,
     IFinancialOperationExecutor executor,
-    IInventoryBatchRepository batches,
-    IInventoryRepository inventory,
-    IStockTransactionRepository movements,
-    ICustomerLedgerEntryRepository ledger,
-    ISaleCancellationRepository cancellations,
+    SaleCancellationStockRestorer stock,
+    SaleCancellationRecorder recorder,
     IUnitOfWork uow,
     IMessageBus bus,
     ITillPostingService tills,
-    IExpiryPolicyFence expiryFence,
-    BatchDispositionService dispositions)
+    IExpiryPolicyFence expiryFence)
 {
     private static readonly CancelSaleRequestValidator Validator = new();
     private async Task<ErrorOr<Shop>> AuthorizeAsync(Guid actor, Guid shopId, Guid saleId, CancellationToken ct)
@@ -76,7 +72,7 @@ public sealed class SaleCancellationService(
         if (sale is null) return Errors.Sale.NotFound(saleId);
         var day = clock.GetBusinessDay(clock.UtcNow, shop.BusinessTimeZoneId);
         var evaluation = await policy.EvaluateReceiptAsync(shop.Id, sale, day, ct);
-        var previewLines = await ReadPreviewLinesAsync(shop.Id, day.Date, evaluation.Lines, ct);
+        var previewLines = await stock.ReadPreviewLinesAsync(shop.Id, day.Date, evaluation.Lines, ct);
         if (!await CanManageAsync(actor, shop.Id, ct)) return Errors.SaleCancellation.Forbidden;
         var decision = lease.CurrentDecision();
         if (SaleCancellationCompletionPolicy.Denial(decision) is { } denial) return denial;
@@ -90,23 +86,6 @@ public sealed class SaleCancellationService(
             sale.Version, reasons.Count == 0, rollout.IsPostingEnabled(shop.Id), day.Date, reasons, previewLines.Value,
             sale.TotalAmount, sale.DueAmount, cash, sale.PaidAmount - cash, evaluation.CreditRestorationAmount,
             true, cash > 0, SaleCancellationCompletionPolicy.RequiresProof(decision));
-    }
-
-    private async Task<ErrorOr<List<SaleCancellationPreviewLineDto>>> ReadPreviewLinesAsync(Guid shopId, DateOnly date,
-        IReadOnlyList<SaleCancellationPreviewLineDto> lines, CancellationToken ct)
-    {
-        var preview = new List<SaleCancellationPreviewLineDto>();
-        foreach (var line in lines)
-        {
-            var batch = line.InventoryBatchId is { } id ? await batches.GetByIdAsync(id, ct) : null;
-            if (batch is null || batch.ShopId != shopId) { preview.Add(line);
-            continue; }
-            var disposition = await dispositions.EvaluateAsync(batch, date, line.Quantity, ct);
-            if (disposition.IsError) return disposition.Errors;
-            preview.Add(line with { PhysicalRestorationQuantity = disposition.Value.PhysicalQuantity,
-                QuarantinedQuantity = disposition.Value.QuarantinedQuantity, DispositionReasonCode = disposition.Value.ReasonCode });
-        }
-        return preview;
     }
 
     public async Task<ErrorOr<SaleCancellationDto>> CancelAsync(
@@ -203,64 +182,16 @@ public sealed class SaleCancellationService(
         ShopLicenceLease lease, CancellationToken token)
     {
         var shopId = shop.Id;
-        var saleId = sale.Id;
-        var restoration = await StageStockAsync(sale, actorUserId, request.Reason.Trim(), day, now, e, token);
+        var restoration = await stock.LockHeldBatchesAndStageStockAsync(sale, actorUserId, request.Reason.Trim(), day, now, e, token);
         if (restoration.IsError) return restoration.Errors;
-        Guid? ledgerId = null;
-        if (sale.DueAmount > 0)
-        {
-            var credit = CustomerLedgerEntry.Create(
-                shopId,
-                sale.CustomerId!.Value,
-                saleId,
-                CustomerLedgerEntryType.SaleCancellationCredit,
-                sale.DueAmount,
-                day.Date,
-                request.Reason.Trim(),
-                actorUserId);
-            if (credit.IsError) return credit.Errors;
-            ledgerId = credit.Value.Id;
-            await ledger.AddAsync(credit.Value, token);
-        }
-        var document = sale.InvoiceDocument!;
-        var fact = SaleCancellation.Record(
-            new SaleCancellationInput(
-                shopId,
-                saleId,
-                actorUserId,
-                request.OperationKey,
-                request.Reason,
-                now,
-                day.Date,
-                day.TimeZoneId,
-                sale.InvoiceNumber,
-                sale.BusinessDate,
-                sale.TotalAmount,
-                sale.TotalAmount,
-                0m,
-                sale.DueAmount,
-                sale.PaidAmount,
-                ledgerId,
-                document.Seller,
-                document.Buyer,
-                true,
-                request.CashRefundConfirmed,
-                restoration.Value.Lines));
+        var fact = await recorder.StageDueCreditAndRecordAsync(shopId, sale, actorUserId, request, day, now,
+            restoration.Value.Lines, token);
         if (fact.IsError) return fact.Errors;
-        foreach (var stock in restoration.Value.Movements)
-        {
-            var recoveredLine = fact.Value.Lines.Single(x => x.SaleItemId == stock.SaleItemId);
-            var disposition = await dispositions.EvaluateAsync(stock.Batch, day.Date, recoveredLine.Quantity, token);
-            if (disposition.IsError) return disposition.Errors;
-            var staged = await dispositions.StageRestorationAsync(shopId, actorUserId, stock.Batch, "SaleCancellation",
-                fact.Value.Id, recoveredLine.Id, stock.Movement.Id, disposition.Value, day.Date, now, token);
-            if (staged.IsError) return staged.Errors;
-            recoveredLine.FreezeDisposition(staged.Value, disposition.Value.QuarantinedQuantity, disposition.Value.ReasonCode);
-        }
-        var cancelled = sale.MarkCancelled();
+        var dispositionsStaged = await stock.LockQuarantinedBatchesAndStageDispositionsAsync(shopId, actorUserId,
+            restoration.Value, fact.Value, day, now, token);
+        if (dispositionsStaged.IsError) return dispositionsStaged.Errors;
+        var cancelled = await recorder.MarkCancelledAndAddAsync(sale, fact.Value, token);
         if (cancelled.IsError) return cancelled.Errors;
-        sales.Update(sale);
-        await cancellations.AddAsync(fact.Value, token);
         if (session is not null)
         {
             var appended = await tills.AppendAsync(session, new(TillMovementSource.SaleCancellation, fact.Value.Id, "cash-refund",
@@ -274,64 +205,6 @@ public sealed class SaleCancellationService(
         if (policy.PostingRefusal(lease, shop, sale, day) is { } afterSave) return afterSave;
         return SaleCancellationDto.From(fact.Value);
     }
-
-    private async Task<ErrorOr<StockRestoration>> StageStockAsync(Sale sale, Guid actorUserId, string reason,
-        BusinessDay day, DateTimeOffset now, SaleCancellationEvaluation e, CancellationToken token)
-    {
-        var shopId = sale.ShopId;
-        List<SaleCancellationLineInput> lines = [];
-        List<(InventoryBatch Batch, Guid SaleItemId, StockTransaction Movement)> restorations = [];
-        var heldBatchIds = new List<Guid>();
-        foreach (var line in sale.Items)
-        {
-            var originalBatch = await batches.GetByIdAsync(line.InventoryBatchId!.Value, token);
-            var restored = await dispositions.EvaluateAsync(originalBatch!, day.Date, line.Quantity, token);
-            if (restored.IsError) return restored.Errors;
-            if (restored.Value.QuarantinedQuantity > 0) heldBatchIds.Add(originalBatch!.Id);
-        }
-        await dispositions.LockBatchesAsync(shopId, heldBatchIds, token);
-        foreach (var line in sale.Items.OrderBy(x => x.ItemId).ThenBy(x => x.InventoryBatchId).ThenBy(x => x.Id))
-        {
-            var batch = await batches.GetByIdAsync(line.InventoryBatchId!.Value, token);
-            var stock = await inventory.GetByItemAsync(shopId, line.ItemId!.Value, token);
-            var added = stock!.AddQuantity(line.Quantity, actorUserId);
-            if (added.IsError) return added.Errors;
-            var movement = StockTransaction.Create(
-                shopId,
-                line.ItemId.Value,
-                batch!.Id,
-                StockTransactionType.SaleCancellation,
-                line.Quantity,
-                sale.InvoiceNumber,
-                reason,
-                now,
-                actorUserId,
-                actorUserId);
-            if (movement.IsError) return movement.Errors;
-            await movements.AddAsync(movement.Value, token);
-            restorations.Add((batch!, line.Id, movement.Value));
-            inventory.Update(stock);
-            var frozen = e.Lines.Single(x => x.SaleItemId == line.Id);
-            lines.Add(
-                new(
-                    shopId,
-                    sale.Id,
-                    line.Id,
-                    line.ItemId.Value,
-                    batch.Id,
-                    movement.Value.Id,
-                    line.Quantity,
-                    frozen.Description,
-                    frozen.Uqc,
-                    line.CostPrice,
-                    line.TotalAmount,
-                    SaleEconomicsCalculator.RecordedCost(line.Quantity, line.CostPrice)));
-        }
-        return new StockRestoration(lines, restorations);
-    }
-
-    private sealed record StockRestoration(IReadOnlyList<SaleCancellationLineInput> Lines,
-        IReadOnlyList<(InventoryBatch Batch, Guid SaleItemId, StockTransaction Movement)> Movements);
 
     private static string? SqlStateOf(Exception ex)
     {

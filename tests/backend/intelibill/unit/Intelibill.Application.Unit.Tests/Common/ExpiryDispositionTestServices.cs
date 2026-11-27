@@ -22,8 +22,8 @@ internal static class ExpiryDispositionTestServices
         policies.GetEffectiveAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>())
             .Returns(new EffectiveExpiryPolicy(ExpiryPolicy.Default, 1, true, true, DateTimeOffset.MinValue));
         return new(journal, policies, Substitute.For<IExpiryPolicyFence>(), Substitute.For<IShopRepository>(), batches,
-            Substitute.For<IInventoryRepository>(), Substitute.For<IStockTransactionRepository>(), Substitute.For<IInventoryAdjustmentRepository>(),
-            Substitute.For<IInventoryAdjustmentNumberGenerator>(), Substitute.For<IFinancialOperationExecutor>(), Substitute.For<IPostingPeriodPolicy>(), clock,
+            new BatchDisposalPoster(Substitute.For<IInventoryRepository>(), Substitute.For<IStockTransactionRepository>(), Substitute.For<IInventoryAdjustmentRepository>(),
+            Substitute.For<IInventoryAdjustmentNumberGenerator>()), Substitute.For<IFinancialOperationExecutor>(), Substitute.For<IPostingPeriodPolicy>(), clock,
             Substitute.For<IUnitOfWork>(), Substitute.For<IShopLicenceFence>(), Substitute.For<ILiveSessionAuthority>());
     }
 }

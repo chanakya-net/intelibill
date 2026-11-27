@@ -17,8 +17,7 @@ using Intelibill.Domain.ValueObjects;
 namespace Intelibill.Application.Features.Expiry;
 
 public sealed class BatchDispositionService(IBatchDispositionRepository journal, IExpiryPolicyRepository policies,
-    IExpiryPolicyFence fence, IShopRepository shops, IInventoryBatchRepository batches, IInventoryRepository inventory,
-    IStockTransactionRepository movements, IInventoryAdjustmentRepository adjustments, IInventoryAdjustmentNumberGenerator numbers,
+    IExpiryPolicyFence fence, IShopRepository shops, IInventoryBatchRepository batches, BatchDisposalPoster disposals,
     IFinancialOperationExecutor executor, IPostingPeriodPolicy periods, IBusinessClock clock, IUnitOfWork uow,
     IShopLicenceFence licenceFence, ILiveSessionAuthority sessions)
 {
@@ -188,7 +187,7 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
         }
         else
         {
-            var disposed = await StageDisposalAsync(posting, source, day, now, ct);
+            var disposed = await disposals.StageDisposalAsync(posting.ShopId, actor, request, batch, root, day, now, ct);
             if (disposed.IsError) return disposed.Errors;
             (adjustment, movementId) = disposed.Value;
         }
@@ -196,10 +195,7 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
         var change = BatchDispositionChange.Consume(root, request.Action, request.Quantity, request.Reason.Trim(),
             movementId, adjustment?.Id, day, actor, now);
         if (adjustment is not null)
-        {
-            adjustment.LinkDisposition(change.Id);
-            await adjustments.AddAsync(adjustment, ct);
-        }
+            await disposals.AddLinkedAdjustmentAsync(adjustment, change.Id, ct);
         await journal.AddAsync(change, ct);
         batches.Update(batch);
 
@@ -242,34 +238,6 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
             return Refused("ReleaseIneligible", "A separately audited valid nonexpired date and clean current policy decision are required.");
 
         return batch.ReleaseQuarantine(request.Quantity, actor);
-    }
-
-    private async Task<ErrorOr<(InventoryAdjustment Adjustment, Guid MovementId)>> StageDisposalAsync(
-        DispositionPosting posting, LockedDispositionSource source, DateOnly day, DateTimeOffset now, CancellationToken ct)
-    {
-        var (shopId, actor, _, request, _) = posting;
-        var (batch, root, _) = source;
-        var stock = await inventory.GetByItemAsync(shopId, batch.ItemId, ct);
-        if (stock is null) return Refused("InventoryMissing", "Physical inventory aggregate is missing.");
-        var before = batch.Quantity;
-        var aggregate = stock.Quantity;
-        var disposed = batch.DisposeQuarantine(request.Quantity, actor);
-        if (disposed.IsError) return disposed.Errors;
-        var reduced = stock.SubtractQuantity(request.Quantity, actor);
-        if (reduced.IsError) return reduced.Errors;
-
-        var number = numbers.Generate(day);
-        var movement = StockTransaction.Create(shopId, batch.ItemId, batch.Id, StockTransactionType.Dmg, -request.Quantity,
-            number, request.Reason.Trim(), now, actor, actor);
-        if (movement.IsError) return movement.Errors;
-        var loss = InventoryAdjustment.Create(shopId, batch.ItemId, batch.Id, number, InventoryAdjustmentDirection.Decrease,
-            root.ReasonCode == "Expiry.Expired" ? InventoryAdjustmentReason.Expired : InventoryAdjustmentReason.OtherLoss,
-            request.Quantity, batch.CostPrice, decimal.Round(request.Quantity * batch.CostPrice, 2, MidpointRounding.AwayFromZero),
-            before, batch.Quantity, aggregate, stock.Quantity, now, actor, request.Reason.Trim(), actor);
-        if (loss.IsError) return loss.Errors;
-        await movements.AddAsync(movement.Value, ct);
-        inventory.Update(stock);
-        return (loss.Value, movement.Value.Id);
     }
 
     private sealed record DispositionPosting(Guid ShopId, Guid Actor, Guid BatchId, BatchDispositionRequest Request, SessionClaims Session);

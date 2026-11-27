@@ -37,9 +37,9 @@ public sealed class SaleCancellationHistoricalHashTests
             Arg.Any<Func<CancellationToken, Task<ErrorOr<SaleCancellationDto>>>>(), Arg.Any<CancellationToken>())
             .Returns(call => { captured = call.ArgAt<string>(3); return Task.FromResult<ErrorOr<SaleCancellationDto>>(Error.Conflict("Fixture.Replay", "Captured original request")); });
         var service = new SaleCancellationService(shops, sales, null!, Substitute.For<ISaleCancellationRollout>(), Substitute.For<IBusinessClock>(),
-            Substitute.For<IPostingPeriodPolicy>(), executor, Substitute.For<IInventoryBatchRepository>(), Substitute.For<IInventoryRepository>(),
-            Substitute.For<IStockTransactionRepository>(), Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISaleCancellationRepository>(),
-            Substitute.For<IUnitOfWork>(), Substitute.For<IMessageBus>(), Substitute.For<ITillPostingService>(), Substitute.For<IExpiryPolicyFence>(), null!);
+            Substitute.For<IPostingPeriodPolicy>(), executor, new SaleCancellationStockRestorer(Substitute.For<IInventoryBatchRepository>(), Substitute.For<IInventoryRepository>(),
+            Substitute.For<IStockTransactionRepository>(), null!), new SaleCancellationRecorder(sales, Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISaleCancellationRepository>()),
+            Substitute.For<IUnitOfWork>(), Substitute.For<IMessageBus>(), Substitute.For<ITillPostingService>(), Substitute.For<IExpiryPolicyFence>());
         await service.CancelAsync(actor, shop.Id, saleId, new("historical-key", 42, "  Mistaken entry  ", true, true), default);
         Assert.Equal("B3CDB6C23D66D110185D41A989E792BF3C66FA10B608314CEAEB4F40E66B2A03", captured);
     }
