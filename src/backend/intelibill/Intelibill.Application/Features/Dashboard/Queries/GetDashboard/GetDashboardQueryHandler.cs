@@ -44,6 +44,35 @@ public sealed class GetDashboardQueryHandler(
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
         var previousPeriod = GetPreviousPeriodRange(appliedFrom, appliedTo);
 
+        var data = await LoadDashboardDataAsync(
+            query,
+            shop.BusinessTimeZoneId,
+            today,
+            appliedFrom,
+            appliedTo,
+            previousPeriod,
+            cancellationToken);
+
+        var netProfitChangePercent = CalculatePercentChange(
+            data.ProfitLossReport.Summary.NetProfitAfterTax,
+            data.PreviousProfitLossReport.Summary.NetProfitAfterTax);
+
+        return BuildDashboardDto(data, today, appliedFrom, appliedTo, previousPeriod, netProfitChangePercent);
+    }
+
+    /// <summary>
+    /// Reads every dashboard source in a fixed order; the profit and loss reports are built between the
+    /// low-stock reads exactly as before.
+    /// </summary>
+    private async Task<DashboardData> LoadDashboardDataAsync(
+        GetDashboardQuery query,
+        string timeZoneId,
+        DateOnly today,
+        DateOnly appliedFrom,
+        DateOnly appliedTo,
+        (DateOnly From, DateOnly To) previousPeriod,
+        CancellationToken cancellationToken)
+    {
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var salesTrendBuckets = await saleRepository.GetDailySalesTrendAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var expenseTrendBuckets = await expenseRepository.GetDailyExpenseTrendAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
@@ -59,7 +88,7 @@ public sealed class GetDashboardQueryHandler(
         var lowStockItemCount = await inventoryRepository.CountLowStockItemsByShopAsync(query.ShopId, cancellationToken);
         var profitLossReport = await profitLossReportBuilder.BuildAsync(
             query.ShopId,
-            shop.BusinessTimeZoneId,
+            timeZoneId,
             appliedFrom,
             appliedTo,
             type: null,
@@ -68,57 +97,84 @@ public sealed class GetDashboardQueryHandler(
         var lowStockAlerts = await inventoryRepository.GetTopLowStockAlertsAsync(query.ShopId, cancellationToken);
         var previousProfitLossReport = await profitLossReportBuilder.BuildAsync(
             query.ShopId,
-            shop.BusinessTimeZoneId,
+            timeZoneId,
             previousPeriod.From,
             previousPeriod.To,
             type: null,
             search: null,
             cancellationToken);
-        var netProfitChangePercent = CalculatePercentChange(
-            profitLossReport.Summary.NetProfitAfterTax,
-            previousProfitLossReport.Summary.NetProfitAfterTax);
         var expiringBatchAlerts = await inventoryBatchRepository.GetExpiringBatchAlertsAsync(
             query.ShopId,
             today,
             cancellationToken);
 
+        return new DashboardData(
+            summary,
+            salesTrendBuckets,
+            expenseTrendBuckets,
+            latestSales,
+            expenseTotal,
+            stockValue,
+            quarantine,
+            customerCreditDue,
+            pendingPurchaseOrderAlerts,
+            supplierPayables,
+            lowStockItemCount,
+            profitLossReport,
+            lowStockAlerts,
+            previousProfitLossReport,
+            expiringBatchAlerts);
+    }
+
+    private static DashboardDto BuildDashboardDto(
+        DashboardData data,
+        DateOnly today,
+        DateOnly appliedFrom,
+        DateOnly appliedTo,
+        (DateOnly From, DateOnly To) previousPeriod,
+        decimal? netProfitChangePercent)
+    {
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
             StartDate: appliedFrom,
             EndDate: appliedTo,
-            SalesCount: summary.InvoiceCount,
-            SalesRevenue: summary.PeriodSales,
-            HasNoSalesActivity: summary.InvoiceCount == 0 && summary.CancellationCount == 0,
-            CustomerCreditDue: customerCreditDue,
+            SalesCount: data.Summary.InvoiceCount,
+            SalesRevenue: data.Summary.PeriodSales,
+            HasNoSalesActivity: data.Summary.InvoiceCount == 0 && data.Summary.CancellationCount == 0,
+            CustomerCreditDue: data.CustomerCreditDue,
             SalesBooked: 0m,
-            NetSalesBooked: summary.PeriodSales,
+            NetSalesBooked: data.Summary.PeriodSales,
             WastageCost: 0m,
             CashCollected: 0m,
             ProfitBeforeTax: 0m,
             ProfitAfterTax: 0m,
-            NetProfit: profitLossReport.Summary.NetProfitAfterTax,
+            NetProfit: data.ProfitLossReport.Summary.NetProfitAfterTax,
             NetProfitChangePercent: netProfitChangePercent,
             ExpenseRecorded: 0m,
             ExpenseCorrection: 0m,
-            NetExpense: expenseTotal,
-            SupplierPayables: supplierPayables,
+            NetExpense: data.ExpenseTotal,
+            SupplierPayables: data.SupplierPayables,
             CreditSalesAmount: 0m,
             CreditSalesPercentage: 0m,
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),
             CreditNoteSettlementAmount: 0m,
             CreditShareWarning: false,
             RunningLowStockCount: 0,
-            LowStockItemCount: lowStockItemCount,
+            LowStockItemCount: data.LowStockItemCount,
             CriticalStockCount: 0,
             RankedShortageList: Array.Empty<StockShortageItemDto>(),
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),
             TopFiveDueCustomers: Array.Empty<CustomerDueDto>(),
-            Alerts: pendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert)
-                .Concat(lowStockAlerts.Select(MapLowStockAlert))
-                .Concat(expiringBatchAlerts.Select(alert => MapExpiringBatchAlert(alert, today)))
+            Alerts: data.PendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert)
+                .Concat(data.LowStockAlerts.Select(MapLowStockAlert))
+                .Concat(data.ExpiringBatchAlerts.Select(alert => MapExpiringBatchAlert(alert, today)))
                 .ToList(),
-            SalesTrendSeries: BuildSalesTrendSeries(appliedFrom, appliedTo, salesTrendBuckets),
-            RevenueVsExpenses: BuildRevenueVsExpensesSeries(appliedFrom, appliedTo, salesTrendBuckets, expenseTrendBuckets),
+            SalesTrendSeries: BuildSalesTrendSeries(appliedFrom, appliedTo, data.SalesTrendBuckets),
+            RevenueVsExpenses: BuildRevenueVsExpensesSeries(
+                appliedFrom,
+                appliedTo,
+                data.SalesTrendBuckets,
+                data.ExpenseTrendBuckets),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
             PreviousPeriodSummary: new PreviousPeriodSummaryDto(
@@ -130,25 +186,33 @@ public sealed class GetDashboardQueryHandler(
                 ProfitAfterTax: 0m,
                 NetExpense: 0m,
                 CreditSalesPercentage: 0m),
-            LatestSales: latestSales.Select(s => new DashboardLatestSaleDto(
-                s.SaleId,
-                s.InvoiceNumber,
-                s.CustomerDisplayName,
-                s.SoldAt,
-                s.TotalAmount)
-            {
-                Status = s.Status,
-                CancellationReference = s.CancellationReference,
-                CancelledAt = s.CancelledAt,
-            }).ToList(),
-            StockValue: stockValue,
-            Economics: profitLossReport.Summary.Economics,
+            LatestSales: data.LatestSales.Select(MapLatestSale).ToList(),
+            StockValue: data.StockValue,
+            Economics: data.ProfitLossReport.Summary.Economics,
             GrossTradingProfitChangePercent: CalculatePercentChange(
-                profitLossReport.Summary.Economics!.GrossTradingProfit,
-                previousProfitLossReport.Summary.Economics!.GrossTradingProfit),
-            CancellationAmount: summary.CancellationAmount, CancellationCount: summary.CancellationCount, QuarantinedStockQuantity: quarantine.Quantity, QuarantinedStockValue: quarantine.RecordedValue);
+                data.ProfitLossReport.Summary.Economics!.GrossTradingProfit,
+                data.PreviousProfitLossReport.Summary.Economics!.GrossTradingProfit),
+            CancellationAmount: data.Summary.CancellationAmount,
+            CancellationCount: data.Summary.CancellationCount,
+            QuarantinedStockQuantity: data.Quarantine.Quantity,
+            QuarantinedStockValue: data.Quarantine.RecordedValue);
 
         return result;
+    }
+
+    private static DashboardLatestSaleDto MapLatestSale(DashboardLatestSaleReadModel s)
+    {
+        return new DashboardLatestSaleDto(
+            s.SaleId,
+            s.InvoiceNumber,
+            s.CustomerDisplayName,
+            s.SoldAt,
+            s.TotalAmount)
+        {
+            Status = s.Status,
+            CancellationReference = s.CancellationReference,
+            CancelledAt = s.CancelledAt,
+        };
     }
 
     private static List<SalesTrendPointDto> BuildSalesTrendSeries(
@@ -276,4 +340,21 @@ public sealed class GetDashboardQueryHandler(
             ActionLabel: "Review batches",
             ActionRoute: "/inventory/batches");
     }
+
+    private sealed record DashboardData(
+        SalesHistorySummaryReadModel Summary,
+        IReadOnlyList<SalesTrendBucketReadModel> SalesTrendBuckets,
+        IReadOnlyList<ExpenseDailyBucketReadModel> ExpenseTrendBuckets,
+        IReadOnlyList<DashboardLatestSaleReadModel> LatestSales,
+        decimal ExpenseTotal,
+        decimal StockValue,
+        QuarantineStockValuation Quarantine,
+        decimal CustomerCreditDue,
+        IReadOnlyList<PendingPurchaseOrderAlertReadModel> PendingPurchaseOrderAlerts,
+        decimal SupplierPayables,
+        int LowStockItemCount,
+        ProfitLossReportBuildResult ProfitLossReport,
+        IReadOnlyList<LowStockAlertReadModel> LowStockAlerts,
+        ProfitLossReportBuildResult PreviousProfitLossReport,
+        IReadOnlyList<ExpiringBatchAlertReadModel> ExpiringBatchAlerts);
 }

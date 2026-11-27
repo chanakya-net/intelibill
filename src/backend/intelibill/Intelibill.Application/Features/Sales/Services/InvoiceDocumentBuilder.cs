@@ -72,13 +72,13 @@ public static class InvoiceDocumentBuilder
         return new InvoiceSellerProfile(seller, shop.EInvoiceStatus, shop.InvoiceSeriesCode);
     }
 
+    private static string GoodsUomOf(InvoiceIssueContext context, SaleItem line) =>
+        line.ItemId is { } itemId && context.DocumentUnits?.TryGetValue(itemId, out var unit) == true ? unit : GoodsUom;
+
     /// <summary>
     /// Builds the document for a priced sale whose number is already allocated, or the reason the
     /// sale cannot be issued. Amounts are taken from the sale as priced, never recomputed.
     /// </summary>
-    private static string GoodsUomOf(InvoiceIssueContext context, SaleItem line) =>
-        line.ItemId is { } itemId && context.DocumentUnits?.TryGetValue(itemId, out var unit) == true ? unit : GoodsUom;
-
     public static ErrorOr<IssuedInvoiceSnapshot> Build(InvoiceIssueContext context, Sale sale)
     {
         var profile = context.SellerProfile;
@@ -104,9 +104,51 @@ public static class InvoiceDocumentBuilder
         var isInterstate = !string.Equals(placeOfSupply.Code, seller.StateCode, StringComparison.Ordinal);
         var collectsTax = lines.Any(line => line.TaxAmount != 0m || line.TaxRatePercent != 0m);
 
+        var classification = ClassifyDocument(profile, buyer, sale, isInterstate, collectsTax);
+        if (classification.IsError)
+            return classification.Errors;
+
+        var documentLines = BuildDocumentLines(
+            context,
+            seller,
+            lines,
+            isInterstate,
+            placeOfSupply.IsUnionTerritoryWithoutLegislature);
+        var totals = BuildTotals(documentLines, sale);
+
+        return new IssuedInvoiceSnapshot(
+            IssuedInvoiceSnapshot.CurrentVersion,
+            classification.Value.DocumentType,
+            context.IssuedAt,
+            context.BusinessDate ?? BusinessCalendar.DateOf(context.IssuedAt),
+            context.FiscalYear.StartYear,
+            profile.SeriesCode,
+            sale.InvoiceNumber,
+            seller,
+            buyer,
+            placeOfSupply.Code,
+            placeOfSupply.Name,
+            isInterstate,
+            ReverseCharge: false,
+            documentLines,
+            totals,
+            classification.Value.Declarations,
+            InvoiceSignatureMode.AuthorisedSignatory,
+            TaxCalculation);
+    }
+
+    /// <summary>Picks the document type and its mandatory declarations from the seller's tax regime.</summary>
+    private static ErrorOr<DocumentClassification> ClassifyDocument(
+        InvoiceSellerProfile profile,
+        InvoiceBuyer buyer,
+        Sale sale,
+        bool isInterstate,
+        bool collectsTax)
+    {
+        var lines = sale.Items;
         InvoiceDocumentType documentType;
         var declarations = new List<InvoiceDeclaration>();
-        switch (seller.TaxRegime)
+        switch (profile.Seller.TaxRegime)
         {
             case TaxRegime.Composition:
                 if (collectsTax)
@@ -146,7 +188,16 @@ public static class InvoiceDocumentBuilder
                 return Errors.Invoice.TaxProfileRequired;
         }
 
-        var unionTerritoryTax = placeOfSupply.IsUnionTerritoryWithoutLegislature;
+        return new DocumentClassification(documentType, declarations);
+    }
+
+    private static List<InvoiceDocumentLine> BuildDocumentLines(
+        InvoiceIssueContext context,
+        InvoiceSeller seller,
+        IReadOnlyList<SaleItem> lines,
+        bool isInterstate,
+        bool unionTerritoryTax)
+    {
         var documentLines = new List<InvoiceDocumentLine>(lines.Count);
         for (var i = 0; i < lines.Count; i++)
         {
@@ -171,7 +222,12 @@ public static class InvoiceDocumentBuilder
                 line.TotalAmount));
         }
 
-        var totals = new InvoiceDocumentTotals(
+        return documentLines;
+    }
+
+    private static InvoiceDocumentTotals BuildTotals(List<InvoiceDocumentLine> documentLines, Sale sale)
+    {
+        return new InvoiceDocumentTotals(
             documentLines.Where(l => !l.IsExempt).Sum(l => l.TaxableValue),
             documentLines.Where(l => l.IsExempt).Sum(l => l.TaxableValue),
             documentLines
@@ -184,26 +240,6 @@ public static class InvoiceDocumentBuilder
             sale.TotalTaxAmount,
             RoundingAdjustment: 0m,
             sale.TotalAmount);
-
-        return new IssuedInvoiceSnapshot(
-            IssuedInvoiceSnapshot.CurrentVersion,
-            documentType,
-            context.IssuedAt,
-            context.BusinessDate ?? BusinessCalendar.DateOf(context.IssuedAt),
-            context.FiscalYear.StartYear,
-            profile.SeriesCode,
-            sale.InvoiceNumber,
-            seller,
-            buyer,
-            placeOfSupply.Code,
-            placeOfSupply.Name,
-            isInterstate,
-            ReverseCharge: false,
-            documentLines,
-            totals,
-            declarations,
-            InvoiceSignatureMode.AuthorisedSignatory,
-            TaxCalculation);
     }
 
     /// <summary>
@@ -308,4 +344,8 @@ public static class InvoiceDocumentBuilder
 
     private static bool HasHsnDigits(string? code, int minimumDigits) =>
         code is { Length: 4 or 6 or 8 } && code.Length >= minimumDigits && code.All(char.IsAsciiDigit);
+
+    private sealed record DocumentClassification(
+        InvoiceDocumentType DocumentType,
+        List<InvoiceDeclaration> Declarations);
 }

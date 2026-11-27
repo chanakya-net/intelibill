@@ -44,22 +44,7 @@ public sealed class PreviewSaleQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var recordSaleItems = query.Items.Select(i => new RecordSaleItemCommand(
-            i.Barcode,
-            i.BatchNumber,
-            i.ItemName,
-            i.Quantity,
-            i.CostPrice,
-            i.SalesPrice,
-            i.Mrp,
-            i.TaxRatePercent,
-            i.IsPriceIncludingTax,
-            i.InventoryBatchId,
-            i.ItemDiscount,
-            i.ClientLineKey,
-            i.HsnCode,
-            i.LineType,
-            i.ServiceId)).ToList();
+        var recordSaleItems = MapToRecordSaleItems(query);
 
         return await PostingTransaction.RunAsync<SalePreviewDto>(unitOfWork, async ct =>
         {
@@ -79,25 +64,7 @@ public sealed class PreviewSaleQueryHandler(
 
             var validatedLines = validationOrError.Value.Lines;
 
-            var pricingRequest = new SalePricingCalculationRequest(
-                query.ShopId,
-                evaluatedAt,
-                validatedLines.Select(line =>
-                {
-                    return new SalePricingLineCalculationRequest(
-                        line.LineType,
-                        line.Batch?.Id ?? Guid.Empty,
-                        line.Service?.Id,
-                        line.Command.Quantity,
-                        line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
-                        line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
-                        line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
-                        line.Command.TaxRatePercent,
-                        line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
-                        line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
-                        line.LineType == SaleLineType.Goods);
-                }).ToList(),
-                query.SaleDiscount);
+            var pricingRequest = BuildPricingRequest(query, evaluatedAt, validatedLines);
 
             var pricingOrError = await pricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
             if (pricingOrError.IsError)
@@ -106,59 +73,138 @@ public sealed class PreviewSaleQueryHandler(
             var pricing = pricingOrError.Value;
 
             var warnings = BuildWarnings(validatedLines, validationWarnings);
-            var lineDtos = new List<SalePreviewLineDto>(validatedLines.Count);
-            for (var i = 0; i < validatedLines.Count; i++)
-            {
-                var validated = validatedLines[i];
-                var calculated = pricing.Lines[i];
+            var lineDtos = BuildLineDtos(validatedLines, pricing);
 
-                lineDtos.Add(new SalePreviewLineDto(
-                    calculated.LineType,
-                    validated.Item?.Id,
-                    validated.Service?.Id,
-                    validated.Item?.Barcode ?? validated.Service?.Code ?? string.Empty,
-                    validated.Item?.Name ?? validated.Service?.Name ?? validated.Command.ItemName,
-                    validated.Batch?.Id,
-                    validated.Batch?.BatchNumber,
-                    validated.Command.Quantity,
-                    calculated.CostPrice,
-                    calculated.SalesPrice,
-                    validated.LineType == SaleLineType.Goods ? validated.Batch!.Mrp : validated.Command.Mrp,
-                    calculated.TaxRatePercent,
-                    calculated.IsPriceIncludingTax,
-                    calculated.PreTaxAmountBeforeDiscount,
-                    calculated.ItemDiscountAmount,
-                    calculated.SaleDiscountAmount,
-                    calculated.TaxableAmount,
-                    calculated.TaxAmount,
-                    calculated.TotalAmount,
-                    calculated.MaxAllowedItemDiscountFlat,
-                    calculated.MaxAllowedItemDiscountPercent,
-                    calculated.ConfiguredBatchRuleId,
-                    calculated.ConfiguredBatchRulePercentage,
-                    validated.HasPriceMismatch,
-                    validated.Command.ClientLineKey,
-                    SaleEconomicsCalculator.Calculate(calculated.TaxableAmount, SaleEconomicsCalculator.RecordedCost(calculated.Quantity, calculated.CostPrice))));
-            }
-
-            return new SalePreviewDto(
-                pricing.TotalAmount,
-                pricing.TotalTaxableAmount,
-                pricing.TotalTaxAmount,
-                pricing.TotalDiscountAmount,
-                pricing.SaleLevelEligibleSubtotal,
-                pricing.ConfiguredSaleRule is null
-                    ? null
-                    : new SalePreviewConfiguredSaleRuleDto(
-                        pricing.ConfiguredSaleRule.RuleId,
-                        pricing.ConfiguredSaleRule.RuleType.ToString(),
-                        pricing.ConfiguredSaleRule.Percentage,
-                        pricing.ConfiguredSaleRule.ThresholdAmount),
+            return BuildPreviewDto(
+                pricing,
                 lineDtos,
-                pricing.Infos.Select(i => new SalePreviewInfoDto(i.Code, i.Message)).ToList(),
                 warnings,
                 await expiryGuard.EvaluateAsync(query.ShopId, businessDate, validatedLines, ct));
         }, cancellationToken);
+    }
+
+    private static List<RecordSaleItemCommand> MapToRecordSaleItems(PreviewSaleQuery query)
+    {
+        return query.Items
+            .Select(i => new RecordSaleItemCommand(
+                i.Barcode,
+                i.BatchNumber,
+                i.ItemName,
+                i.Quantity,
+                i.CostPrice,
+                i.SalesPrice,
+                i.Mrp,
+                i.TaxRatePercent,
+                i.IsPriceIncludingTax,
+                i.InventoryBatchId,
+                i.ItemDiscount,
+                i.ClientLineKey,
+                i.HsnCode,
+                i.LineType,
+                i.ServiceId))
+            .ToList();
+    }
+
+    private static SalePricingCalculationRequest BuildPricingRequest(
+        PreviewSaleQuery query,
+        DateTimeOffset evaluatedAt,
+        IReadOnlyList<ValidatedSaleLine> validatedLines)
+    {
+        return new SalePricingCalculationRequest(
+            query.ShopId,
+            evaluatedAt,
+            validatedLines.Select(line =>
+            {
+                return new SalePricingLineCalculationRequest(
+                    line.LineType,
+                    line.Batch?.Id ?? Guid.Empty,
+                    line.Service?.Id,
+                    line.Command.Quantity,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
+                    line.Command.TaxRatePercent,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
+                    line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
+                    line.LineType == SaleLineType.Goods);
+            }).ToList(),
+            query.SaleDiscount);
+    }
+
+    private static List<SalePreviewLineDto> BuildLineDtos(
+        IReadOnlyList<ValidatedSaleLine> validatedLines,
+        SalePricingCalculationResult pricing)
+    {
+        var lineDtos = new List<SalePreviewLineDto>(validatedLines.Count);
+        for (var i = 0; i < validatedLines.Count; i++)
+        {
+            var validated = validatedLines[i];
+            var calculated = pricing.Lines[i];
+
+            lineDtos.Add(MapLineDto(validated, calculated));
+        }
+
+        return lineDtos;
+    }
+
+    private static SalePreviewLineDto MapLineDto(
+        ValidatedSaleLine validated,
+        SalePricingLineCalculation calculated)
+    {
+        return new SalePreviewLineDto(
+            calculated.LineType,
+            validated.Item?.Id,
+            validated.Service?.Id,
+            validated.Item?.Barcode ?? validated.Service?.Code ?? string.Empty,
+            validated.Item?.Name ?? validated.Service?.Name ?? validated.Command.ItemName,
+            validated.Batch?.Id,
+            validated.Batch?.BatchNumber,
+            validated.Command.Quantity,
+            calculated.CostPrice,
+            calculated.SalesPrice,
+            validated.LineType == SaleLineType.Goods ? validated.Batch!.Mrp : validated.Command.Mrp,
+            calculated.TaxRatePercent,
+            calculated.IsPriceIncludingTax,
+            calculated.PreTaxAmountBeforeDiscount,
+            calculated.ItemDiscountAmount,
+            calculated.SaleDiscountAmount,
+            calculated.TaxableAmount,
+            calculated.TaxAmount,
+            calculated.TotalAmount,
+            calculated.MaxAllowedItemDiscountFlat,
+            calculated.MaxAllowedItemDiscountPercent,
+            calculated.ConfiguredBatchRuleId,
+            calculated.ConfiguredBatchRulePercentage,
+            validated.HasPriceMismatch,
+            validated.Command.ClientLineKey,
+            SaleEconomicsCalculator.Calculate(
+                calculated.TaxableAmount,
+                SaleEconomicsCalculator.RecordedCost(calculated.Quantity, calculated.CostPrice)));
+    }
+
+    private static SalePreviewDto BuildPreviewDto(
+        SalePricingCalculationResult pricing,
+        List<SalePreviewLineDto> lineDtos,
+        List<SalePreviewWarningDto> warnings,
+        IReadOnlyList<SaleExpiryLineDecision> expiryDecisions)
+    {
+        return new SalePreviewDto(
+            pricing.TotalAmount,
+            pricing.TotalTaxableAmount,
+            pricing.TotalTaxAmount,
+            pricing.TotalDiscountAmount,
+            pricing.SaleLevelEligibleSubtotal,
+            pricing.ConfiguredSaleRule is null
+                ? null
+                : new SalePreviewConfiguredSaleRuleDto(
+                    pricing.ConfiguredSaleRule.RuleId,
+                    pricing.ConfiguredSaleRule.RuleType.ToString(),
+                    pricing.ConfiguredSaleRule.Percentage,
+                    pricing.ConfiguredSaleRule.ThresholdAmount),
+            lineDtos,
+            pricing.Infos.Select(i => new SalePreviewInfoDto(i.Code, i.Message)).ToList(),
+            warnings,
+            expiryDecisions);
     }
 
     private static List<SalePreviewWarningDto> BuildWarnings(
