@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expiry;
@@ -18,7 +19,7 @@ internal sealed class ExpiryPolicyFence(ApplicationDbContext db) : IExpiryPolicy
         await transaction.CreateSavepointAsync(savepoint, ct);
         try
         {
-            await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+            await db.SetLockTimeoutAsync(LockWait.Standard, ct);
             var rows = exclusive
                 ? await db.Database.SqlQuery<Guid>($"SELECT shop_id AS \"Value\" FROM shop_expiry_states WHERE shop_id = {shopId} FOR UPDATE").ToListAsync(ct)
                 : await db.Database.SqlQuery<Guid>($"SELECT shop_id AS \"Value\" FROM shop_expiry_states WHERE shop_id = {shopId} FOR SHARE").ToListAsync(ct);

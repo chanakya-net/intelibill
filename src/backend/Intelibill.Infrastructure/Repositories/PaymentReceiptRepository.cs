@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -10,7 +11,6 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class PaymentReceiptRepository(ApplicationDbContext context)
     : RepositoryBase<PaymentReceipt>(context), IPaymentReceiptRepository
 {
-    private const string PaymentLockTimeout = "5s";
 
     public async Task<PaymentReceipt?> GetByShopAndIdAsync(Guid shopId, Guid receiptId, CancellationToken cancellationToken = default) =>
         await DbSet.FirstOrDefaultAsync(r => r.Id == receiptId && r.ShopId == shopId, cancellationToken);
@@ -101,7 +101,7 @@ internal sealed class PaymentReceiptRepository(ApplicationDbContext context)
             throw new InvalidOperationException("Payment locks must be taken inside a transaction.");
 
         await Context.Database.ExecuteSqlAsync(
-            $"SELECT set_config('lock_timeout', {PaymentLockTimeout}, true)",
+            $"SELECT set_config('lock_timeout', {DatabaseLockTimeouts.Value(Context, LockWait.Standard)}, true)",
             cancellationToken);
 
         var ordered = targetIds.Distinct().Order().ToArray();

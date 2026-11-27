@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Data;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
@@ -17,7 +18,7 @@ internal sealed class AdminRecoveryStore(LicensingDbContext context, AdminMfaSto
     public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Brief, cancellationToken);
         var result = await operation(cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

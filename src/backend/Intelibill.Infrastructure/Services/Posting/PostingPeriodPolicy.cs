@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
@@ -13,7 +14,6 @@ namespace Intelibill.Infrastructure.Services.Posting;
 /// <inheritdoc cref="IPostingPeriodPolicy"/>
 internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPostingPeriodRepository periods) : IPostingPeriodPolicy
 {
-    private const string LockTimeout = "5s";
 
     private sealed class PeriodRow
     {
@@ -73,7 +73,7 @@ internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPosting
             previousTimeout = (await context.Database
                 .SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"")
                 .ToListAsync(cancellationToken)).Single();
-            await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockTimeout}, true)", cancellationToken);
+            await context.SetLockTimeoutAsync(LockWait.Standard, cancellationToken);
             try
             {
                 // The row exists before it is locked, so a month nobody has touched cannot be closed under a

@@ -1,9 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
@@ -12,7 +9,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0404Tests
 {
     [Fact]
-    public async Task UpgradeRetainsRestrictionsAndRefusesLossyDowngrade()
+    public async Task ReleasedRestrictionEvidenceIsForcedRlsAndRetained()
     {
         await using var fixture = await StartAsync();
         var shop = await CreateTradingShopAsync(fixture.Hosts);
@@ -20,34 +17,12 @@ public sealed partial class P0404Tests
         using var admin = await SignInSecurityAsync(fixture);
         var path = $"/api/admin/accounts/{account:D}/restrictions";
         var id = await SuspendAsync(admin, path, "Account", null);
-        var before = await fixture.LatestSnapshotAsync(shop.ShopId);
-        const string predecessor = "20261118100000_OperationalRestrictions";
-        await using var source = fixture.Hosts.Fixture.OpenMigrationContext();
-        Assert.False(source.Database.HasPendingModelChanges());
-        await source.GetService<IMigrator>().MigrateAsync(predecessor);
-        await source.Database.MigrateAsync();
-        await source.Database.ExecuteSqlRawAsync(P0302Fixture.RuntimeGrant);
-        Assert.Equal(before, await fixture.LatestSnapshotAsync(shop.ShopId));
 
         await SubmitReleaseAsync(admin, $"{path}/{id:D}/release");
         await fixture.DrainAsync(source: true);
         await fixture.DrainAsync(source: false);
         Assert.Equal("Acknowledged", await ReleasePropagationAsync(admin, path, id));
         await AssertReleaseRetentionAsync(fixture);
-
-        var sourceRefusal = await Record.ExceptionAsync(() => source.GetService<IMigrator>().MigrateAsync(predecessor));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(sourceRefusal?.GetBaseException()).SqlState);
-        await using var merchant = MerchantDb(database);
-        Assert.False(merchant.Database.HasPendingModelChanges());
-        var merchantRefusal = await Record.ExceptionAsync(() =>
-            merchant.GetService<IMigrator>().MigrateAsync("20261118100000_ProjectOperationalRestrictions"));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(merchantRefusal?.GetBaseException()).SqlState);
-        // EF committed empty newer downgrades (including dropping current_shop_affiliations) before the retention fence refused.
-        // Restore the current schema and runtime grants before reading status through the current API.
-        await source.Database.MigrateAsync();
-        await source.Database.ExecuteSqlRawAsync(P0302Fixture.RuntimeGrant);
-        await merchant.Database.MigrateAsync();
-        Assert.Equal("Acknowledged", await ReleasePropagationAsync(admin, path, id));
     }
 
     private static async Task AssertReleaseRetentionAsync(P0213Fixture fixture)

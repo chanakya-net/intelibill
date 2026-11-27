@@ -1,7 +1,4 @@
 using System.Net;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 
@@ -9,31 +6,15 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0609Tests
 {
-    private const string PreviousMigration = "20261124140000_ScheduledCapacityReductions";
-
     [Fact]
-    public async Task RefundApprovalMigrationRetainsEvidenceAndRefusesDowngrade()
+    public async Task RefundApprovalEvidenceIsForcedRlsAndImmutable()
     {
         await using var fixture = await StartAsync(database, Instant);
         var (package, request, _, _) = await RequestedAsync(fixture, 6000L);
-
-        // Empty down/up keeps the retained P06-08 request and recreates both forced-RLS tables.
-        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
-        {
-            Assert.False(context.Database.HasPendingModelChanges());
-            var migrator = context.GetService<IMigrator>();
-            await migrator.MigrateAsync(PreviousMigration);
-            Assert.True(await fixture.ScalarAsync("SELECT to_regclass('public.refund_approvals')::text") is null or DBNull);
-            Assert.True(await fixture.ScalarAsync("SELECT to_regprocedure('public.lock_refund_receipt(uuid)')::text") is null or DBNull);
-            Assert.Equal(1L, await fixture.CountAsync("refund_requests"));
-            await migrator.MigrateAsync();
-        }
         Assert.Equal(2L, await fixture.ScalarAsync("""
             SELECT count(*) FROM pg_class WHERE relname IN ('refund_approvals', 'refund_access_decisions')
                 AND relnamespace = 'public'::regnamespace AND relrowsecurity AND relforcerowsecurity
             """));
-        // Runtime grants are environment-owned: recreated tables need them again.
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
         Assert.Equal(false, await fixture.ScalarAsync(
             "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'licensing_runtime'"));
 
@@ -42,14 +23,6 @@ public sealed partial class P0609Tests
         await ReadAsync(await ApproveAsync(billing, package.Account, request, Command(preview, 4500L, "Preserve")),
             HttpStatusCode.Created);
 
-        // A retained approval refuses downgrade under the non-superuser migration identity.
-        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
-        {
-            Assert.Equal("off", await context.Database.SqlQueryRaw<string>(
-                "SELECT current_setting('is_superuser') AS \"Value\"").SingleAsync());
-            var refused = await Record.ExceptionAsync(() => context.GetService<IMigrator>().MigrateAsync(PreviousMigration));
-            Assert.Equal("55000", Assert.IsType<PostgresException>(refused?.GetBaseException()).SqlState);
-        }
         foreach (var statement in new[]
         {
             "UPDATE public.refund_approvals SET amount_paise = 1", "DELETE FROM public.refund_approvals",
@@ -64,11 +37,10 @@ public sealed partial class P0609Tests
         Assert.Equal(1L, await fixture.CountAsync("refund_approvals", "amount_paise = 4500"));
         Assert.Equal(1L, await fixture.CountAsync("refund_access_decisions", "treatment = 'Preserve'"));
         Assert.Equal(1L, await fixture.CountAsync("refund_requests", "amount_paise = 6000"));
-        await RecordAsync("migration-and-immutability", new
+        await RecordAsync("immutability", new
         {
-            emptyDownThenUpKeepsRefundRequests = 1, forcedRlsTables = 2, runtimeRoleSuperuserOrBypassRls = false,
-            retainedApprovalDowngradeSqlState = "55000", updateDeleteTruncateSqlState = "55000", statementsRefused = 6,
-            migrationIdentitySuperuser = "off", approvalsRetained = 1, decisionsRetained = 1,
+            forcedRlsTables = 2, runtimeRoleSuperuserOrBypassRls = false, updateDeleteTruncateSqlState = "55000",
+            statementsRefused = 6, approvalsRetained = 1, decisionsRetained = 1,
         });
     }
 

@@ -13,8 +13,8 @@ Add `--filter 'FullyQualifiedName~P0217Tests'` to run the lifecycle checks alone
 The suite uses the merchant suite's CPU- and memory-based concurrency limit.
 One PostgreSQL container serves ordinary test classes. Each class owns its
 databases, and routine licensing databases are cloned from one migrated
-template. Tests that change cluster-wide privileges or replay migrations
-against isolated databases use their own container. Tests that inspect merchant
+template. Tests that change cluster-wide privileges or migrate isolated
+databases use their own container. Tests that inspect merchant
 log capture or modify process-wide settings run alone.
 
 Set `INTEGRATION_TEST_PARALLELISM=1` before running the script to run classes

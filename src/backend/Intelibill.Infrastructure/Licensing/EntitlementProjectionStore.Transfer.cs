@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Domain.Entities;
@@ -12,7 +13,7 @@ public sealed partial class EntitlementProjectionStore
     {
         if (s.EventId != s.AffiliationRequestId) return await EnterAsync(s.AccountId, s.ShopId, ct);
         await db.Database.ExecuteSqlAsync($"""
-            SELECT set_config('lock_timeout',{ShopLicenceFence.LockTimeout},true),set_config('app.active_shop_id',{s.ShopId.ToString("D")},true),
+            SELECT set_config('lock_timeout',{DatabaseLockTimeouts.Value(db, LockWait.Brief)},true),set_config('app.active_shop_id',{s.ShopId.ToString("D")},true),
                 set_config('app.entitlement_account_id',{s.AccountId.ToString("D")},true)
             """, ct);
         var source = await db.Database.SqlQuery<Guid?>($"""

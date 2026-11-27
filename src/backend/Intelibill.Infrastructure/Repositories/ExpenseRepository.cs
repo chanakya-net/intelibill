@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Npgsql;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -14,7 +15,7 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
         if (!context.Database.IsNpgsql()) return RowLockOutcome.Acquired;
         if (context.Database.CurrentTransaction is null) throw new InvalidOperationException("Expense lock requires a transaction.");
         var previous = await context.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").SingleAsync(ct);
-        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+        await context.SetLockTimeoutAsync(LockWait.Standard, ct);
         try
         {
             var ids = await context.Database.SqlQuery<Guid>($"SELECT id AS \"Value\" FROM expenses WHERE shop_id={shopId} AND id={expenseId} FOR NO KEY UPDATE").ToListAsync(ct);

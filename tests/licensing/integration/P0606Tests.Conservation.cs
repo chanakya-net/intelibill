@@ -3,10 +3,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0601Tests;
 
@@ -90,16 +87,6 @@ public sealed partial class P0606Tests
         Assert.Equal(1L, await f.CountAsync("payment_fulfilment_shops", $"term_id='{successorTerm}' AND shop_id='{p.Shops[3].ShopId}'"));
         Assert.Equal(0L, await f.CountAsync("payment_fulfilment_shops", $"term_id='{successorTerm}' AND shop_id='{p.Shops[2].ShopId}'"));
         Assert.Equal(originalHistory, await P0605Tests.OriginalHistoryDigestAsync(f, p, term));
-
-        // Migration downgrade refusal with retained rows on both databases (SQLSTATE 55000).
-        await using var licensing = f.Hosts.Fixture.OpenMigrationContext();
-        await using var merchant = P0209Fixture.MerchantDb(database);
-        var licDown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            licensing.GetService<IMigrator>().MigrateAsync("20261125130000_CoverageReplacements"));
-        var merDown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            merchant.GetService<IMigrator>().MigrateAsync("20261125130000_AddMerchantCoverageReplacementConsents"));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(licDown.GetBaseException()).SqlState);
-        Assert.Equal("55000", Assert.IsType<PostgresException>(merDown.GetBaseException()).SqlState);
     }
 
     [Fact]

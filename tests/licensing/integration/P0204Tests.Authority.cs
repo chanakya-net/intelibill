@@ -1,10 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -116,45 +112,6 @@ public sealed partial class P0204Tests
         Assert.Equal(HttpStatusCode.Unauthorized, unverified.StatusCode);
         using var unverifiedRecovery = await named.Client.GetAsync($"/api/billing/ownership-transfer-operations/accept/{key:D}");
         Assert.Equal(HttpStatusCode.Unauthorized, unverifiedRecovery.StatusCode);
-    }
-
-    [Fact]
-    public async Task UpgradeKeepsExistingOwnerAndRefusesEvidenceLosingDown()
-    {
-        using var fixture = await P0201Fixture.CreateAsync(database);
-        await using var context = fixture.OpenMigrationContext();
-        const string previous = "20261116100000_AddBillingManagerRemoval";
-        var migrator = context.GetService<IMigrator>();
-        await migrator.MigrateAsync(previous);
-        fixture.Clock.Now = P0202Fixture.WholeSecondNow();
-        await using var licensing = P0202Fixture.LicensingApi(fixture);
-        using var client = licensing.CreateClient();
-        var owner = Guid.NewGuid();
-        using var created = await P0202Fixture.CreateAsync(client, fixture, owner, Guid.NewGuid(), "Pre-transfer account");
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var account = (await JsonAsync(created)).GetProperty("accountId").GetGuid();
-        await migrator.MigrateAsync();
-        Assert.False(context.Database.HasPendingModelChanges());
-        var row = Assert.Single(await P0202Fixture.ReadAccountRowsAsync(database, fixture));
-        Assert.Equal((account, owner, 1, 1), (row.AccountId, row.MerchantUserId, row.Role, row.Status));
-
-        using var issued = await IssuePrivateAsync(fixture, client, account, owner);
-        Assert.Equal(HttpStatusCode.Accepted, issued.StatusCode);
-        var refused = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(previous));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refused is PostgresException ? refused : refused.InnerException).SqlState);
-    }
-
-    private static Task<HttpResponseMessage> IssuePrivateAsync(P0201Fixture fixture, HttpClient client, Guid account, Guid actor)
-    {
-        var path = BillingOwnershipTransfersV1.IssuePath(account);
-        var body = JsonSerializer.SerializeToUtf8Bytes(new IssueBillingOwnershipTransferV1(Guid.NewGuid(), 1,
-            Guid.NewGuid(), "Fixture handover", new string('a', 64), true));
-        return P0202Fixture.SendAsync(client, P0202Fixture.Sign(fixture, actor, P0202Fixture.Create, body, claims =>
-        {
-            claims["account_id"] = account;
-            claims["action"] = BillingOwnershipTransfersV1.Issue;
-            claims["path"] = path;
-        }), path: path);
     }
 
     [Fact]

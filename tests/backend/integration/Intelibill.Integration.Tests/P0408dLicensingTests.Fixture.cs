@@ -29,7 +29,7 @@ public sealed partial class P0408dLicensingTests(PostgreSqlTestFixture fixture, 
     private string Migrator => fixture.MigratorConnectionString;
     private static CancellationToken Ct => CancellationToken.None;
 
-    private ApiWebApplicationFactory CreateHost() => new(fixture, services =>
+    private ApiWebApplicationFactory CreateHost(bool productionLockBudgets = false) => new(fixture, services =>
     {
         services.RemoveAll<IMerchantBillingAccess>();
         services.AddSingleton<IMerchantBillingAccess>(_billing);
@@ -40,7 +40,7 @@ public sealed partial class P0408dLicensingTests(PostgreSqlTestFixture fixture, 
              x.ImplementationType == typeof(ShopAffiliationDeliveryWorker) ||
              x.ImplementationType == typeof(TrialActivationDeliveryWorker))).ToList())
             services.Remove(worker);
-    }, runtimeIdentityOutsideRequests: true);
+    }, runtimeIdentityOutsideRequests: true, productionLockBudgets: productionLockBudgets);
 
     private static HttpClient CreateClient(ApiWebApplicationFactory host) =>
         host.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });

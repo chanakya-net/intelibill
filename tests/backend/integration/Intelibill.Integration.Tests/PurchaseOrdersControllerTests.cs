@@ -7,7 +7,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Api.Controllers;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 namespace Intelibill.Integration.Tests;
 
@@ -1120,74 +1119,6 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         var lower = await db.InventoryBatches.SingleAsync(b => b.BatchNumber == "a");
         Assert.True(lower.TaxIncluded);
         Assert.False(lower.PurchaseTaxIncluded);
-    }
-
-    [Fact]
-    public async Task ClientLineIdentityMigration_BackfillsExistingLotsAndPermitsLegacyNullWrites()
-    {
-        using var client = CreateClient();
-        var token = await CreateShopAsync(client, await RegisterAsync(client));
-        var supplier = await CreateSupplierAsync(client, token, "Migration lots");
-        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, token, supplier, "Migration", 10);
-        var response = await PostLotsAsync(client, token, poId, [Lot(lineId, "A", 4, 40), Lot(lineId, "B", 6, 90)]);
-        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
-        await using (var scope = _factory.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var migrations = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-            var migrator = db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
-            var identityIndex=Array.IndexOf(migrations,"20261107154602_AddPurchaseReceiptClientLineIdentity");
-            Assert.True(identityIndex>0);
-            var beforeIdentity=migrations[identityIndex-1];
-            // Prepare only this historical column shape. Never unwind newer retained financial schemas.
-            await db.Database.ExecuteSqlRawAsync(migrator.GenerateScript(migrations[identityIndex], beforeIdentity));
-            // Exercise the actual upgrade SQL as a schema owner that cannot bypass FORCE RLS.
-            // DDL needs ownership, whereas the API's ordinary runtime role is intentionally DML-only.
-            await db.Database.OpenConnectionAsync();
-            try
-            {
-                await db.Database.ExecuteSqlRawAsync("""
-                    CREATE ROLE receipt_identity_migrator NOLOGIN NOSUPERUSER NOBYPASSRLS;
-                    GRANT USAGE, CREATE ON SCHEMA public TO receipt_identity_migrator;
-                    GRANT SELECT ON ALL TABLES IN SCHEMA public TO receipt_identity_migrator;
-                    GRANT INSERT ON TABLE "__EFMigrationsHistory" TO receipt_identity_migrator;
-                    ALTER TABLE purchase_order_receipt_lines OWNER TO receipt_identity_migrator;
-                    SET ROLE receipt_identity_migrator;
-                    """);
-                var role = await db.Database.SqlQueryRaw<bool>(
-                    "SELECT NOT rolsuper AND NOT rolbypassrls AS \"Value\" FROM pg_roles WHERE rolname = current_user").SingleAsync();
-                Assert.True(role);
-                Assert.Equal(0, await db.Database.SqlQueryRaw<int>(
-                    "SELECT count(*)::int AS \"Value\" FROM purchase_order_receipt_lines").SingleAsync());
-                await db.Database.ExecuteSqlRawAsync(migrator.GenerateScript(beforeIdentity, migrations[identityIndex]));
-            }
-            finally
-            {
-                await db.Database.ExecuteSqlRawAsync("""
-                    RESET ROLE;
-                    ALTER TABLE purchase_order_receipt_lines OWNER TO CURRENT_USER;
-                    DROP OWNED BY receipt_identity_migrator;
-                    DROP ROLE receipt_identity_migrator;
-                    """);
-                await db.Database.CloseConnectionAsync();
-            }
-            var rows = await db.PurchaseOrderReceiptLines.AsNoTracking().ToListAsync();
-            Assert.Equal(2, rows.Count);
-            Assert.All(rows, row => Assert.Equal(row.Id, row.ClientLineId));
-            // The partial index accepts multiple nulls while an old server is still writing.
-            await db.Database.ExecuteSqlRawAsync("UPDATE purchase_order_receipt_lines SET client_line_id = NULL");
-            // Only the historical identity migration was replayed; newer additive schemas stayed intact.
-            await migrator.MigrateAsync();
-            Assert.Equal(migrations, (await db.Database.GetAppliedMigrationsAsync()).ToArray());
-        }
-        using var detail = new HttpRequestMessage(HttpMethod.Get, $"/api/purchase-orders/{poId}");
-        detail.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var result = await client.SendAsync(detail);
-        result.EnsureSuccessStatusCode();
-        var body = await result.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.All(body.GetProperty("receipts")[0].GetProperty("lines").EnumerateArray(), row =>
-            Assert.Equal(row.GetProperty("receiptLineId").GetGuid(), row.GetProperty("clientLineId").GetGuid()));
-        await AssertPostingAsync(poId, supplier, 1, 2, 10, 130, 0);
     }
 
     [Fact]

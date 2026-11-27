@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
@@ -28,6 +29,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(LicensingDatabaseOptions.SectionName))
             .Validate(settings => settings.IsValid(), "LicensingDatabase settings are missing or invalid.")
             .ValidateOnStart();
+        services.AddDatabaseLockTimeouts(configuration);
 
         services.AddSingleton(provider =>
             NpgsqlDataSource.Create(provider.GetRequiredService<IOptions<LicensingDatabaseOptions>>()

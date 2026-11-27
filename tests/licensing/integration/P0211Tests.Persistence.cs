@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
@@ -8,8 +5,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0211Tests
 {
-    private const string PreviousMigration = "20261116180000_AddComplimentaryAccessGrants";
-
     [Fact]
     public async Task ExtensionEvidenceIsScopedRetainedAndOnlyAdvances()
     {
@@ -39,33 +34,6 @@ public sealed partial class P0211Tests
         await RefusedAsync(fixture.LicensingOwner,
             InsertExtension(2, "ends_at", "ends_at + interval '1 day'") + "; SET CONSTRAINTS ALL IMMEDIATE;", "23514");
         Assert.Equal(1L, await fixture.CountAsync("trial_extensions"));
-    }
-
-    [Fact]
-    public async Task MigrationRetainsFactsAndRefusesRollbackOnceExtensionsExist()
-    {
-        await using var fixture = await P0210Fixture.StartAsync(database, publishEntitlements: false);
-        var (owner, account) = await StartTrialAsync(fixture);
-        var before = await OriginalFactsAsync(fixture, owner.ShopId);
-        using var migrations = new P0201Fixture(database, fixture.Catalogue.Runtime.Database!);
-        await using var context = migrations.OpenMigrationContext();
-        Assert.False(context.Database.HasPendingModelChanges());
-        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
-
-        await context.GetService<IMigrator>().MigrateAsync(PreviousMigration);
-        Assert.Equal(false, await fixture.Catalogue.ScalarAsync("SELECT to_regclass('public.trial_extensions') IS NOT NULL"));
-        await context.Database.ExecuteSqlRawAsync("""
-            ALTER DEFAULT PRIVILEGES IN SCHEMA public
-                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO licensing_runtime
-            """);
-        await context.Database.MigrateAsync();
-        Assert.Equal(before, await OriginalFactsAsync(fixture, owner.ShopId));
-        await ApproveAsync(fixture, account, owner.ShopId);
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => context.GetService<IMigrator>().MigrateAsync(PreviousMigration));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
-        Assert.Equal(1L, await fixture.CountAsync("trial_extensions"));
-        Assert.Equal(before, await OriginalFactsAsync(fixture, owner.ShopId));
     }
 
     private static string InsertExtension(int revision, string previous, string next) => $"""

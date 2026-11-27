@@ -1,16 +1,11 @@
-using System.Net.Http.Json;
 using Intelibill.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Integration.Tests;
 
 public sealed partial class P0501LicensingTests
 {
-    private const string Predecessor = "20261121120000_ProjectClosureReopenings";
-    private const string EvidenceMigration = "20261122184354_AddOfflineLicenseEvidence";
     private static readonly string[] EvidenceTables =
         ["offline_license_grants", "offline_license_permits", "offline_license_verification_keys"];
 
@@ -19,14 +14,13 @@ public sealed partial class P0501LicensingTests
         "not_before, valid_until, limiting_reason, key_id, signed_permit";
 
     /// <summary>
-    /// A populated predecessor database upgraded in place: legacy leases keep every value, the new
-    /// tables isolate shops for the restricted runtime role, refuse every mutation, hold their
-    /// constraints and refuse to be dropped once they retain evidence.
+    /// The offline licence evidence tables isolate shops for the restricted runtime role, refuse every
+    /// mutation and hold their constraints, and a stored grant keeps the fixed bounds it was verified with.
     /// </summary>
     [Theory]
     [InlineData("2026-11-20T12:00:00Z")]
     [InlineData("2024-11-20T12:00:00Z")]
-    public async Task Upgrade_preserves_legacy_leases_and_isolates_immutable_evidence(string scenarioVerifiedAt)
+    public async Task Evidence_tables_isolate_shops_and_retain_immutable_evidence(string scenarioVerifiedAt)
     {
         var verified = At(scenarioVerifiedAt);
         var setupStartedAt = TimeProvider.System.GetUtcNow();
@@ -36,47 +30,12 @@ public sealed partial class P0501LicensingTests
         await host.InitializeAsync();
         using var client = CreateClient(host);
         using var otherClient = CreateClient(host);
-        // No entitlement yet: retained entitlement evidence would, rightly, refuse the downgrade below.
-        var a = await OpenShopAsync(client, verified, verified.AddDays(30), licensed: false);
-        var b = await OpenShopAsync(otherClient, verified, verified.AddDays(30), licensed: false);
-        foreach (var device in new[] { "legacy-recorded", "legacy-unrecorded" })
-        {
-            using var reserved = await client.PostAsJsonAsync("/api/sales/invoice-leases/reserve", new { deviceId = device, blockSize = 25 }, Ct);
-            await ReadSuccessAsync(reserved);
-        }
+        var a = await OpenShopAsync(client, verified, verified.AddDays(30));
+        var b = await OpenShopAsync(otherClient, verified, verified.AddDays(30));
 
         await using var owner = Open(Migrator);
-        var migrator = owner.GetService<IMigrator>();
-        await migrator.MigrateAsync(Predecessor, Ct);
-        Assert.Equal(0, await ScalarAsync<int>(owner, $"""
-            SELECT count(*)::int AS "Value" FROM pg_class WHERE relname = ANY({EvidenceTables}) AND relkind = 'r'
-            """));
-        // A lease from before reservers were recorded.
-        await owner.Database.ExecuteSqlAsync($"""
-            UPDATE invoice_leases SET reserved_by_user_id = NULL, reserved_by_session_id = NULL WHERE device_id = 'legacy-unrecorded'
-            """, Ct);
-        var legacy = await LeaseDigestAsync(owner);
-
-        await migrator.MigrateAsync(EvidenceMigration, Ct);
-        await RestrictedRuntimeRole.GrantAsync(Migrator);
-        NpgsqlConnection.ClearAllPools();
-        Assert.Equal(legacy, await LeaseDigestAsync(owner));
-        Assert.Equal(1, await ScalarAsync<int>(owner, $"""
-            SELECT count(*)::int AS "Value" FROM invoice_leases WHERE reserved_by_user_id IS NULL AND reserved_by_session_id IS NULL
-            """));
-        Assert.Equal(1, await ScalarAsync<int>(owner, $"""
-            SELECT count(*)::int AS "Value" FROM "__EFMigrationsHistory" WHERE migration_id = {EvidenceMigration}
-            """));
         await AssertEvidenceSchemaAsync(owner);
 
-        // A stored permit also queues its device observation (P05-07), so the current writer needs the
-        // current schema. The evidence tables asserted above are unchanged by the later migrations.
-        await migrator.MigrateAsync(null, Ct);
-        await RestrictedRuntimeRole.GrantAsync(Migrator);
-        NpgsqlConnection.ClearAllPools();
-
-        a = await LicenseAsync(a, verified, verified.AddDays(30));
-        b = await LicenseAsync(b, verified, verified.AddDays(30));
         _clock.Now = verified.AddHours(1);
         foreach (var actor in new[] { a, b })
         {
@@ -87,76 +46,13 @@ public sealed partial class P0501LicensingTests
         }
         var storedGrant = await owner.Set<OfflineLicenseGrant>().AsNoTracking().SingleAsync(x => x.ShopId == a.Shop, Ct);
         Assert.Equal((verified, verified.AddDays(400)), (storedGrant.AuthorityVerifiedAt, storedGrant.AuthDeadline));
-        Assert.Equal(legacy, await LeaseDigestAsync(owner));
         Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(a.Shop));
 
         await AssertIsolationAsync(a, b);
         await AssertAppendOnlyAsync(owner);
         await AssertConstraintsAsync(owner, a, b);
-        await AssertRetainedEntitlementBlocksDowngradeAsync(migrator, owner, b.Shop, legacy);
-        _output.WriteLine("Upgrade scenario {0}: HTTP setup {1:O} vs cutoff {2:O}; 2 legacy leases, RLS and fixed bounds preserved",
+        _output.WriteLine("Evidence scenario {0}: HTTP setup {1:O} vs cutoff {2:O}; RLS and fixed bounds preserved",
             scenarioVerifiedAt, setupStartedAt, verified.AddDays(400));
-    }
-
-    /// <summary>
-    /// Isolated downgrade guard: predecessor entitlement tables are empty while offline verification
-    /// material is retained. This migration's own guard must refuse and restore table contents and forced RLS.
-    /// </summary>
-    [Fact]
-    public async Task Downgrade_refuses_retained_offline_verification_keys_without_entitlement_rows()
-    {
-        var verified = At("2026-11-20T12:00:00Z");
-        using var host = CreateHost();
-        await host.InitializeAsync();
-        using var client = CreateClient(host);
-        var actor = await OpenShopAsync(client, verified, verified.AddDays(30), licensed: false);
-
-        await using var owner = Open(Migrator);
-        Assert.Equal(0, await ScalarAsync<int>(owner, $"""
-            SELECT (SELECT count(*) FROM public.shop_license_states) +
-                   (SELECT count(*) FROM public.license_grant_evidence) +
-                   (SELECT count(*) FROM public.entitlement_messages) AS "Value"
-            """));
-
-        var keyRowId = Guid.NewGuid();
-        var usedAt = verified.AddHours(1);
-        await owner.Database.ExecuteSqlAsync($"""
-            INSERT INTO public.offline_license_verification_keys (id, shop_id, key_id, public_key, fingerprint, first_used_at)
-            VALUES ({keyRowId}, {actor.Shop}, {_keyA.Id}, {_keyA.PublicKey}, {_keyA.Fingerprint}, {usedAt})
-            """, Ct);
-        Assert.Equal(new Evidence(0, 0, 1), await EvidenceAsync(actor.Shop));
-
-        var migrator = owner.GetService<IMigrator>();
-        var refusal = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Predecessor, Ct));
-        var pg = Assert.IsType<PostgresException>(refusal.GetBaseException());
-        Assert.Equal("55000", pg.SqlState);
-        Assert.Equal("Retained offline licence evidence prevents downgrade", pg.MessageText);
-
-        // The rolled-back downgrade restores forced RLS, triggers, constraints, history and the retained key row.
-        await AssertEvidenceSchemaAsync(owner);
-        Assert.Equal(1, await ScalarAsync<int>(owner, $"""
-            SELECT count(*)::int AS "Value" FROM "__EFMigrationsHistory" WHERE migration_id = {EvidenceMigration}
-            """));
-        var retained = await owner.Set<OfflineLicenseVerificationKey>().AsNoTracking().SingleAsync(x => x.Id == keyRowId, Ct);
-        Assert.Equal((actor.Shop, _keyA.Id, _keyA.Fingerprint), (retained.ShopId, retained.KeyId, retained.Fingerprint));
-        Assert.Equal(_keyA.PublicKey, retained.PublicKey);
-        Assert.Equal((1, 1), await AsShopAsync(actor.Shop,
-            $"SELECT count(*)::int, count(*) FILTER (WHERE shop_id = '{actor.Shop:D}')::int FROM offline_license_verification_keys"));
-        Assert.Equal((0, 0), await AsShopAsync(null, "SELECT count(*)::int, 0 FROM offline_license_verification_keys"));
-        _output.WriteLine("Isolated offline-evidence downgrade refused ({0}): {1}; key {2} and forced RLS preserved",
-            pg.SqlState, pg.MessageText, retained.KeyId);
-    }
-
-    private async Task AssertRetainedEntitlementBlocksDowngradeAsync(IMigrator migrator, DbContext owner, Guid shop, string legacy)
-    {
-        // Entitlement evidence is populated, so the predecessor guard refuses first and leaves everything intact.
-        var refusal = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Predecessor, Ct));
-        var pg = Assert.IsType<PostgresException>(refusal.GetBaseException());
-        Assert.Equal("55000", pg.SqlState);
-        Assert.Equal("Retained entitlement evidence prevents downgrade", pg.MessageText);
-        await AssertEvidenceSchemaAsync(owner);
-        Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(shop));
-        Assert.Equal(legacy, await LeaseDigestAsync(owner));
     }
 
     private static async Task AssertEvidenceSchemaAsync(DbContext owner)
@@ -255,11 +151,6 @@ public sealed partial class P0501LicensingTests
         await using var reader = await command.ExecuteReaderAsync(Ct);
         return await reader.ReadAsync(Ct) ? (reader.GetInt32(0), reader.GetInt32(1)) : (0, 0);
     }
-
-    /// <summary>Every column of every lease that existed before the upgrade.</summary>
-    private static Task<string> LeaseDigestAsync(DbContext owner) => ScalarAsync<string>(owner, $"""
-        SELECT md5(string_agg(l::text, '|' ORDER BY l.id)) AS "Value" FROM invoice_leases l WHERE device_id LIKE 'legacy-%'
-        """);
 
     private static Task<T> ScalarAsync<T>(DbContext owner, FormattableString sql) => owner.Database.SqlQuery<T>(sql).SingleAsync(Ct);
 }

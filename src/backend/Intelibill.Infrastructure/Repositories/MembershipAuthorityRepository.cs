@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -11,7 +12,6 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUnitOfWork unitOfWork)
     : IMembershipAuthorityRepository
 {
-    private const string LockBudget = "3s";
     private const string LockSavepoint = "membership_authority_lock";
 
     public async Task<IAsyncDisposable> BeginAsync(CancellationToken ct) =>
@@ -68,7 +68,7 @@ internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUn
         await transaction.CreateSavepointAsync(LockSavepoint, ct);
         try
         {
-            await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockBudget}, true)", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var rows = await db.Database.SqlQuery<Guid>(lockQuery).ToListAsync(ct);
             await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previous}, true)", ct);
             await transaction.ReleaseSavepointAsync(LockSavepoint, ct);

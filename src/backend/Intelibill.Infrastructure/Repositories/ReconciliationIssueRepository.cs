@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -10,7 +11,6 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class ReconciliationIssueRepository(ApplicationDbContext context)
     : RepositoryBase<ReconciliationIssue>(context), IReconciliationIssueRepository
 {
-    private const string ResolutionLockTimeout = "5s";
 
     public async Task<IReadOnlyList<ReconciliationIssue>> GetUnresolvedByShopAsync(
         Guid shopId,
@@ -143,7 +143,7 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
 
         // The budget covers this lock and every row the resolution writes at save.
         await Context.Database.ExecuteSqlAsync(
-            $"SELECT set_config('lock_timeout', {ResolutionLockTimeout}, true)",
+            $"SELECT set_config('lock_timeout', {DatabaseLockTimeouts.Value(Context, LockWait.Standard)}, true)",
             cancellationToken);
 
         List<Guid> locked;

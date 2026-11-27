@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Entitlements;
 using ErrorOr;
 using Intelibill.Licensing.Application.Billing;
@@ -21,7 +22,7 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var affiliation = await UseShopAsync(consent.ShopId, ct);
             if (affiliation is { } bound)
             {

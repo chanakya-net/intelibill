@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Infrastructure.Billing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Operations;
@@ -48,6 +49,7 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<DatabaseOptions>, DatabaseOptionsValidator>();
+        services.AddDatabaseLockTimeouts(configuration);
 
         // One data source for the whole process, shared by EF and the distributed
         // cache below. Two of them would mean two connection pools and, under

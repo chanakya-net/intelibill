@@ -29,8 +29,11 @@ env:
   TF_VAR_secret_officer_object_ids: ${{ vars.TOFU_SECRET_OFFICER_OBJECT_IDS }}
 
 jobs:
+  # Applying infrastructure to Azure is switched off until releases resume. Set the repository
+  # variable INFRA_APPLY_ENABLED to 'true' to turn it back on; dev and prod follow this job.
   shared:
     name: Apply shared
+    if: vars.INFRA_APPLY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: shared
 

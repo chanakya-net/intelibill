@@ -6,8 +6,6 @@ using Intelibill.Shared.Security;
 using Intelibill.Shared.Web.Delivery;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
@@ -55,18 +53,15 @@ public sealed partial class P0402LicensingTests
     }
 
     [Fact]
-    public async Task Upgrade_clamps_the_legacy_hour_and_preserves_the_delivered_request()
+    public async Task Schedule_trigger_clamps_a_legacy_hour_and_preserves_the_delivered_request()
     {
         await fixture.ResetDatabaseAsync();
         var binding = await SeedAsync();
         await using var owner = CreateDb(owner: true);
         await GrantDeliveryWorkerAsync();
-        var migrator = owner.GetService<IMigrator>();
-        await migrator.MigrateAsync("20261118080000_AddLicenceEnforcementFences", Ct);
         var queuedAt = _clock.Now;
         var eventId = await SeedLegacyRequestAsync(owner, binding, queuedAt);
 
-        await migrator.MigrateAsync(cancellationToken: Ct);
         await using var runtime = CreateDb();
         _clock.Now = queuedAt.AddSeconds(55).AddMicroseconds(-1);
         Assert.Equal(0, await DueCountAsync(runtime));

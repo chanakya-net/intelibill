@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0212Fixture;
 
@@ -8,8 +5,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0212Tests
 {
-    private const string TrialMigration = "20261116160000_AddShopTrials";
-
     [Fact]
     public async Task GrantEvidenceIsScopedRetainedAndReservedByTheDatabase()
     {
@@ -60,42 +55,6 @@ public sealed partial class P0212Tests
             """, "23514");
         Assert.Equal(1L, await fixture.CountAsync("SELECT count(*) FROM complimentary_grants"));
         Assert.Equal(2L, await fixture.CountAsync("SELECT count(*) FROM complimentary_grant_shops"));
-    }
-
-    [Fact]
-    public async Task MigrationUpgradesRetainsFactsAndRefusesRollbackOnceGrantsExist()
-    {
-        await using var fixture = await StartAsync(database, publishEntitlements: false);
-        var (manager, _) = await fixture.ManagerAsync();
-        using var session = manager;
-        var (account, payer, shops) = await fixture.SeedAccountAsync(1);
-        await fixture.AffiliatedShopAsync(account, payer, new P0209Fixture.TermSeed(P0209Fixture.Utc("2027-02-01T04:30:00Z"),
-            PaidEnds, AnchorLocal: "2027-02-01 10:00:00"));
-        var before = await FactsSnapshotAsync(fixture);
-        using var migrations = new P0201Fixture(database, fixture.Provider.Runtime.Database!);
-
-        // Without grants the migration can be stepped down and up again with the paid facts intact.
-        await using (var context = migrations.OpenMigrationContext())
-        {
-            await context.GetService<IMigrator>().MigrateAsync(TrialMigration);
-            Assert.Equal(0L, await fixture.CountAsync(
-                "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'complimentary_grant%'"));
-            await context.Database.MigrateAsync();
-        }
-        // The deployed role script grants the runtime identity on tables the migrator creates (default privileges).
-        await fixture.Provider.ExecuteAsync("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO licensing_runtime");
-        Assert.Equal(before, await FactsSnapshotAsync(fixture));
-
-        await GrantAsync(manager, account, Draft(shops));
-        await using (var context = migrations.OpenMigrationContext())
-        {
-            var refused = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => context.GetService<IMigrator>().MigrateAsync(TrialMigration));
-            Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
-        }
-        Assert.Equal(1L, await fixture.CountAsync("SELECT count(*) FROM complimentary_grants"));
-        // The runtime identity cannot change the schema.
-        await AssertRefusedAsync(fixture.Provider.Runtime, "DROP TABLE complimentary_grants", "42501");
     }
 
     private static string Account(Guid account) =>

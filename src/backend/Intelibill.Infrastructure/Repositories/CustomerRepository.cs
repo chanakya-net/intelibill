@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.ReadModels;
 using Intelibill.Domain.ValueObjects;
@@ -82,7 +83,6 @@ internal sealed class CustomerRepository(ApplicationDbContext context)
             .FirstOrDefaultAsync(c => c.ShopId == shopId && c.PhoneNumber == normalizedPhoneNumber, cancellationToken);
     }
 
-    private const string CreditLockTimeout = "5s";
 
     public async Task<RowLockOutcome> LockForCreditAsync(Guid shopId, Guid customerId, CancellationToken cancellationToken = default)
     {
@@ -97,7 +97,7 @@ internal sealed class CustomerRepository(ApplicationDbContext context)
             throw new InvalidOperationException("The customer credit lock must be taken inside a transaction.");
 
         await Context.Database.ExecuteSqlAsync(
-            $"SELECT set_config('lock_timeout', {CreditLockTimeout}, true)",
+            $"SELECT set_config('lock_timeout', {DatabaseLockTimeouts.Value(Context, LockWait.Standard)}, true)",
             cancellationToken);
 
         List<Guid> locked;

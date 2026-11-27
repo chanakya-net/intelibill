@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Domain.Entities;
@@ -11,7 +12,7 @@ internal sealed partial class AdminSessionStore
         AdminDeviceSessionSeek? seek, CancellationToken token)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(token);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", token);
+        await context.SetLockTimeoutAsync(LockWait.Brief, token);
         var scope = await LockDevicesAsync(caller, caller.SessionId, token);
         if (scope.Caller is null) return AdminRefreshErrors.SessionEnded;
         var rows = await ReadLiveDevicesAsync(caller, scope.Now, pageSize, seek, token);
@@ -42,7 +43,7 @@ internal sealed partial class AdminSessionStore
         CancellationToken token)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(token);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", token);
+        await context.SetLockTimeoutAsync(LockWait.Brief, token);
         var scope = await LockDevicesAsync(caller, targetId, token);
         if (scope.Caller is null) return AdminRefreshErrors.SessionEnded;
 
@@ -55,7 +56,7 @@ internal sealed partial class AdminSessionStore
     public async Task SignOutDeviceAsync(AdminSessionCaller caller, CancellationToken token)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(token);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", token);
+        await context.SetLockTimeoutAsync(LockWait.Brief, token);
         var scope = await LockDevicesAsync(caller, caller.SessionId, token);
         if (scope.Caller is null) return;
         await AdminSessionRevocation.StageAsync(context, audit, scope.Caller, scope.Now,

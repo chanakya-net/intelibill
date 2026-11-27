@@ -686,6 +686,8 @@ jobs:
             printf -- '- Image: `%s`\n' "${IMAGE_REF}"
           } >>"${GITHUB_STEP_SUMMARY}"
 
+  # Deployment and its post-deploy checks are switched off until releases resume.
+  # Set the repository variable RELEASE_DEPLOYMENTS_ENABLED to 'true' to turn them back on.
   dev:
     name: Release dev
     needs:
@@ -693,6 +695,7 @@ jobs:
       - build_web
       - build_migrate
     if: >-
+      vars.RELEASE_DEPLOYMENTS_ENABLED == 'true' &&
       needs.build_api.result == 'success' &&
       needs.build_web.result == 'success' &&
       needs.build_migrate.result == 'success' &&
@@ -852,6 +855,7 @@ jobs:
       - build_migrate
       - dev
     if: >-
+      vars.RELEASE_DEPLOYMENTS_ENABLED == 'true' &&
       needs.build_api.result == 'success' &&
       needs.build_web.result == 'success' &&
       needs.build_migrate.result == 'success' &&

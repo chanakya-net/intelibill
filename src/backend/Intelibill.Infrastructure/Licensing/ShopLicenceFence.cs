@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Data;
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
@@ -14,7 +15,6 @@ namespace Intelibill.Infrastructure.Licensing;
 public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPolicy policy, TimeProvider clock)
     : IShopLicenceFence
 {
-    internal const string LockTimeout = "3s";
     private const string Savepoint = "shop_licence_fence";
 
     public Task<ErrorOr<ShopLicenceLease>> EnterAsync(Guid shopId, LicenceAction action, CancellationToken cancellationToken)
@@ -151,7 +151,7 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         {
             var previous = await db.Database.SqlQuery<string>(
                 $"SELECT current_setting('lock_timeout') AS \"Value\"").SingleAsync(ct);
-            await SetTimeoutAsync(LockTimeout, ct);
+            await SetTimeoutAsync(DatabaseLockTimeouts.Value(db, LockWait.Brief), ct);
             result = await acquire();
             if (!result.IsError)
                 await SetTimeoutAsync(previous, ct);

@@ -51,3 +51,31 @@ internal static class PregeneratedHandlers
     public static bool Enabled { get; } =
         Environment.GetEnvironmentVariable("INTEGRATION_TEST_PREGENERATED_HANDLERS") == "1";
 }
+
+/// <summary>
+/// Database wait budgets for API hosts under test.
+/// </summary>
+/// <remarks>
+/// Production gives a lock 3 s (<c>DatabaseLocks:Brief</c>) or 5 s (<c>DatabaseLocks:Standard</c>)
+/// and the licensing connection 5 s per command. Concurrency tests queue several requests behind a
+/// held lock and release it only once all of them wait. On a loaded runner the next request can take
+/// longer than 3 s to reach the lock, so the first waiter gave up early and the test saw an outage
+/// instead of contention. Tests that check the timeout itself build their own context, which keeps
+/// the production defaults, or set <c>lock_timeout</c> explicitly.
+/// </remarks>
+internal static class TestDatabaseBudgets
+{
+    public static IReadOnlyDictionary<string, string?> Merchant { get; } = new Dictionary<string, string?>
+    {
+        ["DatabaseLocks:Brief"] = "00:00:20",
+        ["DatabaseLocks:Standard"] = "00:00:25",
+    };
+
+    public static IReadOnlyDictionary<string, string?> Licensing { get; } = new Dictionary<string, string?>
+    {
+        ["DatabaseLocks:Brief"] = "00:00:20",
+        ["DatabaseLocks:Standard"] = "00:00:25",
+        // The command timeout must outlast the lock budget, or the command is cancelled first.
+        ["LicensingDatabase:TimeoutSeconds"] = "30",
+    };
+}

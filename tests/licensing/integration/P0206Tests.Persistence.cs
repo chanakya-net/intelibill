@@ -1,15 +1,11 @@
-using System.Net;
 using Intelibill.Licensing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0206Tests
 {
-    private const string Predecessor = "20261115230000_AddShopAffiliations";
     private const string Owner = "(SELECT owner_id FROM initial_admin_bootstrap)";
     private const string PlanRow = "'00000000-0000-0000-0000-0000000000a1'";
 
@@ -62,7 +58,7 @@ public sealed partial class P0206Tests
     }
 
     [Fact]
-    public async Task CatalogueMigration_MatchesModelAndRefusesEvidenceLoss()
+    public async Task CatalogueSchema_MatchesModelAndForcesRowSecurity()
     {
         await using var fixture = await P0206Fixture.StartAsync(database);
         var migrator = database.Login(fixture.Runtime.Database!, LicensingPostgreSqlFixture.MigratorRole);
@@ -76,16 +72,6 @@ public sealed partial class P0206Tests
             WHERE oid IN ('public.plans'::regclass, 'public.plan_versions'::regclass,
                 'public.trial_policy_versions'::regclass, 'public.catalogue_draft_changes'::regclass)
             """));
-
-        var (manager, _) = await fixture.ManagerAsync();
-        using (manager)
-            await SaveAsync(manager, Guid.NewGuid(), MultiShop(0, ("annualPricePaise", null)), HttpStatusCode.Created);
-        var history = context.GetService<IMigrator>();
-        var refused = await Assert.ThrowsAnyAsync<Exception>(() => history.MigrateAsync(Predecessor));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(refused as PostgresException ?? refused.InnerException).SqlState);
-        Assert.Equal(1L, await fixture.ScalarAsync("SELECT count(*) FROM plan_versions"));
-        Assert.Equal(true, await fixture.ScalarAsync(
-            "SELECT relforcerowsecurity FROM pg_class WHERE oid = 'public.plan_versions'::regclass"));
     }
 
     private static string TrialRow(string column, string value) => $"""

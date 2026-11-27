@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Entitlements;
 using System.Data;
 using ErrorOr;
@@ -22,7 +23,7 @@ internal sealed partial class TrialExtensionStore(LicensingDbContext db, ILogger
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var result = await operation(ct);
             if (!result.IsError) await transaction.CommitAsync(ct);
             return result;

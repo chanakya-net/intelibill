@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -76,7 +77,7 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         if (!context.Database.IsNpgsql() || context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Till row locks require a PostgreSQL transaction.");
         var previous = (await context.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").ToListAsync(ct)).Single();
-        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+        await context.SetLockTimeoutAsync(LockWait.Standard, ct);
         try
         {
             // table is a private server-owned constant, never a client-provided identifier.

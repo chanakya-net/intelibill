@@ -7,8 +7,6 @@ using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Expiry;
 using Intelibill.Infrastructure.Services.Time;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Integration.Tests;
@@ -206,61 +204,6 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         Assert.Single(result.Value.Results.Items);
         var staff = await Service(db).ReadinessAsync(seed.Shop, seed.Staff, 1, 1, default);
         Assert.Equal("Expiry.ManagerRequired", staff.FirstError.Code);
-    }
-
-    [Fact]
-    public async Task Upgrade_SeedsKnownBaselineWithoutChangingHistoricalStockOrDates()
-    {
-        var name = $"expiry_upgrade_{Guid.NewGuid():N}";
-        await using var admin = new NpgsqlConnection(fixture.MigratorConnectionString);
-        await admin.OpenAsync();
-        await using (var create = new NpgsqlCommand($"CREATE DATABASE {name}", admin)) await create.ExecuteNonQueryAsync();
-        var connection = new NpgsqlConnectionStringBuilder(fixture.MigratorConnectionString) { Database = name, Pooling = false }.ConnectionString;
-        try
-        {
-            await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
-            await db.GetService<IMigrator>().MigrateAsync("20261108130102_AddTillReconciliationEvidence");
-            var shop = Shop.Create("Old shop", "address", "city", "state", "560001", null, null, null);
-            var user = User.CreateWithEmail($"upgrade-{Guid.NewGuid():N}@example.test", "hash", "Owner", "Name");
-            var item = Item.Create(shop.Id, "Historical item", null, "pcs", Guid.NewGuid().ToString(), true, user.Id);
-            db.AddRange(shop, user, item);
-            await db.SaveChangesAsync();
-            var batchId = Guid.NewGuid();
-            var expiry = new DateOnly(2020, 1, 1);
-            var manufacturing = new DateOnly(2021, 1, 1); // Existing invalid dates must be reported, never rewritten.
-            await db.Database.ExecuteSqlAsync($"""
-                INSERT INTO inventory_batches (id, shop_id, item_id, batch_number, quantity, original_quantity, cost_price, mrp, sales_price,
-                    tax_rate_percent, tax_included, purchase_tax_included, expiry_date, manufacturing_date, is_voided, created_by, created_at)
-                VALUES ({batchId}, {shop.Id}, {item.Id}, 'historic', 10, 10, 1, 2, 2, 0, false, false, {expiry}, {manufacturing}, false, {user.Id}, {DateTimeOffset.UtcNow})
-                """);
-            await db.GetService<IMigrator>().MigrateAsync();
-            var createdAt = await db.Shops.Where(x => x.Id == shop.Id).Select(x => x.CreatedAt).SingleAsync();
-            var policy = await new ExpiryPolicyRepository(db).GetEffectiveAsync(shop.Id, item.Id, createdAt, default);
-            Assert.True(policy.HistoryKnown);
-            Assert.True(policy.IsPreFeatureBaseline);
-            Assert.Equal(ExpiryMode.Ignore, policy.Policy!.Mode);
-            var batch = await db.InventoryBatches.SingleAsync(x => x.Id == batchId);
-            Assert.Equal(10m, batch.Quantity);
-            Assert.Equal(0m, batch.QuarantinedQuantity);
-            Assert.Equal(expiry, batch.ExpiryDate);
-            Assert.Equal(manufacturing, batch.ManufacturingDate);
-        }
-        finally
-        {
-            await using var drop = new NpgsqlCommand($"DROP DATABASE {name} WITH (FORCE)", admin);
-            await drop.ExecuteNonQueryAsync();
-        }
-    }
-
-    [Fact]
-    public void Migration_RefusesDestructiveDown()
-    {
-        var migration = new Intelibill.Infrastructure.Migrations.AddExpiryPolicies();
-        var builder = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
-        var down = migration.GetType().GetMethod("Down", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration, [builder]));
-        Assert.IsType<NotSupportedException>(error.InnerException);
-        Assert.Empty(builder.Operations);
     }
 
     [Fact]

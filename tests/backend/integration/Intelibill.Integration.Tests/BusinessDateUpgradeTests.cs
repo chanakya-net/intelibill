@@ -8,9 +8,8 @@ using Npgsql;
 namespace Intelibill.Integration.Tests;
 
 /// <summary>
-/// Sales and returns carry the business date they were posted under. The migration backfills every
-/// existing row in Asia/Kolkata, and a row written without the new columns (a pod still on the previous
-/// build during a rolling deploy) is given the same date by a trigger.
+/// Sales and returns carry the business date they were posted under. A row written without those
+/// columns is given its Asia/Kolkata date by a trigger, and the columns stay required.
 /// </summary>
 /// <remarks>
 /// Runs on a database of its own, migrated and seeded as a table-owner role that is neither
@@ -19,8 +18,6 @@ namespace Intelibill.Integration.Tests;
 [Collection("Integration Tests")]
 public sealed class BusinessDateUpgradeTests(PostgreSqlTestFixture fixture) : IAsyncLifetime
 {
-    private const string RevisionBeforeThisWork = "20261106131449_AddCustomerCreditPolicyAndSaleDueDates";
-
     private static readonly DateTimeOffset LateEveningUtc = new(2026, 10, 20, 20, 30, 0, TimeSpan.Zero);
 
     private readonly string _suffix = Guid.NewGuid().ToString("N")[..12];
@@ -75,36 +72,6 @@ public sealed class BusinessDateUpgradeTests(PostgreSqlTestFixture fixture) : IA
     }
 
     [Fact]
-    public async Task ExistingRows_AreBackfilledInIst_AndTheScriptIsIdempotent()
-    {
-        await using (var context = CreateMigratorContext())
-            await context.Database.GetService<IMigrator>().MigrateAsync(RevisionBeforeThisWork);
-
-        var shop = Guid.NewGuid();
-        var otherShop = Guid.NewGuid();
-        await SeedShopAsync(shop);
-        await SeedShopAsync(otherShop);
-        var sale = await InsertLegacySaleAsync(shop, LateEveningUtc);
-        var returned = await InsertLegacyReturnAsync(shop, sale, LateEveningUtc, voidedAt: new DateTimeOffset(2026, 10, 22, 19, 0, 0, TimeSpan.Zero));
-        var otherSale = await InsertLegacySaleAsync(otherShop, new DateTimeOffset(2026, 3, 31, 18, 29, 59, TimeSpan.Zero));
-
-        await using (var context = CreateMigratorContext())
-            await context.Database.GetService<IMigrator>().MigrateAsync();
-
-        var script = await File.ReadAllTextAsync(FindRepoFile("scripts", "db", "backfill-business-dates.sql"));
-        for (var run = 0; run < 2; run++)
-        {
-            Assert.Equal(("2026-10-21", "Asia/Kolkata"), await ReadSaleAsync(shop, sale));
-            Assert.Equal(("2026-10-21", "Asia/Kolkata", (string?)"2026-10-23"), await ReadReturnAsync(shop, returned));
-            Assert.Equal(("2026-03-31", "Asia/Kolkata"), await ReadSaleAsync(otherShop, otherSale));
-            Assert.Equal("Asia/Kolkata", await ReadShopZoneAsync(shop));
-
-            // Re-running the rollout script is a no-op.
-            await ExecuteAsync(script);
-        }
-    }
-
-    [Fact]
     public async Task Migration_LeavesTheColumnsRequired()
     {
         await using (var context = CreateMigratorContext())
@@ -123,18 +90,6 @@ public sealed class BusinessDateUpgradeTests(PostgreSqlTestFixture fixture) : IA
             await CountAsync(
                 shop,
                 "select count(*) from information_schema.columns where is_nullable = 'YES' and table_name = 'sale_returns' and column_name = 'voided_business_date'"));
-    }
-
-    private static string FindRepoFile(params string[] segments)
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine([dir.FullName, .. segments]);
-            if (File.Exists(candidate))
-                return candidate;
-        }
-
-        throw new FileNotFoundException("Repository file not found: " + Path.Combine(segments));
     }
 
     private ApplicationDbContext CreateMigratorContext() => new(
@@ -189,9 +144,6 @@ public sealed class BusinessDateUpgradeTests(PostgreSqlTestFixture fixture) : IA
         var row = await ReadRowAsync(shopId, "select business_date::text, business_time_zone, voided_business_date::text from sale_returns where id = @id", id);
         return (row[0]!, row[1]!, row[2]);
     }
-
-    private async Task<string> ReadShopZoneAsync(Guid shopId) =>
-        (await ReadRowAsync(shopId, "select business_time_zone from shops where id = @id", shopId))[0]!;
 
     private async Task<string?[]> ReadRowAsync(Guid shopId, string sql, Guid id)
     {

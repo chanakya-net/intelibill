@@ -45,6 +45,7 @@ internal sealed class MerchantStartupProbeFactory(
                 // A parallel run can delay one in-process licensing reply past production's 5 s budget.
                 ["MerchantBillingDelegation:RequestTimeout"] = "00:00:30",
             });
+            configuration.AddInMemoryCollection(TestDatabaseBudgets.Merchant);
             if (settings is not null) configuration.AddInMemoryCollection(settings);
         });
         builder.ConfigureServices(services =>

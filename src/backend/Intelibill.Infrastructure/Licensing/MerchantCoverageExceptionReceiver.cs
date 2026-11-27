@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Data;
 using System.Text.Json;
 using ErrorOr;
@@ -23,7 +24,7 @@ internal sealed class MerchantCoverageExceptionReceiver(
         VerifiedServiceAssertion proof, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {ShopLicenceFence.LockTimeout}, true)", ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.active_shop_id', {c.OutgoingShopId.ToString("D")}, true),
                 set_config('app.entitlement_account_id', {c.AccountId.ToString("D")}, true)

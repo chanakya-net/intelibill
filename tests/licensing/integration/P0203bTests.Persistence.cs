@@ -180,17 +180,24 @@ public sealed partial class P0203bTests
     internal static async Task WaitForLockAsync(NpgsqlConnection db, NpgsqlTransaction transaction, string type, int waiters = 1,
         params int[] backendPids)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var ceiling = TimeSpan.FromSeconds(15);
+        var started = TimeProvider.System.GetTimestamp();
         await using var wait = new NpgsqlCommand("""
             SELECT (SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a USING (pid)
                 WHERE NOT l.granted AND l.locktype = $1 AND a.datname = current_database()
-                    AND (cardinality($3) = 0 OR l.pid = ANY($3))) >= $2
+                    AND (cardinality($2) = 0 OR l.pid = ANY($2)))
             FROM pg_stat_clear_snapshot()
             """, db, transaction);
         wait.Parameters.AddWithValue(type);
-        wait.Parameters.AddWithValue(waiters);
         wait.Parameters.AddWithValue(backendPids);
-        while (!(bool)(await wait.ExecuteScalarAsync(deadline.Token))!)
-            await Task.Delay(10, deadline.Token);
+        long seen;
+        while ((seen = (long)(await wait.ExecuteScalarAsync())!) < waiters)
+        {
+            // A request that already answered (for example 503 after its own lock budget) never
+            // queues; say what was seen instead of surfacing a bare cancellation.
+            if (TimeProvider.System.GetElapsedTime(started) > ceiling)
+                throw new TimeoutException($"Expected {waiters} waiting {type} lock(s) within {ceiling.TotalSeconds:0} s; saw {seen}.");
+            await Task.Delay(10);
+        }
     }
 }

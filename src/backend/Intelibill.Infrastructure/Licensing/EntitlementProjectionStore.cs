@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using System.Text.Json;
 using Intelibill.Application.Features.Licensing;
@@ -219,7 +220,7 @@ public sealed partial class EntitlementProjectionStore(ApplicationDbContext db, 
     internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)
     {
         // These delivery transactions also bound their later inbox, evidence and outbox writes.
-        await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {ShopLicenceFence.LockTimeout}, true)", ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.active_shop_id', {shop.ToString("D")}, true),
                 set_config('app.entitlement_account_id', {account.ToString("D")}, true)

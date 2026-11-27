@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -25,7 +26,7 @@ internal sealed class SupplierReturnMutationLock(ApplicationDbContext context) :
         if(!context.Database.IsNpgsql()) return RowLockOutcome.Acquired;
         if(context.Database.CurrentTransaction is null) throw new InvalidOperationException("Supplier return locks require a transaction.");
         var prior=await context.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").SingleAsync(ct);
-        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)",ct);
+        await context.SetLockTimeoutAsync(LockWait.Standard, ct);
         try { var result=await action(); await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {prior}, true)",ct); return result; }
         catch(Exception ex) when ((ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState==PostgresErrorCodes.LockNotAvailable) { return RowLockOutcome.TimedOut; }
     }

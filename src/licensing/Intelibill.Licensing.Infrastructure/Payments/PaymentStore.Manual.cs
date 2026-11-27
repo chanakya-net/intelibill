@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Security.Cryptography;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
@@ -19,7 +20,7 @@ internal sealed partial class PaymentStore
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             var actor = (await db.Set<AdminIdentity>().FromSql($"""
                 SELECT *, xmin FROM public.admin_identities WHERE id = {caller.AdminId} FOR SHARE
                 """).AsNoTracking().ToListAsync(ct)).SingleOrDefault();

@@ -52,11 +52,6 @@ public sealed partial class P0608Tests
         using var settledDoc = JsonDocument.Parse(JsonSerializer.Serialize(settled, JsonSerializerOptions.Web));
         var extra = settledDoc.RootElement.EnumerateObject().Select(field => field.Name).Except(actualFields).Order();
         Assert.Equal(root.GetProperty("optionalOutcomeFields").EnumerateArray().Select(value => value.GetString()!).Order(), extra);
-
-        // Pin the migration action literal to RefundRequestsV1.Create.
-        var migration = File.ReadAllText(Path.Combine(ProjectPaths.Root,
-            "src/licensing/Intelibill.Licensing.Infrastructure/Migrations/20261124120000_RefundRequests.cs"));
-        Assert.Contains($"\"{RefundRequestsV1.Create}\"", migration, StringComparison.Ordinal);
     }
 
     [Fact]

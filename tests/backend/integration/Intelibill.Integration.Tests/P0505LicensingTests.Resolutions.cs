@@ -16,8 +16,6 @@ using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
@@ -580,7 +578,7 @@ public sealed partial class P0505LicensingTests
     }
 
     [Fact]
-    public async Task Migration_preserves_legacy_cases_and_enforces_rls_and_append_only_observations()
+    public async Task License_history_review_enforces_uniqueness_rls_and_append_only_observations()
     {
         var dbName = $"p0505_mig_{Guid.NewGuid():N}";
         var adminBuilder = new NpgsqlConnectionStringBuilder(Migrator);
@@ -596,35 +594,20 @@ public sealed partial class P0505LicensingTests
         try
         {
             await using var migratorDb = Open(disposableConn);
-            var migrator = migratorDb.GetService<IMigrator>();
+            await migratorDb.Database.MigrateAsync(Ct);
 
-            // 1. Apply migrations through #903 only.
-            await migrator.MigrateAsync("20261123013701_AddOfflineSubmissionLicenceEvidence", Ct);
-
-            // 2. Seed Shop A, Shop B, an envelope, and a #903 ProvenanceReview case before #904 migration.
+            // 1. Seed Shop A, Shop B and an envelope.
             var shopA = Shop.Create("Mig Shop A", "1 Main", "Bengaluru", "Karnataka", "560001", null, null, null);
             var shopB = Shop.Create("Mig Shop B", "2 Main", "Bengaluru", "Karnataka", "560001", null, null, null);
             migratorDb.Shops.AddRange(shopA, shopB);
             var now = At("2027-01-20T12:00:00Z");
-            var envA = OfflineSubmission.Record(
-                shopA.Id, "dev-mig", "client-legacy", "A/2627/000001", new string('a', 64), "{}",
-                now, now, OfflineSubmissionSource.Sync, Guid.NewGuid(), null, null, null, null);
             var envNew = OfflineSubmission.Record(
                 shopA.Id, "dev-mig", "client-new", "A/2627/000002", new string('b', 64), "{}",
                 now, now, OfflineSubmissionSource.Sync, Guid.NewGuid(), null, null, null, null);
-            migratorDb.OfflineSubmissions.AddRange(envA, envNew);
-            var oldCase = ReconciliationIssue.Create(
-                shopA.Id, null, "client-legacy", "dev-mig", ReconciliationIssueType.ProvenanceReview,
-                "OfflineLicenceHistory.EvidenceUnsupported", "Legacy #903 case", Guid.NewGuid(),
-                invoiceNumber: "A/2627/000001", offlineSubmissionId: envA.Id);
-            migratorDb.ReconciliationIssues.Add(oldCase);
+            migratorDb.OfflineSubmissions.Add(envNew);
             await migratorDb.SaveChangesAsync(Ct);
 
-            // 3. Apply #904 migration (AddLicenseHistoryReviewEvidence).
-            await migrator.MigrateAsync(null, Ct);
-
-            // 4. Verify old #903 case survived and new type 15 + observation work; multiple non-history variances coexist; duplicate type 15 fails.
-            Assert.NotNull(await migratorDb.ReconciliationIssues.AsNoTracking().SingleOrDefaultAsync(x => x.Id == oldCase.Id, Ct));
+            // 2. Type 15 + observation work; multiple non-history variances coexist; duplicate type 15 fails.
             var newCase = ReconciliationIssue.Create(
                 shopA.Id, null, "client-new", "dev-mig", ReconciliationIssueType.LicenseHistoryReview,
                 "OfflineLicenceHistory.EvidenceUnsupported", "Typed #904 case", Guid.NewGuid(),
@@ -653,7 +636,7 @@ public sealed partial class P0505LicensingTests
             Assert.Equal("23505", (dupEx.InnerException as PostgresException)?.SqlState);
             migratorDb.ChangeTracker.Clear();
 
-            // 5. Runtime-role RLS isolation & append-only triggers (UPDATE/DELETE refused).
+            // 3. Runtime-role RLS isolation & append-only triggers (UPDATE/DELETE refused).
             await RestrictedRuntimeRole.EnsureAsync(disposableConn);
             await RestrictedRuntimeRole.GrantAsync(disposableConn);
             await using var runtimeConn = new NpgsqlConnection(RestrictedRuntimeRole.ConnectionStringFor(disposableConn));
@@ -693,13 +676,6 @@ public sealed partial class P0505LicensingTests
                 await Assert.ThrowsAsync<PostgresException>(() => deleteCmd.ExecuteNonQueryAsync(Ct));
                 await txDel.RollbackAsync(Ct);
             }
-
-            // 6. Guarded Down refuses destructive rollback while evidence exists.
-            var downEx = await Assert.ThrowsAnyAsync<Exception>(() =>
-                migrator.MigrateAsync("20261123013701_AddOfflineSubmissionLicenceEvidence", Ct));
-            var pgDownEx = downEx as PostgresException ?? downEx.InnerException as PostgresException;
-            Assert.NotNull(pgDownEx);
-            Assert.Equal("55000", pgDownEx!.SqlState);
         }
         finally
         {

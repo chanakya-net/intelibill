@@ -2,8 +2,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -80,17 +78,9 @@ public sealed partial class P0607aTests
         Assert.True((await ReadAsync(source, s.Source.Account, id)).GetProperty("consentsCollected").GetBoolean());
         Assert.Equal(before, await s.BaselineAsync());
 
-        // Consent evidence is immutable under the runtime role's own table owner, and both migrations refuse to drop it.
+        // Consent evidence is immutable under the runtime role's own table owner.
         var tamper = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(
             s.F.Hosts.LicensingOwner, "UPDATE public.coverage_transfer_consents SET kind = 'Revoked'"));
         Assert.Equal("55000", tamper.SqlState);
-        await using var licensing = s.F.Hosts.Fixture.OpenMigrationContext();
-        await using var merchant = P0209Fixture.MerchantDb(database);
-        var licensingDown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            licensing.GetService<IMigrator>().MigrateAsync("20261126100000_BillingDocumentVersions"));
-        var merchantDown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            merchant.GetService<IMigrator>().MigrateAsync("20261125140000_AddMerchantCoverageExceptionEvidence"));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(licensingDown.GetBaseException()).SqlState);
-        Assert.Equal("55000", Assert.IsType<PostgresException>(merchantDown.GetBaseException()).SqlState);
     }
 }

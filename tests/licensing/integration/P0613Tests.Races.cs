@@ -3,17 +3,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0613Tests
 {
-    private const string PriorMigration = "20261126130000_CoverageTransferApplications";
-
     [Fact]
     public async Task ConcurrentCorrectionsConvergeOnOneSuccessor()
     {
@@ -105,15 +100,14 @@ public sealed partial class P0613Tests
     }
 
     [Fact]
-    public async Task DatabaseGuardsAndMigrationProtectSupersessionLineage()
+    public async Task DatabaseGuardsProtectSupersessionLineage()
     {
         await using var fixture = await P0611Tests.StartAsync(database);
         var first = await fixture.AcceptedQuoteAsync(1);
         var sameAccountSecond = await AcceptSecondOrderOnSameAccountAsync(fixture, first);
         var crossAccount = await fixture.AcceptedQuoteAsync(1);
         using var billing = await P0611Tests.SignInBillingAsync(fixture);
-        var v1Bytes = DistinctPdf("Pre-upgrade v1 invoice");
-        var v1 = await P0611Tests.AttachAsync(billing, P0611Tests.Path(first.Quote), v1Bytes);
+        var v1 = await P0611Tests.AttachAsync(billing, P0611Tests.Path(first.Quote), DistinctPdf("Original v1 invoice"));
         var doc1 = v1.GetProperty("documentId").GetGuid();
         var v1Id = v1.GetProperty("versionId").GetGuid();
         var sameAccountV1 = await P0611Tests.AttachAsync(billing, P0611Tests.Path(sameAccountSecond), DistinctPdf("Same-account second order v1"));
@@ -122,13 +116,12 @@ public sealed partial class P0613Tests
         var crossAccountV1 = await P0611Tests.AttachAsync(billing, P0611Tests.Path(crossAccount.Quote), DistinctPdf("Cross-account order v1"));
         var crossAccountV1Id = crossAccountV1.GetProperty("versionId").GetGuid();
 
-        await VerifyUpgradeAndV1DowngradeAsync(fixture, first.Account, first.Quote.OrderId, v1Bytes);
         await VerifyDirectSqlGuardsAsync(fixture, first.Quote, doc1, v1Id, sameAccountDocId, sameAccountV1Id, crossAccountV1Id);
         Assert.Equal(1L, await fixture.CountAsync("billing_document_versions", $"order_id = '{first.Quote.OrderId:D}'"));
         Assert.Equal(1L, await fixture.CountAsync("billing_document_versions", $"order_id = '{sameAccountSecond.OrderId:D}'"));
 
-        // Once v2 exists, a direct SQL fork is refused (23505) and migration downgrade fails with SQLSTATE 55000.
-        var v2Bytes = DistinctPdf("Post-upgrade v2 invoice");
+        // Once v2 exists, a direct SQL fork is refused (23505) and retained versions cannot be changed (55000).
+        var v2Bytes = DistinctPdf("Corrected v2 invoice");
         var v2Meta = SupersedeMetadata(v2Bytes, "v2.pdf", SecondIssuer, SecondReference, P0611Tests.IssueDate, SecondReason);
         await SupersedeAsync(billing, P0611Tests.Path(first.Quote), v1Id, v2Meta,
             Digest(await PreviewSupersedeAsync(billing, P0611Tests.Path(first.Quote), v1Id, v2Meta)), v2Bytes);
@@ -138,7 +131,7 @@ public sealed partial class P0613Tests
             DirectInsertAsync(fixture, first.Quote, actor, doc1, 2, v1Id, "Direct SQL fork attempt"));
         Assert.Equal("23505", fork.SqlState);
 
-        await AssertMigrationBlockedAndRetentionImmutableAsync(fixture);
+        await AssertRetentionImmutableAsync(fixture);
         Assert.Equal(2L, await fixture.CountAsync("billing_document_versions", $"order_id = '{first.Quote.OrderId:D}'"));
         Assert.Equal(1L, await fixture.CountAsync("billing_document_versions", $"order_id = '{sameAccountSecond.OrderId:D}'"));
         Assert.Equal(4L, await fixture.CountAsync("billing_document_versions"));
@@ -263,12 +256,8 @@ public sealed partial class P0613Tests
         return (await accepted.Content.ReadFromJsonAsync<CheckoutQuoteV1>())!;
     }
 
-    private static async Task AssertMigrationBlockedAndRetentionImmutableAsync(P0302Fixture fixture)
+    private static async Task AssertRetentionImmutableAsync(P0302Fixture fixture)
     {
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        Assert.False(context.Database.HasPendingModelChanges());
-        var failure = await Record.ExceptionAsync(() => context.GetService<IMigrator>().MigrateAsync(PriorMigration));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(failure?.GetBaseException()).SqlState);
         Assert.Equal(true, await P0611Tests.ScalarAsync(fixture,
             "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid = 'public.billing_document_versions'::regclass"));
 
@@ -284,20 +273,6 @@ public sealed partial class P0613Tests
                 LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, mutation));
             Assert.Equal("55000", err.SqlState);
         }
-    }
-
-    private static async Task VerifyUpgradeAndV1DowngradeAsync(P0302Fixture fixture, Guid account, Guid orderId, byte[] v1Bytes)
-    {
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        Assert.False(context.Database.HasPendingModelChanges());
-        var migrator = context.GetService<IMigrator>();
-        await migrator.MigrateAsync(PriorMigration);
-        Assert.Equal(true, await P0611Tests.ScalarAsync(fixture,
-            "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid = 'public.billing_document_versions'::regclass"));
-        await migrator.MigrateAsync();
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
-        Assert.Equal(v1Bytes, (byte[])(await P0611Tests.ScalarAsync(fixture,
-            $"SELECT content FROM billing_document_versions WHERE account_id = '{account:D}' AND order_id = '{orderId:D}' AND version_number = 1"))!);
     }
 
     private static async Task VerifyDirectSqlGuardsAsync(P0302Fixture fixture, CheckoutQuoteV1 quote, Guid doc1,

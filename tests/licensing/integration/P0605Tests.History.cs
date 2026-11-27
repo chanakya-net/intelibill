@@ -1,8 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0601Tests;
 
@@ -74,23 +71,5 @@ public sealed partial class P0605Tests
         Assert.True(fresh.IsSuccessStatusCode, await fresh.Content.ReadAsStringAsync());
         Assert.Equal(1L, await f.CountAsync("coverage_replacements", "state='Blocked'"));
         Assert.Equal(1L, await f.CountAsync("coverage_replacements", "state='AwaitingConsent'"));
-    }
-
-    [Fact]
-    public async Task BothDatabasesRefuseDowngradeThatWouldDiscardReplacementEvidence()
-    {
-        await using var f = await StartAsync(database, January31);
-        var (p, term) = await PrepareAsync(f);
-        var (id, _) = await ConsentAsync(f, p, term);
-        await using var licensing = f.Hosts.Fixture.OpenMigrationContext();
-        await using var merchant = P0209Fixture.MerchantDb(database);
-        var original = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            licensing.GetService<IMigrator>().MigrateAsync("20261125120000_CoverageSlotAssignments"));
-        var consent = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            merchant.GetService<IMigrator>().MigrateAsync("20261124150000_AddMerchantCoverageSlotConsents"));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(original.GetBaseException()).SqlState);
-        Assert.Equal("55000", Assert.IsType<PostgresException>(consent.GetBaseException()).SqlState);
-        Assert.Equal(1L, await f.CountAsync("coverage_replacements", $"replacement_id='{id}'"));
-        Assert.Equal(2L, await f.Checkout.Delivery.MerchantScalarAsync($"SELECT count(*) FROM coverage_replacement_consent_events WHERE replacement_id='{id}'"));
     }
 }

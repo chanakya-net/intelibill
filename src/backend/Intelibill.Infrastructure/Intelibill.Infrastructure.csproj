@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Migrations\20261127063241_Baseline.sql" LogicalName="Intelibill.Infrastructure.Migrations.Baseline.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>Intelibill.Integration.Tests</_Parameter1>
     </AssemblyAttribute>

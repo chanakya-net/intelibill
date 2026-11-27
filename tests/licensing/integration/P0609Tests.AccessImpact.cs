@@ -8,8 +8,6 @@ using Intelibill.Licensing.Domain.Policies;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
@@ -137,7 +135,6 @@ public sealed partial class P0609Tests
         await using var fixture = await StartAsync(database, now, P0306Tests.Settings,
             services => services.AddSingleton<IStartupFilter>(deliveries));
         fixture.Hosts.Fixture.Clock.Now = now;
-        await VerifyAffiliationMigrationRoundTripAsync(fixture);
 
         var boundary = now.AddDays(5);
         var (package, term, originalEnd) = await SeedAdjustedImportedTermAsync(fixture, now, treatment, boundary);
@@ -193,26 +190,6 @@ public sealed partial class P0609Tests
             Assert.Equal("Active", restored.GetProperty("state").GetString());
             Assert.Equal(restoredAt, restored.GetProperty("startsAt").GetDateTimeOffset());
         }
-    }
-
-    private static async Task VerifyAffiliationMigrationRoundTripAsync(P0308Fixture fixture)
-    {
-        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
-        {
-            var migrator = context.GetService<IMigrator>();
-            await migrator.MigrateAsync(PreviousMigration);
-            var downgraded = (string)(await fixture.ScalarAsync(
-                "SELECT pg_get_functiondef('public.guard_shop_affiliation_coverage()'::regprocedure)"))!;
-            Assert.DoesNotContain("refund_boundary", downgraded);
-            Assert.Contains("NEW.coverage_ends_at = t.ends_at", downgraded);
-            await migrator.MigrateAsync();
-            var upgraded = (string)(await fixture.ScalarAsync(
-                "SELECT pg_get_functiondef('public.guard_shop_affiliation_coverage()'::regprocedure)"))!;
-            Assert.Contains("reviewed_refund_paid_through", upgraded);
-            Assert.Contains("refund_boundary", upgraded);
-        }
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
-        SetCredentialTime(fixture, fixture.Checkout.Trial.Catalogue.Clock.GetUtcNow());
     }
 
     private static async Task<(Package Package, Guid Term, DateTimeOffset OriginalEnd)> SeedAdjustedImportedTermAsync(

@@ -21,6 +21,7 @@ dotnet ef migrations add <MigrationName> --project src/backend/Intelibill.Infras
 dotnet ef database update --project src/backend/Intelibill.Infrastructure --startup-project src/backend/Intelibill.Api
 ```
 For licensing migrations, target `--project src/licensing/Intelibill.Licensing.Infrastructure --startup-project src/licensing/Intelibill.Licensing.Api --context LicensingDbContext`.
+Each context starts from one `Baseline` migration that runs an embedded, verified `pg_dump` script (`Migrations/*_Baseline.sql`); never edit it, add new migrations after it, and recreate a database instead of reverting the baseline (see `docs/backend-architecture.md`).
 
 **Web Workspaces** (Bun `1.3.11` only — never `npm` or `yarn`; single root `bun.lock`):
 - Merchant web (`src/frontend`): `bun install`, `bun run start`, `bun run build`, `bun run test --watch=false` (or `--run <spec>`)

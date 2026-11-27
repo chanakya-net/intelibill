@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,7 +15,6 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class OfflineSubmissionRepository(ApplicationDbContext context, OfflineDeviceObservationOutbox? observations = null)
     : RepositoryBase<OfflineSubmission>(context), IOfflineSubmissionRepository
 {
-    private const string IntakeLockTimeout = "5s";
     private const string IntakeLockSavepoint = "offline_device_intake_lock";
 
     public async Task<RowLockOutcome> LockDeviceIntakeAsync(Guid shopId, string deviceId, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ internal sealed class OfflineSubmissionRepository(ApplicationDbContext context, 
                 .SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"")
                 .SingleAsync(cancellationToken);
             await Context.Database.ExecuteSqlAsync(
-                $"SELECT set_config('lock_timeout', {IntakeLockTimeout}, true)",
+                $"SELECT set_config('lock_timeout', {DatabaseLockTimeouts.Value(Context, LockWait.Standard)}, true)",
                 cancellationToken);
             await Context.Database.ExecuteSqlAsync(
                 $"SELECT pg_advisory_xact_lock({lockKey})",

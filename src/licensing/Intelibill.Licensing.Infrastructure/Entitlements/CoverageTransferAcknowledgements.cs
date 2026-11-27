@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Text.Json;
 using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -85,7 +86,7 @@ internal sealed class CoverageTransferAcknowledgements(LicensingDbContext db, En
 
     internal static async Task EnterPairAsync(LicensingDbContext db, Guid source, Guid destination, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout='3s'", ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         foreach (var account in new[] {source, destination}.Order()) await BillingAccountLock.TakeAsync(db, account, ct);
         await db.Database.ExecuteSqlAsync($"SELECT set_config('app.billing_account_id',{source.ToString("D")},true)", ct);
     }

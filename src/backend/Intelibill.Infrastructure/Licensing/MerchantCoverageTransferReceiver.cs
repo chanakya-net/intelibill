@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
@@ -21,7 +22,7 @@ internal sealed class MerchantCoverageTransferReceiver(ApplicationDbContext db, 
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlAsync($"""
-            SELECT set_config('lock_timeout',{ShopLicenceFence.LockTimeout},true),
+            SELECT set_config('lock_timeout',{DatabaseLockTimeouts.Value(db, LockWait.Brief)},true),
                 set_config('app.active_shop_id',{c.ShopId.ToString("D")},true),
                 set_config('app.entitlement_account_id',{c.SourceAccountId.ToString("D")},true)
             """, ct);

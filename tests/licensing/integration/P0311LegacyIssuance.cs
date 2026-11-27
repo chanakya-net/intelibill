@@ -10,7 +10,6 @@ internal sealed class P0311LegacyIssuance
     internal bool BeforeConfirmations { get; set; } = true;
     internal void Install(IServiceCollection services) => services.AddScoped<IPaymentConfirmationStore>(p =>
         new LegacyStore(this, (IPaymentConfirmationStore)p.GetRequiredService<IPaymentStore>()));
-    internal static void InstallLegacy(IServiceCollection services) => new P0311LegacyIssuance().Install(services);
     private sealed class LegacyStore(P0311LegacyIssuance fixture, IPaymentConfirmationStore current) : IPaymentConfirmationStore
     {
         public Task IssueAsync(Guid account, Guid order, Guid? attempt, Guid? receipt, DateTimeOffset issuedAt, CancellationToken ct) =>

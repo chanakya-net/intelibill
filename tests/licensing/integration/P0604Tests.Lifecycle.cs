@@ -3,9 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0601Tests;
 
@@ -164,18 +161,5 @@ public sealed partial class P0604Tests
             $"SELECT count(*) FROM shop_license_states WHERE shop_id='{shop.ShopId}' AND term_id='{term}'"));
         Assert.Equal(6L, await f.Checkout.Delivery.MerchantScalarAsync(
             $"SELECT count(*) FROM shop_memberships WHERE shop_id='{shop.ShopId}' AND status='Active'"));
-    }
-
-    [Fact]
-    public async Task RetainedRequestRefusesDowngrade()
-    {
-        await using var f = await StartAsync(database, January31);
-        var (p, term) = await PrepareAsync(f);
-        await BeginAsync(p, term, p.Shops[2].ShopId);
-        await using var db = f.Hosts.Fixture.OpenMigrationContext();
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            db.GetService<IMigrator>().MigrateAsync("20261125100918_RefundApprovals"));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(ex.GetBaseException()).SqlState);
-        Assert.Equal(1L, await f.CountAsync("coverage_slot_assignments"));
     }
 }

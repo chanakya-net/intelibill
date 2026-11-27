@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
@@ -16,7 +17,7 @@ internal sealed partial class AdminSessionStore(LicensingDbContext context, Admi
         string? otp, CancellationToken cancellationToken)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
+        await context.SetLockTimeoutAsync(LockWait.Brief, cancellationToken);
         var rows = await context.Set<AdminIdentity>().FromSql($"""
             SELECT *, xmin FROM public.admin_identities WHERE email = {normalizedEmail} FOR UPDATE
             """).ToListAsync(cancellationToken);

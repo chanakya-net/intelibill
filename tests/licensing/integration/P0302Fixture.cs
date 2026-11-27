@@ -23,7 +23,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         ["Payments:ReconcileInBackground"] = "false",
     };
 
-    /// <summary>The runtime grant step for tables a test re-creates by migrating down and up again.</summary>
+    /// <summary>Runtime grants the checkout fixture applies to its licensing database.</summary>
     internal const string RuntimeGrant = """
         GRANT SELECT ON public.current_shop_affiliations TO licensing_runtime;
         GRANT SELECT, INSERT ON public.coverage_transfer_approvals, public.coverage_transfer_progress,
@@ -95,7 +95,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
     }
 
     /// <summary>One billing owner, <paramref name="count"/> really affiliated shops and an accepted monthly quote.</summary>
-    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null, bool legacyQuote = false,
+    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null,
         long monthlyPricePaise = 12000L)
     {
         var payer = await SignInAsync(Hosts, ShopRole.Owner);
@@ -113,7 +113,6 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         var ids = shops.Select(shop => shop.ShopId).ToArray();
         var quote = await P0301Tests.CreateQuoteAsync(payer.Client, account,
             new(Guid.NewGuid(), plan, "Month", ids, Math.Max(0, count - 3), 1));
-        if (legacyQuote) quote = await P0309Fixture.RepresentLegacyQuoteAsync(Hosts.LicensingOwner, quote);
         using var accepted = await payer.Client.PostAsJsonAsync(P0301Tests.AcceptPath(quote), P0301Tests.Accept(quote));
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         return new(payer, account, [.. shops], (await accepted.Content.ReadFromJsonAsync<CheckoutQuoteV1>())!);

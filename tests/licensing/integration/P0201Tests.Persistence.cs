@@ -1,8 +1,6 @@
 using System.Net;
 using Intelibill.Licensing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -115,17 +113,12 @@ public sealed partial class P0201Tests
     }
 
     [Fact]
-    public async Task ReplayMigration_UpgradesAndKeepsRuntimeIsolated()
+    public async Task ReplaySchema_MatchesModelAndKeepsRuntimeIsolated()
     {
         using var fixture = await P0201Fixture.CreateAsync(database);
         await using var db = fixture.OpenMigrationContext();
-        var predecessor = "20261115010116_AddAdminCapabilities";
-        var migrator = db.GetService<IMigrator>();
-        await migrator.MigrateAsync(predecessor);
-        Assert.Equal(true, await LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Owner,
-            "SELECT to_regclass('public.merchant_billing_delegation_uses') IS NULL"));
-        await db.Database.MigrateAsync();
         Assert.False(db.Database.HasPendingModelChanges());
+        Assert.Empty(await db.Database.GetPendingMigrationsAsync());
         Assert.Equal(true, await LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Runtime, """
             SELECT relrowsecurity AND relforcerowsecurity
             FROM pg_class WHERE oid = 'public.merchant_billing_delegation_uses'::regclass

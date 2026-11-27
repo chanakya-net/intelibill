@@ -1,8 +1,5 @@
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0601Tests;
@@ -11,42 +8,19 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0603Tests
 {
-    private const string PreviousLicensingMigration = "20261124130000_PaidCapacityIncreases";
-
     [Fact]
-    public async Task ScheduledReductionMigrationPreservesEvidenceAndRefusesDowngrade()
+    public async Task ScheduledReductionEvidenceIsImmutableAndForcedRls()
     {
         await using var fixture = await StartAsync(database, January31);
         var package = await fixture.PackageAsync(2, ShopNames);
         var (_, term) = await PurchaseAsync(package, "Month");
-        var before = await EvidenceAsync(fixture, term);
-
-        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
-        {
-            Assert.False(context.Database.HasPendingModelChanges());
-            var migrator = context.GetService<IMigrator>();
-            await migrator.MigrateAsync(PreviousLicensingMigration);
-            Assert.True(await fixture.ScalarAsync("SELECT to_regclass('public.scheduled_capacity_reductions')::text") is null or DBNull);
-            await migrator.MigrateAsync();
-            Assert.Equal(true, await fixture.ScalarAsync(
-                "SELECT relforcerowsecurity FROM pg_class WHERE relname = 'scheduled_capacity_reductions' AND relnamespace = 'public'::regnamespace"));
-        }
-
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
-        Assert.Equal(before, await EvidenceAsync(fixture, term));
+        Assert.Equal(true, await fixture.ScalarAsync(
+            "SELECT relforcerowsecurity FROM pg_class WHERE relname = 'scheduled_capacity_reductions' AND relnamespace = 'public'::regnamespace"));
 
         var solo = await PublishReductionPlanAsync(fixture, "single-shop", "Solo Migration", 1, 3, 6000L);
         fixture.At(February14);
         var preview = await CreatePreviewAsync(package, term, solo, 1, 3, 5, February29);
         await ScheduleAsync(package, term, preview, [package.Shops[0].ShopId]);
-
-        await using (var context = fixture.Hosts.Fixture.OpenMigrationContext())
-        {
-            Assert.Equal("off", await context.Database.SqlQueryRaw<string>(
-                "SELECT current_setting('is_superuser') AS \"Value\"").SingleAsync());
-            var refused = await Record.ExceptionAsync(() => context.GetService<IMigrator>().MigrateAsync(PreviousLicensingMigration));
-            Assert.Equal("55000", Assert.IsType<PostgresException>(refused?.GetBaseException()).SqlState);
-        }
 
         foreach (var statement in new[]
         {

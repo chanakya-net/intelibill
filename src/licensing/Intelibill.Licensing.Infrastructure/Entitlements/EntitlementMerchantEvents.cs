@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using ErrorOr;
 using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -235,7 +236,7 @@ public sealed class EntitlementMerchantEvents
 
     internal static async Task EnterAccountAsync(LicensingDbContext db, Guid account, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.billing_account_id', {account.ToString("D")}, true)
             """, ct);

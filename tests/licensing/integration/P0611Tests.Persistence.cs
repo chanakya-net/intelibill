@@ -1,27 +1,21 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0611Tests
 {
-    private const string PreviousMigration = "20261125140000_CoverageReplacementExceptions";
-
     [Fact]
-    public async Task DocumentBytesAndHashAreImmutableAndDowngradeIsRefused()
+    public async Task DocumentBytesAndHashAreImmutable()
     {
         await using var fixture = await StartAsync(database);
-        await VerifyEmptyRoundTripAsync(fixture);
+        Assert.Equal(true, await ScalarAsync(fixture, """
+            SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid = 'public.billing_document_versions'::regclass
+            """));
         var purchase = await fixture.AcceptedQuoteAsync(1);
         using var billing = await SignInBillingAsync(fixture);
         await AttachAsync(billing, Path(purchase.Quote), Pdf());
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        var failure = await Record.ExceptionAsync(() => context.GetService<IMigrator>().MigrateAsync(PreviousMigration));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(failure?.GetBaseException()).SqlState);
         foreach (var mutation in new[]
         {
             "UPDATE billing_document_versions SET content = '\\x00'", "UPDATE billing_document_versions SET content_sha256 = repeat('a',64)",
@@ -53,20 +47,6 @@ public sealed partial class P0611Tests
                 AND table_name = 'billing_document_versions' AND (column_name LIKE '%tax%' OR column_name LIKE '%amount%')
             """));
         ProjectBoundaryAssertions.Verify();
-    }
-
-    private static async Task VerifyEmptyRoundTripAsync(P0302Fixture fixture)
-    {
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        Assert.False(context.Database.HasPendingModelChanges());
-        var migrator = context.GetService<IMigrator>();
-        await migrator.MigrateAsync(PreviousMigration);
-        Assert.True(await ScalarAsync(fixture, "SELECT to_regclass('public.billing_document_versions')::text") is null or DBNull);
-        await migrator.MigrateAsync();
-        Assert.Equal(true, await ScalarAsync(fixture, """
-            SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid = 'public.billing_document_versions'::regclass
-            """));
-        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
     }
 
     private static async Task<byte[]> ConfirmationBytesAsync(P0302Fixture.Purchase purchase)

@@ -1,8 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using Intelibill.Shared.Contracts.V1;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
@@ -40,36 +38,6 @@ public sealed partial class P0301Tests
             "SELECT count(*) FROM public.checkout_orders"));
         await AssertRetainedAsync(fixture, quote);
     }
-
-    [Fact]
-    public async Task MigrationKeepsPopulatedPredecessorAndRefusesDowngradeAfterQuote()
-    {
-        await using var fixture = await StartCheckoutAsync(database, new P0201Clock { Now = P0210Fixture.Start });
-        var (payer, account, command) = await PrepareAsync(fixture);
-        await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
-        var migrator = context.GetService<IMigrator>();
-        const string predecessor = "20261116220000_AddSubscriptionCancellationWithdrawals";
-        await migrator.MigrateAsync(predecessor);
-        var before = await ExistingFactsAsync(fixture);
-        Assert.NotNull(before);
-        await migrator.MigrateAsync();
-        await fixture.Catalogue.ExecuteAsync(P0302Fixture.RuntimeGrant);
-        Assert.Equal(before, await ExistingFactsAsync(fixture));
-        var quote = await CreateQuoteAsync(payer.Client, account, command);
-        quote = await P0309Fixture.RepresentLegacyQuoteAsync(fixture.LicensingOwner, quote);
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(predecessor));
-        Assert.Equal("55000", Assert.IsType<PostgresException>(failure.InnerException).SqlState);
-        Assert.Equal(quote, await payer.Client.GetFromJsonAsync<CheckoutQuoteV1>($"{OrdersPath(account)}/{quote.OrderId:D}"));
-    }
-
-    private static Task<object?> ExistingFactsAsync(P0210Fixture fixture) =>
-        LicensingPostgreSqlFixture.ReadScalarAsync(fixture.LicensingOwner, """
-            SELECT jsonb_build_array(
-                (SELECT jsonb_agg(to_jsonb(m) ORDER BY id) FROM billing_account_members m),
-                (SELECT jsonb_agg(to_jsonb(a) ORDER BY shop_id) FROM shop_affiliations a),
-                (SELECT jsonb_agg(to_jsonb(c) ORDER BY version_id) FROM published_catalogue_offers c)
-            )::text
-            """);
 
     private static async Task AssertRetainedAsync(P0210Fixture fixture, CheckoutQuoteV1 quote)
     {

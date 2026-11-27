@@ -255,14 +255,5 @@ public sealed class ExpiryOfflineTests(PostgreSqlTestFixture fixture)
         db.Add(proof); var error = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         Assert.Equal(Npgsql.PostgresErrorCodes.ForeignKeyViolation, Assert.IsType<Npgsql.PostgresException>(error.InnerException).SqlState);
     }
-    [Fact]
-    public void EvidenceMigration_RefusesDestructiveDownBeforeEmittingOperations()
-    {
-        var migration = new Intelibill.Infrastructure.Migrations.AddOfflineExpiryEvidence();
-        var builder = new Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
-        var method = migration.GetType().GetMethod("Down", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => method.Invoke(migration, [builder]));
-        Assert.IsType<NotSupportedException>(error.InnerException); Assert.Empty(builder.Operations);
-    }
 
 }

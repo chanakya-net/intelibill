@@ -35,7 +35,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         services.RemoveAll<TimeProvider>();
         services.AddSingleton<SettableClock>();
         services.AddSingleton<TimeProvider>(sp => sp.GetRequiredService<SettableClock>());
-    });
+    }, productionLockBudgets: true);
 
     private SettableClock Clock => _factory.Services.GetRequiredService<SettableClock>();
 

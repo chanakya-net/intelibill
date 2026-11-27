@@ -1,3 +1,4 @@
+using Intelibill.Shared.Web.Persistence;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Intelibill.Infrastructure.Data;
@@ -26,7 +27,7 @@ internal sealed class EntitlementAcknowledgementMetrics(ApplicationDbContext db,
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlAsync($"""
             SELECT set_config('app.active_shop_id', {ack.ShopId.ToString("D")}, true),
-                set_config('lock_timeout', {ShopLicenceFence.LockTimeout}, true)
+                set_config('lock_timeout', {DatabaseLockTimeouts.Value(db, LockWait.Brief)}, true)
             """, ct);
         var verifiedTimes = await ConfirmAsync(ack, message.Payload, confirmedAt, ct);
         await transaction.CommitAsync(ct);
