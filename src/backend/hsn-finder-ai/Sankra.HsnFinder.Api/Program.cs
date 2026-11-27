@@ -21,7 +21,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddMemoryCache();
 
-builder.Services.Configure<AzureAiSettings>(builder.Configuration.GetSection("AzureAi"));
+builder.Services.AddAiChatClient(builder.Configuration);
 builder.Services.Configure<ApiKeySettings>(builder.Configuration.GetSection("ApiKey"));
 builder.Services.Configure<CacheSettings>(builder.Configuration.GetSection("Cache"));
 builder.Services.Configure<RateLimitSettings>(builder.Configuration.GetSection("RateLimit"));
@@ -57,7 +57,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddSingleton(sp =>
 {
-    var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("AzureAiResilience");
+    var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("AiResilience");
     var pipelineBuilder = new ResiliencePipelineBuilder();
 
     pipelineBuilder.AddRetry(new RetryStrategyOptions
@@ -66,7 +66,7 @@ builder.Services.AddSingleton(sp =>
         BackoffType = DelayBackoffType.Exponential,
         OnRetry = args =>
         {
-            logger.LogWarning("Retrying Azure AI call, attempt {Attempt}", args.AttemptNumber + 1);
+            logger.LogWarning("Retrying AI provider call, attempt {Attempt}", args.AttemptNumber + 1);
             return ValueTask.CompletedTask;
         }
     });
@@ -88,3 +88,5 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program;

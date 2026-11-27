@@ -1,11 +1,9 @@
 using System.Text.Json;
-using Azure.AI.Extensions.OpenAI;
-using Azure.AI.Projects;
-using Azure.Identity;
 using ErrorOr;
 using HsnFinder.Api.Configuration;
 using HsnFinder.Api.Models.Agent;
 using HsnFinder.Api.Models.Responses;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -13,7 +11,8 @@ using Polly;
 namespace HsnFinder.Api.Services;
 
 public sealed class HsnLookupService(
-    IOptions<AzureAiSettings> azureSettings,
+    IChatClient chatClient,
+    IOptions<AiSettings> aiSettings,
     IOptions<CacheSettings> cacheSettings,
     IMemoryCache cache,
     ResiliencePipeline resiliencePipeline,
@@ -66,17 +65,13 @@ Use this exact JSON schema format:
 
         try
         {
-            var projectClient = new AIProjectClient(new Uri(azureSettings.Value.Endpoint), new DefaultAzureCredential());
-            var agentRef = new AgentReference(name: azureSettings.Value.AgentName, version: azureSettings.Value.AgentVersion);
-            var responseClient = projectClient.ProjectOpenAIClient.GetProjectResponsesClientForAgent(agentRef);
+            var prompt = string.Format(AgentPromptTemplate, productName);
 
             var agentResponse = await resiliencePipeline.ExecuteAsync(
-                ct =>
+                async ct =>
                 {
-                    ct.ThrowIfCancellationRequested();
-
-                    var result = responseClient.CreateResponse(string.Format(AgentPromptTemplate, productName));
-                    return ValueTask.FromResult(result.Value.GetOutputText());
+                    var result = await chatClient.GetResponseAsync(prompt, AiChatOptionsFactory.Create(aiSettings.Value), ct);
+                    return result.Text;
                 },
                 cancellationToken);
 
@@ -138,10 +133,14 @@ Use this exact JSON schema format:
 
             return response;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "All Azure AI retries exhausted for {ProductName}: {Message}", productName, ex.Message);
-            return Error.Failure("azure_ai_unavailable", "Azure AI Foundry is currently unavailable.");
+            logger.LogError(ex, "All AI provider retries exhausted for {ProductName}", productName);
+            return Error.Failure("ai_provider_unavailable", "AI provider is currently unavailable.");
         }
     }
 

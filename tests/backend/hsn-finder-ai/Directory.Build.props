@@ -1,0 +1,5 @@
+<Project>
+  <!-- Services imported from standalone repositories keep their own build settings and package versions.
+       This file stops MSBuild from inheriting the root Directory.Build.props (central package management,
+       warnings as errors). -->
+</Project>
