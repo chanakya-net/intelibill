@@ -124,10 +124,11 @@ public sealed partial class P0606Tests(LicensingPostgreSqlFixture database) : IC
     };
 
     internal static async Task<P0308Fixture> StartPermitFixtureAsync(LicensingPostgreSqlFixture db, RSA key, DateTimeOffset at,
-        bool browser = false)
+        bool browser = false, IReadOnlyDictionary<string, string?>? licensingSettings = null)
     {
         var business = new P0201Clock { Now = at };
-        var checkout = await P0302Fixture.StartAsync(db, business, browser: browser, merchantExtras: new Dictionary<string, string?>
+        var checkout = await P0302Fixture.StartAsync(db, business, licensingSettings, browser: browser,
+            merchantExtras: new Dictionary<string, string?>
         {
             ["Jwt:AccessTokenExpiryMinutes"] = "360",
             ["OfflineLicensePermit:LocalKeyId"] = "p0606-test",

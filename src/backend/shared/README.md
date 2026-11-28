@@ -77,3 +77,4 @@ The V1 licence notice contract separates named billing-actor lookup from affilia
 
 Provider notification detail carries an optional V1 email delivery record for authorized commercial operators.
 It includes state, attempts, exact times and an optional local capture link.
+For suppressed reminders it can include a `suppressionReasonCode` from the V1 vocabulary.

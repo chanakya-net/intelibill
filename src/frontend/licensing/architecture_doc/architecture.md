@@ -306,3 +306,5 @@ Browser side:
 Email detail uses the existing account preview request, pagination and capability lifecycle.
 The view requires a commercial capability and the server-provided detail. Links allow only a loopback Mailpit search
 for one opaque notification Message-ID and open with referrer and opener isolation.
+Suppressed deliveries show a localized, allowlisted reason inside the same keyboard-accessible disclosure.
+The component uses a neutral label for an absent or unrecognized code and hides the capture link for suppressed jobs.

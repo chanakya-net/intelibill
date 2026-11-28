@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "কারণ",
+      "reasons": {
+        "ScopeClosed": "দোকান বা অ্যাকাউন্ট বন্ধ হয়েছে।",
+        "SourceNoLongerCurrent": "চুক্তি পরিবর্তিত হয়েছে।",
+        "WindowElapsed": "অনুস্মারক পাঠানোর সময় পেরিয়ে গেছে।",
+        "RestrictionChanged": "বর্তমান বিধিনিষেধের কারণে এই অনুস্মারক পাঠানো যায় না।",
+        "RecipientIneligible": "প্রাপক আর যোগ্য নন।",
+        "unknown": "অতিরিক্ত তথ্য উপলব্ধ নেই।"
+      },
       "detail": "ইমেল সরবরাহ",
       "state": "অবস্থা",
       "attempts": "প্রচেষ্টা",
@@ -14,7 +23,7 @@
       "RetryPending": "পরবর্তী প্রচেষ্টা নির্ধারিত",
       "SmtpAccepted": "SMTP গ্রহণ করেছে",
       "Uncertain": "SMTP ফলাফল অজানা",
-      "Suppressed": "প্রাপক আর যোগ্য নন",
+      "Suppressed": "পাঠানো হয়নি",
       "Failed": "সরবরাহ ব্যর্থ"
     },
     "heading": "নির্ধারিত লাইসেন্স বিজ্ঞপ্তি",

@@ -69,7 +69,7 @@ public sealed partial class P0701Tests
         await P0608Tests.DrainAsync(paid);
     }
 
-    private static async Task GrantComplimentaryAsync(
+    internal static async Task GrantComplimentaryAsync(
         P0110CookieBrowser compManager,
         Guid accountId,
         Guid shopId,

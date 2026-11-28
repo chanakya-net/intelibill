@@ -1,8 +1,7 @@
 using System.Security.Cryptography;
 using Intelibill.Licensing.Application.Notifications;
-using Intelibill.Licensing.Infrastructure.Billing;
+using Intelibill.Shared.Web.Persistence;
 using Intelibill.Licensing.Infrastructure.Data;
-using Intelibill.Licensing.Infrastructure.Status;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,16 +11,18 @@ namespace Intelibill.Licensing.Infrastructure.Notifications;
 internal sealed record ReminderEmail(
     Guid AccountId, Guid JobId, Guid ScopeId, Guid? RecipientUserId, string RecipientKey, Guid? AffiliationRequestId,
     string ProtectedDestination, byte[] DestinationHash, string Locale, string Purpose, string Threshold,
-    string Guidance, DateTimeOffset Deadline, string Audience, Guid SourceId, string SourceKind, string SourceRevision,
+    DateTimeOffset Deadline, string Audience, Guid SourceId, string SourceKind, string SourceRevision,
     DateTimeOffset DueAt, string TemplateKey, long? PricePaise, string? Currency);
 
-internal sealed record EmailDecision(string State, string? Audience = null);
+internal sealed record EmailDecision(
+    string State, MimeKit.MimeMessage? Message = null, DateTimeOffset? WindowEnd = null, DateTimeOffset? LeaseEnd = null);
 internal sealed record RecipientObservation(bool Available, bool SameMailbox, DateTimeOffset ValidUntil);
 
 internal sealed class NotificationEmailAuthorization(
     LicensingDbContext db,
     NotificationEmailDeliveryStore store,
     IMerchantNoticeRecipientAuthority authority,
+    ReminderSourceReader sources,
     TimeProvider transportClock,
     [FromKeyedServices(BillingNotificationWorker.LeaseClock)] TimeProvider leaseClock)
 {
@@ -32,7 +33,7 @@ internal sealed class NotificationEmailAuthorization(
         var rows = await db.Database.SqlQuery<ReminderEmail>($"""
             SELECT j.account_id, j.id AS job_id, j.scope_id, j.recipient_user_id, j.recipient_key, d.affiliation_request_id,
                 j.protected_destination, j.destination_hash, j.locale, j.purpose, j.threshold,
-                j.template_arguments->>'guidanceCode' AS guidance, j.effective_deadline_at AS deadline, j.audience,
+                j.effective_deadline_at AS deadline, j.audience,
                 j.source_id, j.source_kind, j.source_revision, j.due_at, j.template_key,
                 (j.template_arguments->>'evidencedTermPricePaise')::bigint AS price_paise,
                 j.template_arguments->>'evidencedTermCurrency' AS currency
@@ -50,11 +51,13 @@ internal sealed class NotificationEmailAuthorization(
         if (job.RecipientUserId is not { } userId)
             return new(true, false, DateTimeOffset.MaxValue);
 
+        var deadline = transportClock.GetUtcNow().AddSeconds(15);
         var shop = job.AffiliationRequestId.HasValue;
         Guid? cursor = null;
         do
         {
-            var deadline = transportClock.GetUtcNow().AddSeconds(15);
+            if (transportClock.GetUtcNow() >= deadline)
+                return new(false, false, deadline);
             var request = new NoticeRecipientAuthorityRequestV1(
                 LicenseNoticesV1.SchemaVersion, Guid.NewGuid(), deadline, job.AccountId, job.AffiliationRequestId,
                 shop ? job.ScopeId : null, shop ? [] : [userId], cursor, LicenseNoticesV1.MaxRecipientPageSize);
@@ -71,20 +74,22 @@ internal sealed class NotificationEmailAuthorization(
             }
             cursor = reply.NextShopMemberCursor;
         } while (cursor.HasValue);
-        return new(true, false, transportClock.GetUtcNow().AddSeconds(15));
+        return new(true, false, deadline);
     }
 
     internal async Task<EmailDecision> DecideAndMarkAsync(
         EmailLease lease,
         ReminderEmail job,
         RecipientObservation observation,
+        string email,
+        BillingEmailOptions options,
         CancellationToken ct)
     {
         if (!observation.Available)
             return new("RetryPending");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await store.EnterAsync(job.AccountId, leaseClock.GetUtcNow(), ct);
-        await BillingAccountLock.TakeSharedAsync(db, job.AccountId, ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
         var member = await LockBillingRoleAsync(job, ct);
         var contact = await LockContactAsync(job, observation, ct);
         var audience = job.AffiliationRequestId is null
@@ -93,12 +98,31 @@ internal sealed class NotificationEmailAuthorization(
                 ? LicenseNoticesV1.AudienceShopOwnerOperational : null;
         if (transportClock.GetUtcNow() >= observation.ValidUntil)
             return new("RetryPending");
-        if (audience is null)
-            return new("Suppressed");
+        var relevance = audience is null ? new NoticeRelevance("RecipientIneligible") : await sources.ReadAsync(job, ct);
+        if (relevance.Current is not { } current || audience is null)
+        {
+            var suppressed = await store.SuppressAsync(lease, relevance.Reason!, ct);
+            await tx.CommitAsync(ct);
+            return new(suppressed ? "Suppressed" : "LeaseLost");
+        }
+        var message = BillingEmailRenderer.Reminder(options, lease, job, email, audience, current, sources.Now);
+        if (message is null)
+            return new("Failed");
+        var leaseStart = leaseClock.GetUtcNow();
         if (!await store.BeginSendAsync(lease, ct))
+        {
+            message.Dispose();
             return new("LeaseLost");
+        }
         await tx.CommitAsync(ct);
-        return new("Sending", audience);
+        return new("Sending", message, relevance.ValidUntil, leaseStart.AddSeconds(60));
+    }
+
+    internal bool ReadyToSubmit(EmailDecision decision, RecipientObservation observation, DateTimeOffset due)
+    {
+        var now = sources.Now;
+        return now >= due && now < decision.WindowEnd && transportClock.GetUtcNow() < observation.ValidUntil
+            && leaseClock.GetUtcNow() < decision.LeaseEnd;
     }
 
     private static string? CommercialAudience(bool member, bool contact, ReminderEmail job)

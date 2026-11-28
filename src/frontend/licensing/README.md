@@ -113,3 +113,5 @@ The read-only scheduled notification preview panel (`src/app/features/notificati
 Billing and Licensing Manager users can expand email detail in the account notification preview.
 It shows recorded attempts, timestamps and the SMTP outcome in the selected locale.
 Local capture links search Mailpit by the message identifier. Support receives the operational preview.
+A suppressed reminder shows its recorded reason in the selected language. The account preview includes this detail
+for Billing and Licensing Manager sessions across all nine shipped locales.

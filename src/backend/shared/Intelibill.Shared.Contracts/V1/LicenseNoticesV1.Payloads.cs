@@ -71,7 +71,9 @@ public sealed record ProviderEmailDeliveryV1(
     [property: JsonPropertyName("lastAttemptAt")] DateTimeOffset? LastAttemptAt,
     [property: JsonPropertyName("nextAttemptAt")] DateTimeOffset? NextAttemptAt,
     [property: JsonPropertyName("outcomeAt")] DateTimeOffset? OutcomeAt,
-    [property: JsonPropertyName("captureUrl")] string? CaptureUrl);
+    [property: JsonPropertyName("captureUrl")] string? CaptureUrl,
+    [property: JsonPropertyName("suppressionReasonCode"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? SuppressionReasonCode = null);
 
 public sealed record ProviderNotificationItemV1(
     [property: JsonPropertyName("jobId")] Guid JobId,

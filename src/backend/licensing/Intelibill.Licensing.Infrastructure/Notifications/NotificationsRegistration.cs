@@ -43,6 +43,7 @@ internal static class NotificationsRegistration
         services.AddOptions<BillingEmailOptions>().BindConfiguration("BillingEmail");
         services.TryAddKeyedSingleton<TimeProvider>(BillingNotificationWorker.LeaseClock, TimeProvider.System);
         services.AddScoped<NotificationEmailDeliveryStore>();
+        services.AddScoped<ReminderSourceReader>();
         services.AddScoped<NotificationEmailAuthorization>();
         services.AddSingleton(provider => new BillingContactVerificationPage(
             provider.GetRequiredService<IOptions<BillingEmailOptions>>().Value,

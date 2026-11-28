@@ -218,3 +218,5 @@ How to run them is in the [README](../README.md).
 `ProviderEmailDeliveryV1` is an additive field on a provider notification preview item.
 The licensing service owns its disclosure. Merchant notification and contact contracts carry no transport detail.
 An SMTP acknowledgement records transport acceptance. Uncertain records preserve an unresolved external outcome.
+For a suppressed job, the optional `suppressionReasonCode` identifies a closed scope, superseded source,
+elapsed window, changed restriction or ineligible recipient. Consumers use a neutral label for missing or unknown codes.

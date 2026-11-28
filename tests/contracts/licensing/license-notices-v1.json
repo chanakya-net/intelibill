@@ -67,6 +67,7 @@
       "GraceMinus1Day",
       "GraceExpiry"
     ],
+    "suppressionReasons": ["ScopeClosed", "SourceNoLongerCurrent", "WindowElapsed", "RestrictionChanged", "RecipientIneligible"],
     "emailDeliveryStates": ["Pending", "Leased", "Sending", "RetryPending", "SmtpAccepted", "Uncertain", "Suppressed", "Failed"],
     "channels": ["InApp", "Email"],
     "statuses": ["Scheduled"],
@@ -101,9 +102,12 @@
     "recipients",
     "invoiceReference",
     "paymentAction",
-    "commercial"
+    "commercial",
+    "emailDelivery",
+    "suppressionReasonCode"
   ],
   "forbiddenContactFields": [
+    "suppressionReasonCode",
     "verificationProofToken",
     "proofToken",
     "protectedDestination",

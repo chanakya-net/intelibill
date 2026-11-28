@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "Reason",
+      "reasons": {
+        "ScopeClosed": "The shop or account closed.",
+        "SourceNoLongerCurrent": "The agreement changed.",
+        "WindowElapsed": "The reminder window ended.",
+        "RestrictionChanged": "Current restrictions prevent this reminder.",
+        "RecipientIneligible": "The recipient is no longer eligible.",
+        "unknown": "No further detail is available."
+      },
       "detail": "Email delivery",
       "state": "Status",
       "attempts": "Attempts",
@@ -14,7 +23,7 @@
       "RetryPending": "Retry scheduled",
       "SmtpAccepted": "Accepted by SMTP",
       "Uncertain": "SMTP outcome unknown",
-      "Suppressed": "Recipient no longer eligible",
+      "Suppressed": "Suppressed",
       "Failed": "Delivery failed"
     },
     "heading": "Scheduled licence notifications",
