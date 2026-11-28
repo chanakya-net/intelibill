@@ -307,3 +307,6 @@ crash.*.log
 
 # Local implementation backlog
 /pending-tasks/
+
+# C# Dev Kit language service cache (regenerated automatically)
+*.lscache
