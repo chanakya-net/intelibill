@@ -1,0 +1,127 @@
+{
+  "contract": "license-notices",
+  "version": 1,
+  "actions": {
+    "shopRead": {
+      "action": "licensing.shop-notices.read",
+      "scope": "actor",
+      "method": "GET",
+      "path": "/internal/licensing/v1/customer/shops/{shopId}/notices",
+      "continuation": "/internal/licensing/v1/customer/shops/{shopId}/notices/after/{noticeId}",
+      "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accountRead": {
+      "action": "licensing.account-notices.read",
+      "scope": "account",
+      "roles": ["Owner", "Manager"],
+      "method": "GET",
+      "path": "/internal/licensing/v1/customer/accounts/{accountId}/notices",
+      "continuation": "/internal/licensing/v1/customer/accounts/{accountId}/notices/after/{noticeId}"
+    },
+    "contactList": {
+      "action": "licensing.notice-contacts.list",
+      "scope": "account",
+      "roles": ["Owner"],
+      "method": "GET",
+      "path": "/internal/licensing/v1/customer/accounts/{accountId}/notice-contacts",
+      "continuation": "/internal/licensing/v1/customer/accounts/{accountId}/notice-contacts/after/{contactId}"
+    },
+    "recipientAuthority": {
+      "method": "POST",
+      "path": "/internal/merchant/v1/licensing/notice-recipients",
+      "proofHeader": "X-Licensing-Notice-Recipients-Proof",
+      "requestShapes": {
+        "account": { "shopId": null, "affiliationRequestId": null, "namedActorsRequired": true },
+        "shop": { "exactAffiliationRequired": true, "actorIds": [] }
+      }
+    }
+  },
+  "publicRoutes": {
+    "merchantShop": "GET /api/licensing/shops/{shopId}/notices?after= (live active-shop member, current operational guidance only)",
+    "merchantAccount": "GET /api/billing/accounts/{accountId}/notices?after= (verified Billing Owner/Manager, current per-source commercial notices)",
+    "merchantContacts": "GET /api/billing/accounts/{accountId}/notice-contacts?after= (verified Billing Owner, paged without verification secrets)",
+    "providerAccount": "GET /api/admin/accounts/{accountId}/notifications?after= (Support redacted; Billing or Licensing Manager commercial)"
+  },
+  "bounds": {
+    "pageSize": 50,
+    "contactPageSize": 25,
+    "maxShopNameSampleCount": 5,
+    "maxShopNamePreviewCodeUnits": 64,
+    "maxRecipientPageSize": 50,
+    "maxActorLookupCount": 50,
+    "shopResponseLimit": 131072,
+    "accountResponseLimit": 262144,
+    "contactResponseLimit": 32768
+  },
+  "vocabularies": {
+    "scopeKinds": ["Account", "Shop"],
+    "audiences": ["CommercialBillingRole", "CommercialContact", "ShopOwnerOperational", "ShopStaffOperational"],
+    "purposes": ["TrialReminder", "PaidRenewalReminder", "GraceNotice"],
+    "sourceKinds": ["Trial", "Paid", "Complimentary"],
+    "thresholds": [
+      "TrialMinus3Days",
+      "TrialMinus1Day",
+      "PaidMinus7Days",
+      "PaidMinus1Day",
+      "GraceStart",
+      "GraceMinus1Day",
+      "GraceExpiry"
+    ],
+    "channels": ["InApp", "Email"],
+    "statuses": ["Scheduled"],
+    "guidanceCodes": [
+      "TrialEnding",
+      "TrialEndingPartialSuspension",
+      "PaidRenewalDue",
+      "PaidRenewalPartialSuspension",
+      "PaidTermCancelled",
+      "GraceActive",
+      "GraceActivePartialSuspension",
+      "GraceEnding",
+      "GraceEndingPartialSuspension",
+      "AccessExpired",
+      "SuspendedNoPaymentLift"
+    ],
+    "supportedLocales": ["en-IN", "hi-IN", "ta-IN", "te-IN", "bn-IN", "ml-IN", "kn-IN", "mr-IN", "gu-IN"]
+  },
+  "forbiddenOperationalFields": [
+    "accountId",
+    "pricePaise",
+    "evidencedTermPricePaise",
+    "currency",
+    "evidencedTermCurrency",
+    "planVersionId",
+    "coveredShops",
+    "coveredShopNames",
+    "coveredShopCount",
+    "destinationHint",
+    "protectedDestination",
+    "recipientKey",
+    "recipients",
+    "invoiceReference",
+    "paymentAction",
+    "commercial"
+  ],
+  "forbiddenContactFields": [
+    "verificationProofToken",
+    "proofToken",
+    "protectedDestination",
+    "destinationHash"
+  ],
+  "forbiddenAuthorityWireFields": [
+    "verifiedPhone",
+    "phoneNumber"
+  ],
+  "timeVectors": {
+    "timeZone": "Asia/Kolkata",
+    "trialEnd": "2028-02-15T04:30:00+00:00",
+    "trialMinus3Days": "2028-02-12T04:30:00+00:00",
+    "trialMinus1Day": "2028-02-14T04:30:00+00:00",
+    "paidTermEnd": "2028-02-29T04:30:00+00:00",
+    "paidMinus7Days": "2028-02-22T04:30:00+00:00",
+    "paidMinus1Day": "2028-02-28T04:30:00+00:00",
+    "graceStart": "2028-02-29T04:30:00+00:00",
+    "graceMinus1Day": "2028-03-06T04:30:00+00:00",
+    "graceExpiry": "2028-03-07T04:30:00+00:00"
+  }
+}

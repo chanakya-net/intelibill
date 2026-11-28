@@ -210,3 +210,7 @@ Infrastructure projects reference `Security`; and the merchant `Dockerfile` and
 `Dockerfile.migrate` copy the `Security` and `Contracts` project files before `dotnet restore`.
 
 How to run them is in the [README](../README.md).
+
+## Licence notice V1 contracts (P07-01)
+
+`Intelibill.Shared.Contracts/V1/LicenseNoticesV1.cs` (pinned by `tests/contracts/licensing/license-notices-v1.json`) separates operational shop notices from commercial account and provider preview payloads, bounds covered shop-name samples (`MaxShopNameSampleCount = 5`, `MaxShopNamePreviewCodeUnits = 64`) and contact pages (`ContactPageSize = 25`), omits verification proof tokens from `BillingContactV1`, requires exactly one recipient lookup purpose (named actors or an affiliation-bound shop roster), and enforces strict scope/cursor/identity/minimized-PII validation on `NoticeRecipientAuthorityResponseV1`.

@@ -3,6 +3,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { SESSION_PORT, type SessionState } from '@intelibill/api';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { NEVER, Subject, of, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountStatusApi, formatIst, type AccountStatus, type TermStatus } from './account-status-api.service';
@@ -12,6 +13,7 @@ import { TrialExtensionApi } from './trial-extension-api.service';
 import { TrialExtensionDrafts } from './trial-extension-drafts';
 import { ComplimentaryGrantApi } from './complimentary-grant-api.service';
 import { DevicePermitApi } from './device-permit-api.service';
+import { NotificationPreviewApi } from '../notifications/notification-preview-api.service';
 
 const account = '33333333-3333-4333-8333-333333333333';
 const term: TermStatus = {
@@ -31,6 +33,13 @@ function render(read: AccountStatusApi['read'], grants: string[] = ['support']) 
   const capabilities = signal(grants);
   const state = signal<SessionState>('authenticated');
   TestBed.configureTestingModule({
+    imports: [
+      TranslocoTestingModule.forRoot({
+        langs: { 'en-IN': {} },
+        translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' },
+        preloadLangs: true,
+      }),
+    ],
     providers: [
       provideRouter([]),
       { provide: SESSION_PORT, useValue: { state, capabilities } },
@@ -38,6 +47,7 @@ function render(read: AccountStatusApi['read'], grants: string[] = ['support']) 
       { provide: AdminSessionService, useValue: { adminId: signal('admin-1'), sessionId: signal('session-1') } },
       { provide: ComplimentaryGrantApi, useValue: {} },
       { provide: DevicePermitApi, useValue: { read: () => NEVER } },
+      { provide: NotificationPreviewApi, useValue: { read: () => NEVER } },
       { provide: TrialExtensionApi, useValue: {} },
       { provide: TrialExtensionDrafts, useValue: { read: () => Promise.resolve(null) } },
     ],

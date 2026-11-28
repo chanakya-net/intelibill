@@ -4194,6 +4194,56 @@
       "supersedes": "Supersedes version",
       "loadOlder": "Load older versions",
       "refresh": "Refresh accounting invoices"
+    },
+    "notices": {
+      "shopHeading": "Shop licence notice",
+      "accountHeading": "Scheduled licence notices",
+      "deadlineAt": "Status {{state}} · Deadline {{time}}",
+      "accessState": "Access state",
+      "effectiveDeadline": "Effective deadline",
+      "coveredShops": "Covered shops",
+      "evidencedTermPrice": "Evidenced term price",
+      "renewalQuoteNote": "This shows the evidenced price of the recorded term. A new renewal requires a separate checkout quote.",
+      "suspensionNoLift": "Making a payment does not lift an active suspension.",
+      "nextScheduledAt": "Next notice scheduled for {{time}}.",
+      "empty": "No due licence notices for this account right now.",
+      "purposes": {
+        "TrialReminder": "Trial reminder",
+        "PaidRenewalReminder": "Subscription renewal reminder",
+        "GraceNotice": "Grace period notice"
+      },
+      "thresholds": {
+        "TrialMinus3Days": "3 days before trial ends",
+        "TrialMinus1Day": "1 day before trial ends",
+        "PaidMinus7Days": "7 days before paid term ends",
+        "PaidMinus1Day": "1 day before paid term ends",
+        "GraceStart": "Grace period started",
+        "GraceMinus1Day": "1 day before grace ends",
+        "GraceExpiry": "Grace period ended"
+      },
+      "guidance": {
+        "TrialEnding": "Trial access is ending soon. Start a paid plan before the deadline to keep trading active.",
+        "PaidRenewalDue": "Paid subscription coverage is ending soon. Renew before the deadline to keep trading uninterrupted.",
+        "PaidTermCancelled": "This subscription is scheduled to end at the current deadline without automatic continuation.",
+        "GraceActive": "This shop is in its grace period. Renew before grace expires to avoid trading restrictions.",
+        "GraceEnding": "Grace period ends soon. Renew immediately to avoid trading restrictions.",
+        "AccessExpired": "Subscription access has expired. Contact the billing owner to restore coverage.",
+        "SuspendedNoPaymentLift": "Access is suspended. Payment alone does not lift a suspension; contact support.",
+        "TrialEndingPartialSuspension": "Trial access is ending soon for active shops on this account. At least one covered shop is suspended; payment alone does not lift a suspension.",
+        "PaidRenewalPartialSuspension": "Paid subscription coverage is ending soon for active shops on this account. At least one covered shop is suspended; renewing does not lift a suspension.",
+        "GraceActivePartialSuspension": "Grace period is active for eligible covered shops. At least one covered shop is suspended; renewing does not lift a suspension.",
+        "GraceEndingPartialSuspension": "Grace period ends soon for eligible covered shops. At least one covered shop is suspended; renewing does not lift a suspension."
+      },
+      "moreShops": "+{{count}} more (total: {{total}})",
+      "operationalGuidance": {
+        "TrialEnding": "This shop's trial access is ending soon. Contact the account billing owner or manager before trading is restricted.",
+        "PaidRenewalDue": "Paid subscription coverage for this shop is ending soon. Contact the account billing owner or manager before the deadline.",
+        "PaidTermCancelled": "This shop's subscription is scheduled to end at the current deadline. Contact the account billing owner or manager if trading should continue.",
+        "GraceActive": "This shop is in its grace period. Contact the account billing owner or manager before the grace deadline to avoid trading restrictions.",
+        "GraceEnding": "This shop's grace period ends soon. Contact the account billing owner or manager immediately before trading is restricted.",
+        "AccessExpired": "Subscription access for this shop has expired. Contact the account billing owner or manager to restore trading access.",
+        "SuspendedNoPaymentLift": "Access for this shop is suspended. Payment alone does not lift a suspension; contact the account billing owner or support."
+      }
     }
   }
 }

@@ -161,13 +161,18 @@ internal sealed partial class MerchantBillingClient(
         {
             case HttpStatusCode.OK:
             case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request or CheckoutOrdersV1.Create
-                or CheckoutPaymentsV1.Start or CapacityReductionsV1.Schedule:
+                or CheckoutPaymentsV1.Start or CapacityReductionsV1.Schedule or LicenseNoticesV1.ContactApprove:
             case HttpStatusCode.Accepted when action is BillingInvitationsV1.Issue or BillingOwnershipTransfersV1.Issue:
                 return null;
+            case HttpStatusCode.Forbidden when LicenseNoticesV1.IsContactAction(action):
+                return await ReadProblemCodeAsync(response, cancellationToken) == "Notifications.ContactProofInvalid"
+                    ? Errors.Notifications.ContactProofInvalid : MerchantBillingErrors.Denied;
             case HttpStatusCode.Forbidden:
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when LicenseNoticesV1.IsContactAction(action):
+                return MapNotificationContactFailure(await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when action is
                 CoverageReplacementsV1.Read or CoverageReplacementsV1.Schedule or CoverageReplacementsV1.Recover or CoverageReplacementsV1.OwnerRead:
                 return await MapReplacementFailureAsync(response, cancellationToken);

@@ -464,6 +464,210 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid>("ApprovedByActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by_actor_id");
+
+                    b.Property<byte[]>("DestinationHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("destination_hash");
+
+                    b.Property<string>("DestinationHint")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("destination_hint");
+
+                    b.Property<string>("Locale")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("locale");
+
+                    b.Property<Guid?>("MerchantUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("merchant_user_id");
+
+                    b.Property<Guid>("OperationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_key");
+
+                    b.Property<DateTimeOffset?>("OptedInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opted_in_at");
+
+                    b.Property<string>("ProtectedDestination")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("protected_destination");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedByActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by_actor_id");
+
+                    b.Property<DateTimeOffset?>("VerificationExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verification_expires_at");
+
+                    b.Property<byte[]>("VerificationTokenHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("verification_token_hash");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_notice_contacts");
+
+                    b.HasIndex("AccountId", "DestinationHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_billing_notice_contacts_active_destination")
+                        .HasFilter("revoked_at IS NULL");
+
+                    b.HasIndex("AccountId", "MerchantUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_billing_notice_contacts_active_user")
+                        .HasFilter("merchant_user_id IS NOT NULL AND revoked_at IS NULL");
+
+                    b.HasIndex("AccountId", "OperationKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_billing_notice_contacts_operation");
+
+                    b.HasIndex("AccountId", "ApprovedAt", "Id")
+                        .HasDatabaseName("ix_billing_notice_contacts_account");
+
+                    b.ToTable("billing_notice_contacts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_billing_notice_contacts_consent", "revision >= 1 AND (opted_in_at IS NULL OR verified_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_billing_notice_contacts_hashes", "octet_length(destination_hash) = 32\nAND (verification_token_hash IS NULL OR octet_length(verification_token_hash) = 32)\nAND length(btrim(protected_destination)) > 0\nAND length(btrim(destination_hint)) BETWEEN 3 AND 128");
+
+                            t.HasCheckConstraint("ck_billing_notice_contacts_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND approved_by_actor_id <> '00000000-0000-0000-0000-000000000000'\nAND operation_key <> '00000000-0000-0000-0000-000000000000'\nAND (merchant_user_id IS NULL OR merchant_user_id <> '00000000-0000-0000-0000-000000000000')\nAND (revoked_by_actor_id IS NULL OR revoked_by_actor_id <> '00000000-0000-0000-0000-000000000000')");
+
+                            t.HasCheckConstraint("ck_billing_notice_contacts_locale", "locale IN ('en-IN', 'hi-IN', 'ta-IN', 'te-IN', 'bn-IN', 'ml-IN', 'kn-IN', 'mr-IN', 'gu-IN')");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContactEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contact_id");
+
+                    b.Property<string>("EventKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("event_kind");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_notice_contact_events");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_billing_notice_contact_events_account_id");
+
+                    b.HasIndex("ContactId", "Revision", "EventKind")
+                        .IsUnique()
+                        .HasDatabaseName("ux_billing_notice_contact_events_revision");
+
+                    b.ToTable("billing_notice_contact_events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_billing_notice_contact_events_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND contact_id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND (actor_id IS NULL OR actor_id <> '00000000-0000-0000-0000-000000000000')");
+
+                            t.HasCheckConstraint("ck_billing_notice_contact_events_kind", "event_kind IN ('Approved', 'Verified', 'OptedIn', 'OptedOut', 'Revoked') AND revision >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContactOperation", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Action")
+                        .HasColumnType("text")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("OperationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_key");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contact_id");
+
+                    b.Property<byte[]>("PayloadHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("payload_hash");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<int>("ResultingRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("resulting_revision");
+
+                    b.HasKey("AccountId", "Action", "OperationKey")
+                        .HasName("pk_billing_notice_contact_operations");
+
+                    b.HasIndex("ContactId")
+                        .HasDatabaseName("ix_billing_notice_contact_operations_contact_id");
+
+                    b.ToTable("billing_notice_contact_operations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_billing_notice_contact_operations_action", "action IN ('Approve', 'SelfConsent', 'StandaloneConsent', 'OwnerRevoke', 'HolderRevoke')\nAND octet_length(payload_hash) = 32\nAND resulting_revision >= 1");
+
+                            t.HasCheckConstraint("ck_billing_notice_contact_operations_ids", "account_id <> '00000000-0000-0000-0000-000000000000'\nAND contact_id <> '00000000-0000-0000-0000-000000000000'\nAND operation_key <> '00000000-0000-0000-0000-000000000000'\nAND (actor_id IS NULL OR actor_id <> '00000000-0000-0000-0000-000000000000')");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -836,6 +1040,174 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_merchant_billing_delegation_use_ids", "replay_id <> '00000000-0000-0000-0000-000000000000'\nAND (account_id IS NULL OR account_id <> '00000000-0000-0000-0000-000000000000')\nAND actor_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> replay_id\nAND key_id ~ '^[A-Za-z0-9_-]{1,128}$'");
 
                             t.HasCheckConstraint("ck_merchant_billing_delegation_use_window", "issued_at <= consumed_at AND consumed_at < expires_at\nAND expires_at - issued_at <= interval '60 seconds'");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.NotificationJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.PrimitiveCollection<string[]>("AllowedChannels")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("allowed_channels");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("audience");
+
+                    b.Property<Guid?>("ContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contact_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<byte[]>("DestinationHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("destination_hash");
+
+                    b.Property<string>("DestinationHint")
+                        .HasColumnType("text")
+                        .HasColumnName("destination_hint");
+
+                    b.Property<DateTimeOffset>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<DateTimeOffset>("EffectiveDeadlineAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_deadline_at");
+
+                    b.Property<string>("Locale")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("locale");
+
+                    b.Property<DateTimeOffset>("PlannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("planned_at");
+
+                    b.Property<string>("ProtectedDestination")
+                        .HasColumnType("text")
+                        .HasColumnName("protected_destination");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("RecipientKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("recipient_key");
+
+                    b.Property<Guid?>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_user_id");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
+                    b.Property<string>("ScopeKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("scope_kind");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_kind");
+
+                    b.Property<string>("SourceRevision")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_revision");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TemplateArguments")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("template_arguments");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("template_key");
+
+                    b.Property<string>("Threshold")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("threshold");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("time_zone");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notification_jobs");
+
+                    b.HasIndex("AccountId", "DueAt", "Id")
+                        .HasDatabaseName("ix_notification_jobs_account_due");
+
+                    b.HasIndex("AccountId", "RecipientUserId", "DueAt", "Id")
+                        .HasDatabaseName("ix_notification_jobs_account_actor_due")
+                        .HasFilter("scope_kind = 'Account' AND recipient_user_id IS NOT NULL");
+
+                    b.HasIndex("ScopeId", "RecipientUserId", "DueAt", "Id")
+                        .HasDatabaseName("ix_notification_jobs_shop_actor_due")
+                        .HasFilter("scope_kind = 'Shop' AND recipient_user_id IS NOT NULL");
+
+                    b.HasIndex("AccountId", "ScopeKind", "ScopeId", "DestinationHash", "Purpose", "SourceKind", "SourceId", "SourceRevision", "Threshold")
+                        .IsUnique()
+                        .HasDatabaseName("ux_notification_jobs_email_destination")
+                        .HasFilter("destination_hash IS NOT NULL");
+
+                    b.HasIndex("AccountId", "ScopeKind", "ScopeId", "RecipientKey", "Purpose", "SourceKind", "SourceId", "SourceRevision", "Threshold")
+                        .IsUnique()
+                        .HasDatabaseName("ux_notification_jobs_semantic_key");
+
+                    b.ToTable("notification_jobs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_notification_jobs_channels", "cardinality(allowed_channels) >= 1\nAND allowed_channels <@ ARRAY['InApp', 'Email']::text[]\nAND (audience <> 'ShopStaffOperational' OR allowed_channels = ARRAY['InApp']::text[])\nAND (audience <> 'CommercialContact' OR allowed_channels = ARRAY['Email']::text[])\nAND (NOT ('Email' = ANY(allowed_channels)) OR (\n    protected_destination IS NOT NULL\n    AND destination_hint IS NOT NULL\n    AND destination_hash IS NOT NULL\n    AND octet_length(destination_hash) = 32))\nAND ('Email' = ANY(allowed_channels) OR destination_hash IS NULL)");
+
+                            t.HasCheckConstraint("ck_notification_jobs_dates", "effective_deadline_at >= due_at AND time_zone = 'Asia/Kolkata'");
+
+                            t.HasCheckConstraint("ck_notification_jobs_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND scope_id <> '00000000-0000-0000-0000-000000000000'\nAND source_id <> '00000000-0000-0000-0000-000000000000'\nAND (recipient_user_id IS NULL OR recipient_user_id <> '00000000-0000-0000-0000-000000000000')\nAND (contact_id IS NULL OR contact_id <> '00000000-0000-0000-0000-000000000000')");
+
+                            t.HasCheckConstraint("ck_notification_jobs_locale", "locale IN ('en-IN', 'hi-IN', 'ta-IN', 'te-IN', 'bn-IN', 'ml-IN', 'kn-IN', 'mr-IN', 'gu-IN')");
+
+                            t.HasCheckConstraint("ck_notification_jobs_purpose", "purpose IN ('TrialReminder', 'PaidRenewalReminder', 'GraceNotice')");
+
+                            t.HasCheckConstraint("ck_notification_jobs_recipient_key", "length(btrim(recipient_key)) BETWEEN 1 AND 128");
+
+                            t.HasCheckConstraint("ck_notification_jobs_scope", "(scope_kind = 'Account' AND scope_id = account_id AND audience IN ('CommercialBillingRole', 'CommercialContact'))\nOR (scope_kind = 'Shop' AND audience IN ('ShopOwnerOperational', 'ShopStaffOperational'))");
+
+                            t.HasCheckConstraint("ck_notification_jobs_source", "source_kind IN ('Trial', 'Paid', 'Complimentary') AND length(btrim(source_revision)) BETWEEN 1 AND 128");
+
+                            t.HasCheckConstraint("ck_notification_jobs_status", "status = 'Scheduled'");
+
+                            t.HasCheckConstraint("ck_notification_jobs_template", "length(btrim(template_key)) BETWEEN 1 AND 128 AND jsonb_typeof(template_arguments) = 'object'");
+
+                            t.HasCheckConstraint("ck_notification_jobs_threshold", "threshold IN (\n    'TrialMinus3Days', 'TrialMinus1Day',\n    'PaidMinus7Days', 'PaidMinus1Day',\n    'GraceStart', 'GraceMinus1Day', 'GraceExpiry')");
                         });
                 });
 
@@ -1420,6 +1792,50 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasConstraintName("fk_billing_account_members_billing_accounts_account_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContact", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contacts_billing_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContactEvent", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contact_events_billing_accounts_account_id");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingNoticeContact", null)
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contact_events_billing_notice_contacts_conta");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContactOperation", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contact_operations_billing_accounts_account_");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingNoticeContact", null)
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contact_operations_billing_notice_contacts_c");
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>
                 {
                     b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
@@ -1467,6 +1883,16 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasForeignKey("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", "OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_initial_admin_bootstrap_admin_identity_owner_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.NotificationJob", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_jobs_billing_accounts_account_id");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.Plan", b =>

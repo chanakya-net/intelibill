@@ -5,6 +5,7 @@ using Intelibill.Licensing.Api.Payments;
 using Intelibill.Licensing.Api.Refunds;
 using Intelibill.Licensing.Api.Subscriptions;
 using Intelibill.Licensing.Api.Catalogue;
+using Intelibill.Licensing.Api.Notifications;
 using Intelibill.Licensing.Api.Status;
 using Intelibill.Licensing.Api.Trials;
 using Intelibill.Licensing.Application.Billing;
@@ -49,6 +50,7 @@ internal static class CustomerBillingEndpoints
         app.MapCoverageReplacementExceptions(policy);
         app.MapCoverageTransfers(policy);
         app.MapCustomerSubscriptionStatus(policy);
+        app.MapCustomerLicenseNotices(policy);
         app.MapCustomerSubscriptionCancellation(policy);
         app.MapCustomerClosures(policy);
         app.MapAffiliationDelivery();

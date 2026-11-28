@@ -98,6 +98,10 @@ is healthy.
   by `tests/release/static-server.ts` with API responses stubbed per test. Output goes to
   `test-results/release`.
 
+## Notification preview localization (P07-01)
+
+The read-only scheduled notification preview panel (`src/app/features/notifications/`, mounted inside Accounts status) uses the merchant-pinned `@ngneat/transloco` package with `AdminTranslocoLoader` and nine locale JSON assets (`src/assets/i18n/{en,hi,ta,te,bn,ml,kn,mr,gu}-IN.json`). Wider admin localization remains tracked under `#931`.
+
 ## Documentation
 
 - [Architecture of this app](architecture_doc/architecture.md)

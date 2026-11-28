@@ -40,6 +40,8 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
             ["ShopAffiliationDelivery:PublicKeys:local-affiliation"] = consent.ExportSubjectPublicKeyInfoPem(),
         };
         transport.AddSettings(destination, licensing: true);
+        if (!liveDelivery)
+            destination["Notifications:PlanInBackground"] = "false";
         foreach (var (name, value) in licensingExtras ?? new Dictionary<string, string?>()) destination[name] = value;
         transport.AddSettings(source, licensing: false);
         foreach (var (name, value) in merchantExtras ?? new Dictionary<string, string?>()) source[name] = value;

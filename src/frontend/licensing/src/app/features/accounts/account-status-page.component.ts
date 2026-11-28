@@ -10,6 +10,7 @@ import { ComplimentaryGrantComponent } from './complimentary-grant.component';
 import { devicePermitReaders } from './device-permit-api.service';
 import { DevicePermitPanelComponent } from './device-permit-panel.component';
 import { TrialExtensionComponent } from './trial-extension.component';
+import { NotificationPreviewComponent } from '../notifications/notification-preview.component';
 
 type Outcome = 'idle' | 'loading' | 'denied' | 'missing' | 'unavailable' | 'session';
 const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,7 +22,7 @@ const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 @Component({
   selector: 'adm-account-status-page',
   imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent, TrialExtensionComponent, AccountCancellationDetailComponent,
-    DevicePermitPanelComponent],
+    DevicePermitPanelComponent, NotificationPreviewComponent],
   templateUrl: './account-status-page.component.html',
   styleUrls: ['../form-page.css', './account-status-page.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

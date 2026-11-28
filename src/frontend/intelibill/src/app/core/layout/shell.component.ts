@@ -43,6 +43,7 @@ import {
   offlineEnablementErrorKeyForReason,
   offlineEnablementProgressKey,
 } from '../../features/shops/components/manage-shop/manage-shop-offline.helper';
+import { LicenseNoticeComponent } from '../../features/billing/status/license-notice.component';
 
 @Component({
   selector: 'app-shell',
@@ -58,6 +59,7 @@ import {
     TranslocoPipe,
     UiKitStylesComponent,
     ShellGlobalStylesComponent,
+    LicenseNoticeComponent,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',

@@ -426,6 +426,14 @@ route	POST api/billing/accounts/{accountId:guid}/coverage-transfer-shops/{shopId
 route	POST api/billing/accounts/{accountId:guid}/coverage-transfers/{transferId:guid}/consents/{purpose}/{decision}	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers	Billing	M01/M13	protected/request
 route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/coverage-transfers/preview	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/notices	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/notice-contacts	Billing	M01/M13	protected/request
+route	GET api/licensing/shops/{shopId:guid}/notices	Billing	M01/M13	protected/request
+route	POST /internal/merchant/v1/licensing/notice-recipients	InternalService	internal	anonymous/request
+route	POST api/billing/accounts/{accountId:guid}/notice-contacts	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/notice-contacts/{contactId:guid}/revoke	Billing	M01/M13	protected/request
+route	POST api/billing/notice-contacts/{contactId:guid}/consent	Billing	M01/M13	protected/request
+route	POST api/billing/notice-contacts/{contactId:guid}/revoke	Billing	M01/M13	protected/request
 writer	Intelibill.Api.Internal.LicenceAuthorityNotifications	InternalService	internal	-
 writer	Intelibill.Api.Services.Realtime.RealtimeRevocationWorker	InternalService	internal	-
 writer	Intelibill.Api.Startup.ApplicationModelWarmupService	InternalService	internal	-

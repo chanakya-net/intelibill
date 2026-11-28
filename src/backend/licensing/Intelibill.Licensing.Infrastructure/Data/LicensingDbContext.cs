@@ -35,5 +35,9 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new PublishedCatalogueOfferConfiguration());
         modelBuilder.ApplyConfiguration(new CatalogueRetirementConfiguration());
         modelBuilder.ApplyConfiguration(new WithdrawnCatalogueOfferConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationJobConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingNoticeContactConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingNoticeContactEventConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingNoticeContactOperationConfiguration());
     }
 }

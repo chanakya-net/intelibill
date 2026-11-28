@@ -34,6 +34,11 @@
                 "glob": "**/*",
                 "input": "../shared/ui/fonts",
                 "output": "fonts"
+              },
+              {
+                "glob": "**/*.json",
+                "input": "src/assets/i18n",
+                "output": "assets/i18n"
               }
             ],
             "styles": [

@@ -1,0 +1,109 @@
+@let current = view();
+@if (mode() === 'shop' && current.kind === 'shop' && current.notices.length > 0) {
+  <section
+    class="license-shop-banner"
+    role="status"
+    [attr.aria-label]="'billing.notices.shopHeading' | transloco"
+    data-testid="shop-license-notices"
+  >
+    @for (item of current.notices; track item.noticeId) {
+      <div class="license-shop-banner__row" data-testid="shop-license-notice">
+        <i class="pi pi-info-circle" aria-hidden="true"></i>
+        <div class="license-shop-banner__body">
+          <strong>{{ item.shopName }}</strong>
+          <span data-testid="shop-license-notice-guidance">{{ operationalGuidanceKey(item.guidanceCode) | transloco }}</span>
+          <span>
+            {{
+              'billing.notices.deadlineAt'
+                | transloco: {
+                    state: ('billing.status.states.' + item.accessState | transloco),
+                    time: instant(item.effectiveDeadlineAt)
+                  }
+            }}
+          </span>
+        </div>
+      </div>
+    }
+  </section>
+}
+
+@if (mode() === 'account') {
+  <section
+    class="ib-panel license-account-panel"
+    aria-labelledby="account-license-notices-heading"
+    data-testid="account-license-notices"
+  >
+    <h2 id="account-license-notices-heading">{{ 'billing.notices.accountHeading' | transloco }}</h2>
+    @switch (current.kind) {
+      @case ('loading') {
+        <p role="status">{{ 'common.loading' | transloco }}</p>
+      }
+      @case ('failed') {
+        <p role="alert" data-testid="account-license-notices-error">
+          {{ 'billing.status.' + current.failure | transloco }}
+        </p>
+      }
+      @case ('account') {
+        @for (item of current.notices; track item.noticeId) {
+          <article class="license-account-card" data-testid="account-license-notice">
+            <div class="license-account-card__head">
+              <strong>{{ purposeKey(item.purpose) | transloco }}</strong>
+              <span class="license-account-card__tag">{{ thresholdKey(item.threshold) | transloco }}</span>
+            </div>
+            <p>{{ guidanceKey(item.guidanceCode) | transloco }}</p>
+            <dl class="license-account-card__facts">
+              <dt>{{ 'billing.notices.accessState' | transloco }}</dt>
+              <dd>{{ 'billing.status.states.' + item.accessState | transloco }}</dd>
+              <dt>{{ 'billing.notices.effectiveDeadline' | transloco }}</dt>
+              <dd data-testid="account-notice-deadline">{{ instant(item.effectiveDeadlineAt) }}</dd>
+              <dt>{{ 'billing.notices.coveredShops' | transloco }}</dt>
+              <dd data-testid="account-notice-shops">
+                {{ item.coveredShopNames.join(', ') }}
+                @if (item.coveredShopNamesTruncated || item.coveredShopCount > item.coveredShopNames.length) {
+                  <span>
+                    {{
+                      'billing.notices.moreShops'
+                        | transloco: {
+                            count: item.coveredShopCount - item.coveredShopNames.length,
+                            total: item.coveredShopCount
+                          }
+                    }}
+                  </span>
+                } @else {
+                  <span>({{ item.coveredShopCount }})</span>
+                }
+              </dd>
+              @if (item.evidencedTermPricePaise !== null) {
+                <dt>{{ 'billing.notices.evidencedTermPrice' | transloco }}</dt>
+                <dd data-testid="account-notice-price">
+                  {{ rupees(item.evidencedTermPricePaise) | localeMoney }}
+                  @if (item.evidencedTermCurrency) {
+                    ({{ item.evidencedTermCurrency }})
+                  }
+                </dd>
+              }
+            </dl>
+            @if (item.renewalQuoteRequired) {
+              <p class="license-account-card__note" data-testid="account-notice-quote-note">
+                {{ 'billing.notices.renewalQuoteNote' | transloco }}
+              </p>
+            }
+            @if (item.paymentDoesNotLiftSuspension) {
+              <p class="license-account-card__warning" role="alert" data-testid="account-notice-suspension-note">
+                {{ 'billing.notices.suspensionNoLift' | transloco }}
+              </p>
+            }
+          </article>
+        } @empty {
+          @if (current.nextDueAt; as nextDueAt) {
+            <p data-testid="account-license-notices-upcoming">
+              {{ 'billing.notices.nextScheduledAt' | transloco: { time: instant(nextDueAt) } }}
+            </p>
+          } @else {
+            <p data-testid="account-license-notices-empty">{{ 'billing.notices.empty' | transloco }}</p>
+          }
+        }
+      }
+    }
+  </section>
+}

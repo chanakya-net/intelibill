@@ -315,3 +315,13 @@ entitlement or delegation seams change. Parallelism and test-host differences ar
 | [licensing-p02-14-synchronization-status](../../../../docs/licensing-p02-14-synchronization-status.md) | Synchronization status |
 | [licensing-p02-15-cancellation](../../../../docs/licensing-p02-15-cancellation.md) | Scheduled cancellation |
 | [licensing-p02-16-cancellation-withdrawal](../../../../docs/licensing-p02-16-cancellation-withdrawal.md) | Cancellation withdrawal |
+
+## Licence notice planning (P07-01)
+
+Trial reminders fall three days and one day before expiry. Paid reminders fall seven days and one day before expiry. Eligible grace periods add start, end-minus-one-day and expiry notices. Shop scheduling and reads use the intersection of the term and the shop’s coverage interval, including mid-term joins and handoffs.
+
+The worker scans eligible term IDs before loading facts or requesting rosters. After signed merchant HTTP observations, it locks the billing account and recipient authorities, serializes notice additions per account, and checks the observed source IDs at the current decision time. A deferred account is counted and retried on a later pass while other accounts advance.
+
+Forced RLS, immutable job rows and recipient identity and destination aliases preserve one notice per recipient and threshold. A later verified channel is appended to `notification_channel_additions`. The security-invoker view `effective_notification_jobs` projects both channels through the underlying table policies. Worker discovery requires the dedicated transaction-local planner scope.
+
+Merchant reads return a current notice per live source. The next refresh includes end-exclusive deadlines, and live restriction guidance changes on release. Provider preview retains the scheduled facts and job identifiers across those boundaries.
