@@ -8,7 +8,7 @@ namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 /// <summary>Posts a sale's stock deduction and the customer due it leaves on the customer ledger.</summary>
 public sealed class SaleStockAndDuePoster(
-    IStockTransactionRepository stockTransactionRepository,
+    SaleStockOutPoster stockOutPoster,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
 {
     internal async Task<ErrorOr<Success>> DeductStockAsync(
@@ -26,25 +26,18 @@ public sealed class SaleStockAndDuePoster(
             var inventory = line.Inventory!;
             if (cmdItem.Quantity > batch.UnquarantinedQuantity)
                 return Error.Validation("InventoryBatch.InsufficientStock", "Insufficient unquarantined stock in batch.");
-            var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
-            if (batchResult.IsError) return batchResult.Errors;
-
-            var inventoryResult = inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
-            if (inventoryResult.IsError) return inventoryResult.Errors;
-
-            var txResult = StockTransaction.Create(
+            var stockOut = await stockOutPoster.PostStockOutAsync(
                 command.ShopId,
                 item.Id,
-                batch.Id,
-                StockTransactionType.Out,
-                -cmdItem.Quantity,
+                batch,
+                inventory,
+                cmdItem.Quantity,
                 invoiceNumber,
-                null,
                 soldAt,
                 command.ActorUserId,
-                command.ActorUserId);
-            if (txResult.IsError) return txResult.Errors;
-            await stockTransactionRepository.AddAsync(txResult.Value, cancellationToken);
+                command.ActorUserId,
+                cancellationToken);
+            if (stockOut.IsError) return stockOut.Errors;
         }
 
         return Result.Success;

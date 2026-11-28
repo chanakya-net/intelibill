@@ -7,7 +7,7 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
 /// <summary>Stages an offline sale's stock deductions, the sale itself, its review cases and its due entry, in that order.</summary>
 public sealed class OfflineSaleStockAndDuePoster(
-    IStockTransactionRepository stockTransactionRepository,
+    SaleStockOutPoster stockOutPoster,
     ISaleRepository saleRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
@@ -45,23 +45,18 @@ public sealed class OfflineSaleStockAndDuePoster(
             var consumed = consumption[i].ConsumedQuantity;
             if (consumed <= 0) continue;
             if (vLines[i].LineType == SaleLineType.Service) continue;
-            var batchResult = vLines[i].Batch!.SubtractQuantity(consumed, recordedBy);
-            if (batchResult.IsError) throw new InvalidOperationException(batchResult.FirstError.Description);
-            var inventoryResult = vLines[i].Inventory!.SubtractQuantity(consumed, recordedBy);
-            if (inventoryResult.IsError) throw new InvalidOperationException(inventoryResult.FirstError.Description);
-            var tx = StockTransaction.Create(
+            var stockOut = await stockOutPoster.PostStockOutAsync(
                 request.ShopId,
                 vLines[i].Item!.Id,
-                vLines[i].Batch!.Id,
-                StockTransactionType.Out,
-                -consumed,
+                vLines[i].Batch!,
+                vLines[i].Inventory!,
+                consumed,
                 invoiceNumber,
-                null,
                 request.Sale.SoldAt,
                 request.AttributedUserId,
-                recordedBy);
-            if (tx.IsError) throw new InvalidOperationException(tx.FirstError.Description);
-            await stockTransactionRepository.AddAsync(tx.Value, cancellationToken);
+                recordedBy,
+                cancellationToken);
+            if (stockOut.IsError) throw new InvalidOperationException(stockOut.FirstError.Description);
         }
     }
 

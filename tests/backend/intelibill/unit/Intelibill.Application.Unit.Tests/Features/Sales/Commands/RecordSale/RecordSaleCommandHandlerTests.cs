@@ -110,7 +110,7 @@ public class RecordSaleCommandHandlerTests
             new SaleLinePricer(_saleLineValidator, ExpiryTestDoubles.Guard(), _salePricingCalculator),
             new SaleCreditDecider(_customerRepository, _customerLedgerEntryRepository, _userRepository, replayReader),
             new SaleCreditNoteRedeemer(_creditNoteRepository),
-            new SaleStockAndDuePoster(_stockTransactionRepository, _customerLedgerEntryRepository));
+            new SaleStockAndDuePoster(new SaleStockOutPoster(_stockTransactionRepository), _customerLedgerEntryRepository));
     }
 
     private readonly MutableTimeProvider _time = new();
