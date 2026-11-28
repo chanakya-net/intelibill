@@ -31,7 +31,7 @@ compose() (
 validate_model() {
   jq -e --arg p "${project}" --arg db_scripts "${repository_root}/scripts/db" '
     .name == $p and
-    .volumes == {postgres_data: {name: ($p + "_postgres_data")}} and
+    .volumes == {postgres_data: {name: ($p + "_postgres_data")}, licensing_keys: {name: ($p + "_licensing_keys")}} and
     (.networks | keys == ["default"] and .default.name == ($p + "_default") and
       (.default | del(.name) == {} or del(.name) == {ipam: {}})) and
     (.services | length > 0 and (to_entries | all(
@@ -42,6 +42,8 @@ validate_model() {
       all(.volumes[]?;
         if $service == "postgres" then
           .type == "volume" and .source == "postgres_data" and .target == "/var/lib/postgresql/data"
+        elif $service == "licensing-api" then
+          .type == "volume" and .source == "licensing_keys" and .target == "/var/lib/intelibill/licensing-keys"
         else
           .type == "bind" and .source == $db_scripts and .target == "/scripts" and .read_only == true
         end
@@ -72,12 +74,15 @@ check_live_containers() {
   containers="$(docker inspect "${ids[@]}")" || fail "could not inspect fixture containers"
   jq -e --arg p "${project}" --arg db_scripts "${repository_root}/scripts/db" '
     all(.[];
+      .Config.Labels["com.docker.compose.service"] as $service |
       (.Name | startswith("/" + $p + "_") or startswith("/" + $p + "-")) and
       .Config.Labels["com.docker.compose.project"] == $p and
       all(.NetworkSettings.Networks | keys[]; . == ($p + "_default")) and
       all(.Mounts[]?;
         if .Type == "bind" then
           .Source == $db_scripts and .Destination == "/scripts" and .RW == false
+        elif $service == "licensing-api" then
+          .Type == "volume" and .Destination == "/var/lib/intelibill/licensing-keys" and .Name == ($p + "_licensing_keys")
         else
           .Type == "volume" and .Destination == "/var/lib/postgresql/data" and
           (.Name == ($p + "_postgres_data") or (.Name | test("^[a-f0-9]{64}$")))
@@ -85,8 +90,8 @@ check_live_containers() {
       )
     )
   ' <<<"${containers}" >/dev/null || fail "existing fixture containers have foreign ownership, mounts or networks"
-  anonymous="$(jq -r --arg named "${project}_postgres_data" \
-    '[.[].Mounts[]? | select(.Type == "volume" and .Name != $named) | .Name] | unique[]' <<<"${containers}")"
+  anonymous="$(jq -r --arg named "${project}_postgres_data" --arg keys "${project}_licensing_keys" \
+    '[.[].Mounts[]? | select(.Type == "volume" and .Name != $named and .Name != $keys) | .Name] | unique[]' <<<"${containers}")"
   while IFS= read -r id; do
     [[ -z "${id}" ]] && continue
     docker volume inspect "${id}" --format '{{json .Labels}}' \

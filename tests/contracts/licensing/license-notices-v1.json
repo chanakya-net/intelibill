@@ -67,6 +67,7 @@
       "GraceMinus1Day",
       "GraceExpiry"
     ],
+    "emailDeliveryStates": ["Pending", "Leased", "Sending", "RetryPending", "SmtpAccepted", "Uncertain", "Suppressed", "Failed"],
     "channels": ["InApp", "Email"],
     "statuses": ["Scheduled"],
     "guidanceCodes": [

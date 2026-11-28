@@ -28,5 +28,5 @@
 
 ## Open Follow-Up Dependencies
 
-- Standalone address-only contact mailbox proof delivery depends on email transport delivery (`#925`); licensing stores and enforces the single-use SHA-256 verification proof hash via `IBillingContactMailboxProofDispatch` (no-op in production until `#925`), keeping address-only approvals pending without exposing secrets to approvers.
+- Standalone contacts remain pending until the address holder independently verifies the mailbox and opts in. See [P07-02 email delivery](p07-02-email-delivery.md) for the encrypted proof flow.
 - Send-time cancellation/invalidation of already-planned jobs after subsequent payment/closure/revocation is owned by `#926`.

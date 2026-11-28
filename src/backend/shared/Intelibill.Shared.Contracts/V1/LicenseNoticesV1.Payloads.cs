@@ -65,6 +65,14 @@ public sealed record ProviderNotificationCommercialV1(
     [property: JsonPropertyName("coveredShopNames")] string[] CoveredShopNames,
     [property: JsonPropertyName("coveredShopNamesTruncated")] bool CoveredShopNamesTruncated = false);
 
+public sealed record ProviderEmailDeliveryV1(
+    [property: JsonPropertyName("state")] string State,
+    [property: JsonPropertyName("attempts")] int Attempts,
+    [property: JsonPropertyName("lastAttemptAt")] DateTimeOffset? LastAttemptAt,
+    [property: JsonPropertyName("nextAttemptAt")] DateTimeOffset? NextAttemptAt,
+    [property: JsonPropertyName("outcomeAt")] DateTimeOffset? OutcomeAt,
+    [property: JsonPropertyName("captureUrl")] string? CaptureUrl);
+
 public sealed record ProviderNotificationItemV1(
     [property: JsonPropertyName("jobId")] Guid JobId,
     [property: JsonPropertyName("scopeKind")] string ScopeKind,
@@ -88,7 +96,8 @@ public sealed record ProviderNotificationItemV1(
     [property: JsonPropertyName("paymentDoesNotLiftSuspension")] bool PaymentDoesNotLiftSuspension,
     [property: JsonPropertyName("plannedAt")] DateTimeOffset PlannedAt,
     [property: JsonPropertyName("commercial")] ProviderNotificationCommercialV1? Commercial,
-    [property: JsonPropertyName("suspendedShopCount")] int SuspendedShopCount = 0);
+    [property: JsonPropertyName("suspendedShopCount")] int SuspendedShopCount = 0,
+    [property: JsonPropertyName("emailDelivery")] ProviderEmailDeliveryV1? EmailDelivery = null);
 
 public sealed record ProviderNotificationsPageV1(
     [property: JsonPropertyName("schemaVersion")] int SchemaVersion,

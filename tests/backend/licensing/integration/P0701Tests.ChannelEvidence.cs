@@ -56,6 +56,13 @@ public sealed partial class P0701Tests
             Assert.False(reader.IsDBNull(3));
         }
         Assert.Equal(5, ids.Count);
+        await reader.CloseAsync();
+        await using var delivery = new NpgsqlCommand("""
+            SELECT count(*) FROM notification_email_deliveries WHERE account_id = $1 AND job_id = ANY($2)
+            """, conn);
+        delivery.Parameters.AddWithValue(account);
+        delivery.Parameters.AddWithValue(ids.ToArray());
+        Assert.Equal(5L, await delivery.ExecuteScalarAsync());
         await AssertPreviewChannelsAsync(paid, account, ids);
     }
 

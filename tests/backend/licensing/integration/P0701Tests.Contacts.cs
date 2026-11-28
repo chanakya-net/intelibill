@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using Intelibill.Licensing.Application.Notifications;
@@ -17,11 +16,10 @@ public sealed partial class P0701Tests
     public async Task ContactApprovalOmitsMailboxProofAndRequiresIndependentHolderVerification()
     {
         var jan31 = Utc("2028-01-31T04:30:00Z");
-        var mailboxSink = new IsolatedTestMailboxProofSink();
         await using var paid = await P0308Fixture.StartAsync(
             database,
             jan31,
-            services: services => services.AddSingleton<IBillingContactMailboxProofDispatch>(mailboxSink));
+            settings: MailSettingsWithSimulator());
         var package = await paid.PackageAsync(1, ["Contact Store"]);
         await PurchaseAsync(package, "Month");
         await P0608Tests.DrainAsync(paid);
@@ -62,7 +60,7 @@ public sealed partial class P0701Tests
         Assert.DoesNotContain("verificationProofToken", listRaw);
         Assert.DoesNotContain("proofToken", listRaw);
 
-        await AssertStandaloneMailboxProofLifecycleAsync(paid, package.Account, standalone.ContactId, standaloneEmail, mailboxSink);
+        await AssertStandaloneMailboxProofLifecycleAsync(paid, package.Account, standalone.ContactId, standaloneEmail, mailpit);
 
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
         var userJobs = await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.UserRecipientKey(contactUser.UserId));
@@ -121,11 +119,10 @@ public sealed partial class P0701Tests
     public async Task SequentialMemberAndContactAliasOverlapPreservesOneEmailAndAuthorizedInAppView()
     {
         var jan31 = Utc("2028-01-31T04:30:00Z");
-        var mailboxSink = new IsolatedTestMailboxProofSink();
         await using var paid = await P0308Fixture.StartAsync(
             database,
             jan31,
-            services: services => services.AddSingleton<IBillingContactMailboxProofDispatch>(mailboxSink));
+            settings: MailSettingsWithSimulator());
         var package = await paid.PackageAsync(1, ["Alias Store"]);
         var (_, termId) = await PurchaseAsync(package, "Month");
         await P0608Tests.DrainAsync(paid);
@@ -152,10 +149,13 @@ public sealed partial class P0701Tests
             var item = Assert.Single((await promotedRead.Content.ReadFromJsonAsync<AccountLicenseNoticesV1>())!.Notices);
             Assert.Equal(["Email", "InApp"], item.AllowedChannels.Order().ToArray());
         }
+        await DeliverDueAsync(paid);
+        var delivered = Assert.Single(await mailpit.ReadAsync(promoted.Email));
+        Assert.Contains($"/billing/accounts/{package.Account:D}/status", delivered, StringComparison.Ordinal);
 
         // Direction 2 (reverse): Billing Manager planned FIRST -> standalone contact added -> membership REMOVED!
         paid.At(jan31);
-        await AssertDemotedManagerRetainsContactEmailWithoutDuplicateAsync(paid, package, termId, mailboxSink);
+        await AssertDemotedManagerRetainsContactEmailWithoutDuplicateAsync(paid, package, termId, mailpit);
     }
 
     private static async Task AssertOptInOptOutReplayPreservesOptOutAsync(
@@ -198,11 +198,19 @@ public sealed partial class P0701Tests
         Assert.Equal(HttpStatusCode.Conflict, alteredLocale.StatusCode);
     }
 
+    private Dictionary<string, string?> MailSettingsWithSimulator()
+    {
+        var options = mailpit.BillingSettings();
+        foreach (var setting in P0302Fixture.SimulatorSettings)
+            options.Add(setting.Key, setting.Value);
+        return options;
+    }
+
     private static async Task AssertDemotedManagerRetainsContactEmailWithoutDuplicateAsync(
         P0308Fixture paid,
         P0308Fixture.Package package,
         Guid termId,
-        IsolatedTestMailboxProofSink mailboxSink)
+        MailpitFixture mailpit)
     {
         var demoted = await SignInAsync(paid.Hosts);
         var demotedMemberId = await InviteBillingManagerAsync(paid.Hosts.LicensingOwner, package.Payer.Client, package.Account, demoted);
@@ -210,13 +218,13 @@ public sealed partial class P0701Tests
 
         var (contact2, _) = await ApproveContactRawAsync(
             package.Payer.Client, package.Account, new ApproveBillingContactRequestV1(Guid.NewGuid(), null, "  " + demoted.Email.ToUpperInvariant() + "  ", "en-IN"));
-        var proof2 = mailboxSink.Take(contact2.ContactId);
+        var proof2 = await mailpit.ReadProofAsync(paid.Hosts.Licensing.Services, demoted.Email, contact2.ContactId);
         await using (var scope = paid.Hosts.Licensing.Services.CreateAsyncScope())
         {
             var handler = scope.ServiceProvider.GetRequiredService<BillingContactConsentHandler>();
             var confirmed = await handler.ConfirmStandaloneProofAsync(
                 package.Account, contact2.ContactId,
-                new ConfirmBillingContactConsentRequestV1(Guid.NewGuid(), demoted.Email, proof2.ProofToken, true, "en-IN"),
+                new ConfirmBillingContactConsentRequestV1(Guid.NewGuid(), demoted.Email, proof2, true, "en-IN"),
                 CancellationToken.None);
             Assert.False(confirmed.IsError);
         }
@@ -229,11 +237,23 @@ public sealed partial class P0701Tests
         await AssertLogicalNoticesAsync(paid, package.Account, termId, demoted);
         Assert.Equal(HttpStatusCode.Forbidden, (await demoted.Client.GetAsync($"/api/billing/accounts/{package.Account:D}/notices")).StatusCode);
 
+        paid.At(Utc("2028-02-22T04:30:00Z"));
+        await DeliverDueAsync(paid);
+        var reminder = Assert.Single(await mailpit.ReadAsync(demoted.Email), body => !body.Contains("/billing-contact/verify"));
+        Assert.DoesNotContain("/billing/accounts", reminder, StringComparison.Ordinal);
+        paid.At(Utc("2028-01-31T04:30:00Z"));
         var (_, renewStatus) = await RenewAsync(package, termId, "Month");
         var successorTerm = renewStatus.GetProperty("termId").GetGuid();
         await P0608Tests.DrainAsync(paid);
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
         Assert.Equal(5L, await CountEmailJobsForDestinationAsync(paid.Hosts.LicensingOwner, package.Account, successorTerm, demoted.Email));
+    }
+
+    private static async Task DeliverDueAsync(P0308Fixture paid)
+    {
+        await using var scope = paid.Hosts.Licensing.Services.CreateAsyncScope();
+        var sender = scope.ServiceProvider.GetRequiredService<IBillingEmailDispatcher>();
+        while (await sender.DeliverOneAsync(CancellationToken.None)) { }
     }
 
     private static async Task<(BillingContactV1 Contact, string Raw)> ApproveContactRawAsync(
@@ -252,9 +272,9 @@ public sealed partial class P0701Tests
         Guid accountId,
         Guid contactId,
         string standaloneEmail,
-        IsolatedTestMailboxProofSink mailboxSink)
+        MailpitFixture mailpit)
     {
-        var delivered = mailboxSink.Take(contactId);
+        var delivered = await mailpit.ReadProofAsync(paid.Hosts.Licensing.Services, standaloneEmail, contactId);
         await using var scope = paid.Hosts.Licensing.Services.CreateAsyncScope();
         var handler = scope.ServiceProvider.GetRequiredService<BillingContactConsentHandler>();
         var bad = await handler.ConfirmStandaloneProofAsync(
@@ -265,14 +285,14 @@ public sealed partial class P0701Tests
 
         var good = await handler.ConfirmStandaloneProofAsync(
             accountId, contactId,
-            new ConfirmBillingContactConsentRequestV1(Guid.NewGuid(), standaloneEmail, delivered.ProofToken, true, "ta-IN"),
+            new ConfirmBillingContactConsentRequestV1(Guid.NewGuid(), standaloneEmail, delivered, true, "ta-IN"),
             CancellationToken.None);
         Assert.False(good.IsError);
         Assert.True(good.Value.Eligible);
 
         var replayNewOp = await handler.ConfirmStandaloneProofAsync(
             accountId, contactId,
-            new ConfirmBillingContactConsentRequestV1(Guid.NewGuid(), standaloneEmail, delivered.ProofToken, true, "ta-IN"),
+            new ConfirmBillingContactConsentRequestV1(Guid.NewGuid(), standaloneEmail, delivered, true, "ta-IN"),
             CancellationToken.None);
         Assert.True(replayNewOp.IsError);
     }
@@ -317,16 +337,4 @@ public sealed partial class P0701Tests
         return (long)(await cmd.ExecuteScalarAsync())!;
     }
 
-    private sealed class IsolatedTestMailboxProofSink : IBillingContactMailboxProofDispatch
-    {
-        private readonly ConcurrentDictionary<Guid, StandaloneMailboxProof> _proofs = new();
-
-        public void OnStandaloneProofIssued(StandaloneMailboxProof proof) => _proofs[proof.ContactId] = proof;
-
-        public StandaloneMailboxProof Take(Guid contactId)
-        {
-            Assert.True(_proofs.TryGetValue(contactId, out var proof), $"Expected mailbox proof for contact {contactId:D}.");
-            return proof;
-        }
-    }
 }

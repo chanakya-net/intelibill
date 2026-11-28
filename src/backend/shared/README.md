@@ -74,3 +74,6 @@ source files linked (`<Compile Include … Link>`) into the merchant and licensi
   numbers, no staff emails, no verification proof tokens, and bounded shop-name samples).
 
 The V1 licence notice contract separates named billing-actor lookup from affiliation-bound shop roster lookup. See the [architecture guide](architecture_doc/architecture.md#licence-notice-v1-contracts-p07-01).
+
+Provider notification detail carries an optional V1 email delivery record for authorized commercial operators.
+It includes state, attempts, exact times and an optional local capture link.

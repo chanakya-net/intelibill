@@ -19,7 +19,7 @@ internal sealed partial class BillingContactStore(
     private const string ActionHolderRevoke = "HolderRevoke";
     private static readonly TimeSpan ProofLifetime = TimeSpan.FromHours(24);
 
-    public async Task<ErrorOr<ApprovedBillingContactResult>> ApproveAsync(
+    public async Task<ErrorOr<BillingContactV1>> ApproveAsync(
         Guid accountId,
         Guid ownerActorId,
         ApproveBillingContactRequestV1 request,
@@ -107,7 +107,7 @@ internal sealed partial class BillingContactStore(
             nextCursor);
     }
 
-    private async Task<ErrorOr<ApprovedBillingContactResult>?> CheckExistingApproveAsync(
+    private async Task<ErrorOr<BillingContactV1>?> CheckExistingApproveAsync(
         Guid accountId,
         Guid ownerActorId,
         ApproveBillingContactRequestV1 request,
@@ -127,7 +127,7 @@ internal sealed partial class BillingContactStore(
         var existingContact = await ReadContactForAccountAsync(accountId, existingOp.ContactId, ct);
         return existingContact is null
             ? NotificationErrors.ContactNotFound
-            : new ApprovedBillingContactResult(ToContract(existingContact), PendingMailboxProof: null);
+            : ToContract(existingContact);
     }
 
     private Task<bool> HasActiveConflictAsync(
@@ -145,7 +145,7 @@ internal sealed partial class BillingContactStore(
             ) AS "Value"
             """).SingleAsync(ct);
 
-    private async Task<ApprovedBillingContactResult> InsertApprovedContactAsync(
+    private async Task<BillingContactV1> InsertApprovedContactAsync(
         Guid accountId,
         Guid ownerActorId,
         ApproveBillingContactRequestV1 request,
@@ -159,11 +159,10 @@ internal sealed partial class BillingContactStore(
         var contactId = Guid.CreateVersion7(now);
         var protectedDestination = protector.ProtectContactDestination(accountId, contactId, normalizedEmail);
         var hint = NotificationPlanner.MaskEmail(normalizedEmail);
-        var (pendingProof, proofHash, proofExpiry) = PrepareStandaloneProof(
+        var (proofToken, proofHash, proofExpiry) = PrepareStandaloneProof(
             accountId,
             contactId,
             request.MerchantUserId,
-            normalizedEmail,
             destinationHash,
             now);
 
@@ -183,16 +182,16 @@ internal sealed partial class BillingContactStore(
         await RecordOperationAsync(
             accountId, ActionApprove, request.OperationKey, contactId, ownerActorId, payloadHash, 1, now, ct);
 
-        var contract = new BillingContactV1(
+        if (proofToken is not null)
+            await EnqueueProofAsync(accountId, contactId, proofToken, now, ct);
+        return new BillingContactV1(
             contactId, accountId, request.MerchantUserId, hint, locale, now, null, null, null, 1, false);
-        return new ApprovedBillingContactResult(contract, pendingProof);
     }
 
-    private (StandaloneMailboxProof? Pending, byte[]? Hash, DateTimeOffset? Expiry) PrepareStandaloneProof(
+    private (string? Token, byte[]? Hash, DateTimeOffset? Expiry) PrepareStandaloneProof(
         Guid accountId,
         Guid contactId,
         Guid? merchantUserId,
-        string normalizedEmail,
         byte[] destinationHash,
         DateTimeOffset now)
     {
@@ -201,7 +200,18 @@ internal sealed partial class BillingContactStore(
 
         var (proofToken, createdHash) = protector.CreateStandaloneProof(accountId, contactId, destinationHash);
         var expiry = now.Add(ProofLifetime);
-        return (new StandaloneMailboxProof(accountId, contactId, normalizedEmail, proofToken, expiry), createdHash, expiry);
+        return (proofToken, createdHash, expiry);
+    }
+
+    private Task<int> EnqueueProofAsync(Guid accountId, Guid contactId, string token, DateTimeOffset now, CancellationToken ct)
+    {
+        var id = Guid.NewGuid();
+        var ciphertext = protector.ProtectProof(accountId, contactId, id, token);
+        return db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.notification_email_deliveries
+                (id, account_id, proof_contact_id, protected_proof, due_at, state, attempts, next_attempt_at)
+            VALUES ({id}, {accountId}, {contactId}, {ciphertext}, {now}, 'Pending', 0, '-infinity')
+            """, ct);
     }
 
     private Task<ContactRow?> ReadContactForAccountAsync(Guid accountId, Guid contactId, CancellationToken ct) =>

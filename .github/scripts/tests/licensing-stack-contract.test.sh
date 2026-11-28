@@ -184,6 +184,11 @@ runtime_users = [backend["Database__Username"], licensing["LicensingDatabase__Us
 privileged = ["intelibill", "intelibill_licensing_migrator", "postgres"]
 assert((runtime_users & privileged).empty?, "an API connects as a privileged identity")
 
+keys = services.fetch("licensing-api").fetch("volumes", []).select { |v| v["source"] == "licensing_keys" }
+assert(keys.length == 1 && keys.first["target"] == licensing["AdminBootstrap__DataProtectionKeyDirectory"],
+       "licensing API must retain its Data Protection keys across replacement")
+assert(services.none? { |name, s| name != "licensing-api" && s.fetch("volumes", []).any? { |v| v["source"] == "licensing_keys" } },
+       "licensing keys may be mounted only by licensing-api")
 admin = env(services, "admin-frontend")
 assert(admin["API_ORIGIN"] == "http://licensing-api:8080", "admin web must forward only to the licensing API")
 frontend = env(services, "frontend")
