@@ -19,7 +19,7 @@ public sealed partial class P0614Tests
     [Fact]
     public async Task TransferredShopKeepsOriginalRefundAndCorrectiveDocumentsPrivate()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var doc = await P0607Tests.AttachOriginalAsync(s);
         var source = s.Source.Payer.Client;

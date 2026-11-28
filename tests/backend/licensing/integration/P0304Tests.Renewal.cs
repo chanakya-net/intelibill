@@ -17,8 +17,11 @@ public sealed partial class P0304Tests
     private async Task<RenewalRun> StartRenewalAsync(DateTimeOffset createdAt)
     {
         var fake = new FakeRazorpay();
-        var fixture = await StartAsync(database, March31, FakeRazorpay.Settings(),
-            services: services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        var fixture = await StartAsync(
+            database,
+            March31,
+            FakeRazorpay.Settings(),
+            razorpayHandler: fake);
         fake.Clock = () => fixture.Checkout.CheckoutClock.Now;
         var package = await fixture.PackageAsync(1);
         var first = await AcceptAsync(package, await FirstQuoteAsync(package, "Month"));

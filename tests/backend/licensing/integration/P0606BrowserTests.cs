@@ -33,7 +33,7 @@ public sealed class P0606BrowserTests(LicensingPostgreSqlFixture database, ITest
 
     private async Task RunAsync(string evidence, string scratch)
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await P0606Tests.StartPermitFixtureAsync(database, key, January31, browser: true);
         var (p, term) = await P0606Tests.PrepareWithTradingNorthAsync(f);
         var originalHistory = await P0605Tests.OriginalHistoryDigestAsync(f, p, term);

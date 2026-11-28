@@ -127,7 +127,14 @@ public sealed partial class P0106Tests
 
     internal sealed class TestClock : TimeProvider
     {
-        private long _ticks = new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero).Ticks;
+        private long _ticks;
+
+        internal TestClock() : this(new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero))
+        {
+        }
+
+        internal TestClock(DateTimeOffset start) => _ticks = start.Ticks;
+
         public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref _ticks), TimeSpan.Zero);
         internal event Action<DateTimeOffset>? Advanced;
         internal void Advance(TimeSpan duration)

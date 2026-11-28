@@ -15,7 +15,7 @@ public sealed partial class P0607Tests
     [InlineData("withheld-permit")]
     public async Task ApplyingTransferSerializesWithCompetingMutation(string mutation)
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var id = await ConsentedAsync(s, s.Permit.ValidUntil);
         var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("reviewer@example.test");
@@ -58,7 +58,7 @@ public sealed partial class P0607Tests
     [Fact]
     public async Task ConcurrentApprovalsReserveOneDecisionAndOneFundedSlot()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var id = await ConsentedAsync(s, s.Permit.ValidUntil);
         var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("competing@example.test");
@@ -91,7 +91,7 @@ public sealed partial class P0607Tests
     [Fact]
     public async Task RetentionSurvivesProposalExpiryWithNoCarry()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa, sameOwner: true);
         var id = await ConsentedAsync(s, null);
         var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("retention@example.test");

@@ -19,9 +19,16 @@ internal sealed class P0308Fixture(P0302Fixture checkout) : IAsyncDisposable
     internal P0209Fixture.Hosts Hosts => Checkout.Hosts;
 
     internal static async Task<P0308Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset at,
-        IReadOnlyDictionary<string, string?>? settings = null, bool browser = false, Action<IServiceCollection>? services = null)
+        IReadOnlyDictionary<string, string?>? settings = null, bool browser = false, Action<IServiceCollection>? services = null,
+        HttpMessageHandler? razorpayHandler = null)
     {
-        var checkout = await P0302Fixture.StartAsync(database, new P0201Clock { Now = at }, settings, services, browser);
+        var checkout = await P0302Fixture.StartAsync(
+            database,
+            new P0201Clock { Now = at },
+            settings,
+            services,
+            browser,
+            razorpayHandler: razorpayHandler);
         var fixture = new P0308Fixture(checkout);
         fixture.At(at);
         return fixture;

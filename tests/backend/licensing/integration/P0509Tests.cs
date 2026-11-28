@@ -30,7 +30,7 @@ public sealed partial class P0509Tests(LicensingPostgreSqlFixture database, ITes
         var reserveAt = Utc("2026-12-01T06:30:00Z");
         var expectedEnd = verifiedAt.AddHours(48);
         var businessClock = new P0201Clock { Now = verifiedAt };
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var fixture = await P0213Fixture.StartAsync(
             database,
             businessClock: businessClock,

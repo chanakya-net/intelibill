@@ -81,4 +81,4 @@ else
 fi
 dotnet build "${tests}"
 
-INTEGRATION_TEST_PREGENERATED_HANDLERS=1 dotnet test "${tests}" --no-build "$@"
+DOTNET_hostBuilder__reloadConfigOnChange=false INTEGRATION_TEST_PREGENERATED_HANDLERS=1 dotnet test "${tests}" --no-build "$@"

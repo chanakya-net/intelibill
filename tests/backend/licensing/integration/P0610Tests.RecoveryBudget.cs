@@ -49,8 +49,7 @@ public sealed partial class P0610Tests
             "rzp_test_rotated", "rotated-secret");
         settings["FixtureCredentials:Rotated:WebhookSecret"] = P0305Tests.Secret;
         settings["FixtureCredentials:Rotated:WebhookAccountId"] = P0305Tests.Account;
-        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, services =>
-            services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, razorpayHandler: fake);
         fake.Clock = () => fixture.Checkout.CheckoutClock.Now;
         using var owner = await fixture.Checkout.Trial.Catalogue.SignInOwnerAsync();
         await P0310Tests.SelectProfileAsync(owner, "rzp", 0);

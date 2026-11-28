@@ -15,7 +15,7 @@ public sealed partial class P0605Tests
     [Fact]
     public async Task UndeliveredGracePermitSurvivesTheDeliveryRetryHorizon()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         var business = new P0201Clock { Now = January31 };
         await using var f = await PermitFixtureAsync(key, business);
         var checkout = f.Checkout;

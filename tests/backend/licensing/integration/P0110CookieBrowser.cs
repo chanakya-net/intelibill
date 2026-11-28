@@ -24,6 +24,17 @@ internal sealed class P0110CookieBrowser(HttpClient client) : IDisposable
 
     internal void Set(string name, string value) => _jar[name] = value;
 
+    internal IReadOnlyDictionary<string, string> SnapshotCookies() =>
+        new Dictionary<string, string>(_jar, StringComparer.Ordinal);
+
+    internal static P0110CookieBrowser FromSnapshot(HttpClient client, IReadOnlyDictionary<string, string> cookies)
+    {
+        var browser = new P0110CookieBrowser(client);
+        foreach (var (name, value) in cookies)
+            browser._jar[name] = value;
+        return browser;
+    }
+
     internal async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body = null,
         string? csrf = null, string origin = Origin, string csrfHeader = "X-Admin-CSRF")
     {

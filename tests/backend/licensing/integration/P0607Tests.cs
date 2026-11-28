@@ -11,7 +11,7 @@ public sealed partial class P0607Tests(LicensingPostgreSqlFixture database) : IC
     [Fact]
     public async Task ReviewShowsSeparatePeriodsAndExactAllocation()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, key);
         var cutover = s.Permit.ValidUntil.AddMinutes(1);
         var id = await ConsentedAsync(s, cutover);

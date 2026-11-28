@@ -32,7 +32,7 @@ public sealed partial class P0613Tests
     [Fact]
     public async Task AppliedCoverageTransferKeepsCorrectionHistoryWithOriginalPayer()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var doc = await P0607Tests.AttachOriginalAsync(s);
         var adminPath = $"/api/admin/accounts/{s.Source.Account:D}/orders/{doc.Order:D}/billing-documents";

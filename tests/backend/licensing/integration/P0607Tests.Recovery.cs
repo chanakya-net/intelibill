@@ -12,7 +12,7 @@ public sealed partial class P0607Tests
     [InlineData(true)]
     public async Task LostAndReorderedDeliveryRecoversOriginalOperation(bool loseActivationReceipt)
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var delivery = s.F.Checkout.Delivery;
         var old = await delivery.LatestSnapshotAsync(s.North.ShopId);

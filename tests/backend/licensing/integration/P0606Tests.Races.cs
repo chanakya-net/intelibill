@@ -10,7 +10,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task PermitIssuanceAndEarlyPaidCutoverSerializeInBothOrders()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
 
@@ -100,7 +100,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task ReleasedOutgoingShopCanIssuePermitsAfterFreshCoverageWhileOldTermGrantStaysBounded()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
         var north = p.Shops[2];

@@ -180,8 +180,11 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
         var fake = new FakeRazorpay();
         var settings = FakeRazorpay.Settings();
         settings[key] = value;
-        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, settings,
-            services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        await using var fixture = await P0302Fixture.StartAsync(
+            database,
+            new P0201Clock { Now = P0210Fixture.Start },
+            settings,
+            razorpayHandler: fake);
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
 
         Assert.False((await StatusAsync(payer.Client, quote)).GetProperty("canStart").GetBoolean());
@@ -235,12 +238,12 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
                 settings["Payments:Razorpay:MaxAmountPaise"] = max.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (extraSettings is not null)
                 foreach (var (key, value) in extraSettings) settings[key] = value;
-            var fixture = await P0302Fixture.StartAsync(database, clock, settings,
-                services =>
-                {
-                    services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake);
-                    configure?.Invoke(services);
-                });
+            var fixture = await P0302Fixture.StartAsync(
+                database,
+                clock,
+                settings,
+                services: configure,
+                razorpayHandler: fake);
             var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, monthlyPricePaise: monthlyPricePaise);
             return new() { Fixture = fixture, Fake = fake, Payer = payer, Quote = quote };
         }
