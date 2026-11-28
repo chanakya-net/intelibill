@@ -5,8 +5,8 @@
       "name": "Full licensing integration tests",
       "argv": [
         "bash",
-        "scripts/dev/test-integration.sh",
-        "--licensing"
+        "-c",
+        "if [ -x /usr/local/share/dotnet/dotnet ]; then export DOTNET_ROOT=/usr/local/share/dotnet PATH=\"/usr/local/share/dotnet:$PATH\"; fi; exec bash scripts/dev/test-integration.sh --licensing"
       ],
       "cwd": ".",
       "timeout_seconds": 3600,
@@ -29,7 +29,8 @@
       "name": "Full merchant integration tests",
       "argv": [
         "bash",
-        "scripts/dev/test-integration.sh"
+        "-c",
+        "if [ -x /usr/local/share/dotnet/dotnet ]; then export DOTNET_ROOT=/usr/local/share/dotnet PATH=\"/usr/local/share/dotnet:$PATH\"; fi; exec bash scripts/dev/test-integration.sh"
       ],
       "cwd": ".",
       "timeout_seconds": 3600,
