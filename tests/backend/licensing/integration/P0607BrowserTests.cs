@@ -22,7 +22,7 @@ public sealed class P0607BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.False(string.IsNullOrWhiteSpace(evidence));
         Directory.CreateDirectory(evidence);
         var scratch = Directory.CreateTempSubdirectory("p0607-browser-");
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa, browser: true);
         using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         try { await ExerciseAsync(s, evidence, scratch.FullName, limit.Token); }

@@ -14,14 +14,19 @@ internal sealed class P0213Traffic(bool countAll = false) : IStartupFilter
     private int _count;
     internal int Count => Volatile.Read(ref _count);
 
+    internal void Observe(Microsoft.AspNetCore.Http.PathString path)
+    {
+        if (countAll || path == EntitlementSnapshotsV1.SnapshotPath ||
+            path == EntitlementSnapshotsV1.AcknowledgementPath ||
+            path == EntitlementSnapshotsV1.ReconciliationPath)
+            Interlocked.Increment(ref _count);
+    }
+
     public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
     {
         app.Use((context, pipeline) =>
         {
-            if (countAll || context.Request.Path == EntitlementSnapshotsV1.SnapshotPath ||
-                context.Request.Path == EntitlementSnapshotsV1.AcknowledgementPath ||
-                context.Request.Path == EntitlementSnapshotsV1.ReconciliationPath)
-                Interlocked.Increment(ref _count);
+            Observe(context.Request.Path);
             return pipeline(context);
         });
         next(app);
@@ -32,8 +37,8 @@ internal sealed class P0213Transport : IDisposable
 {
     private const string SourceKey = "fixture-snapshot";
     private const string MerchantKey = "fixture-merchant";
-    private readonly RSA _source = RSA.Create(2048);
-    private readonly RSA _merchant = RSA.Create(2048);
+    private readonly RSA _source = TestRsaKeys.Create(TestRsaKeyPurpose.EntitlementSource);
+    private readonly RSA _merchant = TestRsaKeys.Create(TestRsaKeyPurpose.EntitlementMerchant);
     private HttpMessageInvoker? _toMerchant;
     private HttpMessageInvoker? _toLicensing;
     private Uri? _merchantOrigin;

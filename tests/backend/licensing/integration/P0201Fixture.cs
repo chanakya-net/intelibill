@@ -15,7 +15,7 @@ internal sealed class P0201Fixture(LicensingPostgreSqlFixture database, string n
     internal const string KeyId = "local-v1";
     internal const string Action = "billing.account.read";
     internal const string RequestHeader = "X-Billing-Request-Id";
-    internal RSA Key { get; } = RSA.Create(2048);
+    internal RSA Key { get; } = TestRsaKeys.Create(TestRsaKeyPurpose.BillingDelegation);
     internal P0201Clock Clock { get; } = new();
     internal NpgsqlConnectionStringBuilder Owner => database.Login(name, MigratorRole);
     internal NpgsqlConnectionStringBuilder Runtime => database.Login(name, RuntimeRole);

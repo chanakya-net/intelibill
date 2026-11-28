@@ -41,7 +41,7 @@ internal sealed class MerchantStartupProbeFactory(
                 ["Observability:NewRelic:OtlpEndpoint"] = "http://127.0.0.1:1",
                 // Consent and trial deliveries otherwise wait up to 3 s for the worker's next tick;
                 // most fixtures link several shops, so that idle time dominated the suite.
-                ["MerchantDeliveryPolling:Interval"] = "00:00:00.050",
+                ["MerchantDeliveryPolling:Interval"] = "00:00:00.010",
                 // A parallel run can delay one in-process licensing reply past production's 5 s budget.
                 ["MerchantBillingDelegation:RequestTimeout"] = "00:00:30",
             });

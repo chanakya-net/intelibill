@@ -72,8 +72,11 @@ public sealed partial class P0304TestsProviderContract(LicensingPostgreSqlFixtur
         var settings = provider == "razorpay" ? FakeRazorpay.Settings() : new Dictionary<string, string?> { ["Payments:Mode"] = "Off" };
         if (provider == "razorpay")
             settings["Payments:Razorpay:AllowPartialPayment"] = "true";
-        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, settings,
-            services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => new FakeRazorpay()));
+        await using var fixture = await P0302Fixture.StartAsync(
+            database,
+            new P0201Clock { Now = P0210Fixture.Start },
+            settings,
+            razorpayHandler: new FakeRazorpay());
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
 
         using var response = await payer.Client.PostAsJsonAsync(AttemptsPath(quote), Start(quote));

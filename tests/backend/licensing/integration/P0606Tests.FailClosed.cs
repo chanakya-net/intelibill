@@ -11,7 +11,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task RevokingConsentDuringPrepareAbortsOrRefusesWithoutAllocating()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
         var permit = await IssueRealPermitAsync(f, p.Shops[2], EarlyStart, deliverObservation: true);
@@ -61,7 +61,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task OwnerAuthorityChangeBeforeConsumeRefusesWithoutAllocating()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
         var cutover = EarlyStart.AddHours(4);
@@ -81,7 +81,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task BillingOwnerRotationAfterApprovalAbortsPrepareReceipt()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
         var cutover = EarlyStart.AddHours(4);
@@ -122,7 +122,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task InFlightExceptionBlocksCompetingSlotMutationsUntilDefinitiveAbort()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var p = await f.PackageAsync(4, ["Central", "East", "North", "South"]);
         var (_, term) = await PurchaseAsync(p with { Shops = p.Shops[..2] }, "Month"); // 3-slot plan, 2 covered + 1 spare

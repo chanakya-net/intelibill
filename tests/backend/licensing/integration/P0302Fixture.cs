@@ -82,15 +82,22 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
 
     internal static async Task<P0302Fixture> StartAsync(LicensingPostgreSqlFixture database, P0201Clock checkout,
         IReadOnlyDictionary<string, string?>? settings = null, Action<IServiceCollection>? services = null, bool browser = false,
-        IReadOnlyDictionary<string, string?>? merchantExtras = null, Action<IServiceCollection>? merchantServices = null)
+        IReadOnlyDictionary<string, string?>? merchantExtras = null, Action<IServiceCollection>? merchantServices = null,
+        HttpMessageHandler? razorpayHandler = null)
     {
-        var delivery = await P0213Fixture.StartAsync(database, browser, settings ?? SimulatorSettings, collection =>
-        {
-            collection.AddKeyedSingleton<TimeProvider>(CheckoutOrdersV1.Policy, checkout);
-            collection.AddKeyedSingleton<TimeProvider>("pending-payment-lease", checkout);
-            services?.Invoke(collection);
-        }, prepareProvider: true, businessClock: checkout, merchantExtras: merchantExtras, merchantServices: merchantServices);
-        await LicensingPostgreSqlFixture.ExecuteAsync(delivery.Hosts.LicensingOwner, RuntimeGrant);
+        var delivery = await P0213Fixture.StartAsync(
+            database,
+            browser,
+            settings ?? SimulatorSettings,
+            licensingServices: services,
+            prepareProvider: true,
+            businessClock: checkout,
+            merchantExtras: merchantExtras,
+            merchantServices: merchantServices,
+            checkoutClock: checkout,
+            razorpayHandler: razorpayHandler);
+        if (!delivery.Trial.HasPreappliedCheckoutGrants)
+            await LicensingPostgreSqlFixture.ExecuteAsync(delivery.Hosts.LicensingOwner, RuntimeGrant);
         return new(delivery, checkout);
     }
 

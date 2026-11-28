@@ -19,7 +19,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task RequestReplayAndPrivateHistoryAreScoped()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var before = await s.BaselineAsync();
         var preview = await PreviewAsync(s);
@@ -72,7 +72,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task RequestKeyBelongsToTheOriginalOwnerMembership()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var path = RequestPath(s.Source.Account, s.Term);
         var owner = s.Source.Payer;

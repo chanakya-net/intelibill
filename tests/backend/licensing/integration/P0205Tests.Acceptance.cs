@@ -83,7 +83,7 @@ public sealed partial class P0205Tests
             var result = await owner.GetFromJsonAsync<JsonElement>(path, deadline.Token);
             if (result.GetProperty("status").GetString() == status)
                 return;
-            await Task.Delay(TimeSpan.FromMilliseconds(50), deadline.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(10), deadline.Token);
         }
     }
 

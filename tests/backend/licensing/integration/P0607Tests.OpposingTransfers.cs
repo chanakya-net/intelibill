@@ -11,7 +11,7 @@ public sealed partial class P0607Tests
     [Fact]
     public async Task OpposingTransfersCanReserveDistinctShopsInTheSameAccountPair()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var outgoing = await ConsentedAsync(s, s.Permit.ValidUntil);
         var incoming = await ProposeReverseAsync(s);

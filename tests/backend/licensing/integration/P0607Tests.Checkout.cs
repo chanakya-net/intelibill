@@ -11,7 +11,7 @@ public sealed partial class P0607Tests
     [Fact]
     public async Task ReceivingOwnerCanPurchaseTheNamedShopOnlyAfterItsCarriedPeriodEnds()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var id = await ConsentedAsync(s, s.Permit.ValidUntil);
         var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("checkout@example.test");

@@ -27,8 +27,7 @@ public sealed partial class P0610Tests
         using var transport = new PinCountingTransport(liveFake, testFake, liveKey, liveSecret);
         var settings = MultiEnvironmentSettings(liveKey, liveSecret, testKey, testSecret);
 
-        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, services =>
-            services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => transport));
+        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, razorpayHandler: transport);
         liveFake.Clock = () => fixture.Checkout.CheckoutClock.Now;
         testFake.Clock = () => fixture.Checkout.CheckoutClock.Now;
 
@@ -97,8 +96,7 @@ public sealed partial class P0610Tests
     {
         var fake = new FakeRazorpay("rzp_test_min", "min-secret");
         var settings = RazorpayPlusSimulatorSettings("rzp_test_min", "min-secret");
-        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, services =>
-            services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, razorpayHandler: fake);
         fake.Clock = () => fixture.Checkout.CheckoutClock.Now;
 
         using var owner = await fixture.Checkout.Trial.Catalogue.SignInOwnerAsync();
@@ -147,8 +145,7 @@ public sealed partial class P0610Tests
     {
         var fake = new FakeRazorpay("rzp_test_cred", "cred-secret");
         var settings = RazorpayPlusSimulatorSettings("rzp_test_cred", "cred-secret");
-        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, services =>
-            services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        await using var fixture = await P0609Tests.StartAsync(database, Instant, settings, razorpayHandler: fake);
         fake.Clock = () => fixture.Checkout.CheckoutClock.Now;
 
         using var owner = await fixture.Checkout.Trial.Catalogue.SignInOwnerAsync();

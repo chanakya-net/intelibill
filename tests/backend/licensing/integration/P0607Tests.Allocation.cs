@@ -9,7 +9,7 @@ public sealed partial class P0607Tests
     [Fact]
     public async Task AgreedIntervalsConserveOneFundedSlot()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, key);
         var history = await P0605Tests.OriginalHistoryDigestAsync(s.F, s.Source, s.Term);
         var cutover = s.Permit.ValidUntil;

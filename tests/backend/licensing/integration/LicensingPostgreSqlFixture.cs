@@ -8,7 +8,7 @@ using Testcontainers.PostgreSql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-public class LicensingPostgreSqlFixture : IAsyncLifetime
+public partial class LicensingPostgreSqlFixture : IAsyncLifetime
 {
     internal const string LicensingDatabase = "licensing";
     internal const string MerchantDatabase = "merchant";
@@ -25,12 +25,14 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
     private static readonly Lazy<Task> SharedTemplate = new(() => PrepareLicensingTemplateAsync(SharedContainer));
     // Replaying the merchant migration chain costs seconds; each class clones this database instead.
     private static readonly Lazy<Task> SharedMerchantTemplate = new(() => PrepareMerchantTemplateAsync(SharedContainer));
+    private static readonly ConcurrentQueue<int> FreeSlots = new(Enumerable.Range(0, IntegrationParallelism.Degree));
 
     private static PostgreSqlContainer BuildContainer() => new PostgreSqlBuilder()
         .WithImage("postgres:17-alpine")
         .WithDatabase("bootstrap")
         .WithUsername("bootstrap")
         .WithPassword(Password)
+        .WithEnvironment("POSTGRES_HOST_AUTH_METHOD", "trust")
         .WithTmpfsMount("/var/lib/postgresql/data")
         .WithCommand("-c", "log_statement=ddl", "-c", "log_line_prefix=%u@%d ",
             "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "max_connections=500")
@@ -40,8 +42,13 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
     private readonly Lazy<Task> _licensingTemplate;
     private readonly bool _isolated;
     private readonly string _databaseSuffix = Guid.NewGuid().ToString("N");
-    private readonly ConcurrentBag<string> _databases = [];
+    private readonly ConcurrentDictionary<string, byte> _databases = new(StringComparer.Ordinal);
     private bool _holdsSlot;
+    private int _slotIndex = -1;
+    private bool _merchantPrepared;
+
+    internal bool IsIsolated => _isolated;
+    internal LicensingClassHostPool HostPool { get; } = new();
 
     public LicensingPostgreSqlFixture() : this(isolated: false)
     {
@@ -64,6 +71,7 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         {
             await IntegrationParallelism.Slots.WaitAsync();
             _holdsSlot = true;
+            FreeSlots.TryDequeue(out _slotIndex);
             await StartShared.Value;
         }
 
@@ -78,6 +86,7 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         {
             await SharedMerchantTemplate.Value;
             await CreateDatabaseAsync(merchant, $"TEMPLATE {MerchantTemplate}");
+            _merchantPrepared = true;
         }
         await ExecuteAsync(Bootstrap(), $"""
             REVOKE ALL ON DATABASE "{licensing}", "{merchant}" FROM PUBLIC;
@@ -102,6 +111,7 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        await HostPool.DisposeAsync();
         if (_isolated)
         {
             await _container.DisposeAsync();
@@ -112,8 +122,10 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         {
             var failures = new List<NpgsqlException>();
             using var commands = new NpgsqlCommandBuilder();
-            while (_databases.TryTake(out var name))
+            foreach (var name in _databases.Keys.ToArray())
             {
+                if (!_databases.TryRemove(name, out _))
+                    continue;
                 var identifier = commands.QuoteIdentifier(name);
                 try
                 {
@@ -130,6 +142,11 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         }
         finally
         {
+            if (_slotIndex >= 0)
+            {
+                FreeSlots.Enqueue(_slotIndex);
+                _slotIndex = -1;
+            }
             if (_holdsSlot)
             {
                 _holdsSlot = false;
@@ -162,12 +179,20 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
     internal async Task CreateMigratedLicensingDatabaseAsync(string name)
     {
         await _licensingTemplate.Value;
-        var identifier = await CreateDatabaseAsync(name, $"OWNER licensing_migrator TEMPLATE {LicensingTemplate}");
-        // PostgreSQL copies schema privileges from the template, while database privileges belong to the new database.
-        await ExecuteAsync(Bootstrap(), $"""
-            REVOKE ALL ON DATABASE {identifier} FROM PUBLIC;
-            GRANT CONNECT ON DATABASE {identifier} TO licensing_runtime;
-            """);
+        var source = await EnsureSlotTemplateAsync(LicensingTemplate);
+        await CloneTemplateDatabaseAsync(name, source);
+    }
+
+    internal async Task DropDatabaseAsync(string name)
+    {
+        if (_isolated || !_databases.TryRemove(name, out _))
+            return;
+        var pooledConn = LicensingClassHostPool.BuildPooledLicensingConnectionString(Login(name, RuntimeRole), 8);
+        using (var probe = new NpgsqlConnection(pooledConn))
+            NpgsqlConnection.ClearPool(probe);
+        using var commands = new NpgsqlCommandBuilder();
+        var identifier = commands.QuoteIdentifier(name);
+        await ExecuteAsync(Bootstrap(), $"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)");
     }
 
     internal Task CreateEmptyLicensingDatabaseAsync(string name) =>
@@ -178,7 +203,7 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
         using var commands = new NpgsqlCommandBuilder();
         var identifier = commands.QuoteIdentifier(name);
         await ExecuteAsync(Bootstrap(), $"CREATE DATABASE {identifier} {options}");
-        _databases.Add(name);
+        _databases.TryAdd(name, 0);
         return identifier;
     }
 
@@ -213,7 +238,13 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
     /// Brings the class's merchant database to the current schema and runtime grants. Shared fixtures clone an
     /// already migrated template, so this is a quick no-op check there; isolated servers migrate from scratch.
     /// </summary>
-    internal Task PrepareMerchantAsync() => MigrateMerchantAsync(Bootstrap(MerchantDatabase));
+    internal async Task PrepareMerchantAsync()
+    {
+        if (_merchantPrepared)
+            return;
+        await MigrateMerchantAsync(Bootstrap(MerchantDatabase));
+        _merchantPrepared = true;
+    }
 
     private static async Task MigrateMerchantAsync(NpgsqlConnectionStringBuilder owner)
     {
@@ -238,7 +269,7 @@ public class LicensingPostgreSqlFixture : IAsyncLifetime
     internal async Task SetConnectionsAsync(string database, bool allowed)
     {
         database = DatabaseName(database);
-        Assert.True(_databases.Contains(database, StringComparer.Ordinal),
+        Assert.True(_databases.ContainsKey(database),
             "Only databases created by this Testcontainers fixture can be paused.");
         await ExecuteAsync(Bootstrap(), $"""ALTER DATABASE "{database}" ALLOW_CONNECTIONS {allowed}""");
         if (!allowed)

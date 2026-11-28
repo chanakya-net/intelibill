@@ -11,7 +11,8 @@ using Npgsql;
 namespace Intelibill.Licensing.Integration.Tests;
 
 internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P0209Fixture.Hosts hosts, Guid policyId,
-    int policyRevision, P0110CookieBrowser? manager, string? managerSeed) : IAsyncDisposable
+    int policyRevision, P0110CookieBrowser? manager, string? managerSeed,
+    bool hasPreappliedCheckoutGrants = false) : IAsyncDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     internal static readonly DateTimeOffset Start = P0209Fixture.Utc("2027-02-10T00:00:00.123456Z");
@@ -22,59 +23,282 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
     internal P0206Fixture Catalogue => catalogue;
     internal string? CatalogueManagerSeed => managerSeed;
     internal P0110CookieBrowser? CatalogueManager => manager;
+    internal bool HasPreappliedCheckoutGrants { get; } = hasPreappliedCheckoutGrants;
 
-    internal static async Task<P0210Fixture> StartAsync(LicensingPostgreSqlFixture database, bool publish = true, bool browser = false,
-        Func<HttpMessageHandler, HttpMessageHandler>? transport = null, bool approve = true, P0210HostSetup? setup = null, bool publishEntitlements = true)
+    internal static async Task<P0210Fixture> StartAsync(
+        LicensingPostgreSqlFixture database,
+        bool publish = true,
+        bool browser = false,
+        Func<HttpMessageHandler, HttpMessageHandler>? transport = null,
+        bool approve = true,
+        P0210HostSetup? setup = null,
+        bool publishEntitlements = true)
     {
         await database.PrepareMerchantAsync();
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
+        await LicensingPostgreSqlFixture.ExecuteAsync(
+            database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
             "TRUNCATE public.rate_limit_buckets");
         var businessClock = setup?.BusinessClock ?? new P0201Clock { Now = Start };
         var prepareProvider = setup?.PrepareProvider != false;
-        var catalogueSettings = P0207Tests.LocalSettings();
-        if (setup?.UseDeliveryOnCatalogue == true)
-            foreach (var (name, value) in setup.LicensingSettings) catalogueSettings[name] = value;
-        var catalogue = await P0206Fixture.StartAsync(database, catalogueSettings, services =>
-        {
-            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
-            if (!publishEntitlements) services.AddPreEntitlementPublisher();
-            if (setup?.UseDeliveryOnCatalogue == true) setup.ConfigureLicensing(services);
-        }, prepareProvider: prepareProvider);
-        var (manager, seed) = publish ? await catalogue.ManagerAsync() : (null, null);
-        var policy = manager is not null ? await P0207Tests.PublishTrialAsync(manager, 1) : Guid.NewGuid();
-        var revision = publish ? (int)(await catalogue.ScalarAsync($"SELECT revision FROM trial_policy_versions WHERE id = '{policy:D}'"))! : 2;
+        var useDelivery = setup?.Transport is not null;
+        var liveDelivery = setup?.LiveDelivery == true;
+
+        var (catalogue, manager, seed, policy, revision, usedTrialTemplate) = await CreateCatalogueAsync(
+            database,
+            businessClock,
+            publish,
+            browser,
+            prepareProvider,
+            useDelivery,
+            liveDelivery,
+            publishEntitlements,
+            setup);
+
         var signing = new P0201Fixture(database, catalogue.Runtime.Database!);
         signing.Clock.Now = P0202Fixture.WholeSecondNow();
-        var key = RSA.Create(2048);
+        var key = TestRsaKeys.Create(TestRsaKeyPurpose.ShopTrial);
         var settings = LicensingSettings(signing, catalogue, key, approve, browser, setup);
-        var licensing = P0202Fixture.LicensingApi(signing, configure: services =>
+
+        var (licensing, ownsLicensing, clearLicensing) = CreateLicensingHost(
+            database,
+            signing,
+            settings,
+            businessClock,
+            browser,
+            prepareProvider,
+            useDelivery,
+            liveDelivery,
+            publishEntitlements,
+            setup);
+
+        using var client = licensing.CreateClient();
+        var (merchant, ownsMerchant, clearMerchant) = CreateMerchantHost(
+            database,
+            signing,
+            licensing,
+            client.BaseAddress!.AbsoluteUri,
+            key,
+            businessClock,
+            transport,
+            browser,
+            prepareProvider,
+            useDelivery,
+            liveDelivery,
+            setup);
+
+        var hosts = new P0209Fixture.Hosts(
+            signing,
+            licensing,
+            merchant,
+            businessClock,
+            database,
+            OwnsLicensing: ownsLicensing,
+            OwnsMerchant: ownsMerchant,
+            OnDispose: async () =>
+            {
+                clearMerchant?.Invoke();
+                if (clearLicensing is not null)
+                    await clearLicensing();
+            });
+        return new(catalogue, key, hosts, policy, revision, manager, seed, hasPreappliedCheckoutGrants: usedTrialTemplate);
+    }
+
+    private static async Task<(P0206Fixture Catalogue, P0110CookieBrowser? Manager, string? Seed, Guid Policy, int Revision, bool UsedTrialTemplate)>
+        CreateCatalogueAsync(
+            LicensingPostgreSqlFixture database,
+            P0201Clock businessClock,
+            bool publish,
+            bool browser,
+            bool prepareProvider,
+            bool useDelivery,
+            bool liveDelivery,
+            bool publishEntitlements,
+            P0210HostSetup? setup)
+    {
+        var catalogueSettings = P0207Tests.LocalSettings();
+        if (setup?.UseDeliveryOnCatalogue == true)
+            foreach (var (name, value) in setup.LicensingSettings)
+                catalogueSettings[name] = value;
+
+        var useTrialTemplate = !database.IsIsolated
+            && publish
+            && prepareProvider
+            && !browser
+            && P0206Fixture.CanUseTemplateSettings(catalogueSettings);
+
+        if (useTrialTemplate)
         {
-            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
-            services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
-            if (!publishEntitlements) services.AddPreEntitlementPublisher();
-            setup?.ConfigureLicensing(services);
-        }, clock: prepareProvider ? null : TimeProvider.System, settings: settings);
+            var (seededCatalogue, template) = await P0206Fixture.StartFromTrialTemplateAsync(
+                database,
+                catalogueSettings,
+                businessClock,
+                setup?.UseDeliveryOnCatalogue == true ? setup.CheckoutClock : null,
+                useDelivery: setup?.UseDeliveryOnCatalogue == true && useDelivery,
+                liveDelivery: liveDelivery,
+                publishEntitlements: publishEntitlements,
+                transport: setup?.Transport,
+                traffic: setup?.LicensingTraffic,
+                customConfigure: setup?.UseDeliveryOnCatalogue == true ? setup.ConfigureLicensing : null,
+                razorpayHandler: setup?.UseDeliveryOnCatalogue == true ? setup.RazorpayHandler : null);
+            var managerClient = seededCatalogue.Api.CreateClient(new()
+            {
+                BaseAddress = new Uri(P0110CookieBrowser.Origin),
+                HandleCookies = false,
+            });
+            var seededManager = P0110CookieBrowser.FromSnapshot(managerClient, template.ManagerCookies!);
+            return (
+                seededCatalogue,
+                seededManager,
+                template.ManagerSeed,
+                template.TrialPolicyId,
+                template.TrialPolicyRevision,
+                true);
+        }
+
+        var catalogue = await P0206Fixture.StartAsync(
+            database,
+            catalogueSettings,
+            services =>
+            {
+                services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
+                if (!publishEntitlements)
+                    services.AddPreEntitlementPublisher();
+                if (setup?.UseDeliveryOnCatalogue == true)
+                    ConfigureLicensingExtensions(services, setup, useDelivery, liveDelivery);
+            },
+            prepareProvider: prepareProvider);
+        var (manager, seed) = publish ? await catalogue.ManagerAsync() : (null, null);
+        var policy = manager is not null ? await P0207Tests.PublishTrialAsync(manager, 1) : Guid.NewGuid();
+        var revision = publish
+            ? (int)(await catalogue.ScalarAsync($"SELECT revision FROM trial_policy_versions WHERE id = '{policy:D}'"))!
+            : 2;
+        return (catalogue, manager, seed, policy, revision, false);
+    }
+
+    private static (LicensingApiFactory Api, bool Owns, Func<ValueTask>? Clear) CreateLicensingHost(
+        LicensingPostgreSqlFixture database,
+        P0201Fixture signing,
+        Dictionary<string, string?> settings,
+        P0201Clock businessClock,
+        bool browser,
+        bool prepareProvider,
+        bool useDelivery,
+        bool liveDelivery,
+        bool publishEntitlements,
+        P0210HostSetup? setup)
+    {
+        if (!database.IsIsolated && !browser && prepareProvider && setup?.ConfigureLicensing is null)
+        {
+            var pooled = database.HostPool.AcquireLicensingHost(
+                signing.Runtime,
+                settings,
+                signing.Clock,
+                businessClock,
+                setup?.CheckoutClock,
+                useDelivery,
+                liveDelivery,
+                publishEntitlements,
+                setup?.Transport,
+                setup?.LicensingTraffic,
+                setup?.RazorpayHandler);
+            return (pooled.Api, false, () => database.HostPool.ReleaseLicensingHostAsync(pooled));
+        }
+
+        var licensing = P0202Fixture.LicensingApi(
+            signing,
+            configure: services =>
+            {
+                services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
+                services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
+                if (!publishEntitlements)
+                    services.AddPreEntitlementPublisher();
+                if (setup is not null)
+                    ConfigureLicensingExtensions(services, setup, useDelivery, liveDelivery);
+            },
+            clock: prepareProvider ? null : TimeProvider.System,
+            settings: settings);
         if (browser)
             licensing.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
-        using var client = licensing.CreateClient();
+        return (licensing, true, null);
+    }
+
+    private static (MerchantStartupProbeFactory Api, bool Owns, Action? Clear) CreateMerchantHost(
+        LicensingPostgreSqlFixture database,
+        P0201Fixture signing,
+        LicensingApiFactory licensing,
+        string browserOrigin,
+        RSA key,
+        P0201Clock businessClock,
+        Func<HttpMessageHandler, HttpMessageHandler>? transport,
+        bool browser,
+        bool prepareProvider,
+        bool useDelivery,
+        bool liveDelivery,
+        P0210HostSetup? setup)
+    {
         var merchantSettings = new Dictionary<string, string?>
         {
             [$"{ShopTrialsV1.DeliverySection}:LocalPrivateKeyPem"] = key.ExportPkcs8PrivateKeyPem(),
             [$"{ShopTrialsV1.DeliverySection}:LocalKeyId"] = "trial-fixture",
         };
         if (setup is not null)
-            foreach (var (name, value) in setup.MerchantSettings) merchantSettings[name] = value;
-        var merchant = signing.MerchantApi(browser ? client.BaseAddress!.AbsoluteUri : "https://licensing.test",
+            foreach (var (name, value) in setup.MerchantSettings)
+                merchantSettings[name] = value;
+
+        if (!database.IsIsolated && !browser && prepareProvider && setup?.ConfigureMerchant is null)
+        {
+            var delegationHandler = transport?.Invoke(licensing.Server.CreateHandler()) ?? licensing.Server.CreateHandler();
+            var pooled = database.HostPool.AcquireMerchantHost(
+                signing,
+                merchantSettings,
+                signing.Clock,
+                businessClock,
+                delegationHandler,
+                useDelivery,
+                liveDelivery,
+                setup?.Transport,
+                setup?.MerchantTraffic);
+            return (pooled.Api, false, () =>
+            {
+                pooled.DelegationHandler.Set(null);
+                pooled.EntitlementHandler.Set(null);
+                pooled.Traffic.Set(null);
+            });
+        }
+
+        var merchant = signing.MerchantApi(
+            browser ? browserOrigin : "https://licensing.test",
             handler: browser ? null : () => transport?.Invoke(licensing.Server.CreateHandler()) ?? licensing.Server.CreateHandler(),
             configure: services =>
             {
                 services.AddSingleton<TimeProvider>(prepareProvider ? signing.Clock : TimeProvider.System);
                 services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
-                setup?.ConfigureMerchant(services);
-            }, settings: merchantSettings);
+                if (useDelivery)
+                    P0213Fixture.Configure(services, setup!.Transport!, setup.MerchantTraffic!, licensing: false, liveDelivery);
+                setup?.ConfigureMerchant?.Invoke(services);
+            },
+            settings: merchantSettings);
         if (browser)
             merchant.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
-        return new(catalogue, key, new(signing, licensing, merchant, businessClock, database), policy, revision, manager, seed);
+        return (merchant, true, null);
+    }
+
+    private static void ConfigureLicensingExtensions(
+        IServiceCollection services,
+        P0210HostSetup setup,
+        bool useDelivery,
+        bool liveDelivery)
+    {
+        if (setup.CheckoutClock is { } checkoutClock)
+        {
+            services.AddKeyedSingleton<TimeProvider>(CheckoutOrdersV1.Policy, checkoutClock);
+            services.AddKeyedSingleton<TimeProvider>("pending-payment-lease", checkoutClock);
+        }
+        if (useDelivery)
+            P0213Fixture.Configure(services, setup.Transport!, setup.LicensingTraffic!, licensing: true, liveDelivery);
+        if (setup.RazorpayHandler is { } razorpayHandler)
+            services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => razorpayHandler);
+        setup.ConfigureLicensing?.Invoke(services);
     }
 
     private static Dictionary<string, string?> LicensingSettings(P0201Fixture signing, P0206Fixture catalogue,
@@ -144,6 +368,14 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
 internal sealed record P0210HostSetup(
     IReadOnlyDictionary<string, string?> LicensingSettings,
     IReadOnlyDictionary<string, string?> MerchantSettings,
-    Action<IServiceCollection> ConfigureLicensing,
-    Action<IServiceCollection> ConfigureMerchant,
-    bool PrepareProvider = true, bool UseDeliveryOnCatalogue = false, P0201Clock? BusinessClock = null);
+    Action<IServiceCollection>? ConfigureLicensing,
+    Action<IServiceCollection>? ConfigureMerchant,
+    bool PrepareProvider = true,
+    bool UseDeliveryOnCatalogue = false,
+    P0201Clock? BusinessClock = null,
+    P0213Transport? Transport = null,
+    P0213Traffic? LicensingTraffic = null,
+    P0213Traffic? MerchantTraffic = null,
+    bool LiveDelivery = false,
+    P0201Clock? CheckoutClock = null,
+    HttpMessageHandler? RazorpayHandler = null);
