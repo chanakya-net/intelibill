@@ -331,9 +331,8 @@ internal static class NotificationRecipientPlanner
 
         coveredUsers.Add(userId);
         coveredEmails.Add(normalizedEmail);
-        // CommercialContact always keys by email hash so later promotion to BillingRole can insert its own InApp row.
         return new ResolvedCommercialRecipient(
-            NotificationPlanner.EmailRecipientKey(normalizedEmail),
+            NotificationPlanner.UserRecipientKey(userId),
             userId,
             contact.ContactId,
             ExpectedMemberRevision: null,

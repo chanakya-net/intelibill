@@ -1,4 +1,5 @@
 using System.Data;
+using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Application.Notifications;
 using Intelibill.Licensing.Domain.Policies;
 using Intelibill.Licensing.Infrastructure.Billing;
@@ -32,11 +33,15 @@ internal sealed partial class NotificationPlanStore
         var validMembers = await LockActiveMembersAsync(accountId, writes, ct);
         var validContacts = await LockEligibleContactsAsync(accountId, writes, ct);
         var sourceIds = writes.Select(write => write.SourceId).Distinct().ToArray();
-        var liveFacts = await LoadLiveCommitPreconditionsAsync(accountId, sourceIds, plannedAt, ct);
+        // Serialize alias resolution across replicas after shared authority locks, including the first channel addition.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({"notice:" + accountId.ToString("D")}, 0))", ct);
+        var decisionAt = SubscriptionStatusProjection.EvaluationInstant(decisionClock);
+        var liveFacts = await LoadLiveCommitPreconditionsAsync(accountId, sourceIds, decisionAt, plannedAt, ct);
         var existing = await LoadExistingKeysAsync(accountId, sourceIds, ct);
 
         var (inserted, duplicates, authorityChanged) = await CommitOrderedWritesAsync(
-            plannedAt,
+            decisionAt,
             writes,
             validMembers,
             validContacts,
@@ -49,7 +54,7 @@ internal sealed partial class NotificationPlanStore
     }
 
     private async Task<(int Inserted, int Duplicates, int AuthorityChanged)> CommitOrderedWritesAsync(
-        DateTimeOffset plannedAt,
+        DateTimeOffset decisionAt,
         IReadOnlyList<PlannedNotificationWrite> writes,
         Dictionary<Guid, int> validMembers,
         Dictionary<Guid, int> validContacts,
@@ -69,21 +74,24 @@ internal sealed partial class NotificationPlanStore
                 continue;
             }
 
-            if (existing.SemanticKeys.Contains(SemanticKeyOf(write)))
+            var resolved = existing.Find(write, out var emailTaken);
+            if (resolved is not null)
             {
+                var updated = await AppendMissingChannelAsync(resolved, write, emailTaken, decisionAt, ct);
+                if (updated is not null)
+                    existing.Track(updated);
                 duplicates++;
                 continue;
             }
 
-            var resolved = ApplyEmailAliasDeduplication(write, existing);
-            if (resolved is null)
+            var candidate = emailTaken ? InAppOnly(write) : write;
+            if (candidate is not null && await TryInsertJobAsync(decisionAt, candidate, ct) is { } id)
             {
-                duplicates++;
-                continue;
-            }
-
-            if (await InsertWithAliasFallbackAsync(plannedAt, resolved, existing, ct))
+                existing.Track(new ExistingJobRow(id, candidate.ScopeKind, candidate.ScopeId, candidate.RecipientKey,
+                    candidate.RecipientUserId, candidate.Purpose, candidate.SourceKind, candidate.SourceId, candidate.SourceRevision,
+                    candidate.Threshold, candidate.EmailDestinationHash, candidate.AllowedChannels));
                 inserted++;
+            }
             else
                 duplicates++;
         }
@@ -91,61 +99,48 @@ internal sealed partial class NotificationPlanStore
         return (inserted, duplicates, authorityChanged);
     }
 
-    private static PlannedNotificationWrite? ApplyEmailAliasDeduplication(
-        PlannedNotificationWrite write,
-        ExistingJobSets existing)
+    private static PlannedNotificationWrite? InAppOnly(PlannedNotificationWrite write) =>
+        write.AllowedChannels.Contains(LicenseNoticesV1.ChannelInApp)
+            ? write with
+            {
+                AllowedChannels = [LicenseNoticesV1.ChannelInApp],
+                EmailDestination = null,
+                EmailDestinationHash = null,
+                DestinationHint = null,
+            }
+            : null;
+
+    private async Task<ExistingJobRow?> AppendMissingChannelAsync(
+        ExistingJobRow job, PlannedNotificationWrite write, bool emailTaken, DateTimeOffset decisionAt, CancellationToken ct)
     {
-        if (write.EmailDestinationHash is null)
-            return write;
-
-        if (!existing.EmailKeys.Contains(EmailKeyOf(write)))
-            return write;
-
-        if (write.Audience == LicenseNoticesV1.AudienceCommercialContact)
+        if (write.RecipientUserId is not { } user || write.ExpectedMemberRevision is not { } revision)
+            return null;
+        var channel = write.AllowedChannels.Except(job.AllowedChannels).SingleOrDefault();
+        if (channel is null || (channel == LicenseNoticesV1.ChannelEmail && emailTaken))
             return null;
 
-        return write.Audience == LicenseNoticesV1.AudienceCommercialBillingRole
-            ? StripEmailChannel(write)
-            : write;
-    }
-
-    private async Task<bool> InsertWithAliasFallbackAsync(
-        DateTimeOffset plannedAt,
-        PlannedNotificationWrite write,
-        ExistingJobSets existing,
-        CancellationToken ct)
-    {
-        if (await TryInsertJobAsync(plannedAt, write, ct))
+        var email = channel == LicenseNoticesV1.ChannelEmail;
+        var ciphertext = email ? protector.ProtectJobDestination(
+            write.AccountId, write.ScopeKind, write.ScopeId, job.RecipientKey, write.EmailDestination!) : null;
+        var hash = email ? write.EmailDestinationHash : null;
+        var hint = email ? write.DestinationHint : null;
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.notification_channel_additions
+                (account_id, job_id, channel, recipient_user_id, authority_revision, destination_hash,
+                    protected_destination, destination_hint, recorded_at)
+            VALUES ({write.AccountId}, {job.Id}, {channel}, {user}, {revision}, {hash},
+                {ciphertext}, {hint}, {decisionAt})
+            ON CONFLICT (job_id) DO NOTHING
+            """, ct);
+        return job with
         {
-            existing.TrackInserted(write);
-            return true;
-        }
-
-        if (write.Audience == LicenseNoticesV1.AudienceCommercialBillingRole
-            && write.EmailDestinationHash is not null
-            && !await SemanticKeyExistsAsync(write, ct))
-        {
-            var inAppOnly = StripEmailChannel(write);
-            if (await TryInsertJobAsync(plannedAt, inAppOnly, ct))
-            {
-                existing.TrackInserted(inAppOnly);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static PlannedNotificationWrite StripEmailChannel(PlannedNotificationWrite write) =>
-        write with
-        {
-            AllowedChannels = [LicenseNoticesV1.ChannelInApp],
-            EmailDestination = null,
-            EmailDestinationHash = null,
-            DestinationHint = null,
+            AllowedChannels = [LicenseNoticesV1.ChannelInApp, LicenseNoticesV1.ChannelEmail],
+            RecipientUserId = user,
+            DestinationHash = job.DestinationHash ?? hash,
         };
+    }
 
-    private async Task<bool> TryInsertJobAsync(
+    private async Task<Guid?> TryInsertJobAsync(
         DateTimeOffset plannedAt,
         PlannedNotificationWrite write,
         CancellationToken ct)
@@ -176,44 +171,8 @@ internal sealed partial class NotificationPlanStore
                 {write.DestinationHint}, {plannedAt}, {plannedAt})
             ON CONFLICT DO NOTHING
             """, ct);
-        return rows == 1;
+        return rows == 1 ? jobId : null;
     }
-
-    private Task<bool> SemanticKeyExistsAsync(PlannedNotificationWrite write, CancellationToken ct) =>
-        db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (
-                SELECT FROM public.notification_jobs
-                WHERE account_id = {write.AccountId}
-                  AND scope_kind = {write.ScopeKind}
-                  AND scope_id = {write.ScopeId}
-                  AND recipient_key = {write.RecipientKey}
-                  AND purpose = {write.Purpose}
-                  AND source_kind = {write.SourceKind}
-                  AND source_id = {write.SourceId}
-                  AND source_revision = {write.SourceRevision}
-                  AND threshold = {write.Threshold}
-            ) AS "Value"
-            """).SingleAsync(ct);
-
-    private static SemanticTuple SemanticKeyOf(PlannedNotificationWrite write) => new(
-        write.ScopeKind,
-        write.ScopeId,
-        write.RecipientKey,
-        write.Purpose,
-        write.SourceKind,
-        write.SourceId,
-        write.SourceRevision,
-        write.Threshold);
-
-    private static EmailTuple EmailKeyOf(PlannedNotificationWrite write) => new(
-        write.ScopeKind,
-        write.ScopeId,
-        Convert.ToHexStringLower(write.EmailDestinationHash!),
-        write.Purpose,
-        write.SourceKind,
-        write.SourceId,
-        write.SourceRevision,
-        write.Threshold);
 
     private static IEnumerable<PlannedNotificationWrite> OrderDeterministic(
         IReadOnlyList<PlannedNotificationWrite> writes) =>
@@ -225,36 +184,43 @@ internal sealed partial class NotificationPlanStore
             .ThenBy(write => write.SourceId)
             .ThenBy(write => write.Threshold, StringComparer.Ordinal);
 
-    private sealed record SemanticTuple(
-        string ScopeKind,
-        Guid ScopeId,
-        string RecipientKey,
-        string Purpose,
-        string SourceKind,
-        Guid SourceId,
-        string SourceRevision,
-        string Threshold);
+    private sealed record NoticeKey(string Scope, Guid ScopeId, string Recipient, string Purpose, string Kind, Guid Source,
+        string Revision, string Threshold);
 
-    private sealed record EmailTuple(
-        string ScopeKind,
-        Guid ScopeId,
-        string DestinationHashHex,
-        string Purpose,
-        string SourceKind,
-        Guid SourceId,
-        string SourceRevision,
-        string Threshold);
-
-    private sealed class ExistingJobSets(HashSet<SemanticTuple> semanticKeys, HashSet<EmailTuple> emailKeys)
+    private sealed class ExistingJobSets
     {
-        public HashSet<SemanticTuple> SemanticKeys { get; } = semanticKeys;
-        public HashSet<EmailTuple> EmailKeys { get; } = emailKeys;
+        private readonly Dictionary<NoticeKey, ExistingJobRow> _jobs = [];
 
-        public void TrackInserted(PlannedNotificationWrite write)
+        public ExistingJobSets(List<ExistingJobRow> rows)
         {
-            SemanticKeys.Add(SemanticKeyOf(write));
-            if (write.EmailDestinationHash is not null)
-                EmailKeys.Add(EmailKeyOf(write));
+            foreach (var job in rows)
+                Track(job);
+        }
+
+        public void Track(ExistingJobRow job)
+        {
+            var key = new NoticeKey(job.ScopeKind, job.ScopeId, job.RecipientKey, job.Purpose,
+                job.SourceKind, job.SourceId, job.SourceRevision, job.Threshold);
+            _jobs[key] = job;
+            if (job.RecipientUserId is { } user)
+                _jobs[key with { Recipient = NotificationPlanner.UserRecipientKey(user) }] = job;
+            if (job.DestinationHash is { } hash)
+                _jobs[key with { Recipient = "email:" + Convert.ToHexStringLower(hash) }] = job;
+        }
+
+        public ExistingJobRow? Find(PlannedNotificationWrite write, out bool emailTaken)
+        {
+            var key = new NoticeKey(write.ScopeKind, write.ScopeId, write.RecipientKey, write.Purpose,
+                write.SourceKind, write.SourceId, write.SourceRevision, write.Threshold);
+            var job = _jobs.GetValueOrDefault(key);
+            var alias = write.EmailDestinationHash is { } hash
+                ? _jobs.GetValueOrDefault(key with { Recipient = "email:" + Convert.ToHexStringLower(hash) })
+                : null;
+            emailTaken = alias is not null && alias.Id != job?.Id;
+            if (job is not null || alias is null)
+                return job;
+            return write.RecipientUserId is null || alias.RecipientUserId is null || write.RecipientUserId == alias.RecipientUserId
+                ? alias : null;
         }
     }
 }

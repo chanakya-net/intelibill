@@ -7,6 +7,7 @@ import en from '../../../../../public/assets/i18n/en-IN.json';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
+import { accountNotices, shopNotices } from './license-notice.fixtures.spec-helpers';
 import { LicenseNoticeComponent } from './license-notice.component';
 import type { AccountLicenseNotices, ShopLicenseNotices } from './license-notice.models';
 import { LicenseNoticeReadError, LicenseNoticeService } from './license-notice.service';
@@ -15,83 +16,6 @@ const shopA = '11111111-1111-4111-8111-111111111111';
 const shopB = '22222222-2222-4222-8222-222222222222';
 const accountA = '33333333-3333-4333-8333-333333333333';
 const accountB = '55555555-5555-4555-8555-555555555555';
-
-function shopNotices(
-  shopId: string,
-  shopName = 'North Shop',
-  options: { nextDueAt?: string | null; guidanceCode?: string; accessState?: string; evaluatedAt?: string } = {},
-): ShopLicenseNotices {
-  return {
-    schemaVersion: 1,
-    shopId,
-    evaluatedAt: options.evaluatedAt ?? '2028-02-22T04:30:00Z',
-    notices: [
-      {
-        noticeId: `notice-${shopId}`,
-        shopId,
-        purpose: options.guidanceCode?.startsWith('Grace') ? 'GraceNotice' : 'PaidRenewalReminder',
-        threshold: options.guidanceCode === 'GraceEnding' ? 'GraceMinus1Day' : 'PaidMinus7Days',
-        accessState: options.accessState ?? 'Active',
-        guidanceCode: options.guidanceCode ?? 'PaidRenewalDue',
-        templateKey: 'notice.paid.minus7',
-        dueAt: '2028-02-22T04:30:00Z',
-        effectiveDeadlineAt: '2028-02-29T04:30:00Z',
-        timeZone: 'Asia/Kolkata',
-        locale: 'en-IN',
-        shopName,
-      },
-    ],
-    nextDueAt: options.nextDueAt ?? null,
-    nextCursor: null,
-  };
-}
-
-function accountNotices(
-  accountId: string,
-  options: {
-    suspended?: boolean;
-    guidanceCode?: string;
-    coveredShopCount?: number;
-    coveredShopNames?: string[];
-    evaluatedAt?: string;
-    nextDueAt?: string | null;
-  } = {},
-): AccountLicenseNotices {
-  const names = options.coveredShopNames ?? ['North Shop', 'South Shop'];
-  const count = options.coveredShopCount ?? names.length;
-  return {
-    schemaVersion: 1,
-    accountId,
-    evaluatedAt: options.evaluatedAt ?? '2028-02-22T04:30:00Z',
-    notices: [
-      {
-        noticeId: `acc-notice-${accountId}`,
-        accountId,
-        purpose: 'PaidRenewalReminder',
-        sourceKind: 'Paid',
-        sourceId: '44444444-4444-4444-8444-444444444444',
-        threshold: 'PaidMinus7Days',
-        accessState: options.suspended ? 'Suspended' : 'Active',
-        guidanceCode: options.guidanceCode ?? (options.suspended ? 'SuspendedNoPaymentLift' : 'PaidRenewalDue'),
-        templateKey: 'notice.paid.minus7',
-        dueAt: '2028-02-22T04:30:00Z',
-        effectiveDeadlineAt: '2028-02-29T04:30:00Z',
-        timeZone: 'Asia/Kolkata',
-        locale: 'en-IN',
-        allowedChannels: ['InApp', 'Email'],
-        coveredShopCount: count,
-        coveredShopNames: names,
-        coveredShopNamesTruncated: count > names.length,
-        evidencedTermPricePaise: 12000,
-        evidencedTermCurrency: 'INR',
-        renewalQuoteRequired: true,
-        paymentDoesNotLiftSuspension: Boolean(options.suspended),
-      },
-    ],
-    nextDueAt: options.nextDueAt ?? null,
-    nextCursor: null,
-  };
-}
 
 function setup(
   api: Partial<LicenseNoticeService>,
@@ -135,6 +59,42 @@ afterEach(() => {
 });
 
 describe('LicenseNoticeComponent', () => {
+  it.each([
+    ['shop', 'TrialEnding'], ['account', 'TrialEnding'],
+    ['shop', 'AccessExpired'], ['account', 'AccessExpired'],
+  ] as const)('renders the released %s %s notice on revalidation', async (mode, guidance) => {
+    let suspended = true;
+    const trial = guidance === 'TrialEnding';
+    const lifecycle = () => ({
+      purpose: trial ? 'TrialReminder' : 'GraceNotice',
+      sourceKind: trial ? 'Trial' : 'Paid',
+      threshold: trial ? 'TrialMinus1Day' : 'GraceExpiry',
+      accessState: suspended ? 'Suspended' : trial ? 'Active' : 'Expired',
+      guidanceCode: suspended ? 'SuspendedNoPaymentLift' : guidance,
+      templateKey: 'notice.' + (suspended ? 'suspended.' : '') + (trial ? 'trial.minus1' : 'grace.expiry'),
+    });
+    const account = () => {
+      const response = accountNotices(accountA, { suspended });
+      return of({ ...response, notices: [{ ...response.notices[0], ...lifecycle() }] });
+    };
+    const shop = () => {
+      const response = shopNotices(shopA);
+      return of({ ...response, notices: [{ ...response.notices[0], ...lifecycle() }] });
+    };
+    const { fixture, el } = setup({ account, shop }, mode, accountA);
+    const copy = mode === 'shop' ? en.billing.notices.operationalGuidance : en.billing.notices.guidance;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain(copy.SuspendedNoPaymentLift);
+    suspended = false;
+    window.dispatchEvent(new Event('focus'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain(copy[guidance]);
+    expect(el.textContent).not.toContain(copy.SuspendedNoPaymentLift);
+    expect(el.querySelector('[data-testid="account-notice-suspension-note"]')).toBeNull();
+  });
+
   it('renders operational shop guidance for staff without commercial fields or renewal prompts and clears on switch/logout', async () => {
     const shopRead = vi.fn((id: string) =>
       of(
@@ -172,9 +132,10 @@ describe('LicenseNoticeComponent', () => {
 
   it('drops a late response from an earlier shop after switching scopes (A -> B -> A race)', async () => {
     const delayedA = new Subject<ShopLicenseNotices>();
-    const shopRead = vi.fn((id: string) =>
-      id === shopA ? delayedA.asObservable() : of(shopNotices(shopB, 'South Shop')),
-    );
+    const shopRead = vi.fn()
+      .mockReturnValueOnce(delayedA.asObservable())
+      .mockReturnValueOnce(of(shopNotices(shopB, 'South Shop')))
+      .mockReturnValueOnce(of(shopNotices(shopA, 'Current North Shop')));
     const { fixture, el, session } = setup({ shop: shopRead }, 'shop');
 
     session.set({ user: { id: 'u1' }, activeShopId: shopB });
@@ -183,12 +144,17 @@ describe('LicenseNoticeComponent', () => {
     fixture.detectChanges();
     expect(el.textContent).toContain('South Shop');
 
+    session.set({ user: { id: 'u1' }, activeShopId: shopA });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Current North Shop');
     delayedA.next(shopNotices(shopA, 'Stale North Shop'));
     delayedA.complete();
     await Promise.resolve();
     fixture.detectChanges();
     expect(el.textContent).not.toContain('Stale North Shop');
-    expect(el.textContent).toContain('South Shop');
+    expect(el.textContent).toContain('Current North Shop');
   });
 
   it('revalidates on focus, online, and nextDueAt timer boundary', async () => {

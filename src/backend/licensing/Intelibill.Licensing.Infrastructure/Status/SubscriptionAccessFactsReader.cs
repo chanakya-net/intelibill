@@ -225,10 +225,18 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             (int)(byTerm[term.TermId].FirstOrDefault()?.Total ?? 0)))];
     }
 
+    internal async Task<IReadOnlyList<TermFactsRow>> ReadNoticeTermsAsync(
+        Guid account, Guid[] termIds, DateTimeOffset at, CancellationToken ct)
+    {
+        var rows = await Terms(account, null, null, null, selectedIds: termIds, at: at).ToListAsync(ct);
+        return rows.Select(row => row.ToTerm()).ToArray();
+    }
+
     internal async Task<TermFactsRow?> ReadTermAsync(Guid account, Guid term, CancellationToken ct) =>
         (await Terms(account, term, null, 1).SingleOrDefaultAsync(ct))?.ToTerm();
 
-    private IQueryable<TermRow> Terms(Guid account, Guid? term, Guid? after, int? take, Guid? paidShop = null) =>
+    private IQueryable<TermRow> Terms(Guid account, Guid? term, Guid? after, int? take, Guid? paidShop = null,
+        Guid[]? selectedIds = null, DateTimeOffset? at = null) =>
         db.Database.SqlQuery<TermRow>($"""
             SELECT t.term_id AS term_id, t.account_id AS account_id, CASE WHEN i.capacity>1 THEN 'Grouped' ELSE t.mode END AS mode, coalesce(i.capacity,t.capacity) AS capacity,
                 t.starts_at AS starts_at, t.ends_at AS ends_at, f.basis AS basis, f.billing_period AS billing_period,
@@ -250,7 +258,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
                     'MemberAllowance', g.member_allowance, 'ShopCount', g.shop_capacity,
                     'Consistent', g.starts_at = t.starts_at AND g.ends_at = t.ends_at)::text END AS complimentary,
                 EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
-                    AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
+                    AND s.predecessor_term_id = t.term_id AND ({at}::timestamptz IS NULL OR s.fulfilled_at <= {at}) AND NOT EXISTS (
                         SELECT FROM public.paid_fresh_starts f WHERE f.account_id = s.account_id AND f.order_id = s.order_id
                             AND f.kind = 'RestoredAccess')) AS renewed_at_end,
                 rd.new_paid_through AS refund_paid_through, rd.new_access_ends_at AS refund_access_ends_at
@@ -267,6 +275,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE t.account_id = {account} AND ({term}::uuid IS NULL OR t.term_id = {term}::uuid) AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
+                AND ({selectedIds}::uuid[] IS NULL OR t.term_id = ANY({selectedIds}::uuid[]))
                 AND ({paidShop}::uuid IS NULL OR f.basis = 'Paid' AND EXISTS (
                     SELECT FROM public.current_shop_affiliations s
                     WHERE s.shop_id = {paidShop} AND s.account_id = t.account_id

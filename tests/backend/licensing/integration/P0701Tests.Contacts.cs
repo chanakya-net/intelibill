@@ -36,7 +36,7 @@ public sealed partial class P0701Tests
         Assert.False(userContact.Eligible);
 
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
-        Assert.Empty(await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.EmailRecipientKey(contactUser.Email)));
+        Assert.Empty(await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.UserRecipientKey(contactUser.UserId)));
 
         using (var verifyOnly = await contactUser.Client.PostAsJsonAsync(
             $"/api/billing/notice-contacts/{userContact.ContactId:D}/consent",
@@ -44,7 +44,7 @@ public sealed partial class P0701Tests
             Assert.False((await verifyOnly.Content.ReadFromJsonAsync<BillingContactV1>())!.Eligible);
 
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
-        Assert.Empty(await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.EmailRecipientKey(contactUser.Email)));
+        Assert.Empty(await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.UserRecipientKey(contactUser.UserId)));
 
         using (var optIn = await contactUser.Client.PostAsJsonAsync(
             $"/api/billing/notice-contacts/{userContact.ContactId:D}/consent",
@@ -65,7 +65,7 @@ public sealed partial class P0701Tests
         await AssertStandaloneMailboxProofLifecycleAsync(paid, package.Account, standalone.ContactId, standaloneEmail, mailboxSink);
 
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
-        var userJobs = await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.EmailRecipientKey(contactUser.Email));
+        var userJobs = await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.UserRecipientKey(contactUser.UserId));
         Assert.Equal(5, userJobs.Count);
         Assert.All(userJobs, j => { Assert.Equal([LicenseNoticesV1.ChannelEmail], j.Channels); Assert.Equal("hi-IN", j.Locale); });
         Assert.Equal(HttpStatusCode.Forbidden, (await contactUser.Client.GetAsync($"/api/billing/accounts/{package.Account:D}/notices")).StatusCode);
@@ -100,7 +100,7 @@ public sealed partial class P0701Tests
         await PurchaseAsync(package, "Month");
         await P0608Tests.DrainAsync(paid);
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
-        Assert.Empty(await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.EmailRecipientKey(contactUser.Email)));
+        Assert.Empty(await ReadJobsForRecipientAsync(paid.Hosts.LicensingOwner, package.Account, LicenseNoticesV1.ScopeAccount, NotificationPlanner.UserRecipientKey(contactUser.UserId)));
 
         // Revoke binds operation key: exact replay keeps revision, reusing key on a second contact -> 409.
         var revokeOp = Guid.NewGuid();
@@ -143,13 +143,14 @@ public sealed partial class P0701Tests
         await InviteBillingManagerAsync(paid.Hosts.LicensingOwner, package.Payer.Client, package.Account, promoted);
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
 
+        await AssertLogicalNoticesAsync(paid, package.Account, termId, promoted);
         Assert.Equal(5L, await CountEmailJobsForDestinationAsync(paid.Hosts.LicensingOwner, package.Account, termId, promoted.Email));
         paid.At(Utc("2028-02-22T04:30:00Z"));
         using (var promotedRead = await promoted.Client.GetAsync($"/api/billing/accounts/{package.Account:D}/notices"))
         {
             Assert.Equal(HttpStatusCode.OK, promotedRead.StatusCode);
             var item = Assert.Single((await promotedRead.Content.ReadFromJsonAsync<AccountLicenseNoticesV1>())!.Notices);
-            Assert.Equal([LicenseNoticesV1.ChannelInApp], item.AllowedChannels);
+            Assert.Equal(["Email", "InApp"], item.AllowedChannels.Order().ToArray());
         }
 
         // Direction 2 (reverse): Billing Manager planned FIRST -> standalone contact added -> membership REMOVED!
@@ -225,6 +226,7 @@ public sealed partial class P0701Tests
             $"UPDATE billing_account_members SET status = {(int)BillingAccountMemberStatus.Removed}, revision = revision + 1 WHERE id = '{demotedMemberId:D}'");
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
         Assert.Equal(5L, await CountEmailJobsForDestinationAsync(paid.Hosts.LicensingOwner, package.Account, termId, demoted.Email));
+        await AssertLogicalNoticesAsync(paid, package.Account, termId, demoted);
         Assert.Equal(HttpStatusCode.Forbidden, (await demoted.Client.GetAsync($"/api/billing/accounts/{package.Account:D}/notices")).StatusCode);
 
         var (_, renewStatus) = await RenewAsync(package, termId, "Month");

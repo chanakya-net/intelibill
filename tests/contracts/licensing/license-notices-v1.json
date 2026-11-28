@@ -29,7 +29,11 @@
     "recipientAuthority": {
       "method": "POST",
       "path": "/internal/merchant/v1/licensing/notice-recipients",
-      "proofHeader": "X-Licensing-Notice-Recipients-Proof"
+      "proofHeader": "X-Licensing-Notice-Recipients-Proof",
+      "requestShapes": {
+        "account": { "shopId": null, "affiliationRequestId": null, "namedActorsRequired": true },
+        "shop": { "exactAffiliationRequired": true, "actorIds": [] }
+      }
     }
   },
   "publicRoutes": {

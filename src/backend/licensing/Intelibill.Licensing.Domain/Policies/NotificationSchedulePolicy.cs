@@ -88,6 +88,20 @@ public static class NotificationSchedulePolicy
         return $"{RevisionVersion}:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload)))}";
     }
 
+    // A reminder belongs to this term, even when access was continuous across earlier paid terms.
+    public static SubscriptionAccessFacts OperationalFacts(
+        SubscriptionAccessFacts facts,
+        DateTimeOffset termStart,
+        DateTimeOffset? coverageFrom,
+        DateTimeOffset? handoffEndsAt) =>
+        facts.Basis == SubscriptionBasis.Paid
+            ? facts with
+            {
+                StartsAt = coverageFrom is { } joined && joined > termStart && joined < facts.EndsAt ? joined : termStart,
+                HandoffEndsAt = handoffEndsAt,
+            }
+            : facts;
+
     public static string BuildOperationalSourceRevision(
         string sourceKind,
         Guid sourceId,
@@ -115,12 +129,23 @@ public static class NotificationSchedulePolicy
     /// altering the immutable semantic job key.
     /// </summary>
     public static (string AccessState, string GuidanceCode, bool PaymentDoesNotLiftSuspension) ProjectLiveRestriction(
+        string threshold,
         string baseAccessState,
         string baseGuidanceCode,
         NoticeRestrictionScope restriction)
     {
         if (restriction == NoticeRestrictionScope.Full)
             return (nameof(SubscriptionAccessState.Suspended), "SuspendedNoPaymentLift", true);
+
+        if (baseGuidanceCode == "SuspendedNoPaymentLift")
+        {
+            (baseAccessState, baseGuidanceCode) = threshold switch
+            {
+                "TrialMinus3Days" or "TrialMinus1Day" => (nameof(SubscriptionAccessState.Active), "TrialEnding"),
+                "GraceExpiry" => (nameof(SubscriptionAccessState.Expired), "AccessExpired"),
+                _ => (baseAccessState, baseGuidanceCode),
+            };
+        }
 
         if (restriction == NoticeRestrictionScope.None)
             return (baseAccessState, StripPartialSuffix(baseGuidanceCode), false);
@@ -135,6 +160,17 @@ public static class NotificationSchedulePolicy
         };
         return (baseAccessState, partialGuidance, true);
     }
+
+    public static string CurrentTemplateKey(string storedKey, string guidance) =>
+        guidance == "SuspendedNoPaymentLift"
+            ? storedKey switch
+            {
+                "notice.trial.minus3" => "notice.suspended.trial.minus3",
+                "notice.trial.minus1" => "notice.suspended.trial.minus1",
+                "notice.grace.expiry" => "notice.suspended.grace.expiry",
+                _ => storedKey,
+            }
+            : storedKey.Replace("notice.suspended.", "notice.", StringComparison.Ordinal);
 
     private static string StripPartialSuffix(string code) => code switch
     {

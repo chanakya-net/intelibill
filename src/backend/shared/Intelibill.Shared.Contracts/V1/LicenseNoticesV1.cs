@@ -226,7 +226,7 @@ public sealed record NoticeRecipientAuthorityRequestV1(
         && PageSize is >= 1 and <= LicenseNoticesV1.MaxRecipientPageSize
         && ActorIds is { Length: <= LicenseNoticesV1.MaxActorLookupCount }
         && ActorIds.All(id => id != Guid.Empty)
-        && (ShopId is not null || ActorIds.Length > 0);
+        && (ShopId is null ? ActorIds.Length > 0 : ActorIds.Length == 0);
 }
 
 public sealed record NoticeRecipientActorV1(
@@ -268,7 +268,8 @@ public sealed record NoticeRecipientAuthorityResponseV1(
     [property: JsonPropertyName("nextShopMemberCursor")] Guid? NextShopMemberCursor)
 {
     public bool IsValid(NoticeRecipientAuthorityRequestV1 request) =>
-        HasMatchingEnvelope(request)
+        request.IsValid()
+        && HasMatchingEnvelope(request)
         && HasValidRequestedActors(request)
         && HasValidShopMembersPage(request);
 

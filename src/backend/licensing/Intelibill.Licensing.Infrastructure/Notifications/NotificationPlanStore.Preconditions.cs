@@ -13,15 +13,16 @@ internal sealed partial class NotificationPlanStore
     private async Task<LiveCommitSnapshot> LoadLiveCommitPreconditionsAsync(
         Guid accountId,
         Guid[] sourceIds,
+        DateTimeOffset decisionAt,
         DateTimeOffset plannedAt,
         CancellationToken ct)
     {
-        var isAccountSuspended = await NotificationPlanSourceQueries.IsAccountSuspendedAsync(db, accountId, plannedAt, ct);
+        var isAccountSuspended = await NotificationPlanSourceQueries.IsAccountSuspendedAsync(db, accountId, decisionAt, ct);
         var terms = await NotificationPlanSourceQueries.ReadEffectiveTermSourcesAsync(
             db,
             factsReader,
             accountId,
-            plannedAt,
+            decisionAt,
             termPageSize: 100,
             filterTermIds: sourceIds,
             ct);
@@ -91,9 +92,8 @@ internal sealed partial class NotificationPlanStore
     {
         foreach (var shop in activeShops)
         {
-            var shopFacts = shop.HandoffEndsAt is { } handoff && facts.Basis == SubscriptionBasis.Paid
-                ? facts with { HandoffEndsAt = handoff }
-                : facts;
+            var shopFacts = NotificationSchedulePolicy.OperationalFacts(
+                facts, facts.StartsAt, shop.CoverageFrom, shop.HandoffEndsAt);
             var shopRestriction = isAccountSuspended || shop.IsSuspended
                 ? NoticeRestrictionScope.Full
                 : NoticeRestrictionScope.None;
@@ -120,40 +120,12 @@ internal sealed partial class NotificationPlanStore
         CancellationToken ct)
     {
         var rows = await db.Database.SqlQuery<ExistingJobRow>($"""
-            SELECT scope_kind, scope_id, recipient_key, purpose, source_kind, source_id,
-                source_revision, threshold, destination_hash
-            FROM public.notification_jobs
+            SELECT id, scope_kind, scope_id, recipient_key, recipient_user_id, purpose, source_kind, source_id,
+                source_revision, threshold, destination_hash, allowed_channels
+            FROM public.effective_notification_jobs
             WHERE account_id = {accountId} AND source_id = ANY({sourceIds})
             """).ToListAsync(ct);
-
-        var semantic = new HashSet<SemanticTuple>();
-        var emails = new HashSet<EmailTuple>();
-        foreach (var row in rows)
-        {
-            semantic.Add(new SemanticTuple(
-                row.ScopeKind,
-                row.ScopeId,
-                row.RecipientKey,
-                row.Purpose,
-                row.SourceKind,
-                row.SourceId,
-                row.SourceRevision,
-                row.Threshold));
-            if (row.DestinationHash is not null)
-            {
-                emails.Add(new EmailTuple(
-                    row.ScopeKind,
-                    row.ScopeId,
-                    Convert.ToHexStringLower(row.DestinationHash),
-                    row.Purpose,
-                    row.SourceKind,
-                    row.SourceId,
-                    row.SourceRevision,
-                    row.Threshold));
-            }
-        }
-
-        return new ExistingJobSets(semantic, emails);
+        return new ExistingJobSets(rows);
     }
 
     private async Task<Dictionary<Guid, int>> LockActiveMembersAsync(
@@ -276,15 +248,18 @@ internal sealed partial class NotificationPlanStore
     private sealed record ContactLockRow(Guid Id, int Revision);
 
     private sealed record ExistingJobRow(
+        Guid Id,
         string ScopeKind,
         Guid ScopeId,
         string RecipientKey,
+        Guid? RecipientUserId,
         string Purpose,
         string SourceKind,
         Guid SourceId,
         string SourceRevision,
         string Threshold,
-        byte[]? DestinationHash);
+        byte[]? DestinationHash,
+        string[] AllowedChannels);
 
     private sealed record ThresholdTuple(
         string Purpose,

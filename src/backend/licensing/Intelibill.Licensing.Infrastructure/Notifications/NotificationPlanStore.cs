@@ -6,24 +6,33 @@ using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Web.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Intelibill.Licensing.Infrastructure.Status;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Infrastructure.Notifications;
 
 internal sealed partial class NotificationPlanStore(
     LicensingDbContext db,
-    ISubscriptionAccessFactsReader factsReader,
+    SubscriptionAccessFactsReader factsReader,
     IClosureStore closures,
-    NotificationDestinationProtector protector) : INotificationPlanStore
+    NotificationDestinationProtector protector,
+    [FromKeyedServices(SubscriptionStatusRegistration.ClockKey)] TimeProvider decisionClock) : INotificationPlanStore
 {
     public async Task<IReadOnlyList<Guid>> DiscoverAccountsAsync(
         DateTimeOffset now,
         Guid? afterAccount,
         int take,
-        CancellationToken ct) =>
-        await db.Database.SqlQuery<Guid>($"""
+        CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.notification_planner', 'on', true)", ct);
+        var accounts = await db.Database.SqlQuery<Guid>($"""
             SELECT account_id AS "Value"
             FROM public.due_notification_planning({now}, {afterAccount}, {take})
             """).ToListAsync(ct);
+        await tx.CommitAsync(ct);
+        return accounts;
+    }
 
     public async Task<AccountPlanContext?> ReadAccountPlanContextAsync(
         Guid accountId,
@@ -66,7 +75,7 @@ internal sealed partial class NotificationPlanStore(
 
     private Task<int> EnterAccountAsync(Guid accountId, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT set_config('app.billing_account_id', {accountId.ToString("D")}, true)",
+            $"SELECT set_config('app.billing_account_id', {accountId.ToString("D")}, true), set_config('app.notification_planner', 'on', true)",
             ct);
 
     private async Task<IReadOnlyList<BillingMemberSnapshot>> ReadActiveMembersAsync(

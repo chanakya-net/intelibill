@@ -12,6 +12,7 @@ import hi from '../../../assets/i18n/hi-IN.json';
 import { ADMIN_SUPPORTED_LANGUAGE_CODES } from '../../core/i18n/admin-languages';
 import {
   NotificationPreviewApi,
+  type ProviderNotificationItem,
   type ProviderNotificationsPage,
 } from './notification-preview-api.service';
 import { NotificationPreviewComponent } from './notification-preview.component';
@@ -36,72 +37,55 @@ function makePage(
   const deadline = options.effectiveDeadlineAt ?? '2028-02-29T04:30:00Z';
   const names = options.coveredShopNames ?? ['North Shop', 'South Shop'];
   const count = options.coveredShopCount ?? names.length;
+  const first = scheduledRow(accountId, prefix, dueAt, deadline, names, count, commercialIncluded);
+  const second: ProviderNotificationItem = {
+    ...first,
+    jobId: `${prefix}-2`,
+    threshold: 'PaidMinus1Day',
+    isDue: false,
+    dueAt: '2028-02-28T04:30:00Z',
+    templateKey: 'notice.paid.minus1',
+    commercial: null,
+  };
+  return { schemaVersion: 1, accountId, evaluatedAt: dueAt, commercialIncluded, items: [first, second], nextCursor: options.nextCursor ?? null };
+}
+
+function scheduledRow(
+  accountId: string, prefix: string, dueAt: string, deadline: string, names: string[], count: number, commercialIncluded: boolean,
+): ProviderNotificationItem {
   return {
-    schemaVersion: 1,
-    accountId,
-    evaluatedAt: dueAt,
-    commercialIncluded,
-    items: [
-      {
-        jobId: `${prefix}-1`,
-        scopeKind: 'Account',
-        scopeId: accountId,
-        audience: 'CommercialBillingRole',
-        purpose: 'PaidRenewalReminder',
-        sourceKind: 'Paid',
-        sourceId: '44444444-4444-4444-8444-444444444444',
-        sourceRevision: 'v1:abc',
-        threshold: 'PaidMinus7Days',
-        status: 'Scheduled',
-        isDue: true,
-        dueAt,
-        effectiveDeadlineAt: deadline,
-        timeZone: 'Asia/Kolkata',
-        locale: 'en-IN',
-        allowedChannels: ['InApp', 'Email'],
-        templateKey: 'notice.paid.minus7',
-        guidanceCode: 'PaidRenewalDue',
-        coveredShopCount: count,
-        paymentDoesNotLiftSuspension: false,
-        plannedAt: '2028-01-31T04:30:00Z',
-        commercial: commercialIncluded
-          ? {
-              evidencedTermPricePaise: 12000,
-              evidencedTermCurrency: 'INR',
-              renewalQuoteRequired: true,
-              destinationHint: 'o***@example.test',
-              recipientReference: 'Verified billing role',
-              coveredShopNames: names,
-              coveredShopNamesTruncated: count > names.length,
-            }
-          : null,
-      },
-      {
-        jobId: `${prefix}-2`,
-        scopeKind: 'Account',
-        scopeId: accountId,
-        audience: 'CommercialBillingRole',
-        purpose: 'PaidRenewalReminder',
-        sourceKind: 'Paid',
-        sourceId: '44444444-4444-4444-8444-444444444444',
-        sourceRevision: 'v1:abc',
-        threshold: 'PaidMinus1Day',
-        status: 'Scheduled',
-        isDue: false,
-        dueAt: '2028-02-28T04:30:00Z',
-        effectiveDeadlineAt: deadline,
-        timeZone: 'Asia/Kolkata',
-        locale: 'en-IN',
-        allowedChannels: ['InApp', 'Email'],
-        templateKey: 'notice.paid.minus1',
-        guidanceCode: 'PaidRenewalDue',
-        coveredShopCount: count,
-        paymentDoesNotLiftSuspension: false,
-        plannedAt: '2028-01-31T04:30:00Z',
-        commercial: null,
-      },
-    ],
-    nextCursor: options.nextCursor ?? null,
+    jobId: `${prefix}-1`,
+    scopeKind: 'Account',
+    scopeId: accountId,
+    audience: 'CommercialBillingRole',
+    purpose: 'PaidRenewalReminder',
+    sourceKind: 'Paid',
+    sourceId: '44444444-4444-4444-8444-444444444444',
+    sourceRevision: 'v1:abc',
+    threshold: 'PaidMinus7Days',
+    status: 'Scheduled',
+    isDue: true,
+    dueAt,
+    effectiveDeadlineAt: deadline,
+    timeZone: 'Asia/Kolkata',
+    locale: 'en-IN',
+    allowedChannels: ['InApp', 'Email'],
+    templateKey: 'notice.paid.minus7',
+    guidanceCode: 'PaidRenewalDue',
+    coveredShopCount: count,
+    paymentDoesNotLiftSuspension: false,
+    plannedAt: '2028-01-31T04:30:00Z',
+    commercial: commercialIncluded
+      ? {
+          evidencedTermPricePaise: 12000,
+          evidencedTermCurrency: 'INR',
+          renewalQuoteRequired: true,
+          destinationHint: 'o***@example.test',
+          recipientReference: 'Verified billing role',
+          coveredShopNames: names,
+          coveredShopNamesTruncated: count > names.length,
+        }
+      : null,
   };
 }
 

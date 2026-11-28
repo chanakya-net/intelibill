@@ -173,7 +173,7 @@ public sealed class ReadLicenseNoticesHandler(
         return NotificationSchedulePolicy.BuildOperationalSourceRevision(
             baseline.Basis!.Value.ToString(),
             currentTerm.TermId,
-            baseline,
+            NotificationSchedulePolicy.OperationalFacts(baseline, currentTerm.StartsAt, currentTerm.PaidFrom, currentTerm.HandoffEndsAt),
             trialExtRev,
             cancelVersion);
     }
@@ -188,7 +188,7 @@ public sealed class ReadLicenseNoticesHandler(
         if (await closures.AccountClosedAsync(accountId, ct))
             return new AccountLicenseNoticesV1(LicenseNoticesV1.SchemaVersion, accountId, now, [], null, null);
 
-        var activeSources = await reader.ReadCurrentAccountSourcesAsync(accountId, now, ct);
+        var activeSources = await reader.ReadCurrentAccountSourcesAsync(accountId, actorId, now, ct);
         if (activeSources.Count == 0)
             return new AccountLicenseNoticesV1(LicenseNoticesV1.SchemaVersion, accountId, now, [], null, null);
 
@@ -244,6 +244,7 @@ public sealed class ReadLicenseNoticesHandler(
         var baseState = ReadString(root, "accessState", "Active");
         var baseGuidance = ReadString(root, "guidanceCode", LicenseNoticesV1.GuidanceTrialEnding);
         var (state, guidance, _) = NotificationSchedulePolicy.ProjectLiveRestriction(
+            row.Threshold,
             baseState,
             baseGuidance,
             liveRestriction);
@@ -254,7 +255,7 @@ public sealed class ReadLicenseNoticesHandler(
             row.Threshold,
             state,
             guidance,
-            row.TemplateKey,
+            NotificationSchedulePolicy.CurrentTemplateKey(row.TemplateKey, guidance),
             row.DueAt,
             row.EffectiveDeadlineAt,
             row.TimeZone,
@@ -271,7 +272,7 @@ public sealed class ReadLicenseNoticesHandler(
         var baseState = ReadString(root, "accessState", "Active");
         var baseGuidance = ReadString(root, "guidanceCode", LicenseNoticesV1.GuidancePaidRenewalDue);
         var (state, guidance, noLift) = liveSource is not null
-            ? NotificationSchedulePolicy.ProjectLiveRestriction(baseState, baseGuidance, liveSource.Restriction)
+            ? NotificationSchedulePolicy.ProjectLiveRestriction(row.Threshold, baseState, baseGuidance, liveSource.Restriction)
             : (baseState, baseGuidance, ReadBool(root, "paymentDoesNotLiftSuspension"));
         var coveredCount = liveSource?.CoveredShopCount ?? ReadInt(root, "coveredShopCount");
         var suspendedCount = liveSource?.SuspendedShopCount ?? ReadInt(root, "suspendedShopCount");
@@ -287,7 +288,7 @@ public sealed class ReadLicenseNoticesHandler(
             row.Threshold,
             state,
             guidance,
-            row.TemplateKey,
+            NotificationSchedulePolicy.CurrentTemplateKey(row.TemplateKey, guidance),
             row.DueAt,
             row.EffectiveDeadlineAt,
             row.TimeZone,

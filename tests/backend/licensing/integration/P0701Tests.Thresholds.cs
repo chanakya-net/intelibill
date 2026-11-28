@@ -41,6 +41,9 @@ public sealed partial class P0701Tests
             trialClock, payer.Client, shopOwner.Client, account, shopOwner.ShopId,
             Utc("2028-02-14T04:30:00Z"), expectedBeforeThreshold: LicenseNoticesV1.ThresholdTrialMinus3Days, expectedAtThreshold: LicenseNoticesV1.ThresholdTrialMinus1Day);
 
+        using var owner = await trial.Catalogue.SignInOwnerAsync();
+        using var admin = await SignInAdminWithAsync(trial.Catalogue, owner, "expiry-preview@example.test", "billing");
+        await AssertEndExclusiveAsync(trialClock, payer, shopOwner, account, trialEnd, admin);
         // Trial never gains paid grace after expiry.
         trialClock.Now = trialEnd.AddHours(1);
         Assert.Equal(0, (await RunPlannerPassAsync(trial.Hosts.Licensing.Services)).Inserted);
@@ -127,6 +130,10 @@ public sealed partial class P0701Tests
             [(LicenseNoticesV1.ThresholdPaidMinus1Day, jan31.AddDays(1))],
             await ReadScheduledThresholdsAsync(paid.Hosts.LicensingOwner, shortPackage.Account, LicenseNoticesV1.ScopeAccount, $"user:{shortPackage.Payer.UserId:D}", shortTermId));
 
+        using var owner = await paid.Checkout.Trial.Catalogue.SignInOwnerAsync();
+        using var admin = await SignInAdminWithAsync(paid.Checkout.Trial.Catalogue, owner, "expiry-preview@example.test", "billing");
+        await AssertEndExclusiveAsync(
+            paid.Checkout.CheckoutClock, shortPackage.Payer, shortPackage.Shops[0], shortPackage.Account, jan31.AddDays(2), admin);
         AssertCoincidentGraceAndHandoffPolicy(jan31);
     }
 
@@ -184,6 +191,7 @@ public sealed partial class P0701Tests
         Assert.Empty((await renewPkg.Payer.Client.GetFromJsonAsync<AccountLicenseNoticesV1>($"/api/billing/accounts/{renewPkg.Account:D}/notices"))!.Notices);
         Assert.Equal(5, (await ReadScheduledThresholdsAsync(paid.Hosts.LicensingOwner, renewPkg.Account, LicenseNoticesV1.ScopeAccount, $"user:{renewPkg.Payer.UserId:D}", successorTerm)).Length);
 
+        await AssertSuccessorNoticeAsync(paid, renewPkg, successorTerm);
         // Active complimentary grant covering an expired baseline suppresses expired operational shop banner.
         paid.At(jan31);
         var grantPkg = await paid.PackageAsync(1, ["Grant Store"]);
@@ -258,16 +266,28 @@ public sealed partial class P0701Tests
         Assert.Equal(5, (await ReadScheduledThresholdsAsync(paid.Hosts.LicensingOwner, postPkg.Account, LicenseNoticesV1.ScopeAccount, $"user:{postPkg.Payer.UserId:D}", postTerm)).Length);
         Assert.Equal(5, (await ReadScheduledThresholdsAsync(paid.Hosts.LicensingOwner, prePkg.Account, LicenseNoticesV1.ScopeAccount, $"user:{prePkg.Payer.UserId:D}", preTerm)).Length);
 
-        // Case 3: Full account suspension suppresses payment invitations and marks GraceExpiry SuspendedNoPaymentLift.
-        paid.At(jan31);
+    }
+
+    [Fact]
+    public async Task GraceExpiryRecoversLiveGuidanceAfterFullSuspension()
+    {
+        await using var paid = await P0308Fixture.StartAsync(database, P0601Tests.January31);
+        using var owner = await paid.Checkout.Trial.Catalogue.SignInOwnerAsync();
+        using var secAdmin = await SignInAdminWithAsync(
+            paid.Checkout.Trial.Catalogue, owner, "p0701.full@example.test", "security-administrator");
         var fullPkg = await paid.PackageAsync(1, ["Full Suspended"]);
         var (_, fullTerm) = await PurchaseAsync(fullPkg, "Month");
         await P0608Tests.DrainAsync(paid);
-        await P0404Tests.SuspendAsync(secAdmin, $"/api/admin/accounts/{fullPkg.Account:D}/restrictions", "Account", null);
+        var fullId = await P0404Tests.SuspendAsync(secAdmin, $"/api/admin/accounts/{fullPkg.Account:D}/restrictions", "Account", null);
         await RunPlannerPassAsync(paid.Hosts.Licensing.Services);
         Assert.Equal(
             [(LicenseNoticesV1.ThresholdGraceExpiry, Utc("2028-03-07T04:30:00Z"))],
             await ReadScheduledThresholdsAsync(paid.Hosts.LicensingOwner, fullPkg.Account, LicenseNoticesV1.ScopeAccount, $"user:{fullPkg.Payer.UserId:D}", fullTerm));
+        paid.At(Utc("2028-03-07T04:30:00Z"));
+        await AssertRestrictionGuidanceAsync(fullPkg.Payer, fullPkg.Shops[0], fullPkg.Account, "SuspendedNoPaymentLift", true);
+        await ReleaseRestrictionAsync(secAdmin, fullPkg.Account, fullId);
+        await AssertRestrictionGuidanceAsync(fullPkg.Payer, fullPkg.Shops[0], fullPkg.Account, "AccessExpired", false);
+        Assert.Equal(2L, await CountJobsForAccountAsync(paid.Hosts.LicensingOwner, fullPkg.Account));
     }
 
     private static void AssertCoincidentGraceAndHandoffPolicy(DateTimeOffset jan31)
@@ -293,95 +313,6 @@ public sealed partial class P0701Tests
                 (LicenseNoticesV1.ThresholdPaidMinus1Day, Utc("2028-02-09T04:30:00Z")),
             ],
             NotificationSchedulePolicy.PlanThresholds(handoffFacts, jan31, false, false).Select(i => (i.Threshold, i.DueAt)).ToArray());
-    }
-
-    internal static async Task ExtendTrialAsync(
-        P0110CookieBrowser catalogueManager,
-        Guid accountId,
-        Guid shopId,
-        DateTimeOffset extendedEnd)
-    {
-        var extPath = $"/api/admin/accounts/{accountId:D}/shops/{shopId:D}/trial-extensions";
-        using var previewResp = await P0212Fixture.PostAsync(
-            catalogueManager,
-            extPath + "/preview",
-            new { endsAt = extendedEnd.ToString("O"), reason = "Extended pilot", reviewReference = "PILOT-924" });
-        Assert.Equal(HttpStatusCode.OK, previewResp.StatusCode);
-        var extPreview = await P0206Fixture.BodyAsync(previewResp);
-        using var extSaved = await P0212Fixture.PostAsync(
-            catalogueManager,
-            extPath,
-            new
-            {
-                operationKey = Guid.NewGuid(),
-                endsAt = extPreview.GetProperty("endsAt").GetString(),
-                reason = "Extended pilot",
-                reviewReference = "PILOT-924",
-                currentVersion = extPreview.GetProperty("currentVersion").GetInt64(),
-                sourceHash = extPreview.GetProperty("sourceHash").GetString(),
-                confirmed = true,
-            });
-        Assert.Equal(HttpStatusCode.Created, extSaved.StatusCode);
-    }
-
-    internal static async Task ReleaseRestrictionAsync(
-        P0110CookieBrowser secAdmin,
-        Guid accountId,
-        Guid restrictionId)
-    {
-        var path = $"/api/admin/accounts/{accountId:D}/restrictions/{restrictionId:D}/release";
-        var command = await P0404Tests.PreviewReleaseAsync(secAdmin, path);
-        using var released = await P0212Fixture.PostAsync(secAdmin, path, command);
-        Assert.Equal(HttpStatusCode.Created, released.StatusCode);
-    }
-
-    private static async Task ApproveShortenedRefundAsync(
-        P0308Fixture paid,
-        P0308Fixture.Package package,
-        Guid orderId,
-        DateTimeOffset shortenedEnd)
-    {
-        var confirmation = await P0608Tests.ConfirmationIdAsync(package.Payer.Client, package.Account, orderId);
-        var refundRequest = await P0609Tests.RequestRefundAsync(package, orderId, confirmation, 6000L);
-        using var billingAdmin = await P0306Tests.SignInBillingAsync(paid.Checkout);
-        var preview = await P0609Tests.PreviewAsync(billingAdmin, package.Account, refundRequest, 4500L, "EndAt", shortenedEnd);
-        using var approved = await P0609Tests.ApproveAsync(
-            billingAdmin, package.Account, refundRequest, P0609Tests.Command(preview, 4500L, "EndAt", shortenedEnd));
-        Assert.Equal(HttpStatusCode.Created, approved.StatusCode);
-        await P0610Tests.PumpRefundsAsync(paid);
-        await P0608Tests.DrainAsync(paid);
-    }
-
-    private static async Task GrantComplimentaryAsync(
-        P0110CookieBrowser compManager,
-        Guid accountId,
-        Guid shopId,
-        DateTimeOffset startsAt,
-        DateTimeOffset endsAt)
-    {
-        var compBase = P0212Fixture.Base(accountId);
-        using var prevResp = await P0212Fixture.PostAsync(
-            compManager,
-            compBase + "/preview",
-            new { shopIds = new[] { shopId }, startsAt = startsAt.ToString("O"), endsAt = endsAt.ToString("O"), memberAllowance = 3, reason = "Pilot courtesy" });
-        Assert.Equal(HttpStatusCode.OK, prevResp.StatusCode);
-        var prev = await P0206Fixture.BodyAsync(prevResp);
-        using var saved = await P0212Fixture.PostAsync(
-            compManager,
-            compBase,
-            new
-            {
-                operationKey = Guid.NewGuid(),
-                shopIds = new[] { shopId },
-                startsAt = startsAt.ToString("O"),
-                endsAt = endsAt.ToString("O"),
-                memberAllowance = 3,
-                reason = "Pilot courtesy",
-                expectedVersion = prev.GetProperty("expectedVersion").GetInt64(),
-                sourceHash = prev.GetProperty("sourceHash").GetString(),
-                confirmed = true,
-            });
-        Assert.Equal(HttpStatusCode.Created, saved.StatusCode);
     }
 
     private static async Task AssertCurrentThresholdBoundaryAsync(

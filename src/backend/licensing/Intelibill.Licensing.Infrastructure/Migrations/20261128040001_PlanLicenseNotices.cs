@@ -30,6 +30,23 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            CreateContacts(migrationBuilder);
+            CreateJobs(migrationBuilder);
+            CreateConsentEvents(migrationBuilder);
+            CreateContactOperations(migrationBuilder);
+            IndexContacts(migrationBuilder);
+            IndexJobs(migrationBuilder);
+            RetainNoticeEvidence(migrationBuilder);
+            EnableNoticeIsolation(migrationBuilder);
+            AddNoticePolicies(migrationBuilder);
+            AddPlannerContext(migrationBuilder);
+            AddPlannerDiscovery(migrationBuilder);
+            AddPlannerMembers(migrationBuilder);
+            AddChannelEvidence(migrationBuilder);
+        }
+
+        private static void CreateContacts(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateTable(
                 name: "billing_notice_contacts",
                 columns: table => new
@@ -66,7 +83,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
+        }
 
+        private static void CreateJobs(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateTable(
                 name: "notification_jobs",
                 columns: table => new
@@ -119,7 +139,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
+        }
 
+        private static void CreateConsentEvents(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateTable(
                 name: "billing_notice_contact_events",
                 columns: table => new
@@ -150,7 +173,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
+        }
 
+        private static void CreateContactOperations(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateTable(
                 name: "billing_notice_contact_operations",
                 columns: table => new
@@ -182,7 +208,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
+        }
 
+        private static void IndexContacts(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateIndex(
                 name: "ix_billing_notice_contact_events_account_id",
                 table: "billing_notice_contact_events",
@@ -217,7 +246,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 columns: ContactActiveUserColumns,
                 unique: true,
                 filter: "merchant_user_id IS NOT NULL AND revoked_at IS NULL");
+        }
 
+        private static void IndexJobs(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateIndex(
                 name: "ux_billing_notice_contacts_operation",
                 table: "billing_notice_contacts",
@@ -253,223 +285,18 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 table: "notification_jobs",
                 columns: JobSemanticKeyColumns,
                 unique: true);
-
-            migrationBuilder.Sql("""
-                CREATE FUNCTION public.refuse_notification_evidence_mutation() RETURNS trigger
-                    LANGUAGE plpgsql
-                    SET search_path TO 'pg_catalog'
-                AS $$
-                BEGIN
-                    RAISE EXCEPTION 'Notification job and consent history are append-only' USING ERRCODE = '55000';
-                END;
-                $$;
-
-                CREATE TRIGGER notification_jobs_immutable
-                    BEFORE UPDATE OR DELETE OR TRUNCATE ON public.notification_jobs
-                    FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
-
-                CREATE TRIGGER billing_notice_contact_events_immutable
-                    BEFORE UPDATE OR DELETE OR TRUNCATE ON public.billing_notice_contact_events
-                    FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
-
-                CREATE TRIGGER billing_notice_contact_operations_immutable
-                    BEFORE UPDATE OR DELETE OR TRUNCATE ON public.billing_notice_contact_operations
-                    FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
-
-                CREATE TRIGGER billing_notice_contacts_retain
-                    BEFORE DELETE OR TRUNCATE ON public.billing_notice_contacts
-                    FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
-
-                ALTER TABLE public.notification_jobs ENABLE ROW LEVEL SECURITY;
-                ALTER TABLE public.notification_jobs FORCE ROW LEVEL SECURITY;
-                ALTER TABLE public.billing_notice_contacts ENABLE ROW LEVEL SECURITY;
-                ALTER TABLE public.billing_notice_contacts FORCE ROW LEVEL SECURITY;
-                ALTER TABLE public.billing_notice_contact_events ENABLE ROW LEVEL SECURITY;
-                ALTER TABLE public.billing_notice_contact_events FORCE ROW LEVEL SECURITY;
-                ALTER TABLE public.billing_notice_contact_operations ENABLE ROW LEVEL SECURITY;
-                ALTER TABLE public.billing_notice_contact_operations FORCE ROW LEVEL SECURITY;
-
-                DO $$
-                DECLARE
-                    discovery_table text;
-                BEGIN
-                    EXECUTE format(
-                        'CREATE POLICY notification_jobs_owner ON public.notification_jobs TO %I USING (true) WITH CHECK (true)',
-                        current_user);
-                    EXECUTE format(
-                        'CREATE POLICY billing_notice_contacts_owner ON public.billing_notice_contacts TO %I USING (true) WITH CHECK (true)',
-                        current_user);
-                    EXECUTE format(
-                        'CREATE POLICY billing_notice_contact_events_owner ON public.billing_notice_contact_events TO %I USING (true) WITH CHECK (true)',
-                        current_user);
-                    EXECUTE format(
-                        'CREATE POLICY billing_notice_contact_operations_owner ON public.billing_notice_contact_operations TO %I USING (true) WITH CHECK (true)',
-                        current_user);
-                    FOREACH discovery_table IN ARRAY ARRAY[
-                        'subscription_coverage_terms',
-                        'subscription_term_facts',
-                        'trial_history',
-                        'trial_extensions',
-                        'payment_trial_conversions',
-                        'complimentary_grants',
-                        'operational_closures',
-                        'payment_fulfilments',
-                        'paid_fresh_starts'
-                    ] LOOP
-                        EXECUTE format(
-                            'CREATE POLICY notification_planner_discovery ON public.%I FOR SELECT TO %I USING (true)',
-                            discovery_table,
-                            current_user);
-                    END LOOP;
-                END;
-                $$;
-
-                CREATE POLICY notification_jobs_account_read ON public.notification_jobs
-                    FOR SELECT
-                    USING (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE POLICY notification_jobs_shop_actor_read ON public.notification_jobs
-                    FOR SELECT
-                    USING (
-                        scope_kind = 'Shop'
-                        AND scope_id = NULLIF(current_setting('app.status_shop_id', true), '')::uuid
-                        AND recipient_user_id = NULLIF(current_setting('app.billing_actor_id', true), '')::uuid);
-
-                CREATE POLICY notification_jobs_account_insert ON public.notification_jobs
-                    FOR INSERT
-                    WITH CHECK (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contacts_account_scope ON public.billing_notice_contacts
-                    FOR ALL
-                    USING (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid)
-                    WITH CHECK (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contacts_holder_read ON public.billing_notice_contacts
-                    FOR SELECT
-                    USING (merchant_user_id = NULLIF(current_setting('app.billing_actor_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contacts_holder_update ON public.billing_notice_contacts
-                    FOR UPDATE
-                    USING (merchant_user_id = NULLIF(current_setting('app.billing_actor_id', true), '')::uuid)
-                    WITH CHECK (merchant_user_id = NULLIF(current_setting('app.billing_actor_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contact_events_account_read ON public.billing_notice_contact_events
-                    FOR SELECT
-                    USING (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contact_events_account_insert ON public.billing_notice_contact_events
-                    FOR INSERT
-                    WITH CHECK (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contact_operations_account_read ON public.billing_notice_contact_operations
-                    FOR SELECT
-                    USING (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE POLICY billing_notice_contact_operations_account_insert ON public.billing_notice_contact_operations
-                    FOR INSERT
-                    WITH CHECK (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
-
-                CREATE FUNCTION public.due_notification_planning(
-                    p_now timestamp with time zone,
-                    p_after_account uuid,
-                    p_limit integer)
-                    RETURNS TABLE(account_id uuid)
-                    LANGUAGE sql STABLE SECURITY DEFINER
-                    SET search_path TO 'pg_catalog'
-                AS $$
-                    SELECT DISTINCT t.account_id
-                    FROM public.subscription_coverage_terms t
-                    LEFT JOIN public.subscription_term_facts f
-                        ON f.account_id = t.account_id AND f.term_id = t.term_id
-                    LEFT JOIN public.trial_history h
-                        ON h.account_id = t.account_id AND h.term_id = t.term_id
-                    LEFT JOIN LATERAL (
-                        SELECT e.ends_at
-                        FROM public.trial_extensions e
-                        WHERE e.account_id = h.account_id AND e.shop_id = h.shop_id
-                        ORDER BY e.revision DESC
-                        LIMIT 1
-                    ) ext ON true
-                    LEFT JOIN public.payment_trial_conversions x
-                        ON x.account_id = h.account_id AND x.shop_id = h.shop_id
-                    LEFT JOIN public.complimentary_grants g
-                        ON g.account_id = t.account_id AND g.term_id = t.term_id
-                    WHERE (p_after_account IS NULL OR t.account_id > p_after_account)
-                      AND g.grant_id IS NULL
-                      AND NOT EXISTS (
-                          SELECT FROM public.operational_closures oc
-                          WHERE oc.account_id = t.account_id AND oc.shop_id IS NULL
-                      )
-                      AND (
-                          (f.basis = 'Paid'
-                              AND t.ends_at + interval '7 days' >= p_now
-                              AND NOT EXISTS (
-                                  SELECT FROM public.payment_fulfilments pf
-                                  WHERE pf.account_id = t.account_id
-                                    AND pf.predecessor_term_id = t.term_id
-                                    AND pf.fulfilled_at <= p_now
-                                    AND NOT EXISTS (
-                                        SELECT FROM public.paid_fresh_starts pfs
-                                        WHERE pfs.account_id = pf.account_id
-                                          AND pfs.order_id = pf.order_id
-                                          AND pfs.kind = 'RestoredAccess'
-                                    )
-                              ))
-                          OR (h.term_id IS NOT NULL
-                              AND COALESCE(ext.ends_at, t.ends_at) > p_now
-                              AND (x.paid_starts_at IS NULL OR x.paid_starts_at > p_now))
-                      )
-                      AND nullif(current_setting('app.active_shop_id', true), '') IS NULL
-                      AND nullif(current_setting('app.current_user_id', true), '') IS NULL
-                      AND nullif(current_setting('app.billing_account_id', true), '') IS NULL
-                      AND nullif(current_setting('app.billing_actor_id', true), '') IS NULL
-                      AND nullif(current_setting('app.entitlement_account_id', true), '') IS NULL
-                      AND nullif(current_setting('app.status_shop_id', true), '') IS NULL
-                      AND nullif(current_setting('app.provider_session_id', true), '') IS NULL
-                      AND nullif(current_setting('app.restriction_account_id', true), '') IS NULL
-                      AND nullif(current_setting('app.affiliation_shop_id', true), '') IS NULL
-                      AND nullif(current_setting('app.affiliation_request_id', true), '') IS NULL
-                      AND nullif(current_setting('app.catalogue_admin_id', true), '') IS NULL
-                      AND nullif(current_setting('app.grant_admin_id', true), '') IS NULL
-                      AND nullif(current_setting('app.manual_admin_id', true), '') IS NULL
-                      AND nullif(current_setting('app.exception_admin_id', true), '') IS NULL
-                      AND nullif(current_setting('app.trial_extension_admin_id', true), '') IS NULL
-                    ORDER BY t.account_id
-                    LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100)
-                $$;
-
-                REVOKE ALL ON FUNCTION public.due_notification_planning(timestamp with time zone, uuid, integer) FROM PUBLIC;
-
-                CREATE FUNCTION public.account_notification_billing_members(
-                    p_account uuid,
-                    p_after_user uuid,
-                    p_limit integer)
-                    RETURNS TABLE(id uuid, merchant_user_id uuid, role integer, revision integer)
-                    LANGUAGE sql STABLE SECURITY DEFINER
-                    SET search_path TO 'pg_catalog'
-                AS $$
-                    SELECT m.id, m.merchant_user_id, m.role, m.revision
-                    FROM public.billing_account_members m
-                    WHERE m.account_id = p_account
-                      AND m.status = 1
-                      AND m.role IN (1, 2)
-                      AND (p_after_user IS NULL OR m.merchant_user_id > p_after_user)
-                      AND p_account = nullif(current_setting('app.billing_account_id', true), '')::uuid
-                      AND nullif(current_setting('app.billing_actor_id', true), '') IS NULL
-                    ORDER BY m.merchant_user_id
-                    LIMIT LEAST(GREATEST(COALESCE(p_limit, 50), 1), 100)
-                $$;
-
-                REVOKE ALL ON FUNCTION public.account_notification_billing_members(uuid, uuid, integer) FROM PUBLIC;
-                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
+                DROP VIEW public.effective_notification_jobs;
+                DROP TABLE public.notification_channel_additions;
+                ALTER TABLE public.notification_jobs DROP CONSTRAINT uq_notification_job_account;
                 DROP FUNCTION IF EXISTS public.account_notification_billing_members(uuid, uuid, integer);
                 DROP FUNCTION IF EXISTS public.due_notification_planning(timestamp with time zone, uuid, integer);
+                DROP FUNCTION IF EXISTS public.notification_planner_context(uuid);
                 DROP POLICY IF EXISTS notification_planner_discovery ON public.paid_fresh_starts;
                 DROP POLICY IF EXISTS notification_planner_discovery ON public.payment_fulfilments;
                 DROP POLICY IF EXISTS notification_planner_discovery ON public.operational_closures;

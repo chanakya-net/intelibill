@@ -26,6 +26,9 @@ public sealed partial class P0701Tests
         AssertActionsAndVocabularies(root);
         AssertForbiddenOperationalAndContactFields(root);
         AssertContractTimeVectors(root.GetProperty("timeVectors"));
+        var shapes = root.GetProperty("actions").GetProperty("recipientAuthority").GetProperty("requestShapes");
+        Assert.True(shapes.GetProperty("account").GetProperty("namedActorsRequired").GetBoolean());
+        Assert.Empty(shapes.GetProperty("shop").GetProperty("actorIds").EnumerateArray());
         AssertRecipientAuthorityResponseValidation();
     }
 
@@ -42,6 +45,7 @@ public sealed partial class P0701Tests
         var (accountId, ownerId) = await P0209Fixture.SeedAccountAsync(database.Bootstrap(dbName));
         await AssertRuntimeRlsAndImmutabilityAsync(runtime, accountId, ownerId);
         await AssertDiscoveryIsolationAcrossScopesAsync(database.Bootstrap(dbName), runtime, accountId);
+        await AssertPlannerMemberContextAsync(runtime, accountId, ownerId);
         await AssertRollbackAndReplayAsync(migrator);
     }
 
@@ -133,6 +137,9 @@ public sealed partial class P0701Tests
         Assert.False(unsolicitedActor.IsValid(actorReq));
 
         var shopReq = new NoticeRecipientAuthorityRequestV1(1, Guid.NewGuid(), now.AddSeconds(15), accountId, affiliationId, shopId, [], user1, 1);
+        Assert.True(shopReq.IsValid());
+        Assert.True(actorReq.IsValid());
+        Assert.False((shopReq with { ActorIds = [user1] }).IsValid());
         var staffWithEmail = new NoticeRecipientAuthorityResponseV1(
             1, shopReq.Challenge, accountId, shopId, affiliationId, true, now, [],
             [new NoticeRecipientActorV1(user2, true, true, "staff@example.test", false, "en-IN", "Staff", 1)], null);
@@ -199,11 +206,12 @@ public sealed partial class P0701Tests
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'public'
-              AND c.relname IN ('notification_jobs', 'billing_notice_contacts', 'billing_notice_contact_events', 'billing_notice_contact_operations')
+              AND c.relname IN ('notification_jobs', 'billing_notice_contacts', 'billing_notice_contact_events',
+                  'billing_notice_contact_operations', 'notification_channel_additions')
               AND c.relrowsecurity
               AND c.relforcerowsecurity
             """, conn);
-        Assert.Equal(4L, (long)(await rls.ExecuteScalarAsync())!);
+        Assert.Equal(5L, (long)(await rls.ExecuteScalarAsync())!);
 
         await using var idx = new NpgsqlCommand("""
             SELECT count(*)
@@ -257,40 +265,6 @@ public sealed partial class P0701Tests
         }
     }
 
-    private static async Task AssertDiscoveryIsolationAcrossScopesAsync(
-        NpgsqlConnectionStringBuilder bootstrap,
-        NpgsqlConnectionStringBuilder runtime,
-        Guid accountId)
-    {
-        // Seed one active paid term on accountId so discovery has an eligible account to return in worker scope.
-        var now = P0209Fixture.Utc("2028-02-01T04:30:00Z");
-        var termId = Guid.NewGuid();
-        await LicensingPostgreSqlFixture.ExecuteAsync(bootstrap, $"""
-            INSERT INTO public.subscription_coverage_terms (term_id, account_id, mode, capacity, starts_at, ends_at)
-            VALUES ('{termId:D}', '{accountId:D}', 'Independent', 1, '2028-01-31T04:30:00Z', '2028-02-29T04:30:00Z');
-            INSERT INTO public.subscription_term_facts (
-                account_id, term_id, basis, billing_period, anchor_local, time_zone, period_ordinal,
-                member_allowance, price_paise, currency, plan_version_id, source_reference,
-                development_fixture, calendar_version, access_policy_version, recorded_at)
-            VALUES (
-                '{accountId:D}', '{termId:D}', 'Paid', 'Month', '2028-01-31 10:00:00', 'Asia/Kolkata', 0,
-                5, 12000, 'INR', NULL, 'payment-fulfilment/1', true, '{BillingCalendar.Version}', '{GracePolicy.Version}',
-                '2028-01-31T04:30:00Z');
-            """);
-
-        await using var rt = new NpgsqlConnection(runtime.ConnectionString);
-        await rt.OpenAsync();
-
-        // Worker scope (no session GUCs) pages eligible accounts.
-        Assert.Equal([accountId], await DiscoverInScopeAsync(rt, now, gucName: null, gucValue: null));
-
-        // Actor-only, account, shop, and provider-session scopes MUST return 0 identifiers!
-        Assert.Empty(await DiscoverInScopeAsync(rt, now, "app.billing_actor_id", Guid.NewGuid().ToString("D")));
-        Assert.Empty(await DiscoverInScopeAsync(rt, now, "app.billing_account_id", accountId.ToString("D")));
-        Assert.Empty(await DiscoverInScopeAsync(rt, now, "app.status_shop_id", Guid.NewGuid().ToString("D")));
-        Assert.Empty(await DiscoverInScopeAsync(rt, now, "app.provider_session_id", Guid.NewGuid().ToString("D")));
-    }
-
     private static async Task AssertRollbackAndReplayAsync(NpgsqlConnectionStringBuilder migrator)
     {
         var options = new DbContextOptionsBuilder<LicensingDbContext>()
@@ -306,37 +280,6 @@ public sealed partial class P0701Tests
         await migratorService.MigrateAsync();
         Assert.Equal("notification_jobs", await LicensingPostgreSqlFixture.ReadScalarAsync(migrator, "SELECT to_regclass('public.notification_jobs')::text"));
         Assert.Equal("billing_notice_contact_operations", await LicensingPostgreSqlFixture.ReadScalarAsync(migrator, "SELECT to_regclass('public.billing_notice_contact_operations')::text"));
-    }
-
-    private static async Task<Guid[]> DiscoverInScopeAsync(
-        NpgsqlConnection rt,
-        DateTimeOffset now,
-        string? gucName,
-        string? gucValue)
-    {
-        await using var tx = await rt.BeginTransactionAsync();
-        if (gucName is not null && gucValue is not null)
-            await SetScopeGucAsync(rt, tx, gucName, gucValue);
-
-        await using var cmd = new NpgsqlCommand("SELECT account_id FROM public.due_notification_planning($1, NULL, 20)", rt, tx);
-        cmd.Parameters.AddWithValue(now);
-        var list = new List<Guid>();
-        await using (var reader = await cmd.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-                list.Add(reader.GetGuid(0));
-        }
-
-        await tx.RollbackAsync();
-        return [.. list];
-    }
-
-    private static async Task SetScopeGucAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string name, string value)
-    {
-        await using var cmd = new NpgsqlCommand("SELECT set_config($1, $2, true)", conn, tx);
-        cmd.Parameters.AddWithValue(name);
-        cmd.Parameters.AddWithValue(value);
-        await cmd.ExecuteNonQueryAsync();
     }
 
     private static async Task<int> InsertRawJobAsync(

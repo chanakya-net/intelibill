@@ -1,6 +1,7 @@
 using Intelibill.Licensing.Application.Notifications;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.Status;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Notifications;
@@ -25,35 +26,63 @@ internal static class NotificationPlanSourceQueries
 
     internal static async Task<IReadOnlyList<TermPlanSource>> ReadEffectiveTermSourcesAsync(
         LicensingDbContext db,
-        ISubscriptionAccessFactsReader factsReader,
+        SubscriptionAccessFactsReader factsReader,
         Guid accountId,
         DateTimeOffset now,
         int termPageSize,
         Guid[]? filterTermIds,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? displayActor = null)
     {
-        var filterSet = filterTermIds is { Length: > 0 } ? filterTermIds.ToHashSet() : null;
         var sources = new List<TermPlanSource>();
-        Guid? afterTerm = null;
+        Guid? after = null;
         while (true)
         {
-            var page = await factsReader.ReadAccountAsync(accountId, afterTerm, termPageSize, ct);
-            if (page.Count == 0)
+            var ids = await ReadCandidateTermsAsync(db, accountId, now, after, termPageSize, filterTermIds, displayActor, ct);
+            if (ids.Length == 0)
                 break;
-
-            var rows = filterSet is null
-                ? page
-                : page.Where(item => filterSet.Contains(item.Term.TermId)).ToArray();
-            if (rows.Count > 0)
-                await AppendEffectiveTermsAsync(db, accountId, rows, now, sources, ct);
-
-            afterTerm = page[^1].Term.TermId;
-            if (page.Count < termPageSize)
+            var terms = await factsReader.ReadNoticeTermsAsync(accountId, ids, now, ct);
+            var shops = await ReadTermShopsAsync(db, accountId, ids, now, ct);
+            var revisions = await ReadTrialExtensionRevisionsAsync(db, accountId, ids, ct);
+            foreach (var term in terms)
+                sources.Add(new TermPlanSource(term, revisions.GetValueOrDefault(term.TermId), shops[term.TermId].ToArray()));
+            if (ids.Length < termPageSize)
                 break;
+            after = ids[^1];
         }
-
         return sources;
     }
+
+    private static Task<Guid[]> ReadCandidateTermsAsync(
+        LicensingDbContext db, Guid account, DateTimeOffset now, Guid? after, int take,
+        Guid[]? selected, Guid? displayActor, CancellationToken ct) =>
+        db.Database.SqlQuery<Guid>($"""
+            SELECT t.term_id AS "Value"
+            FROM public.subscription_coverage_terms t
+            LEFT JOIN public.subscription_term_facts f USING (account_id, term_id)
+            LEFT JOIN public.trial_history h USING (account_id, term_id)
+            WHERE t.account_id = {account}
+              AND ({selected}::uuid[] IS NULL OR t.term_id = ANY({selected}::uuid[]))
+              AND ({after}::uuid IS NULL OR t.term_id > {after})
+              AND ((f.basis = 'Paid' AND (
+                        t.ends_at + interval '7 days' >= {now} OR
+                        ({displayActor}::uuid IS NOT NULL AND EXISTS (
+                            SELECT FROM public.effective_notification_jobs j WHERE j.account_id = t.account_id
+                            AND j.source_id = t.term_id AND j.scope_kind = 'Account' AND j.recipient_user_id = {displayActor}
+                            AND j.threshold = 'GraceExpiry')))
+                    AND NOT EXISTS (
+                        SELECT FROM public.payment_fulfilments pf WHERE pf.account_id = t.account_id
+                        AND pf.predecessor_term_id = t.term_id AND pf.fulfilled_at <= {now}
+                        AND NOT EXISTS (SELECT FROM public.paid_fresh_starts x WHERE x.account_id = pf.account_id
+                            AND x.order_id = pf.order_id AND x.kind = 'RestoredAccess')))
+                OR (h.term_id IS NOT NULL AND COALESCE((
+                        SELECT e.ends_at FROM public.trial_extensions e WHERE e.account_id = h.account_id
+                        AND e.shop_id = h.shop_id ORDER BY revision DESC LIMIT 1), t.ends_at) > {now}
+                    AND NOT EXISTS (SELECT FROM public.payment_trial_conversions x WHERE x.account_id = t.account_id
+                        AND x.trial_term_id = t.term_id AND x.paid_starts_at <= {now})))
+            ORDER BY t.term_id
+            LIMIT {take}
+            """).ToArrayAsync(ct);
 
     internal static async Task<int> ReadTrialExtensionRevisionAsync(
         LicensingDbContext db,
@@ -64,44 +93,6 @@ internal static class NotificationPlanSourceQueries
         var revisions = await ReadTrialExtensionRevisionsAsync(db, accountId, [termId], ct);
         return revisions.GetValueOrDefault(termId, 0);
     }
-
-    private static async Task AppendEffectiveTermsAsync(
-        LicensingDbContext db,
-        Guid accountId,
-        IReadOnlyList<AccountTermRow> rows,
-        DateTimeOffset now,
-        List<TermPlanSource> target,
-        CancellationToken ct)
-    {
-        var termIds = rows.Select(item => item.Term.TermId).ToArray();
-        var convertedTrials = await ReadConvertedTrialTermIdsAsync(db, accountId, termIds, now, ct);
-        var shopLookup = await ReadTermShopsAsync(db, accountId, termIds, now, ct);
-        var trialRevisions = await ReadTrialExtensionRevisionsAsync(db, accountId, termIds, ct);
-
-        foreach (var row in rows)
-        {
-            if (row.Term.Trial is not null && convertedTrials.Contains(row.Term.TermId))
-                continue;
-
-            var shops = shopLookup[row.Term.TermId].ToArray();
-            var extRev = trialRevisions.GetValueOrDefault(row.Term.TermId, 0);
-            target.Add(new TermPlanSource(row.Term, extRev, shops));
-        }
-    }
-
-    private static async Task<HashSet<Guid>> ReadConvertedTrialTermIdsAsync(
-        LicensingDbContext db,
-        Guid accountId,
-        Guid[] termIds,
-        DateTimeOffset now,
-        CancellationToken ct) =>
-        (await db.Database.SqlQuery<Guid>($"""
-            SELECT trial_term_id AS "Value"
-            FROM public.payment_trial_conversions
-            WHERE account_id = {accountId}
-              AND trial_term_id = ANY({termIds})
-              AND paid_starts_at <= {now}
-            """).ToListAsync(ct)).ToHashSet();
 
     private static async Task<ILookup<Guid, ShopPlanSource>> ReadTermShopsAsync(
         LicensingDbContext db,
@@ -125,6 +116,7 @@ internal static class NotificationPlanSourceQueries
                       AND r.shop_id = assignments.shop_id
                       AND r.effective_at <= {now}
                 ) AS is_suspended,
+                pl.coverage_from,
                 CASE WHEN pl.is_released THEN pl.coverage_ends_at END AS handoff_ends_at
             FROM (
                 SELECT t.term_id, er.shop_id, er.affiliation_request_id, a.shop_name
@@ -166,7 +158,8 @@ internal static class NotificationPlanSourceQueries
                 row.ShopName,
                 row.IsClosed,
                 row.IsSuspended,
-                row.HandoffEndsAt?.ToUniversalTime()));
+                row.HandoffEndsAt?.ToUniversalTime(),
+                row.CoverageFrom?.ToUniversalTime()));
 
     private static async Task<Dictionary<Guid, int>> ReadTrialExtensionRevisionsAsync(
         LicensingDbContext db,
@@ -192,7 +185,8 @@ internal static class NotificationPlanSourceQueries
         string ShopName,
         bool IsClosed,
         bool IsSuspended,
-        DateTimeOffset? HandoffEndsAt);
+        DateTimeOffset? HandoffEndsAt,
+        DateTimeOffset? CoverageFrom);
 
     private sealed record TrialExtensionRevisionRow(Guid TermId, int Revision);
 }

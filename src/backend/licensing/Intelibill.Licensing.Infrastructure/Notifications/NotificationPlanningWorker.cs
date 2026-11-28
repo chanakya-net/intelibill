@@ -59,12 +59,17 @@ internal sealed partial class NotificationPlanningWorker(
                 memberPageSize: Math.Clamp(settings.MemberPageSize, 1, 50),
                 ct: ct);
             _nextAfterAccount = batch.NextAfterAccount;
+            if (batch.Pass.AccountsSkippedUnavailable > 0)
+                LogAccountsDeferred(logger, batch.Pass.AccountsSkippedUnavailable);
         }
         catch (Exception error) when (!ct.IsCancellationRequested)
         {
             LogPlanningUnavailable(logger, error.GetType().Name);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Notice planning deferred for {Count} unavailable accounts.")]
+    private static partial void LogAccountsDeferred(ILogger logger, int count);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Notification planning pass skipped ({Cause}).")]
     private static partial void LogPlanningUnavailable(ILogger logger, string cause);

@@ -72,3 +72,5 @@ source files linked (`<Compile Include … Link>`) into the merchant and licensi
   commercial account (`AccountLicenseNoticesV1`), provider preview (`ProviderNotificationsPageV1`),
   paged contact (`BillingContactsPageV1`), and minimized recipient-authority wire DTOs (no raw phone
   numbers, no staff emails, no verification proof tokens, and bounded shop-name samples).
+
+The V1 licence notice contract separates named billing-actor lookup from affiliation-bound shop roster lookup. See the [architecture guide](architecture_doc/architecture.md#licence-notice-v1-contracts-p07-01).

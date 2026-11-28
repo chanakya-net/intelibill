@@ -5,19 +5,21 @@ using Intelibill.Licensing.Domain.Policies;
 using Intelibill.Licensing.Domain.ValueObjects;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Licensing.Infrastructure.Status;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Notifications;
 
 internal sealed class NotificationJobReader(
     LicensingDbContext db,
-    ISubscriptionAccessFactsReader factsReader) : ILicenseNoticeReader
+    SubscriptionAccessFactsReader factsReader) : ILicenseNoticeReader
 {
     public Task<int> ReadTrialExtensionRevisionAsync(Guid accountId, Guid termId, CancellationToken ct) =>
         NotificationPlanSourceQueries.ReadTrialExtensionRevisionAsync(db, accountId, termId, ct);
 
     public async Task<IReadOnlyList<CurrentCommercialSource>> ReadCurrentAccountSourcesAsync(
         Guid accountId,
+        Guid actorId,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -29,7 +31,8 @@ internal sealed class NotificationJobReader(
             now,
             termPageSize: 100,
             filterTermIds: null,
-            ct);
+            ct,
+            displayActor: actorId);
         var sources = new List<CurrentCommercialSource>(terms.Count);
         foreach (var termSource in terms)
         {
@@ -56,7 +59,7 @@ internal sealed class NotificationJobReader(
                 due_at, effective_deadline_at, time_zone, locale, allowed_channels,
                 status, template_key, template_arguments::text AS template_arguments,
                 destination_hint, planned_at
-            FROM public.notification_jobs
+            FROM public.effective_notification_jobs
             WHERE account_id = {accountId}
               AND scope_kind = {LicenseNoticesV1.ScopeShop}
               AND scope_id = {shopId}
@@ -65,13 +68,14 @@ internal sealed class NotificationJobReader(
               AND source_id = {sourceId}
               AND source_revision = {sourceRevision}
               AND due_at <= {now}
+              AND (effective_deadline_at > {now} OR threshold = {LicenseNoticesV1.ThresholdGraceExpiry})
             ORDER BY due_at DESC, id DESC
             LIMIT 1
             """).ToListAsync(ct);
 
         var nextDue = await db.Database.SqlQuery<DateTimeOffset?>($"""
-            SELECT MIN(due_at) AS "Value"
-            FROM public.notification_jobs
+            SELECT MIN(CASE WHEN due_at > {now} THEN due_at ELSE effective_deadline_at END) AS "Value"
+            FROM public.effective_notification_jobs
             WHERE account_id = {accountId}
               AND scope_kind = {LicenseNoticesV1.ScopeShop}
               AND scope_id = {shopId}
@@ -79,7 +83,7 @@ internal sealed class NotificationJobReader(
               AND {LicenseNoticesV1.ChannelInApp} = ANY(allowed_channels)
               AND source_id = {sourceId}
               AND source_revision = {sourceRevision}
-              AND due_at > {now}
+              AND effective_deadline_at > {now}
             """).SingleAsync(ct);
 
         return ToPage(rows, take: 1, nextDue);
@@ -111,7 +115,7 @@ internal sealed class NotificationJobReader(
                     j.due_at, j.effective_deadline_at, j.time_zone, j.locale, j.allowed_channels,
                     j.status, j.template_key, j.template_arguments::text AS template_arguments,
                     j.destination_hint, j.planned_at
-                FROM public.notification_jobs j
+                FROM public.effective_notification_jobs j
                 JOIN active_sources a
                     ON a.source_id = j.source_id AND a.source_revision = j.source_revision
                 WHERE j.account_id = {accountId}
@@ -121,6 +125,7 @@ internal sealed class NotificationJobReader(
                   AND j.audience = {LicenseNoticesV1.AudienceCommercialBillingRole}
                   AND {LicenseNoticesV1.ChannelInApp} = ANY(j.allowed_channels)
                   AND j.due_at <= {now}
+                  AND (j.effective_deadline_at > {now} OR j.threshold = {LicenseNoticesV1.ThresholdGraceExpiry})
                 ORDER BY j.source_id, j.due_at DESC, j.id DESC
             )
             SELECT *
@@ -148,8 +153,8 @@ internal sealed class NotificationJobReader(
                 SELECT s.source_id, s.source_revision
                 FROM unnest({sourceIds}, {revisions}) AS s(source_id, source_revision)
             )
-            SELECT MIN(j.due_at) AS "Value"
-            FROM public.notification_jobs j
+            SELECT MIN(CASE WHEN j.due_at > {now} THEN j.due_at ELSE j.effective_deadline_at END) AS "Value"
+            FROM public.effective_notification_jobs j
             JOIN active_sources a
                 ON a.source_id = j.source_id AND a.source_revision = j.source_revision
             WHERE j.account_id = {accountId}
@@ -158,7 +163,7 @@ internal sealed class NotificationJobReader(
               AND j.recipient_user_id = {actorId}
               AND j.audience = {LicenseNoticesV1.AudienceCommercialBillingRole}
               AND {LicenseNoticesV1.ChannelInApp} = ANY(j.allowed_channels)
-              AND j.due_at > {now}
+              AND j.effective_deadline_at > {now}
             """).SingleAsync(ct);
 
     public async Task<ErrorOr<NotificationReadPage>> ReadProviderAccountJobsAsync(
@@ -172,7 +177,7 @@ internal sealed class NotificationJobReader(
         {
             var found = await db.Database.SqlQuery<DateTimeOffset>($"""
                 SELECT due_at AS "Value"
-                FROM public.notification_jobs
+                FROM public.effective_notification_jobs
                 WHERE account_id = {accountId} AND id = {cursorId}
                 """).ToListAsync(ct);
             if (found is not [var value])
@@ -186,7 +191,7 @@ internal sealed class NotificationJobReader(
                 due_at, effective_deadline_at, time_zone, locale, allowed_channels,
                 status, template_key, template_arguments::text AS template_arguments,
                 destination_hint, planned_at
-            FROM public.notification_jobs
+            FROM public.effective_notification_jobs
             WHERE account_id = {accountId}
               AND ({after}::uuid IS NULL OR (due_at, id) > ({cursorDue}, {after}::uuid))
             ORDER BY due_at ASC, id ASC

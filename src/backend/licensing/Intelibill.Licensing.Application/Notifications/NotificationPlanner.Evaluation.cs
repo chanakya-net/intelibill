@@ -53,9 +53,8 @@ public sealed partial class NotificationPlanner
         var plans = new List<EvaluatedShopPlan>();
         foreach (var shop in activeShops)
         {
-            var shopFacts = shop.HandoffEndsAt is { } handoff && facts.Basis == SubscriptionBasis.Paid
-                ? facts with { HandoffEndsAt = handoff }
-                : facts;
+            var shopFacts = NotificationSchedulePolicy.OperationalFacts(
+                facts, facts.StartsAt, shop.CoverageFrom, shop.HandoffEndsAt);
             var restriction = isAccountSuspended || shop.IsSuspended
                 ? NoticeRestrictionScope.Full
                 : NoticeRestrictionScope.None;

@@ -75,8 +75,8 @@ internal sealed class MerchantNoticeRecipientReader(
 
         var observedAt = EntitlementSnapshotsV1.Instant(businessClock);
         var (affiliationMatches, shopMembers, nextCursor) = await ReadShopRosterIfBoundAsync(request, ct);
-        var actors = request.ActorIds.Length > 0
-            ? await ReadRequestedActorsAsync(request.ActorIds, request.ShopId, ct)
+        var actors = request.ShopId is null
+            ? await ReadRequestedActorsAsync(request.ActorIds, ct)
             : [];
 
         if (transportClock.GetUtcNow() >= request.Deadline)
@@ -200,7 +200,6 @@ internal sealed class MerchantNoticeRecipientReader(
 
     private async Task<NoticeRecipientActorV1[]> ReadRequestedActorsAsync(
         Guid[] actorIds,
-        Guid? shopId,
         CancellationToken ct)
     {
         var users = await db.Users.AsNoTracking()
@@ -218,37 +217,17 @@ internal sealed class MerchantNoticeRecipientReader(
             })
             .ToListAsync(ct);
 
-        Dictionary<Guid, (ShopRole Role, long AuthorityVersion)> roles = [];
-        if (shopId is { } targetShop && users.Count > 0)
-        {
-            var foundIds = users.Select(user => user.Id).ToArray();
-            var memberships = await db.ShopMemberships.AsNoTracking()
-                .Where(m => m.ShopId == targetShop
-                    && m.Status == MembershipStatus.Active
-                    && foundIds.Contains(m.UserId))
-                .Select(m => new { m.UserId, m.Role, m.AuthorityVersion })
-                .ToListAsync(ct);
-            roles = memberships.ToDictionary(m => m.UserId, m => (m.Role, m.AuthorityVersion));
-        }
-
-        return
-        [
-            .. users.Select(user =>
-            {
-                var hasRole = roles.TryGetValue(user.Id, out var role);
-                return ToActor(
-                    user.Id,
-                    user.IsLoginEnabled,
-                    user.IsEmailVerified,
-                    user.Email,
-                    user.IsPhoneVerified,
-                    user.PhoneNumber,
-                    user.Language,
-                    hasRole && user.IsLoginEnabled ? role.Role.ToString() : null,
-                    hasRole && user.IsLoginEnabled ? role.AuthorityVersion : null,
-                    includeEmail: true);
-            }),
-        ];
+        return users.Select(user => ToActor(
+            user.Id,
+            user.IsLoginEnabled,
+            user.IsEmailVerified,
+            user.Email,
+            user.IsPhoneVerified,
+            user.PhoneNumber,
+            user.Language,
+            null,
+            null,
+            includeEmail: true)).ToArray();
     }
 
     private static NoticeRecipientActorV1 ToActor(

@@ -58,7 +58,8 @@ public sealed record ShopPlanSource(
     string ShopName,
     bool IsClosed,
     bool IsSuspended,
-    DateTimeOffset? HandoffEndsAt = null);
+    DateTimeOffset? HandoffEndsAt = null,
+    DateTimeOffset? CoverageFrom = null);
 
 public sealed record TermPlanSource(
     TermFactsRow Term,
@@ -192,6 +193,7 @@ public interface ILicenseNoticeReader
 
     Task<IReadOnlyList<CurrentCommercialSource>> ReadCurrentAccountSourcesAsync(
         Guid accountId,
+        Guid actorId,
         DateTimeOffset now,
         CancellationToken ct);
 

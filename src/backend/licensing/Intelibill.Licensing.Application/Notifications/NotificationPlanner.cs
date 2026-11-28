@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Data.Common;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Domain.Policies;
 using Intelibill.Licensing.Domain.ValueObjects;
@@ -64,8 +65,15 @@ public sealed partial class NotificationPlanner(
             foreach (var accountId in accounts)
             {
                 totals.AccountsScanned++;
-                var outcome = await PlanAccountAtAsync(accountId, now, termPageSize, memberPageSize, ct);
-                totals.Record(outcome);
+                try
+                {
+                    var outcome = await PlanAccountAtAsync(accountId, now, termPageSize, memberPageSize, ct);
+                    totals.Record(outcome);
+                }
+                catch (Exception error) when (!ct.IsCancellationRequested && error is DbException or TimeoutException)
+                {
+                    totals.Record(null);
+                }
             }
 
             cursor = accounts[^1];
@@ -267,14 +275,19 @@ public sealed partial class NotificationPlanner(
         if (at <= 0 || at >= normalizedEmail.Length - 1)
             return "***";
 
-        var local = normalizedEmail[..at];
         var domain = normalizedEmail[(at + 1)..];
-        var boundedDomain = domain.Length > 64 ? "…" + domain[^63..] : domain;
-        var prefix = local.Length <= 1 ? "***" : $"{local[..1]}***";
-        var hint = $"{prefix}@{boundedDomain}";
-        return string.Equals(hint, normalizedEmail, StringComparison.OrdinalIgnoreCase)
-            ? $"****@{boundedDomain}"
-            : hint;
+        if (domain.Length > 64)
+        {
+            var start = domain.Length - 63;
+            if (char.IsLowSurrogate(domain[start]))
+                start++;
+            domain = "…" + domain[start..];
+        }
+
+        var first = Rune.GetRuneAt(normalizedEmail, 0);
+        var prefix = first.Utf16SequenceLength == at || first.Value == '*' ? "***" : $"{first}***";
+        var hint = $"{prefix}@{domain}";
+        return string.Equals(hint, normalizedEmail, StringComparison.OrdinalIgnoreCase) ? "***" : hint;
     }
 
     private sealed class PassTotals
