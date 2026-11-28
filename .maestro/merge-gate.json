@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "commands": [
+    {
+      "name": "Full licensing integration tests",
+      "argv": [
+        "bash",
+        "scripts/dev/test-integration.sh",
+        "--licensing"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 3600,
+      "when_changed": [
+        "src/backend/licensing/*",
+        "tests/backend/licensing/*",
+        "tests/contracts/licensing/*",
+        "src/backend/shared/*",
+        "tests/backend/shared/*",
+        "scripts/db/*",
+        "scripts/dev/*",
+        "docker-compose.yml",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Intelibill.slnx"
+      ]
+    },
+    {
+      "name": "Full merchant integration tests",
+      "argv": [
+        "bash",
+        "scripts/dev/test-integration.sh"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 3600,
+      "when_changed": [
+        "src/backend/intelibill/*",
+        "tests/backend/intelibill/*",
+        "src/backend/shared/*",
+        "tests/backend/shared/*",
+        "scripts/db/*",
+        "scripts/dev/*",
+        "docker-compose.yml",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Intelibill.slnx"
+      ]
+    }
+  ]
+}

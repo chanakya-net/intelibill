@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "scopes": [
+    {
+      "name": "merchant-backend",
+      "check_prefixes": [
+        "dotnet build src/backend/intelibill/",
+        "dotnet test tests/backend/intelibill/",
+        "dotnet ef migrations has-pending-model-changes --project src/backend/intelibill/",
+        "scripts/dev/test-integration.sh"
+      ],
+      "paths": [
+        "src/backend/intelibill/**",
+        "tests/backend/intelibill/**",
+        "src/backend/shared/**",
+        "tests/backend/shared/**",
+        "scripts/db/**",
+        "scripts/dev/**",
+        "docker-compose.yml",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Intelibill.slnx"
+      ]
+    },
+    {
+      "name": "licensing-backend",
+      "check_prefixes": [
+        "dotnet build src/backend/licensing/",
+        "dotnet test tests/backend/licensing/",
+        "dotnet ef migrations has-pending-model-changes --project src/backend/licensing/",
+        "scripts/dev/test-integration.sh --licensing"
+      ],
+      "paths": [
+        "src/backend/licensing/**",
+        "tests/backend/licensing/**",
+        "tests/contracts/licensing/**",
+        "src/backend/shared/**",
+        "tests/backend/shared/**",
+        "scripts/db/**",
+        "scripts/dev/**",
+        "docker-compose.yml",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Intelibill.slnx"
+      ]
+    },
+    {
+      "name": "shared-backend-regressions",
+      "check_prefixes": [
+        "dotnet test tests/backend/shared/"
+      ],
+      "paths": [
+        "src/backend/shared/**",
+        "tests/backend/shared/**",
+        "src/backend/intelibill/**",
+        "src/backend/licensing/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Intelibill.slnx"
+      ]
+    },
+    {
+      "name": "merchant-web",
+      "check_prefixes": [
+        "(cd src/frontend/intelibill && ",
+        "cd src/frontend/intelibill && ",
+        "bun --cwd src/frontend/intelibill "
+      ],
+      "paths": [
+        "src/frontend/intelibill/**",
+        "src/frontend/shared/**",
+        "package.json",
+        "bun.lock"
+      ]
+    },
+    {
+      "name": "admin-web",
+      "check_prefixes": [
+        "(cd src/frontend/licensing && ",
+        "cd src/frontend/licensing && ",
+        "bun --cwd src/frontend/licensing ",
+        "node --test src/frontend/licensing/"
+      ],
+      "paths": [
+        "src/frontend/licensing/**",
+        "src/frontend/shared/**",
+        "package.json",
+        "bun.lock"
+      ]
+    },
+    {
+      "name": "workflow-and-stack-contracts",
+      "check_prefixes": [
+        "bash .github/scripts/tests/",
+        ".github/scripts/tests/",
+        "bash scripts/dev/test-licensing-stack.sh",
+        "scripts/dev/test-licensing-stack.sh"
+      ],
+      "paths": [
+        ".github/workflows/**",
+        ".github/scripts/**",
+        "docker-compose.yml",
+        "scripts/**",
+        "src/**/Dockerfile*",
+        ".dockerignore",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Intelibill.slnx"
+      ]
+    }
+  ]
+}
