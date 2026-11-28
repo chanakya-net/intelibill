@@ -3,14 +3,15 @@ using ErrorOr;
 using FluentValidation;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Shops.Setup;
 
 internal static class ShopSetupErrors
 {
-    public static Error Forbidden => Error.Forbidden("ShopSetup.Forbidden", "An active membership in the requested shop is required.");
-    public static Error OwnerRequired => Error.Forbidden("ShopSetup.OwnerRequired", "Only an active owner may save shop setup preferences.");
-    public static Error VersionConflict => Error.Conflict("ShopSetup.VersionConflict", "Setup preferences changed. Review the latest settings and try again.");
+    public static Error Forbidden => Errors.ShopSetup.Forbidden;
+    public static Error OwnerRequired => Errors.ShopSetup.OwnerRequired;
+    public static Error VersionConflict => Errors.ShopSetup.VersionConflict;
 }
 
 public sealed class UpdateShopSetupPreferencesCommandValidator : AbstractValidator<UpdateShopSetupPreferencesCommand>

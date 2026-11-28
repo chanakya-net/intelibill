@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Billing;
 
@@ -22,7 +23,7 @@ public interface IMerchantBillingInvitations
 
 public static class MerchantBillingInvitationErrors
 {
-    public static Error InvalidRecipient => Error.Validation("Billing.InvitationRecipientInvalid", "Enter a valid email or phone number.");
-    public static Error StaleRevision => Error.Conflict("Billing.InvitationRevisionConflict", "Billing membership changed. Reload and try again.");
-    public static Error UnavailableInvitation => Error.NotFound("Billing.InvitationUnavailable", "This billing invitation is unavailable.");
+    public static Error InvalidRecipient => Errors.Billing.InvitationRecipientInvalid;
+    public static Error StaleRevision => Errors.Billing.InvitationRevisionConflict;
+    public static Error UnavailableInvitation => Errors.Billing.InvitationUnavailable;
 }

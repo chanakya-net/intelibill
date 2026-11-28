@@ -32,9 +32,7 @@ public sealed class InviteShopMemberCommandHandler(
             return Errors.Users.RoleNotSupported;
 
         if (!mail.Enabled)
-            return Error.Failure(
-                "Users.InvitationDeliveryUnavailable",
-                "Email delivery is temporarily unavailable, so invitations cannot be sent.");
+            return Errors.Users.InvitationDeliveryUnavailable;
 
         var email = command.Email.Trim().ToLowerInvariant();
         var now = clock.GetUtcNow();

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -10,8 +11,7 @@ internal sealed partial class MerchantBillingClient
         CancellationToken cancellationToken)
     {
         if (after == Guid.Empty)
-            return Task.FromResult<ErrorOr<PublishedCatalogueV1>>(Error.Validation("Billing.CatalogueCursorInvalid",
-                "The catalogue position is invalid."));
+            return Task.FromResult<ErrorOr<PublishedCatalogueV1>>(Errors.Billing.CatalogueCursorInvalid);
 
         return RunAsync<PublishedCatalogueV1>(caller,
             new BillingDelegationIntent(PublishedCatalogueV1.Read, HttpMethod.Get, PublishedCatalogueV1.ReadPath(after), null, []),

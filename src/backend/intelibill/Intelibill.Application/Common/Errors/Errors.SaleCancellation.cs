@@ -10,5 +10,10 @@ public static partial class Errors
         public static Error VersionConflict => Error.Conflict("SaleCancellation.VersionConflict", "The sale or stock changed. Refresh the preview and retry.");
         public static Error Busy => Error.Conflict("SaleCancellation.Busy", "The sale or stock is busy. Retry the operation.");
         public static Error AlreadyCancelled => Error.Conflict("SaleCancellation.AlreadyCancelled", "This sale has already been cancelled.");
+
+        public static Error OtherMonthBlocked =>
+            Error.Conflict(
+                "SaleCancellation.OtherMonthBlocked",
+                "Use the return or financial adjustment workflow for a sale from another month.");
     }
 }

@@ -233,8 +233,6 @@ docs/reviews/
 docs/environment-infrastructure-handoff.md
 # Wolverine handler code written by `codegen write`; always regenerated, never committed.
 src/backend/intelibill/Intelibill.Api/Internal/Generated/
-CLAUDE.md
-GEMINI.md
 band
 coverage-report/
 coveragereport/
@@ -307,3 +305,6 @@ crash.*.log
 
 # Local implementation backlog
 /pending-tasks/
+
+# C# Dev Kit language service cache (regenerated automatically)
+*.lscache

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -12,7 +13,7 @@ internal sealed partial class MerchantBillingClient : IMerchantBillingDocuments
     {
         if (beforeVersion is <= 1)
             return Task.FromResult<ErrorOr<BillingDocumentListV1>>(
-                Error.Validation("BillingDocument.Invalid", "The version cursor must be greater than one."));
+                Errors.BillingDocument.Invalid);
         var path = beforeVersion is { } cursor
             ? BillingDocumentsV1.ListBeforePath(account, order, cursor)
             : BillingDocumentsV1.ListPath(account, order);

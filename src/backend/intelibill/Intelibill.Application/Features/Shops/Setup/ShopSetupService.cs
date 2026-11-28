@@ -8,6 +8,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Errors = Intelibill.Application.Common.Errors.Errors;
 
 namespace Intelibill.Application.Features.Shops.Setup;
 
@@ -62,7 +63,7 @@ public sealed class ShopSetupService(
 
         List<Error> errors =
         [
-            Error.Conflict("ShopSetup.SampleUnavailable", "Complete the current shop setup requirements to preview a sample receipt."),
+            Errors.ShopSetup.SampleUnavailable,
             .. result.BlockingReasons.Select(code => Error.Conflict(code, "Resolve this shop setup requirement."))
         ];
         return errors;
@@ -115,7 +116,7 @@ public sealed class ShopSetupService(
             return Error.Validation("Invoice.TaxProfileRequired", "Declare a supported tax profile.");
         var captured = InvoiceDocumentBuilder.CaptureSellerProfile(shop);
         if (!captured.IsError && !InvoiceNumberFormat.IsValidSeriesCode(captured.Value.SeriesCode))
-            return Error.Validation("ShopSetup.InvoiceSeriesInvalid", "Choose a valid invoice series.");
+            return Errors.ShopSetup.InvoiceSeriesInvalid;
         return captured;
     }
 

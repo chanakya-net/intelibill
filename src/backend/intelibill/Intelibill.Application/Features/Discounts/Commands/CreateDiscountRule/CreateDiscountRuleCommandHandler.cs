@@ -28,7 +28,7 @@ public sealed class CreateDiscountRuleCommandHandler(
     {
         var user = await userRepository.GetByIdAsync(command.UserId, cancellationToken);
         if (user is null)
-            return Error.NotFound("User.NotFound", "User not found.");
+            return Errors.User.NotFound;
 
         var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
         if (shop is null)
@@ -38,7 +38,7 @@ public sealed class CreateDiscountRuleCommandHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
-            return Error.Forbidden("Shop.PermissionDenied", "Only owners or managers can change discount rules.");
+            return Errors.Shop.PermissionDenied;
 
         var result = await PostingTransaction.RunAndSaveAsync<DiscountRule>(unitOfWork,
             ct => WriteAsync(command, ct), cancellationToken);

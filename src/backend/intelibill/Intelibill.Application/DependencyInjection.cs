@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<Features.Sales.Commands.RecordSale.SaleLinePricer>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SaleCreditDecider>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SaleCreditNoteRedeemer>();
+        services.AddScoped<Features.Sales.Services.SaleStockOutPoster>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SaleStockAndDuePoster>();
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.IOfflineLicenceHistoryAuthority, Features.Sales.Commands.SyncOfflineSales.OfflineLicenceHistoryAuthority>();
         services.AddScoped<Features.Expiry.IOfflineExpiryAuthority, Features.Expiry.OfflineExpiryAuthority>();

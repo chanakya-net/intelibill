@@ -10,6 +10,7 @@ All guidelines, conventions, build commands, architecture boundaries, and backen
 - Test: `dotnet test src/backend/intelibill/Intelibill.slnx`
 - Frontend: Bun only (not npm/yarn)
 - Error handling: ErrorOr result pattern
+- Maintainability limits (line, method, file and dependency sizes; error codes; layering): `.agents/rules/maintainability.md`
 - Multi-shop: RLS-enforced row isolation per active_shop_id
 
 Architecture docs are per project (`<project>/README.md` and `<project>/architecture_doc/`); the index in [AGENTS.md](../AGENTS.md) says which to read.

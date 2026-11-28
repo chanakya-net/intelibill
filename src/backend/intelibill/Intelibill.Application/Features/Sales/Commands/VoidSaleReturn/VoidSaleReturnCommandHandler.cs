@@ -36,7 +36,7 @@ public sealed class VoidSaleReturnCommandHandler(
 
         var user = await userRepository.GetByIdAsync(command.ActorUserId, cancellationToken);
         if (user is null)
-            return Error.NotFound("User.NotFound", "User not found.");
+            return Errors.User.NotFound;
 
         var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
         if (shop is null)

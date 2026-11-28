@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -247,8 +248,8 @@ internal sealed partial class MerchantBillingClient(
     {
         return await ReadProblemCodeAsync(response, cancellationToken) switch
         {
-            "Closure.ScopeTooLarge" => Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit."),
-            "Closure.AccountClosed" => Error.Conflict("Closure.AccountClosed", "Operational closure is already saved for this billing account."),
+            "Closure.ScopeTooLarge" => Errors.Closure.ScopeTooLarge,
+            "Closure.AccountClosed" => Errors.Closure.AccountClosed,
             ShopClosuresV1.ReviewChangedCode => Error.Conflict(ShopClosuresV1.ReviewChangedCode, "The closure review changed. Review the current scope and owner confirmations."),
             "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
             _ => Unavailable("UnrecognizedClosureConflict"),
@@ -258,7 +259,7 @@ internal sealed partial class MerchantBillingClient(
     private async Task<Error?> MapClosureNotFoundAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         return await ReadProblemCodeAsync(response, cancellationToken) == "Closure.ProposalUnavailable"
-            ? Error.NotFound("Closure.ProposalUnavailable", "No current closure proposal is available.")
+            ? Errors.Closure.ProposalUnavailable
             : Unavailable("UnrecognizedClosureNotFound");
     }
 

@@ -15,6 +15,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using TillErrors = Intelibill.Application.Common.Errors.Errors.Till;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Tills.Services;
 
@@ -67,7 +68,7 @@ public sealed class TillLifecycleService(
                                 x.Name,
                                 command.Name.Trim(),
                                 StringComparison.OrdinalIgnoreCase)))
-                        return Error.Conflict("Till.NameExists", "A till with this name already exists.");
+                        return Errors.Till.NameExists;
                     if (licence.Value.CurrentDecision().EnforcedDenial() is { } currentDenial) return currentDenial;
                     var till = Till.Create(command.ShopId, command.Name, command.ActorUserId, clock.UtcNow);
                     if (till.IsError) return till.Errors;
@@ -132,7 +133,7 @@ public sealed class TillLifecycleService(
                         token);
                     if (auth.IsError) return auth.Errors;
                     if (await tills.GetOpenSessionAsync(command.ShopId, command.TillId, token) is not null)
-                        return Error.Conflict("Till.AlreadyOpen", "This till already has an open session.");
+                        return Errors.Till.AlreadyOpen;
                     var names = await users.GetDisplayNamesAsync(command.ShopId, [command.CashierId], token);
                     if (!names.TryGetValue(command.CashierId, out var cashierName)) return TillErrors.Forbidden;
                     if (licence.Value.CurrentDecision().EnforcedDenial() is { } currentDenial) return currentDenial;
@@ -335,7 +336,7 @@ public sealed class TillLifecycleService(
                     if (close is null || !close.AwaitingReview)
                         return Error.Conflict("Till.ReviewNotRequired", "There is no variance awaiting review.");
                     if (await tills.GetReviewAsync(command.ShopId, close.Id, token) is not null)
-                        return Error.Conflict("Till.AlreadyReviewed", "This immutable close already has a review.");
+                        return Errors.Till.AlreadyReviewed;
                     if (licence.Value.CurrentDecision().EnforcedDenial() is { } currentDenial) return currentDenial;
                     var review = TillCloseReview.Record(close, command.ActorUserId, clock.UtcNow, command.Reason);
                     if (review.IsError) return review.Errors;

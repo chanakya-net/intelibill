@@ -245,7 +245,7 @@ public sealed class RecordSaleReturnCommandHandler(
         var external = command.PayoutDestination == ReturnPayoutDestination.Refund ? calculation.PayoutAmount : 0m;
         if (external > 0 && command.RefundTender is null) return Errors.Till.TenderRequired;
         if ((command.RefundConfirmed == true) != (external > 0))
-            return Error.Validation("Till.RefundConfirmationInvalid", "Confirm the actual external refund only when an external payout occurs.");
+            return Errors.Till.RefundConfirmationInvalid;
         var tenderValidation = TenderLine.ValidateLines(command.RefundTender is null ? [] : [command.RefundTender], external);
         if (tenderValidation.IsError) return tenderValidation.Errors;
 

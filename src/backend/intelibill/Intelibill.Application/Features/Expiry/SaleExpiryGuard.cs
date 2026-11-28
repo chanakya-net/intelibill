@@ -34,17 +34,17 @@ public sealed class SaleExpiryGuard(IExpiryPolicyRepository policies, IShopRepos
         foreach (var approval in approvals ?? [])
         {
             if (approval is null || !supplied.TryAdd(approval.InventoryBatchId, approval) || !required.ContainsKey(approval.InventoryBatchId))
-                return Error.Validation("Expiry.ApprovalInvalid", "Expiry approvals must name each required lot exactly once.");
+                return Errors.Expiry.ApprovalInvalid;
         }
         foreach (var (batchId, group) in required)
         {
-            if (role is not (ShopRole.Owner or ShopRole.Manager)) return Error.Forbidden("Expiry.ApprovalRoleRequired", "An active owner or manager must approve the warning in their own session.");
+            if (role is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Expiry.ApprovalRoleRequired;
             if (!supplied.TryGetValue(batchId, out var approval)) return Error.Conflict("Expiry.ApprovalRequired", "An expiry warning approval is required.");
             if (string.IsNullOrWhiteSpace(approval.Reason) || approval.Reason.Trim().Length > 500) return Errors.Expiry.ReasonRequired;
             var current = group[0];
             if (approval.Quantity != group.Sum(x => x.Quantity) || approval.BatchVersion == 0 || approval.BatchVersion != current.BatchVersion ||
                 approval.PolicyVersion != current.Decision.PolicyVersion || approval.CatalogVersion != current.Decision.CatalogVersion)
-                return Error.Conflict("Expiry.ApprovalStale", "Lot quantity or expiry facts changed; refresh and approve again.");
+                return Errors.Expiry.ApprovalStale;
         }
         var evidence = new List<SaleExpiryDecision>();
         foreach (var line in lines.Where(x => x.Batch is not null))

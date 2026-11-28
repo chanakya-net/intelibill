@@ -402,8 +402,9 @@ cost corrections, returns after a price edit and voids after a correction.
 **Row versions.** `inventory_batches.xmin` and `inventory.xmin` are mapped as `Version` row-version
 tokens, so every update of either row is checked against the version it was read at. A stale writer
 raises `DbUpdateConcurrencyException`, which handlers recognise through
-`IUnitOfWork.IsConcurrencyConflict` and turn into 409 `Inventory.BatchVersionConflict`, and which
-otherwise reaches the caller as 409 `Concurrency.Conflict` (never 500). `GET inventory/batches`
+`IUnitOfWork.IsConcurrencyConflict` and turn into a 409: `Inventory.BatchVersionConflict` for a stock
+count or a price update, `Inventory.ConcurrentChange` for a batch void or a supplier reassignment. A
+conflict no handler catches reaches the caller as 409 `Concurrency.Conflict` (never 500). `GET inventory/batches`
 returns each batch's `version`.
 
 **Counts.** `POST inventory/batches/{batchId}/count` (owner/manager) takes `expectedVersion`,

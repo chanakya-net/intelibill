@@ -2,6 +2,7 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -44,7 +45,7 @@ internal sealed partial class MerchantBillingClient
         if (context.IsError) return context.Errors;
         var pending = context.Value.Proposal;
         if (pending.Id != proposal)
-            return Error.Conflict("Closure.ReviewChanged", "The account closure proposal changed.");
+            return Errors.Closure.ReviewChanged;
         var record = await closures.ConfirmAsync(caller, shop, input, (pending.Id, pending.ScopeDigest, pending.Target), ct);
         if (record.IsError) return record.Errors;
 

@@ -115,7 +115,7 @@ public sealed class ShopSetupSampleBuilder(
     {
         var (item, batch, aggregate) = candidate;
         if (batch.UnquarantinedQuantity == 0m && batch.QuarantinedQuantity > 0m)
-            return Error.Conflict("Expiry.Quarantined", "All stock in this lot is quarantined.");
+            return Errors.Expiry.Quarantined;
         if (!decision.Allowed)
             return Error.Conflict(decision.ReasonCode!, "Current expiry policy blocks this lot.");
         if (decision.RequiresApproval)
@@ -123,7 +123,7 @@ public sealed class ShopSetupSampleBuilder(
         var catalogUnit = QuantityUnits.Resolve(item.Uom);
         if (string.IsNullOrWhiteSpace(item.Uom) || item.QuantityScale is < 0 or > QuantityUnits.MaxScale
             || item.UnitCode != catalogUnit?.Code || (catalogUnit is not null && item.QuantityScale != catalogUnit.Scale))
-            return Error.Conflict("ShopSetup.UnitReviewRequired", "Review the item's unit and quantity precision.");
+            return Errors.ShopSetup.UnitReviewRequired;
 
         var quantity = decimal.Round(Math.Min(decision.AvailableQuantity, 1m), item.QuantityScale, MidpointRounding.ToZero);
         if (quantity <= 0m)
@@ -131,7 +131,7 @@ public sealed class ShopSetupSampleBuilder(
         if (aggregate is null)
             return Errors.Sale.InventoryAggregateNotFound(item.Barcode);
         if (aggregate < quantity)
-            return Error.Conflict("ShopSetup.AggregateStockInsufficient", "The item's stock summary cannot cover this quantity.");
+            return Errors.ShopSetup.AggregateStockInsufficient;
         return quantity;
     }
 

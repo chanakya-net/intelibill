@@ -87,9 +87,9 @@ public sealed class ExportSalesQueryHandler
             return Error.Validation("Export.InvalidDateRange", rangeFailure);
 
         if (!new[] { SalesExportFormat.Pdf, SalesExportFormat.Xlsx, SalesExportFormat.TallyXml }.Contains(query.Format, StringComparer.OrdinalIgnoreCase))
-            return Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.");
+            return Errors.Export.UnsupportedFormat;
         if (!new[] { SalesExportLevel.Summary, SalesExportLevel.LineItems }.Contains(datasetLevel, StringComparer.OrdinalIgnoreCase))
-            return Error.Validation("Export.UnsupportedLevel", "The requested export level is not supported.");
+            return Errors.Export.UnsupportedLevel;
 
         SalesExportDatasetDto dataset;
         await using (var snapshot = await _readStore.OpenSnapshotAsync(cancellationToken))
@@ -113,7 +113,7 @@ public sealed class ExportSalesQueryHandler
                 await _pdfRenderer.RenderAsync(dataset, cancellationToken),
             _ when string.Equals(query.Format, SalesExportFormat.TallyXml, StringComparison.OrdinalIgnoreCase) =>
                 await _tallyRenderer.RenderAsync(dataset, cancellationToken),
-            _ => (ErrorOr<SalesExportResult>)Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.")
+            _ => (ErrorOr<SalesExportResult>)Errors.Export.UnsupportedFormat
         };
 
         if (rendererResult.IsError)

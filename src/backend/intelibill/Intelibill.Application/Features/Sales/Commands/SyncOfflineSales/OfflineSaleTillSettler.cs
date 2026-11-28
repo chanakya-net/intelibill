@@ -63,7 +63,7 @@ public sealed class OfflineSaleTillSettler(
                 }
                 foreach (var line in evidence.TenderLines)
                     if (line.BankAccountId is { } bank && (await banks.GetByIdAsync(bank, ct))?.ShopId != request.ShopId)
-                        return Error.Validation("Till.TenderReferenceInvalid", "The bank account must belong to this shop.");
+                        return Errors.Till.TenderReferenceInvalid;
             }
             else return Errors.Till.ReviewRequired;
 

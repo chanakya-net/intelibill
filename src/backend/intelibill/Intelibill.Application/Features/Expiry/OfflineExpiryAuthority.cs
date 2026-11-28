@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Intelibill.Application.Common.Errors;
 namespace Intelibill.Application.Features.Expiry;
 
 public interface IOfflineExpiryAuthority
@@ -17,7 +18,7 @@ public interface IOfflineExpiryAuthority
 /// <summary>Historical authority only. Never replaces it with today's online guard or a manager reason.</summary>
 public sealed class OfflineExpiryAuthority(IOfflineExpiryEvidenceRepository evidence, IExpiryPolicyRepository policies, IShopRepository shops, IBusinessClock clock) : IOfflineExpiryAuthority
 {
-    public static Error ReviewRequired => Error.Conflict("Expiry.ReviewRequired", "The issued invoice needs trusted expiry evidence review.");
+    public static Error ReviewRequired => Errors.Expiry.ReviewRequired;
     public async Task<ErrorOr<IReadOnlyList<SaleExpiryDecision>>> ValidateAsync(OfflineSalePostingRequest request, IReadOnlyList<ValidatedSaleLine> lines, CancellationToken ct)
     {
         if (lines.Where(x => x.Batch is not null).Any(x => x.Batch!.ShopId != request.ShopId || !request.Sale.Items.Any(i => !i.IsServiceLine && i.InventoryBatchId == x.Batch.Id))) return ReviewRequired;

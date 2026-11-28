@@ -4,6 +4,7 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -74,8 +75,8 @@ internal sealed partial class MerchantBillingClient
         row.TransferId != Guid.Empty && row.AccountId != Guid.Empty && row.Role == MerchantBillingDelegationV1.OwnerRole &&
         row.EffectiveAt.Offset == TimeSpan.Zero;
 
-    private static Error TransferInvalid => Error.Validation("Billing.OwnershipTransferInvalid", "Review and confirm the transfer details.");
-    private static Error TransferStale => Error.Conflict("Billing.OwnershipTransferConflict", "The billing authority or transfer has changed.");
+    private static Error TransferInvalid => Errors.Billing.OwnershipTransferInvalid;
+    private static Error TransferStale => Errors.Billing.OwnershipTransferConflict;
 
     private Error MapTransferFailure(HttpStatusCode status, string? code) => (status, code) switch
     {
@@ -83,7 +84,7 @@ internal sealed partial class MerchantBillingClient
         (HttpStatusCode.Conflict, "Billing.OwnershipTransferConflict") => TransferStale,
         (HttpStatusCode.Conflict, "Billing.OperationPayloadMismatch") => MerchantBillingErrors.PayloadMismatch,
         (HttpStatusCode.NotFound, "Billing.OwnershipTransferMissing") =>
-            Error.NotFound("Billing.OwnershipTransferMissing", "This ownership transfer is unavailable."),
+            Errors.Billing.OwnershipTransferMissing,
         _ => Unavailable("UpstreamTransferStatus"),
     };
 }

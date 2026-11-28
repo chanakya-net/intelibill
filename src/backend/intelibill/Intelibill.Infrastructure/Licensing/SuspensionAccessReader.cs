@@ -12,6 +12,7 @@ using Intelibill.Application.Features.Billing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Licensing;
 
@@ -84,11 +85,11 @@ internal sealed class SuspensionAccessReader(ApplicationDbContext db, ILicenceAc
         ApplicationDbContext context, SessionClaims session, Guid shopId, CancellationToken ct)
     {
         if (!await provider.GetRequiredService<ILiveSessionAuthority>().IsValidAsync(session, ct))
-            return Error.Unauthorized("Auth.SessionInvalid", "The session is no longer valid.");
+            return Errors.Auth.SessionInvalid;
         if (session.ActiveShopId == shopId || await context.ShopMemberships.AnyAsync(row =>
             row.UserId == session.UserId && row.ShopId == shopId && row.Status == MembershipStatus.Active, ct))
             return null;
-        return Error.Forbidden("Shop.AccessDenied", "You do not have access to this shop.");
+        return Errors.Shop.AccessDenied;
     }
 
     private async Task<Error?> ReadScopedDenialAsync(ApplicationDbContext context, Guid shopId, LicenceAction action, CancellationToken ct)

@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Billing;
 
@@ -16,9 +17,9 @@ public interface IMerchantShopAffiliations
 
 public static class ShopAffiliationConsentErrors
 {
-    public static Error OwnerRequired => Error.Forbidden("Billing.ShopOwnerRequired", "Select the shop you currently own.");
-    public static Error Invalid => Error.Validation("Billing.AffiliationInvalid", "Select a shop and one coverage choice.");
-    public static Error Missing => Error.NotFound("Billing.AffiliationMissing", "The affiliation request was not found.");
-    public static Error Conflict => Error.Conflict("Billing.AffiliationConflict", "The affiliation selection is no longer available.");
-    public static Error ConsentInvalid => Error.Conflict("Billing.ConsentInvalid", "A current, unrevoked consent is required.");
+    public static Error OwnerRequired => Errors.Billing.ShopOwnerRequired;
+    public static Error Invalid => Errors.Billing.AffiliationInvalid;
+    public static Error Missing => Errors.Billing.AffiliationMissing;
+    public static Error Conflict => Errors.Billing.AffiliationConflict;
+    public static Error ConsentInvalid => Errors.Billing.ConsentInvalid;
 }

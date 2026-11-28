@@ -11,10 +11,10 @@ public sealed class BatchExpiryRevisionService(IExpiryPolicyRepository policies,
 {
     public async Task<ErrorOr<Success>> ValidateReceiptAsync(Guid shopId, Guid itemId, DateOnly? expiry, DateOnly? manufacturing, CancellationToken ct)
     {
-        if (expiry.HasValue && manufacturing > expiry) return Error.Validation("Expiry.InvalidDateOrder", "Manufacturing date must not follow expiry date.");
+        if (expiry.HasValue && manufacturing > expiry) return Errors.Expiry.InvalidDateOrder;
         var policy = await policies.GetEffectiveAsync(shopId, itemId, null, ct);
         if (!policy.HistoryKnown || policy.Policy is null) return Errors.Expiry.HistoryUnknown;
-        if (policy.Policy.ExpiryRequired && expiry is null) return Error.Validation("Expiry.RequiredDateMissing", "This item requires an expiry date.");
+        if (policy.Policy.ExpiryRequired && expiry is null) return Errors.Expiry.RequiredDateMissing;
         return Result.Success;
     }
     public async Task<ErrorOr<Success>> ReviseAsync(InventoryBatch batch, DateOnly? expiryDate, DateOnly? manufacturingDate, Guid actor, string reason, CancellationToken ct)

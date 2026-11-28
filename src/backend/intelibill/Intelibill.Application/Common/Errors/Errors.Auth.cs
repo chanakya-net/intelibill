@@ -38,5 +38,17 @@ public static partial class Errors
 
         public static Error InvalidPasswordResetToken =>
             Error.Unauthorized("Auth.InvalidPasswordResetToken", "The password reset link is invalid or has expired.");
+
+        public static Error EmailChangeRequired =>
+            Error.Conflict("Auth.EmailChangeRequired", "Use verified email change to replace a sign-in address.");
+
+        public static Error EmailDeliveryUnavailable =>
+            Error.Failure("Auth.EmailDeliveryUnavailable", "Email delivery is temporarily unavailable.");
+
+        public static Error InvalidEmail =>
+            Error.Validation("Auth.InvalidEmail", "Enter a valid email address.");
+
+        public static Error SessionInvalid =>
+            Error.Unauthorized("Auth.SessionInvalid", "The session is no longer valid.");
     }
 }

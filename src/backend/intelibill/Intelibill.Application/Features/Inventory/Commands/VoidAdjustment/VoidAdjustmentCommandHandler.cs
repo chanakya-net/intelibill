@@ -75,7 +75,7 @@ public sealed class VoidAdjustmentCommandHandler(
         if (adjustment is null || adjustment.ShopId != command.ActiveShopId)
             return Errors.Inventory.AdjustmentNotFound;
 
-        if (adjustment.DispositionChangeId.HasValue) return Error.Conflict("Expiry.DisposalCannotBeVoided", "Disposed quarantine cannot be resurrected.");
+        if (adjustment.DispositionChangeId.HasValue) return Errors.Expiry.DisposalCannotBeVoided;
 
         if (adjustment.IsVoided)
             return Errors.Inventory.AdjustmentAlreadyVoided;
@@ -191,7 +191,7 @@ public sealed class VoidAdjustmentCommandHandler(
             return Error.Validation("InventoryBatch.InsufficientStock", "Insufficient stock in batch.");
 
         if (adjustment.Quantity > inventory.Quantity)
-            return Error.Conflict("Inventory.InsufficientStock", "Not enough stock available for this operation.");
+            return Errors.Inventory.InsufficientStock;
 
         return Result.Success;
     }
