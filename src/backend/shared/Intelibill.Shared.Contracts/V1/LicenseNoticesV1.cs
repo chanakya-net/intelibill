@@ -109,6 +109,9 @@ public static class LicenseNoticesV1
         ThresholdGraceExpiry,
     ];
 
+    public static readonly string[] SuppressionReasons =
+        ["ScopeClosed", "SourceNoLongerCurrent", "WindowElapsed", "RestrictionChanged", "RecipientIneligible"];
+
     public static readonly string[] Channels = [ChannelInApp, ChannelEmail];
     public static readonly string[] Statuses = [StatusScheduled];
 

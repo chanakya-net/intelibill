@@ -335,11 +335,17 @@ Before submission it verifies the bound mailbox against current role, contact or
 A contact on the same account can still receive a contact-safe version after losing a billing role.
 The signed merchant observation and the licensing transaction have separate boundaries.
 
-Only a matching unexpired lease may commit `Sending` and finish the attempt. The worker releases database locks before SMTP.
+A reminder worker pins a PostgreSQL connection and acquires the shared billing-account advisory lock after connecting to SMTP.
+Local billing mutations take the exclusive side of the same lock. Inside a short transaction the worker re-reads recipient
+authority, scope, semantic term revision and the threshold window. It renders the eligible audience's current guidance
+and commits either suppression or `Sending` against the lease token. At SMTP handoff it checks the signed observation,
+business window and sending lease again. The shared lock spans the bounded submission and is released before outcome recording.
+External mailbox authority comes from the latest signed merchant observation on each attempt.
 A positive final reply records `SmtpAccepted`. An ambiguous reply or expired sending lease records `Uncertain` and stops automatic retry.
 Pre-submission failures and explicit transient rejections can retry after 30, 60, 120 and 240 seconds.
 The fifth failure exhausts the budget. Append-only events preserve attempts and timestamps.
-The authorization step before the sending marker is the extension point for source relevance checks in #926.
+The suppression event preserves the decision reason even if the agreement changes again.
+The provider projection joins that event by account, delivery and attempt and exposes only the reason codes in the V1 contract.
 
 Use the same protected licensing key ring across worker replicas and restarts.
 Local capture has no SMTP credentials. A future live rollout requires independently verified sender and support contacts,

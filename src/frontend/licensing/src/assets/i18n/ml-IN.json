@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "കാരണം",
+      "reasons": {
+        "ScopeClosed": "കട അല്ലെങ്കിൽ അക്കൗണ്ട് അടച്ചു.",
+        "SourceNoLongerCurrent": "കരാർ മാറി.",
+        "WindowElapsed": "ഓർമ്മപ്പെടുത്തൽ അയയ്ക്കാനുള്ള സമയം കഴിഞ്ഞു.",
+        "RestrictionChanged": "നിലവിലെ നിയന്ത്രണങ്ങൾ കാരണം ഈ ഓർമ്മപ്പെടുത്തൽ അയയ്ക്കാനാവില്ല.",
+        "RecipientIneligible": "സ്വീകർത്താവ് ഇപ്പോൾ അർഹനല്ല.",
+        "unknown": "കൂടുതൽ വിവരങ്ങൾ ലഭ്യമല്ല."
+      },
       "detail": "ഇമെയിൽ അയയ്ക്കൽ",
       "state": "നില",
       "attempts": "ശ്രമങ്ങൾ",
@@ -14,7 +23,7 @@
       "RetryPending": "വീണ്ടും ശ്രമിക്കും",
       "SmtpAccepted": "SMTP സ്വീകരിച്ചു",
       "Uncertain": "SMTP ഫലം അജ്ഞാതം",
-      "Suppressed": "സ്വീകർത്താവിന് യോഗ്യതയില്ല",
+      "Suppressed": "അയച്ചില്ല",
       "Failed": "അയയ്ക്കൽ പരാജയപ്പെട്ടു"
     },
     "heading": "ഷെഡ്യൂൾ ചെയ്ത ലൈസൻസ് അറിയിപ്പുകൾ",

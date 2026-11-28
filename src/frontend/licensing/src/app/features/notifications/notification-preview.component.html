@@ -137,6 +137,10 @@
                     <dl class="notif-facts">
                       <dt>{{ 'notifications.email.state' | transloco }}</dt>
                       <dd data-testid="email-state">{{ ('notifications.email.' + delivery.state) | transloco }}</dd>
+                      @if (delivery.state === 'Suppressed') {
+                        <dt>{{ 'notifications.email.reason' | transloco }}</dt>
+                        <dd data-testid="email-reason">{{ suppressionKey(delivery.suppressionReasonCode) | transloco }}</dd>
+                      }
                       <dt>{{ 'notifications.email.attempts' | transloco }}</dt>
                       <dd>{{ delivery.attempts }}</dd>
                       @if (delivery.lastAttemptAt; as time) {
@@ -149,7 +153,7 @@
                         <dt>{{ 'notifications.email.outcome' | transloco }}</dt><dd>{{ ist(time) }} · {{ utc(time) }}</dd>
                       }
                     </dl>
-                    @if (localCapture(delivery.captureUrl); as url) {
+                    @if (delivery.state !== 'Suppressed' && localCapture(delivery.captureUrl); as url) {
                       <a [href]="url" target="_blank" rel="noopener noreferrer" data-testid="mailpit-capture">
                         {{ 'notifications.email.capture' | transloco }}
                       </a>

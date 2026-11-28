@@ -10,6 +10,7 @@ import {
   formatIstNoticeInstant,
   formatUtcExact,
   notificationReaders,
+  suppressionReasons,
 } from './notification-preview-api.service';
 
 type Outcome = 'idle' | 'loading' | 'denied' | 'missing' | 'unavailable' | 'session';
@@ -49,6 +50,11 @@ export class NotificationPreviewComponent {
   protected readonly mayInspectEmail = computed(() =>
     this.mayRead() && this.session.capabilities().some(grant => grant === 'billing' || grant === 'licensing-manager'),
   );
+
+  protected suppressionKey(code: string | null | undefined): string {
+    const known = suppressionReasons.find(reason => reason === code);
+    return 'notifications.email.reasons.' + (known ?? 'unknown');
+  }
 
   protected localCapture(value: string | null): string | null {
     if (!value || !URL.canParse(value)) return null;

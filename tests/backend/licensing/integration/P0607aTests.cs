@@ -130,9 +130,9 @@ public sealed partial class P0607aTests(LicensingPostgreSqlFixture database) : I
 
     /// <summary>Source account with a paid three-shop term (North trading with one real permit) and an unrelated destination account.</summary>
     internal static async Task<Scenario> StartAsync(LicensingPostgreSqlFixture db, RSA key, bool browser = false,
-        bool sameOwner = false)
+        bool sameOwner = false, IReadOnlyDictionary<string, string?>? licensingSettings = null)
     {
-        var f = await P0606Tests.StartPermitFixtureAsync(db, key, January31, browser);
+        var f = await P0606Tests.StartPermitFixtureAsync(db, key, January31, browser, licensingSettings);
         var (p, term) = await P0606Tests.PrepareWithTradingNorthAsync(f);
         var payer = sameOwner ? p.Payer : await P0209Fixture.SignInAsync(f.Hosts, ShopRole.Owner);
         var account = await P0209Fixture.CreateAccountAsync(payer.Client, "Destination Company");

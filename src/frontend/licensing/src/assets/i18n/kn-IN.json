@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "ಕಾರಣ",
+      "reasons": {
+        "ScopeClosed": "ಅಂಗಡಿ ಅಥವಾ ಖಾತೆ ಮುಚ್ಚಲಾಗಿದೆ.",
+        "SourceNoLongerCurrent": "ಒಪ್ಪಂದ ಬದಲಾಗಿದೆ.",
+        "WindowElapsed": "ಜ್ಞಾಪನೆ ಕಳುಹಿಸುವ ಸಮಯ ಮುಗಿದಿದೆ.",
+        "RestrictionChanged": "ಪ್ರಸ್ತುತ ನಿರ್ಬಂಧಗಳಿಂದ ಈ ಜ್ಞಾಪನೆಯನ್ನು ಕಳುಹಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+        "RecipientIneligible": "ಸ್ವೀಕರಿಸುವವರು ಈಗ ಅರ್ಹರಲ್ಲ.",
+        "unknown": "ಹೆಚ್ಚಿನ ವಿವರಗಳು ಲಭ್ಯವಿಲ್ಲ."
+      },
       "detail": "ಇಮೇಲ್ ವಿತರಣೆ",
       "state": "ಸ್ಥಿತಿ",
       "attempts": "ಪ್ರಯತ್ನಗಳು",
@@ -14,7 +23,7 @@
       "RetryPending": "ಮರುಪ್ರಯತ್ನ ನಿಗದಿಯಾಗಿದೆ",
       "SmtpAccepted": "SMTP ಸ್ವೀಕರಿಸಿದೆ",
       "Uncertain": "SMTP ಫಲಿತಾಂಶ ತಿಳಿದಿಲ್ಲ",
-      "Suppressed": "ಸ್ವೀಕರಿಸುವವರು ಅರ್ಹರಲ್ಲ",
+      "Suppressed": "ಕಳುಹಿಸಲಾಗಿಲ್ಲ",
       "Failed": "ವಿತರಣೆ ವಿಫಲವಾಗಿದೆ"
     },
     "heading": "ನಿಗದಿತ ಪರವಾನಗಿ ಅಧಿಸೂಚನೆಗಳು",

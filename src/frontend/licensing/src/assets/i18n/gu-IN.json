@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "કારણ",
+      "reasons": {
+        "ScopeClosed": "દુકાન અથવા ખાતું બંધ થયું છે.",
+        "SourceNoLongerCurrent": "કરાર બદલાયો છે.",
+        "WindowElapsed": "યાદ અપાવવાનો સમય પૂરો થયો છે.",
+        "RestrictionChanged": "વર્તમાન પ્રતિબંધોને કારણે આ સૂચના મોકલી શકાતી નથી.",
+        "RecipientIneligible": "પ્રાપ્તકર્તા હવે પાત્ર નથી.",
+        "unknown": "વધુ માહિતી ઉપલબ્ધ નથી."
+      },
       "detail": "ઈમેલ વિતરણ",
       "state": "સ્થિતિ",
       "attempts": "પ્રયત્નો",
@@ -14,7 +23,7 @@
       "RetryPending": "ફરી પ્રયત્ન નિર્ધારિત",
       "SmtpAccepted": "SMTP એ સ્વીકાર્યું",
       "Uncertain": "SMTP પરિણામ અજ્ઞાત",
-      "Suppressed": "પ્રાપ્તકર્તા હવે પાત્ર નથી",
+      "Suppressed": "મોકલાયું નથી",
       "Failed": "વિતરણ નિષ્ફળ"
     },
     "heading": "નિર્ધારિત લાઇસન્સ સૂચનાઓ",

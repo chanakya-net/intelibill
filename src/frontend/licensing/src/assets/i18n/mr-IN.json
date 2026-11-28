@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "कारण",
+      "reasons": {
+        "ScopeClosed": "दुकान किंवा खाते बंद झाले आहे.",
+        "SourceNoLongerCurrent": "करार बदलला आहे.",
+        "WindowElapsed": "स्मरणपत्र पाठवण्याची वेळ संपली आहे.",
+        "RestrictionChanged": "सध्याच्या निर्बंधांमुळे हे स्मरणपत्र पाठवता येत नाही.",
+        "RecipientIneligible": "प्राप्तकर्ता आता पात्र नाही.",
+        "unknown": "अधिक माहिती उपलब्ध नाही."
+      },
       "detail": "ईमेल वितरण",
       "state": "स्थिती",
       "attempts": "प्रयत्न",
@@ -14,7 +23,7 @@
       "RetryPending": "पुन्हा प्रयत्न नियोजित",
       "SmtpAccepted": "SMTP ने स्वीकारले",
       "Uncertain": "SMTP निकाल अज्ञात",
-      "Suppressed": "प्राप्तकर्ता आता पात्र नाही",
+      "Suppressed": "पाठवले नाही",
       "Failed": "वितरण अयशस्वी"
     },
     "heading": "नियोजित परवाना सूचना",

@@ -1,12 +1,14 @@
 using Intelibill.Licensing.Application.Notifications;
 using System.Security.Cryptography;
-using Intelibill.Shared.Contracts.V1;
+using Intelibill.Licensing.Infrastructure.Billing;
+using Intelibill.Licensing.Infrastructure.Data;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Options;
 
 namespace Intelibill.Licensing.Infrastructure.Notifications;
 
 internal sealed class BillingEmailDispatcher(
+    LicensingDbContext db,
     NotificationEmailDeliveryStore store,
     NotificationEmailAuthorization authorization,
     NotificationDestinationProtector protector,
@@ -56,24 +58,42 @@ internal sealed class BillingEmailDispatcher(
             return;
         }
 
-        var observed = await authorization.ObserveAsync(job, email, ct);
-        var audience = job.AffiliationRequestId is null
-            ? LicenseNoticesV1.AudienceCommercialBillingRole : LicenseNoticesV1.AudienceShopOwnerOperational;
-        using var message = BillingEmailRenderer.Reminder(options.Value, lease, job, email, audience);
-        using var contact = BillingEmailRenderer.Reminder(options.Value, lease, job, email, LicenseNoticesV1.AudienceCommercialContact);
-        if (message is null || contact is null)
+        var result = await SubmitCurrentReminderAsync(client, lease, job, email, ct);
+        if (result.HasValue)
+            await store.FinishAsync(lease, result.Value.From, result.Value.To, ct, result.Value.Reason);
+    }
+
+    private async Task<(string From, string To, string? Reason)?> SubmitCurrentReminderAsync(
+        SmtpClient client,
+        EmailLease lease,
+        ReminderEmail job,
+        string email,
+        CancellationToken ct)
+    {
+        await using var fence = await BillingAccountLock.TryPinSharedAsync(db, lease.AccountId, ct);
+        if (fence is null)
+            return ("Leased", "RetryPending", null);
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(15));
+        EmailDecision decision;
+        RecipientObservation observed;
+        try
         {
-            await store.FinishAsync(lease, "Leased", "Failed", ct);
-            return;
+            observed = await authorization.ObserveAsync(job, email, budget.Token);
+            decision = await authorization.DecideAndMarkAsync(lease, job, observed, email, options.Value, budget.Token);
         }
-        var decision = await authorization.DecideAndMarkAsync(lease, job, observed, ct);
-        if (decision.State == "Sending")
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && budget.IsCancellationRequested)
         {
-            var content = decision.Audience == LicenseNoticesV1.AudienceCommercialContact ? contact : message;
-            await RecordSubmissionAsync(client, lease, content, ct);
+            // If the Sending commit raced cancellation the Leased transition cannot win.
+            return ("Leased", "RetryPending", null);
         }
-        else if (decision.State != "LeaseLost")
-            await store.FinishAsync(lease, "Leased", decision.State, ct);
+        using var message = decision.Message;
+        if (message is null)
+            return decision.State is "Failed" or "RetryPending" ? ("Leased", decision.State, null) : null;
+        if (!authorization.ReadyToSubmit(decision, observed, job.DueAt))
+            return ("Sending", "RetryPending", "BeforeSubmission");
+        return ("Sending", await BillingEmailTransport.SubmitAsync(client, message, ct), null);
     }
 
     private async Task RecordSubmissionAsync(SmtpClient client, EmailLease lease, MimeKit.MimeMessage message, CancellationToken ct)

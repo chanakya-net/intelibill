@@ -1,6 +1,15 @@
 {
   "notifications": {
     "email": {
+      "reason": "कारण",
+      "reasons": {
+        "ScopeClosed": "दुकान या खाता बंद हो गया है।",
+        "SourceNoLongerCurrent": "अनुबंध बदल गया है।",
+        "WindowElapsed": "रिमाइंडर भेजने का समय बीत गया है।",
+        "RestrictionChanged": "मौजूदा प्रतिबंधों के कारण यह रिमाइंडर नहीं भेजा जा सकता।",
+        "RecipientIneligible": "प्राप्तकर्ता अब पात्र नहीं है।",
+        "unknown": "अतिरिक्त जानकारी उपलब्ध नहीं है।"
+      },
       "detail": "ईमेल डिलीवरी",
       "state": "स्थिति",
       "attempts": "प्रयास",
@@ -14,7 +23,7 @@
       "RetryPending": "अगला प्रयास निर्धारित",
       "SmtpAccepted": "SMTP ने स्वीकार किया",
       "Uncertain": "SMTP परिणाम अज्ञात",
-      "Suppressed": "प्राप्तकर्ता अब पात्र नहीं है",
+      "Suppressed": "नहीं भेजा गया",
       "Failed": "डिलीवरी विफल"
     },
     "heading": "निर्धारित लाइसेंस सूचनाएं",

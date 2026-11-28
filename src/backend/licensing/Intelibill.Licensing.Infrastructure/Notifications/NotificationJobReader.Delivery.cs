@@ -21,21 +21,25 @@ internal sealed class BillingEmailCaptureLinks(IOptions<BillingEmailOptions> opt
 internal sealed partial class NotificationJobReader
 {
     private sealed record EmailDetail(Guid Id, Guid JobId, string State, int Attempts,
-        DateTimeOffset? LastAttemptAt, DateTimeOffset? NextAttemptAt, DateTimeOffset? OutcomeAt);
+        DateTimeOffset? LastAttemptAt, DateTimeOffset? NextAttemptAt, DateTimeOffset? OutcomeAt, string? Reason);
 
     private async Task<NotificationReadPage> WithDeliveryAsync(Guid account, NotificationReadPage page, CancellationToken ct)
     {
         var ids = page.Rows.Select(row => row.Id).ToArray();
         var deliveries = await db.Database.SqlQuery<EmailDetail>($"""
-            SELECT id, job_id, state, attempts, last_attempt_at,
-                CASE WHEN state = 'RetryPending' THEN next_attempt_at END AS next_attempt_at, outcome_at
-            FROM public.notification_email_deliveries WHERE account_id = {account} AND job_id = ANY({ids})
+            SELECT d.id, d.job_id, d.state, d.attempts, d.last_attempt_at,
+                CASE WHEN d.state = 'RetryPending' THEN d.next_attempt_at END AS next_attempt_at, d.outcome_at, e.reason
+            FROM public.notification_email_deliveries d
+            LEFT JOIN public.notification_email_events e ON d.state = 'Suppressed' AND e.state = d.state
+                AND e.account_id = d.account_id AND e.delivery_id = d.id AND e.attempt = d.attempts
+            WHERE d.account_id = {account} AND d.job_id = ANY({ids})
             """).ToDictionaryAsync(row => row.JobId, ct);
         return page with
         {
             Rows = page.Rows.Select(job => deliveries.TryGetValue(job.Id, out var d)
                 ? job with { EmailDelivery = new ProviderEmailDeliveryV1(d.State, d.Attempts, d.LastAttemptAt,
-                    d.NextAttemptAt, d.OutcomeAt, links.For(d.Id, d.State)) }
+                    d.NextAttemptAt, d.OutcomeAt, links.For(d.Id, d.State),
+                    LicenseNoticesV1.SuppressionReasons.Contains(d.Reason) ? d.Reason : null) }
                 : job).ToArray(),
         };
     }

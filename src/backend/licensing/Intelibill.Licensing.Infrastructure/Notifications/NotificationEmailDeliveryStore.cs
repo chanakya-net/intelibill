@@ -38,14 +38,22 @@ internal sealed class NotificationEmailDeliveryStore(
                 set_config('app.notice_email_clock',{now.ToString("O", CultureInfo.InvariantCulture)},true)
             """, ct);
 
+    internal async Task<bool> SuppressAsync(EmailLease lease, string reason, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.notice_email_reason',{reason},true)", ct);
+        return await AdvanceAsync(lease, "Leased", "Suppressed", leaseClock.GetUtcNow(), ct);
+    }
+
     internal Task<bool> BeginSendAsync(EmailLease lease, CancellationToken ct) =>
         AdvanceAsync(lease, "Leased", "Sending", leaseClock.GetUtcNow(), ct);
 
-    internal async Task FinishAsync(EmailLease lease, string expected, string outcome, CancellationToken ct)
+    internal async Task FinishAsync(EmailLease lease, string expected, string outcome, CancellationToken ct, string? reason = null)
     {
         var now = leaseClock.GetUtcNow();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await EnterAsync(lease.AccountId, now, ct);
+        if (reason is not null)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.notice_email_reason',{reason},true)", ct);
         await AdvanceAsync(lease, expected, outcome, now, ct);
         await tx.CommitAsync(ct);
     }

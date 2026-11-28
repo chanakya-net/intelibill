@@ -321,11 +321,11 @@ The payment status distinguishes recorded funds, paid term fulfilment and mercha
 - Discovery uses worker-only `SECURITY DEFINER` routines (`public.due_notification_planning(timestamptz, uuid, integer)` excluding actor/account/shop/admin GUCs and filtering expired/converted/closed/complimentary work, plus `public.account_notification_billing_members`), granted explicitly in `scripts/db/local-licensing-role.sql`.
 - Merchant identity and exact `(shop, account, affiliation)` proof are fetched outside database transactions via signed RS256 requests to `/internal/merchant/v1/licensing/notice-recipients`; licensing acquires a shared account lock, re-checks live term/roster/restriction preconditions and `FOR SHARE`-locks active billing memberships and verified opted-in `billing_notice_contacts` before inserting.
 - Contact approval omits verification proof tokens from all HTTP responses, mutations bind `operation_key` to normalized payloads in `billing_notice_contact_operations` with append-only `OptedOut` history, and masked destination hints never expose plaintext addresses (including one-character local parts).
-- Separate read contracts serve current operational shop guidance (`GET /api/licensing/shops/{shopId}/notices`), current per-source commercial account notices with bounded shop samples (`GET /api/billing/accounts/{accountId}/notices`), paged billing contacts (`GET /api/billing/accounts/{accountId}/notice-contacts?after=`), and full-history live capability-checked provider previews (`GET /api/admin/accounts/{accountId}/notifications`, `Cache-Control: no-store`, Support redacted). Email transport delivery (`#925`) and send-time invalidation (`#926`) remain separate slices.
+- Separate read contracts serve current operational shop guidance (`GET /api/licensing/shops/{shopId}/notices`), current per-source commercial account notices with bounded shop samples (`GET /api/billing/accounts/{accountId}/notices`), paged billing contacts (`GET /api/billing/accounts/{accountId}/notice-contacts?after=`), and full-history live capability-checked provider previews (`GET /api/admin/accounts/{accountId}/notifications`, `Cache-Control: no-store`, Support redacted).
 
 ## Localized email delivery
 
-Apply the `DeliverBillingNoticeEmails` migration and runtime grants before starting workers.
+Apply licensing migrations through `RecordNoticeSuppressionReasons` and the runtime grants before starting workers.
 The planner queues one delivery for the first effective Email channel on a notice.
 Standalone contact approval queues an encrypted, single-use proof in the approval transaction.
 The holder types their mailbox and chooses whether to opt in at `/billing-contact/verify`.
@@ -333,5 +333,7 @@ The holder types their mailbox and chooses whether to opt in at `/billing-contac
 The full local Compose stack uses Mailpit, synthetic From and Reply-To addresses and a project-owned licensing key volume.
 `BillingEmail` configures the sender, support mailbox, merchant and verification origins and Mailpit UI origin.
 Enablement requires Development or Testing, local SMTP capture without credentials and loopback browser origins.
-Operators can inspect the SMTP state on the account notification preview.
+Every reminder attempt checks the current agreement, deadline, suspension, affiliation and verified recipient before SMTP.
+A confirmed renewal, closed scope or lost recipient authority can suppress an already leased reminder.
+Billing and Licensing Manager operators can read the recorded reason in the account notification preview.
 The [isolated acceptance runner](../../../tests/backend/licensing/acceptance/p07-02-email-delivery.md) exercises signed recipient checks and real mail.

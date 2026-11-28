@@ -638,3 +638,7 @@ merchant and licensing services, local signing roots, browser sessions and Mailp
 Apply migration `20261128100620_DeliverBillingNoticeEmails` and its explicit runtime grants before enabling workers.
 Retain the licensing Data Protection volume with the database. The database stores ciphertext for queued mailbox proofs.
 Review `Uncertain` outcomes as unresolved. A process can stop after remote acceptance and before the local receipt commits.
+Apply `20261128132823_RecordNoticeSuppressionReasons` before starting updated workers. It replaces the event trigger
+function in place and uses the existing runtime grants. In a local fixture, queue a paid reminder, renew through
+the simulator and drain the worker. Billing can refresh the account preview to see the recorded agreement-change reason.
+Mailpit should contain the unaffected control reminder and zero messages for the superseded delivery.

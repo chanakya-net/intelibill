@@ -14,12 +14,17 @@ export interface ProviderNotificationCommercial {
   readonly coveredShopNamesTruncated?: boolean;
 }
 
+export const suppressionReasons = [
+  'ScopeClosed', 'SourceNoLongerCurrent', 'WindowElapsed', 'RestrictionChanged', 'RecipientIneligible',
+] as const;
+
 export interface ProviderEmailDelivery {
   readonly state: string;
   readonly attempts: number;
   readonly lastAttemptAt: string | null;
   readonly nextAttemptAt: string | null;
   readonly outcomeAt: string | null;
+  readonly suppressionReasonCode?: string | null;
   readonly captureUrl: string | null;
 }
 

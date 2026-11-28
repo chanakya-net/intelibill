@@ -115,6 +115,33 @@ function setup(read: NotificationPreviewApi['read'], grants: string[] = ['billin
 afterEach(() => TestBed.resetTestingModule());
 
 describe('NotificationPreviewComponent', () => {
+  it.each([
+    ['SourceNoLongerCurrent', 'The agreement changed.'],
+    ['ScopeClosed', 'The shop or account closed.'],
+    ['WindowElapsed', 'The reminder window ended.'],
+    ['RestrictionChanged', 'Current restrictions prevent this reminder.'],
+    ['RecipientIneligible', 'The recipient is no longer eligible.'],
+    ['unexpected private value', 'No further detail is available.'],
+    [undefined, 'No further detail is available.'],
+  ])('renders localized suppression reasons for %s', async (suppressionReasonCode, expected) => {
+    const page = makePage(accountA, true);
+    const emailDelivery = {
+      state: 'Suppressed', attempts: 1, lastAttemptAt: page.evaluatedAt, outcomeAt: page.evaluatedAt,
+      nextAttemptAt: null, captureUrl: null, suppressionReasonCode,
+    };
+    const item = { ...page.items[0], emailDelivery };
+    const { fixture, el, capabilities } = setup(() => of({ ...page, items: [item] }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.querySelector('[data-testid="email-reason"]')?.textContent?.trim()).toBe(expected);
+    expect(el.textContent).not.toContain('unexpected private value');
+    capabilities.set(['support']);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.querySelector('[data-testid="email-detail"]')).toBeNull();
+  });
+
   it('shows the local capture with a text outcome only while the live capability allows it', async () => {
     const page = makePage(accountA, true);
     const href = 'http://localhost:28025/search?q=message-id%3A11111111111111111111111111111111%40notices.intelibill.invalid';

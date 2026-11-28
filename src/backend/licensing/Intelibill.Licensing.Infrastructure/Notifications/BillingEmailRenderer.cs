@@ -1,4 +1,5 @@
 using System.Globalization;
+using Intelibill.Licensing.Domain.Policies;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
 using MimeKit;
@@ -21,18 +22,23 @@ internal static class BillingEmailRenderer
     }
 
     internal static MimeMessage? Reminder(
-        BillingEmailOptions options, EmailLease lease, ReminderEmail job, string email, string audience)
+        BillingEmailOptions options, EmailLease lease, ReminderEmail job, string email, string audience,
+        PlannedThreshold current, DateTimeOffset now)
     {
         var content = Templates[LicenseNoticesV1.NormalizeLocale(job.Locale)];
         var guidanceKey = audience == LicenseNoticesV1.AudienceShopOwnerOperational ? "operationalGuidance" : "guidance";
         if (!MatchesTemplate(job) || !content.GetProperty("purposes").TryGetProperty(job.Purpose, out var subject)
             || !content.GetProperty("thresholds").TryGetProperty(job.Threshold, out var threshold)
-            || !content.GetProperty(guidanceKey).TryGetProperty(job.Guidance, out var guidance))
+            || !content.GetProperty(guidanceKey).TryGetProperty(current.GuidanceCode, out var guidance))
             return null;
         var culture = CultureInfo.GetCultureInfo(LicenseNoticesV1.NormalizeLocale(job.Locale));
         var local = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(job.Deadline, "Asia/Kolkata");
         var deadline = $"{local.ToString("F", culture)} IST ({job.Deadline:O} UTC)";
-        var body = $"{threshold.GetString()}\n{guidance.GetString()}\n{content.GetProperty("effectiveDeadline").GetString()}: {deadline}";
+        var body = $"{guidance.GetString()}\n{content.GetProperty("effectiveDeadline").GetString()}: {deadline}";
+        if (now == current.DueAt)
+            body = $"{threshold.GetString()}\n{body}";
+        if (current.PaymentDoesNotLiftSuspension && current.GuidanceCode is "PaidTermCancelled" or "AccessExpired")
+            body += $"\n{content.GetProperty("suspensionNoLift").GetString()}";
         if (audience == LicenseNoticesV1.AudienceCommercialBillingRole)
         {
             if (job is { PricePaise: >= 0, Currency: "INR" })

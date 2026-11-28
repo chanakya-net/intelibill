@@ -41,16 +41,29 @@ internal static class NotificationPlanSourceQueries
             var ids = await ReadCandidateTermsAsync(db, accountId, now, after, termPageSize, filterTermIds, displayActor, ct);
             if (ids.Length == 0)
                 break;
-            var terms = await factsReader.ReadNoticeTermsAsync(accountId, ids, now, ct);
-            var shops = await ReadTermShopsAsync(db, accountId, ids, now, ct);
-            var revisions = await ReadTrialExtensionRevisionsAsync(db, accountId, ids, ct);
-            foreach (var term in terms)
-                sources.Add(new TermPlanSource(term, revisions.GetValueOrDefault(term.TermId), shops[term.TermId].ToArray()));
+            sources.AddRange(await ReadTermsByIdAsync(db, factsReader, accountId, ids, now, ct));
             if (ids.Length < termPageSize)
                 break;
             after = ids[^1];
         }
         return sources;
+    }
+
+    internal static async Task<IReadOnlyList<TermPlanSource>> ReadTermsByIdAsync(
+        LicensingDbContext db,
+        SubscriptionAccessFactsReader factsReader,
+        Guid accountId,
+        Guid[] ids,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var terms = await factsReader.ReadNoticeTermsAsync(accountId, ids, now, ct);
+        var shops = await ReadTermShopsAsync(db, accountId, ids, now, ct);
+        var revisions = await ReadTrialExtensionRevisionsAsync(db, accountId, ids, ct);
+        return terms.Select(term => new TermPlanSource(
+            term,
+            revisions.GetValueOrDefault(term.TermId),
+            shops[term.TermId].ToArray())).ToArray();
     }
 
     private static Task<Guid[]> ReadCandidateTermsAsync(

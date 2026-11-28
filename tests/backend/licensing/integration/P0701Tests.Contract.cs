@@ -63,6 +63,7 @@ public sealed partial class P0701Tests
         Assert.Equal(LicenseNoticesV1.ProofHeader, actions.GetProperty("recipientAuthority").GetProperty("proofHeader").GetString());
 
         var vocab = root.GetProperty("vocabularies");
+        AssertStringSet(LicenseNoticesV1.SuppressionReasons, vocab.GetProperty("suppressionReasons"));
         AssertStringSet(LicenseNoticesV1.ScopeKinds, vocab.GetProperty("scopeKinds"));
         AssertStringSet(LicenseNoticesV1.Audiences, vocab.GetProperty("audiences"));
         AssertStringSet(LicenseNoticesV1.Purposes, vocab.GetProperty("purposes"));
