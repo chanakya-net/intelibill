@@ -19,13 +19,7 @@ namespace Intelibill.Application.Features.SupplierReturns.Services;
 public sealed class PurchaseReceiptReversalService(
     SupplierReturnAccess access,
     ISupplierReturnRepository returns,
-    IInventoryBatchRepository batches,
-    IInventoryRepository inventory,
-    IPurchaseReceiptValueRepository receipts,
     IPaymentReceiptRepository payments,
-    IStockTransactionRepository movements,
-    ISupplierLedgerEntryRepository ledger,
-    IPurchaseReceiptReversalRepository reversals,
     ISupplierReturnMutationLock locks,
     IPostingPeriodPolicy periods,
     IBusinessClock clock,
@@ -33,7 +27,7 @@ public sealed class PurchaseReceiptReversalService(
     IShopLicenceFence licence,
     IUnitOfWork uow,
     IMessageBus messageBus,
-    PurchaseReceiptReversalPolicy policy)
+    PurchaseReceiptLotReverser reverser)
 {
     private static Error Invalid(string code,string message) => Error.Validation($"SupplierReturn.{code}",message);
     private static Error Conflict(string code,string message) => Error.Conflict($"SupplierReturn.{code}",message);
@@ -74,27 +68,19 @@ public sealed class PurchaseReceiptReversalService(
             {
                 var lease = await licence.EnterAsync(shopId, LicenceAction.SourceCorrection, token);
                 if (lease.IsError) return lease.Errors;
-                var initial=group
-                    ?await returns.GetGroupReceiptsAsync(shopId,targetId,token)
-                    :await returns.GetReceiptsAsync(shopId,[targetId],token);
-                if(initial.Count!=lines.Count || !initial.Select(x=>x.Id).Order().SequenceEqual(lines.Select(x=>x.ReceiptValueId).Order()))
+                var initial=await LoadReversalTargetAsync(shopId,targetId,group,token);
+                if(!MatchesRequestedLots(initial,lines))
                     return Missing;
-                var supplierId=initial[0].SupplierId;
-                if(supplierId is null || initial.Any(x=>x.SupplierId!=supplierId))
-                    return Invalid("SupplierInvalid","All lots must belong to one source supplier.");
+                var source=ResolveSourceSupplier(initial);
+                if(source.IsError) return source.Errors;
+                var supplierId=source.Value;
                 // Both period fences precede every business row lock.
-                foreach(
-                    var date in initial
-                        .Select(x=>clock.GetBusinessDate(x.ReceivedAt,auth.Value.BusinessTimeZoneId))
-                        .Append(clock.Today(auth.Value.BusinessTimeZoneId))
-                        .Distinct()
-                        .Order())
-                { var fence=await periods.AuthorizeForWriteAsync(shopId,date,token);
-                if(fence.IsError) return fence.Errors; }
+                var fenced=await FenceReversalPeriodsAsync(shopId,auth.Value,initial,token);
+                if(fenced.IsError) return fenced.Errors;
                 if(
                     await locks.LockAsync(
                         shopId,
-                        supplierId.Value,
+                        supplierId,
                         lines.Select(x=>x.ReceiptValueId).ToArray(),
                         token)!=RowLockOutcome.Acquired)
                     return Conflict("Busy","Receipt lots are busy. Retry this operation.");
@@ -109,71 +95,16 @@ public sealed class PurchaseReceiptReversalService(
                     token);
                 var results=new List<PurchaseReceiptReversalLotDto>();
                 var now=clock.UtcNow;
+                var context=new PurchaseReceiptLotReverser.ReversalContext(actor,shopId,supplierId,group?targetId:null,reason,auth.Value,now);
                 foreach(var receipt in rows.OrderBy(x=>x.Id))
                 {
-                    var input=lines.Single(x=>x.ReceiptValueId==receipt.Id);
-                    var batch=await batches.GetByIdAsync(receipt.InventoryBatchId,token);
-                    if(batch is null) return Missing;
-                    if(input.ExpectedReceiptVersion==0
-                        || input.ExpectedBatchVersion==0
-                        || input.ExpectedReceiptVersion!=receipt.Version
-                        || input.ExpectedBatchVersion!=batch.Version)
-                        return VersionConflict;
-                    var reasons=await policy.GetReasonsAsync(receipt,batch,allocated.GetValueOrDefault(receipt.Id),token);
-                    if(reasons.Count>0)
-                        return Error.Conflict(reasons[0],"Receipt is ineligible for full reversal; review its stock and payment history.");
-                    var stock=await inventory.GetByItemAsync(shopId,receipt.ItemId,token);
-                    if(stock is null) return Missing;
-                    var subtracted=stock.SubtractQuantity(receipt.ReceivedQuantity,actor);
-                    if(subtracted.IsError) return subtracted.Errors;
-                    var reference=$"RR-{Guid.NewGuid():N}";
-                    var movement=StockTransaction.Create(
-                        shopId,
-                        receipt.ItemId,
-                        batch.Id,
-                        StockTransactionType.Reversal,
-                        -receipt.ReceivedQuantity,
-                        reference,
-                        reason,
-                        now,
-                        actor,
-                        actor).Value;
-                    SupplierLedgerEntry? entry=null;
-                    if(receipt.EffectiveTotalCost>0) {
-                        entry=SupplierLedgerEntry.Create(
-                            shopId,
-                            supplierId.Value,
-                            batch.Id,
-                            SupplierLedgerEntryType.Reversal,
-                            -receipt.EffectiveTotalCost,
-                            clock.Today(auth.Value.BusinessTimeZoneId),
-                            reference,
-                            actor).Value;
-                    
-                    await ledger.AddAsync(entry,token);}
-                    var reversal=PurchaseReceiptReversal.Create(
-                        shopId,
-                        receipt.Id,
-                        group?targetId:null,
-                        actor,
-                        reason,
-                        now,
-                        clock.Today(auth.Value.BusinessTimeZoneId),
-                        auth.Value.BusinessTimeZoneId,
-                        receipt.ReceivedQuantity,
-                        receipt.EffectiveTotalCost,
-                        movement.Id,
-                        entry?.Id,
-                        reference).Value;
-                    await movements.AddAsync(movement,token);
-                    await reversals.AddAsync(reversal,token);
-                    batch.Void(actor);
-                    batches.Update(batch);
-                    inventory.Update(stock);
-                    receipts.Update(receipt);
-                    results.Add(MapReversal(reversal));
+                    var lot=await reverser.LoadReversibleLotAsync(shopId,receipt,lines,allocated,token);
+                    if(lot.IsError) return lot.Errors;
+                    var reversal=await reverser.ReverseLotAsync(context,receipt,lot.Value,token);
+                    if(reversal.IsError) return reversal.Errors;
+                    results.Add(MapReversal(reversal.Value));
                 }
-                if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId.Value, clock, now) is { } denied)
+                if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId, clock, now) is { } denied)
                     return denied;
                 try {await uow.SaveChangesAsync(token);} catch(DbUpdateConcurrencyException) {return VersionConflict;}
                 return new PurchaseReceiptReversalResultDto(results);
@@ -185,6 +116,44 @@ public sealed class PurchaseReceiptReversalService(
                 new InventoryStockChangedDomainEvent(shopId,committed.Select(receipt=>receipt.ItemId).Distinct().ToArray()));
         }
         return outcome;
+    }
+    private async Task<IReadOnlyList<PurchaseReceiptValue>> LoadReversalTargetAsync(
+        Guid shopId,
+        Guid targetId,
+        bool group,
+        CancellationToken token) =>
+        group
+            ?await returns.GetGroupReceiptsAsync(shopId,targetId,token)
+            :await returns.GetReceiptsAsync(shopId,[targetId],token);
+    private static bool MatchesRequestedLots(
+        IReadOnlyList<PurchaseReceiptValue> initial,
+        IReadOnlyList<ReceiptReversalLineInput> lines) =>
+        initial.Count==lines.Count
+        && initial.Select(x=>x.Id).Order().SequenceEqual(lines.Select(x=>x.ReceiptValueId).Order());
+    private static ErrorOr<Guid> ResolveSourceSupplier(IReadOnlyList<PurchaseReceiptValue> initial)
+    {
+        var supplierId=initial[0].SupplierId;
+        if(supplierId is null || initial.Any(x=>x.SupplierId!=supplierId))
+            return Invalid("SupplierInvalid","All lots must belong to one source supplier.");
+        return supplierId.Value;
+    }
+    private async Task<ErrorOr<Success>> FenceReversalPeriodsAsync(
+        Guid shopId,
+        Shop shop,
+        IReadOnlyList<PurchaseReceiptValue> initial,
+        CancellationToken token)
+    {
+        foreach(
+            var date in initial
+                .Select(x=>clock.GetBusinessDate(x.ReceivedAt,shop.BusinessTimeZoneId))
+                .Append(clock.Today(shop.BusinessTimeZoneId))
+                .Distinct()
+                .Order())
+        {
+            var fence=await periods.AuthorizeForWriteAsync(shopId,date,token);
+            if(fence.IsError) return fence.Errors;
+        }
+        return Result.Success;
     }
     private static PurchaseReceiptReversalLotDto MapReversal(PurchaseReceiptReversal x) => new(
         x.Id,

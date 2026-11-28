@@ -34,22 +34,23 @@ public sealed class VoidSaleReturnCommandHandlerTests
     private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
-    private VoidSaleReturnCommandHandler CreateHandler() =>
-        new(
+    private VoidSaleReturnCommandHandler CreateHandler()
+    {
+        var dispositions = ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time));
+        return new(
             _userRepository,
             _shopRepository,
             _saleRepository,
             _saleReturnRepository,
-            _inventoryRepository,
-            _inventoryBatchRepository,
-            _stockTransactionRepository,
+            new SaleReturnStockPoster(_inventoryRepository, _inventoryBatchRepository, _stockTransactionRepository, dispositions),
             _customerLedgerEntryRepository,
             _creditNoteRepository,
             new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>(), Substitute.For<IShopLicenceFence>()),
             _unitOfWork,
             new BusinessClock(_time),
             new TillSourceSettlementService(Substitute.For<ITillSessionPolicy>(), BusinessTestDoubles.DisabledTillPosting(), _shopRepository, new BusinessClock(_time)),
-            _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
+            _executor, dispositions);
+    }
 
     private readonly MutableTimeProvider _time = new();
 

@@ -7,7 +7,21 @@ namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCommand>
 {
+    // Rule registration order decides the order of reported errors; keep these calls in sequence.
     public RecordSaleCommandValidator()
+    {
+        AddTillAndTenderRules();
+        AddIdempotencyKeyRules();
+        AddCreditOverrideRules();
+        AddItemRules();
+        AddCreditNoteRedemptionRules();
+        AddSaleDiscountRules();
+        AddAmountRules();
+        AddCreditNoteSplitRules();
+        AddDueAndCustomerRules();
+    }
+
+    private void AddTillAndTenderRules()
     {
         RuleFor(x => x).Custom((command, context) =>
         {
@@ -23,7 +37,10 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                         context.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(command.TenderLines), error.Description) { ErrorCode = error.Code });
             }
         });
+    }
 
+    private void AddIdempotencyKeyRules()
+    {
         RuleFor(x => x.IdempotencyKey)
             .NotEmpty()
             .Must(key => !string.IsNullOrWhiteSpace(key))
@@ -34,83 +51,102 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .MaximumLength(128)
             .WithErrorCode(Errors.Sale.IdempotencyKeyTooLong.Code)
             .WithMessage(Errors.Sale.IdempotencyKeyTooLong.Description);
+    }
 
+    private void AddCreditOverrideRules()
+    {
         RuleFor(x => x.CreditOverride!.Reason)
             .Must(reason => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= Customers.Services.CustomerCreditPolicy.MaxOverrideReasonLength)
             .WithErrorCode(Errors.CustomerCredit.OverrideReasonRequired.Code)
             .WithMessage(Errors.CustomerCredit.OverrideReasonRequired.Description)
             .When(x => x.CreditOverride is not null);
+    }
 
+    private void AddItemRules()
+    {
         RuleFor(x => x.Items)
             .NotEmpty()
             .WithErrorCode(Errors.Sale.ItemsRequired.Code)
             .WithMessage(Errors.Sale.ItemsRequired.Description);
 
-        RuleForEach(x => x.Items).ChildRules(item =>
-        {
-            item.RuleFor(i => i.Barcode)
-                .NotEmpty()
-                .WithErrorCode("Sale.BarcodeRequired")
-                .WithMessage("Barcode is required.");
+        RuleForEach(x => x.Items).ChildRules(AddItemLineRules);
+    }
 
-            item.RuleFor(i => i.BatchNumber)
-                .NotEmpty()
-                .When(i => i.LineType == SaleLineType.Goods)
-                .WithErrorCode("Sale.BatchNumberRequired")
-                .WithMessage("Batch number is required.");
+    private static void AddItemLineRules(InlineValidator<RecordSaleItemCommand> item)
+    {
+        item.RuleFor(i => i.Barcode)
+            .NotEmpty()
+            .WithErrorCode("Sale.BarcodeRequired")
+            .WithMessage("Barcode is required.");
 
-            item.RuleFor(i => i.InventoryBatchId)
-                .NotEmpty()
-                .When(i => i.LineType == SaleLineType.Goods)
-                .WithErrorCode("Sale.InventoryBatchIdRequired")
-                .WithMessage("Inventory batch id is required.");
+        item.RuleFor(i => i.BatchNumber)
+            .NotEmpty()
+            .When(i => i.LineType == SaleLineType.Goods)
+            .WithErrorCode("Sale.BatchNumberRequired")
+            .WithMessage("Batch number is required.");
 
-            item.RuleFor(i => i.ServiceId)
-                .NotEmpty()
-                .When(i => i.LineType == SaleLineType.Service)
-                .WithErrorCode(Errors.Sale.ServiceNotFound.Code)
-                .WithMessage(Errors.Sale.ServiceNotFound.Description);
+        item.RuleFor(i => i.InventoryBatchId)
+            .NotEmpty()
+            .When(i => i.LineType == SaleLineType.Goods)
+            .WithErrorCode("Sale.InventoryBatchIdRequired")
+            .WithMessage("Inventory batch id is required.");
 
-            item.RuleFor(i => i.Quantity)
-                .GreaterThan(0)
-                .WithErrorCode("Sale.QuantityMustBePositive")
-                .WithMessage("Quantity must be greater than zero.");
+        item.RuleFor(i => i.ServiceId)
+            .NotEmpty()
+            .When(i => i.LineType == SaleLineType.Service)
+            .WithErrorCode(Errors.Sale.ServiceNotFound.Code)
+            .WithMessage(Errors.Sale.ServiceNotFound.Description);
 
-            item.RuleFor(i => i.ItemDiscount)
-                .Must(IsValidDiscount)
-                .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
-                .WithMessage(Errors.Sale.InvalidSaleDiscount.Description);
+        item.RuleFor(i => i.Quantity)
+            .GreaterThan(0)
+            .WithErrorCode("Sale.QuantityMustBePositive")
+            .WithMessage("Quantity must be greater than zero.");
 
-            item.RuleFor(i => i.ItemDiscount)
-                .Must(d => d is null || d.Type == InstantDiscountType.None)
-                .When(i => i.LineType == SaleLineType.Service)
-                .WithErrorCode(Errors.Sale.ServiceDiscountNotSupported.Code)
-                .WithMessage(Errors.Sale.ServiceDiscountNotSupported.Description);
-        });
+        item.RuleFor(i => i.ItemDiscount)
+            .Must(IsValidDiscount)
+            .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
+            .WithMessage(Errors.Sale.InvalidSaleDiscount.Description);
 
-        RuleForEach(x => x.CreditNoteRedemptions).ChildRules(redemption =>
-        {
-            redemption.RuleFor(r => r.Code)
-                .NotEmpty()
-                .WithErrorCode(Errors.Sale.CreditNoteRedemptionCodeRequired.Code)
-                .WithMessage(Errors.Sale.CreditNoteRedemptionCodeRequired.Description);
+        item.RuleFor(i => i.ItemDiscount)
+            .Must(d => d is null || d.Type == InstantDiscountType.None)
+            .When(i => i.LineType == SaleLineType.Service)
+            .WithErrorCode(Errors.Sale.ServiceDiscountNotSupported.Code)
+            .WithMessage(Errors.Sale.ServiceDiscountNotSupported.Description);
+    }
 
-            redemption.RuleFor(r => r.Amount)
-                .GreaterThan(0m)
-                .WithErrorCode(Errors.Sale.CreditNoteRedemptionAmountInvalid.Code)
-                .WithMessage(Errors.Sale.CreditNoteRedemptionAmountInvalid.Description);
-        });
+    private void AddCreditNoteRedemptionRules()
+    {
+        RuleForEach(x => x.CreditNoteRedemptions).ChildRules(AddCreditNoteRedemptionLineRules);
 
         RuleFor(x => x.CreditNoteRedemptions)
             .Must(HaveDistinctCreditNoteCodes)
             .WithErrorCode(Errors.Sale.CreditNoteRedemptionDuplicateCode.Code)
             .WithMessage(Errors.Sale.CreditNoteRedemptionDuplicateCode.Description);
+    }
 
+    private static void AddCreditNoteRedemptionLineRules(InlineValidator<CreditNoteRedemptionCommand> redemption)
+    {
+        redemption.RuleFor(r => r.Code)
+            .NotEmpty()
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionCodeRequired.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionCodeRequired.Description);
+
+        redemption.RuleFor(r => r.Amount)
+            .GreaterThan(0m)
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionAmountInvalid.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionAmountInvalid.Description);
+    }
+
+    private void AddSaleDiscountRules()
+    {
         RuleFor(x => x.SaleDiscount)
             .Must(IsValidDiscount)
             .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
             .WithMessage(Errors.Sale.InvalidSaleDiscount.Description);
+    }
 
+    private void AddAmountRules()
+    {
         RuleFor(x => x.PaidAmount)
             .GreaterThanOrEqualTo(0)
             .WithErrorCode(Errors.Sale.PaidAmountInvalid.Code)
@@ -125,7 +161,10 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .GreaterThanOrEqualTo(0)
             .WithErrorCode(Errors.Sale.CreditNoteAppliedAmountInvalid.Code)
             .WithMessage(Errors.Sale.CreditNoteAppliedAmountInvalid.Description);
+    }
 
+    private void AddCreditNoteSplitRules()
+    {
         RuleFor(x => x)
             .Must(x => (x.CreditNoteAppliedAmount == 0m
                     && (x.CreditNoteRedemptions is null || x.CreditNoteRedemptions.Count == 0))
@@ -134,7 +173,10 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                     && redemptions.Sum(r => r.Amount) == x.CreditNoteAppliedAmount))
             .WithErrorCode(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code)
             .WithMessage(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Description);
+    }
 
+    private void AddDueAndCustomerRules()
+    {
         RuleFor(x => x)
             .Must(x => x.PaymentMethod != PaymentMethod.Credit || x.DueAmount > 0)
             .WithErrorCode(Errors.Sale.CreditRequiresDueAmount.Code)

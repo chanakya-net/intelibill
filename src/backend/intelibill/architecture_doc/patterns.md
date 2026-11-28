@@ -202,3 +202,21 @@ All NuGet versions declared once in `Directory.Packages.props`; project files re
 - Enabled by: `Directory.Build.props:14` — `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>`
 
 **Convention:** To add a package: (1) add `<PackageVersion>` to `Directory.Packages.props`, (2) add a version-free `<PackageReference>` in the target `.csproj`.
+
+---
+
+### 17. Posting Handler Steps and Collaborators
+
+Handlers that post money or stock read as an ordered list of named steps. Work that needs its own repositories lives in a small collaborator class next to the handler, so the handler injects only what its top-level flow calls.
+
+**Where it appears:**
+- Sale posting: `src/backend/intelibill/Intelibill.Application/Features/Sales/Commands/RecordSale/` — `RecordSaleCommandHandler` with `SaleReplayReader`, `SalePostingContextReader`, `SaleLinePricer`, `SaleCreditDecider`, `SaleCreditNoteRedeemer`, `SaleStockAndDuePoster`
+- Sale returns: `src/backend/intelibill/Intelibill.Application/Features/Sales/Services/Returns/SaleReturnStockPoster.cs` (shared by record and void), `Commands/RecordSaleReturn/SaleReturnCreditIssuer.cs`
+- Supplier returns: `src/backend/intelibill/Intelibill.Application/Features/SupplierReturns/Services/` — `SupplierReturnShipper`, `PurchaseReceiptDetailReader`, `PurchaseReceiptLotReverser`
+- Reconciliation: `src/backend/intelibill/Intelibill.Application/Features/OfflineReconciliation/Commands/ResolveReconciliationCase/` — `ReconciliationCaseAuthorizer`, `ReconciliationExpiryReviewVerifier`, `ReconciliationStockCorrectionLinker`, `ReconciliationSaleLinker`
+
+**Convention:**
+- The handler's top-level method keeps the transaction (begin, save, commit, rollback), its `try`/`catch`/`finally`, and every lock or fence acquisition, in lock order. Do not put the licence fence, posting period policy, expiry fence, till posting or row-lock calls behind one facade.
+- A collaborator is a `public sealed` class (a public handler constructor cannot take an internal type) with `internal` methods where its parameter types allow, registered `AddScoped` in `Intelibill.Application/DependencyInjection.cs` so it shares the request's unit of work. It holds no state between calls and never begins, commits or saves a transaction.
+- A collaborator method that takes a row lock says so in its name (`LockCustomerAndDecideCreditAsync`, `ReverseStockUnderBatchLockAsync`).
+- Never name a collaborator `*Handler` or `*Consumer`, or give it a `Handle`/`Consume` method: Wolverine would discover it as a message handler.

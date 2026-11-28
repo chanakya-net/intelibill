@@ -110,30 +110,12 @@ public sealed class RecordCustomerPaymentCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
-        var gate = await tillPosting.GateAsync(command.ActiveShopId, cancellationToken);
-        if (gate.IsError) return gate.Errors;
-        if (gate.Value && command.Method is (null or ReceiptTenderMethod.UnknownRecordedMethod))
-            return Errors.Till.TenderRequired;
-        var acquired = await tillPosting.AcquireAsync(command.ActiveShopId, command.ActorUserId, command.Till, command.PaymentDate, cancellationToken);
+        var acquired = await AcquireTillSessionAsync(command, cancellationToken);
         if (acquired.IsError) return acquired.Errors;
 
-        var lockOutcome = await paymentReceiptRepository.LockPartyAndTargetsAsync(
-            command.ActiveShopId,
-            PaymentPartyType.Customer,
-            command.CustomerId,
-            allocationRequests.Select(a => a.TargetId).ToList(),
-            cancellationToken);
-        switch (lockOutcome)
-        {
-            case RowLockOutcome.Acquired:
-                break;
-            case RowLockOutcome.NotFound:
-                return Errors.Customer.CustomerNotFound;
-            case RowLockOutcome.TimedOut:
-                return Errors.Payment.Busy;
-            default:
-                throw new InvalidOperationException($"Unknown payment lock outcome '{lockOutcome}'.");
-        }
+        var locked = await LockCustomerAndTargetsAsync(command, allocationRequests, cancellationToken);
+        if (locked.IsError)
+            return locked.Errors;
 
         var paymentEntryResult = CustomerLedgerEntry.Create(
             command.ActiveShopId,
@@ -149,20 +131,7 @@ public sealed class RecordCustomerPaymentCommandHandler(
             return paymentEntryResult.Errors;
 
         var paymentEntry = paymentEntryResult.Value;
-        var receiptResult = PaymentReceipt.Record(
-            command.ActiveShopId,
-            PaymentPartyType.Customer,
-            command.CustomerId,
-            command.Amount,
-            command.Method ?? ReceiptTenderMethod.UnknownRecordedMethod,
-            command.BankAccountId,
-            command.ExternalReference,
-            command.PaymentDate,
-            businessClock.UtcNow,
-            command.Notes,
-            paymentEntry.Id,
-            expenseId: null,
-            command.ActorUserId);
+        var receiptResult = RecordReceipt(command, paymentEntry);
         if (receiptResult.IsError)
             return receiptResult.Errors;
 
@@ -174,16 +143,11 @@ public sealed class RecordCustomerPaymentCommandHandler(
         var permitted = await completionPolicy.CheckSettlementAsync(licence.Value, receipt, allocationRequests, cancellationToken);
         if (permitted.IsError) return permitted.Errors;
 
-        await customerLedgerEntryRepository.AddAsync(paymentEntry, cancellationToken);
-        await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
-        foreach (var allocation in allocations.Value)
-            await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+        await StagePaymentAsync(paymentEntry, receipt, allocations.Value, cancellationToken);
 
         if (acquired.Value is { } session)
         {
-            var appended = await tillPosting.AppendAsync(session, new(TillMovementSource.CustomerPayment, receipt.Id, "payment",
-                [new TenderLine(receipt.Method, receipt.Amount, null, null, receipt.ExternalReference, receipt.BankAccountId)], 1m,
-                businessClock.UtcNow, command.OperationKey.Trim(), command.Notes), command.ActorUserId, cancellationToken);
+            var appended = await AppendTillMovementAsync(session, command, receipt, cancellationToken);
             if (appended.IsError) return appended.Errors;
         }
 
@@ -201,6 +165,93 @@ public sealed class RecordCustomerPaymentCommandHandler(
             balance,
             receipt.Id);
     }
+
+    private async Task<ErrorOr<TillSession?>> AcquireTillSessionAsync(
+        RecordCustomerPaymentCommand command,
+        CancellationToken cancellationToken)
+    {
+        var gate = await tillPosting.GateAsync(command.ActiveShopId, cancellationToken);
+        if (gate.IsError) return gate.Errors;
+        if (gate.Value && command.Method is (null or ReceiptTenderMethod.UnknownRecordedMethod))
+            return Errors.Till.TenderRequired;
+        return await tillPosting.AcquireAsync(
+            command.ActiveShopId,
+            command.ActorUserId,
+            command.Till,
+            command.PaymentDate,
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<Success>> LockCustomerAndTargetsAsync(
+        RecordCustomerPaymentCommand command,
+        IReadOnlyList<PaymentAllocationRequest> allocationRequests,
+        CancellationToken cancellationToken)
+    {
+        var lockOutcome = await paymentReceiptRepository.LockPartyAndTargetsAsync(
+            command.ActiveShopId,
+            PaymentPartyType.Customer,
+            command.CustomerId,
+            allocationRequests.Select(a => a.TargetId).ToList(),
+            cancellationToken);
+        switch (lockOutcome)
+        {
+            case RowLockOutcome.Acquired:
+                return Result.Success;
+            case RowLockOutcome.NotFound:
+                return Errors.Customer.CustomerNotFound;
+            case RowLockOutcome.TimedOut:
+                return Errors.Payment.Busy;
+            default:
+                throw new InvalidOperationException($"Unknown payment lock outcome '{lockOutcome}'.");
+        }
+    }
+
+    private ErrorOr<PaymentReceipt> RecordReceipt(RecordCustomerPaymentCommand command, CustomerLedgerEntry paymentEntry) =>
+        PaymentReceipt.Record(
+            command.ActiveShopId,
+            PaymentPartyType.Customer,
+            command.CustomerId,
+            command.Amount,
+            command.Method ?? ReceiptTenderMethod.UnknownRecordedMethod,
+            command.BankAccountId,
+            command.ExternalReference,
+            command.PaymentDate,
+            businessClock.UtcNow,
+            command.Notes,
+            paymentEntry.Id,
+            expenseId: null,
+            command.ActorUserId);
+
+    private async Task StagePaymentAsync(
+        CustomerLedgerEntry paymentEntry,
+        PaymentReceipt receipt,
+        IReadOnlyList<PaymentAllocation> allocations,
+        CancellationToken cancellationToken)
+    {
+        await customerLedgerEntryRepository.AddAsync(paymentEntry, cancellationToken);
+        await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
+        foreach (var allocation in allocations)
+            await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+    }
+
+    private async Task<ErrorOr<Success>> AppendTillMovementAsync(
+        TillSession session,
+        RecordCustomerPaymentCommand command,
+        PaymentReceipt receipt,
+        CancellationToken cancellationToken) =>
+        await tillPosting.AppendAsync(
+            session,
+            new(
+                TillMovementSource.CustomerPayment,
+                receipt.Id,
+                "payment",
+                [new TenderLine(receipt.Method, receipt.Amount, null, null, receipt.ExternalReference, receipt.BankAccountId)],
+                1m,
+                businessClock.UtcNow,
+                command.OperationKey.Trim(),
+                command.Notes),
+            command.ActorUserId,
+            cancellationToken);
 
     private sealed record CustomerPaymentPayload(
         Guid CustomerId,

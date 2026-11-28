@@ -38,6 +38,51 @@ internal sealed class BatchFactory(
 
         var isSystemSupplier = row.SupplierId is null;
 
+        var batchOrError = await AddBatchAsync(shopId, itemId, normalizedBatchNumber, row, supplier, actorUserId, cancellationToken);
+        if (batchOrError.IsError)
+            return batchOrError.Errors;
+
+        var batch = batchOrError.Value;
+
+        var performedAt = (row.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
+
+        var stockTransactionOrError = await AddStockTransactionAsync(
+            shopId, itemId, batch, row, performedAt, actorUserId, cancellationToken);
+        if (stockTransactionOrError.IsError)
+            return stockTransactionOrError.Errors;
+
+        var stockTransaction = stockTransactionOrError.Value;
+
+        var ledgerAmount = decimal.Round(row.TotalPurchaseCost, 2, MidpointRounding.AwayFromZero);
+
+        var receiptValueOrError = await AddReceiptValueAsync(
+            shopId, itemId, batch, row, supplier, ledgerAmount, performedAt, actorUserId, cancellationToken);
+        if (receiptValueOrError.IsError)
+            return receiptValueOrError.Errors;
+
+        var receiptValue = receiptValueOrError.Value;
+
+        // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
+        if (ledgerAmount == 0)
+            return new BatchCreationResult(batch, stockTransaction, null, receiptValue);
+
+        var ledgerEntryOrError = await AddSupplierLedgerEntryAsync(
+            shopId, supplier, batch, ledgerAmount, performedAt, shop.BusinessTimeZoneId, isSystemSupplier, actorUserId, cancellationToken);
+        if (ledgerEntryOrError.IsError)
+            return ledgerEntryOrError.Errors;
+
+        return new BatchCreationResult(batch, stockTransaction, ledgerEntryOrError.Value, receiptValue);
+    }
+
+    private async Task<ErrorOr<InventoryBatch>> AddBatchAsync(
+        Guid shopId,
+        Guid itemId,
+        string normalizedBatchNumber,
+        InboundInventoryLineInput row,
+        Supplier supplier,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
         var batchResult = InventoryBatch.Create(
             shopId,
             itemId,
@@ -59,9 +104,18 @@ internal sealed class BatchFactory(
 
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
+        return batch;
+    }
 
-        var performedAt = (row.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
-
+    private async Task<ErrorOr<StockTransaction>> AddStockTransactionAsync(
+        Guid shopId,
+        Guid itemId,
+        InventoryBatch batch,
+        InboundInventoryLineInput row,
+        DateTimeOffset performedAt,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
         var stockTransactionResult = StockTransaction.Create(
             shopId,
             itemId,
@@ -79,9 +133,20 @@ internal sealed class BatchFactory(
 
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
+        return stockTransaction;
+    }
 
-        var ledgerAmount = decimal.Round(row.TotalPurchaseCost, 2, MidpointRounding.AwayFromZero);
-
+    private async Task<ErrorOr<PurchaseReceiptValue>> AddReceiptValueAsync(
+        Guid shopId,
+        Guid itemId,
+        InventoryBatch batch,
+        InboundInventoryLineInput row,
+        Supplier supplier,
+        decimal ledgerAmount,
+        DateTimeOffset performedAt,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
         // The total is kept as entered (to the paisa), so later corrections and voids work from what
         // the payable was posted with rather than from the rounded unit cost.
         var receiptValueResult = PurchaseReceiptValue.Create(
@@ -100,18 +165,27 @@ internal sealed class BatchFactory(
 
         var receiptValue = receiptValueResult.Value;
         await purchaseReceiptValueRepository.AddAsync(receiptValue, cancellationToken);
+        return receiptValue;
+    }
 
-        // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
-        if (ledgerAmount == 0)
-            return new BatchCreationResult(batch, stockTransaction, null, receiptValue);
-
+    private async Task<ErrorOr<SupplierLedgerEntry>> AddSupplierLedgerEntryAsync(
+        Guid shopId,
+        Supplier supplier,
+        InventoryBatch batch,
+        decimal ledgerAmount,
+        DateTimeOffset performedAt,
+        string businessTimeZoneId,
+        bool isSystemSupplier,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
         var ledgerResult = SupplierLedgerEntry.Create(
             shopId,
             supplier.Id,
             batch.Id,
             SupplierLedgerEntryType.GoodsReceived,
             ledgerAmount,
-            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
+            businessClock.GetBusinessDate(performedAt, businessTimeZoneId),
             isSystemSupplier ? "Receipt with no supplier assigned" : null,
             actorUserId);
 
@@ -120,8 +194,7 @@ internal sealed class BatchFactory(
 
         var ledgerEntry = ledgerResult.Value;
         await supplierLedgerEntryRepository.AddAsync(ledgerEntry, cancellationToken);
-
-        return new BatchCreationResult(batch, stockTransaction, ledgerEntry, receiptValue);
+        return ledgerEntry;
     }
 
     public Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(

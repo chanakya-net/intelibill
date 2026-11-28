@@ -4,7 +4,6 @@ using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Operations;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Returns;
 using Intelibill.Application.Common.Time;
@@ -19,13 +18,9 @@ namespace Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 public sealed class RecordSaleReturnCommandHandler(
     ISaleReturnValidator saleReturnValidator,
     ISaleReturnNumberGenerator saleReturnNumberGenerator,
-    ICreditNoteCodeGenerator creditNoteCodeGenerator,
-    ICreditNoteRepository creditNoteRepository,
-    IInventoryRepository inventoryRepository,
-    IInventoryBatchRepository inventoryBatchRepository,
-    IStockTransactionRepository stockTransactionRepository,
+    SaleReturnCreditIssuer creditIssuer,
+    SaleReturnStockPoster stockPoster,
     ISaleReturnRepository saleReturnRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IReturnAccountingPolicy returnAccountingPolicy,
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork,
@@ -127,7 +122,9 @@ public sealed class RecordSaleReturnCommandHandler(
         var businessDay = businessClock.GetBusinessDay(processedAt, validated.Shop.BusinessTimeZoneId);
         var returnNumber = saleReturnNumberGenerator.Generate(businessDay.Date);
 
-        var restored = await RestoreStockAsync(command, validated, returnNumber, processedAt, cancellationToken);
+        // The batch lock precedes every inventory read.
+        await dispositions.LockBatchesAsync(command.ShopId, validated.Lines.Where(x => x.Batch is not null && x.Disposition?.QuarantinedQuantity > 0).Select(x => x.Batch!.Id), cancellationToken);
+        var restored = await stockPoster.RestoreStockAsync(command, validated, returnNumber, processedAt, cancellationToken);
         if (restored.IsError)
             return restored.Errors;
 
@@ -152,7 +149,7 @@ public sealed class RecordSaleReturnCommandHandler(
         if (saleReturn.IsError)
             return saleReturn.Errors;
 
-        var staged = await StageRestorationsAsync(
+        var staged = await stockPoster.StageRestorationsUnderBatchLockAsync(
             command,
             saleReturn.Value,
             restored.Value.Restorations,
@@ -171,7 +168,7 @@ public sealed class RecordSaleReturnCommandHandler(
         CustomerLedgerEntry? returnCredit = null;
         if (validated.Sale.CustomerId.HasValue && validated.Calculation.DueReductionAmount > 0m)
         {
-            var returnCreditResult = CreateReturnCredit(command, validated, businessDay, returnNumber);
+            var returnCreditResult = SaleReturnCreditIssuer.CreateReturnCredit(command, validated, businessDay, returnNumber);
             if (returnCreditResult.IsError)
                 return returnCreditResult.Errors;
 
@@ -182,7 +179,7 @@ public sealed class RecordSaleReturnCommandHandler(
         if (command.PayoutDestination == ReturnPayoutDestination.CreditNote
             && validated.Calculation.PayoutAmount > 0m)
         {
-            var creditNoteResult = await IssueCreditNoteAsync(
+            var creditNoteResult = await creditIssuer.IssueCreditNoteAsync(
                 command,
                 validated,
                 saleReturn.Value,
@@ -207,10 +204,7 @@ public sealed class RecordSaleReturnCommandHandler(
             return posting.Errors;
 
         await saleReturnRepository.AddAsync(saleReturn.Value, cancellationToken);
-        if (returnCredit is not null)
-            await customerLedgerEntryRepository.AddAsync(returnCredit, cancellationToken);
-        if (creditNote is not null)
-            await creditNoteRepository.AddAsync(creditNote, cancellationToken);
+        await creditIssuer.AddCreditsAsync(returnCredit, creditNote, cancellationToken);
 
         if (session is not null)
         {
@@ -256,156 +250,6 @@ public sealed class RecordSaleReturnCommandHandler(
         if (tenderValidation.IsError) return tenderValidation.Errors;
 
         return Result.Success;
-    }
-
-    /// <summary>
-    /// Builds the return's lines and puts the restockable stock back; the batch lock precedes every inventory read.
-    /// </summary>
-    private async Task<ErrorOr<StockRestoration>> RestoreStockAsync(
-        RecordSaleReturnCommand command,
-        SaleReturnValidationResult validated,
-        string returnNumber,
-        DateTimeOffset processedAt,
-        CancellationToken cancellationToken)
-    {
-        var calculationBySaleItemId = validated.Calculation.Lines.ToDictionary(line => line.SaleItemId);
-        var returnLines = new List<SaleReturnLineInput>();
-        var restorations = new List<Restoration>();
-
-        await dispositions.LockBatchesAsync(command.ShopId, validated.Lines.Where(x => x.Batch is not null && x.Disposition?.QuarantinedQuantity > 0).Select(x => x.Batch!.Id), cancellationToken);
-        foreach (var line in validated.Lines)
-        {
-            var calculated = calculationBySaleItemId[line.Request.SaleItemId];
-            returnLines.Add(new SaleReturnLineInput(
-                command.ShopId,
-                line.SaleItem.Id,
-                calculated.Quantity,
-                calculated.Condition,
-                calculated.OriginalCostPrice,
-                calculated.OriginalSalesPrice,
-                calculated.OriginalTaxRatePercent,
-                calculated.OriginalIsPriceIncludingTax,
-                calculated.MaxRefundAmount,
-                calculated.ApprovedRefundAmount,
-                calculated.TaxableAmount,
-                calculated.TaxAmount,
-                calculated.Notes));
-
-            if (line.SaleItem.LineType == SaleLineType.Service || line.Request.Condition == SaleReturnCondition.Wastage)
-                continue;
-
-            var restoration = await RestoreLineStockAsync(command, line, returnNumber, processedAt, cancellationToken);
-            if (restoration.IsError)
-                return restoration.Errors;
-
-            restorations.Add(restoration.Value);
-        }
-
-        return new StockRestoration(returnLines, restorations);
-    }
-
-    private async Task<ErrorOr<Restoration>> RestoreLineStockAsync(
-        RecordSaleReturnCommand command,
-        ValidatedSaleReturnLine line,
-        string returnNumber,
-        DateTimeOffset processedAt,
-        CancellationToken cancellationToken)
-    {
-        if (!line.SaleItem.ItemId.HasValue || !line.SaleItem.InventoryBatchId.HasValue)
-            return Errors.Sale.ReturnSaleItemNotFound(line.SaleItem.Id);
-
-        var itemId = line.SaleItem.ItemId.Value;
-        var batchId = line.SaleItem.InventoryBatchId.Value;
-        var batch = line.Batch;
-        if (batch is null)
-            return Errors.Sale.ReturnBatchNotFound(batchId);
-
-        var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
-        if (inventory is null)
-            return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
-
-        var transaction = StockTransaction.Create(
-            command.ShopId,
-            itemId,
-            batchId,
-            StockTransactionType.Ret,
-            line.Request.Quantity,
-            returnNumber,
-            line.Request.Notes,
-            processedAt,
-            command.ActorUserId,
-            command.ActorUserId);
-
-        if (transaction.IsError)
-            return transaction.Errors;
-
-        var inventoryResult = inventory.AddQuantity(line.Request.Quantity, command.ActorUserId);
-        if (inventoryResult.IsError)
-            return inventoryResult.Errors;
-
-        var restoration = new Restoration(line, batch, transaction.Value);
-        inventoryRepository.Update(inventory);
-        await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
-        return restoration;
-    }
-
-    private async Task<ErrorOr<Success>> StageRestorationsAsync(
-        RecordSaleReturnCommand command,
-        SaleReturn saleReturn,
-        List<Restoration> restorations,
-        BusinessDay businessDay,
-        DateTimeOffset processedAt,
-        CancellationToken cancellationToken)
-    {
-        foreach (var restoration in restorations)
-        {
-            var returnedLine = saleReturn.Items.Single(x => x.SaleItemId == restoration.Line.SaleItem.Id);
-            var disposition = restoration.Line.Disposition!;
-            var staged = await dispositions.StageRestorationAsync(command.ShopId, command.ActorUserId, restoration.Batch, "SaleReturn",
-                saleReturn.Id, returnedLine.Id, restoration.Movement.Id, disposition, businessDay.Date, processedAt, cancellationToken);
-            if (staged.IsError) return staged.Errors;
-            returnedLine.FreezeDisposition(staged.Value, disposition.QuarantinedQuantity, disposition.ReasonCode);
-            inventoryBatchRepository.Update(restoration.Batch);
-        }
-
-        return Result.Success;
-    }
-
-    private static ErrorOr<CustomerLedgerEntry> CreateReturnCredit(
-        RecordSaleReturnCommand command,
-        SaleReturnValidationResult validated,
-        BusinessDay businessDay,
-        string returnNumber)
-    {
-        return CustomerLedgerEntry.Create(
-            command.ShopId,
-            validated.Sale.CustomerId!.Value,
-            validated.Sale.Id,
-            CustomerLedgerEntryType.ReturnCredit,
-            validated.Calculation.DueReductionAmount,
-            businessDay.Date,
-            $"Return credit from {returnNumber} for sale {validated.Sale.InvoiceNumber}",
-            command.ActorUserId);
-    }
-
-    private async Task<ErrorOr<CreditNote>> IssueCreditNoteAsync(
-        RecordSaleReturnCommand command,
-        SaleReturnValidationResult validated,
-        SaleReturn saleReturn,
-        BusinessDay businessDay,
-        string returnNumber,
-        CancellationToken cancellationToken)
-    {
-        var code = await creditNoteCodeGenerator.GenerateAsync(command.ShopId, businessDay.Date, cancellationToken);
-        var reason = ResolveCreditNoteReason(command, returnNumber);
-        return CreditNote.Issue(
-            command.ShopId,
-            saleReturn.Id,
-            validated.Calculation.PayoutAmount,
-            reason,
-            code,
-            command.CreditNoteExpiresAt,
-            validated.Sale.CustomerId);
     }
 
     /// <summary>
@@ -461,21 +305,6 @@ public sealed class RecordSaleReturnCommandHandler(
         return settlements;
     }
 
-    private static string ResolveCreditNoteReason(RecordSaleReturnCommand command, string returnNumber)
-    {
-        if (!string.IsNullOrWhiteSpace(command.CreditNoteReason))
-        {
-            return command.CreditNoteReason.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(command.Notes))
-        {
-            return command.Notes.Trim();
-        }
-
-        return $"Return credit from {returnNumber}";
-    }
-
     private static ErrorOr<Success> ValidateWarnings(
         IReadOnlyList<SaleReturnCalculationWarning> warnings)
     {
@@ -497,8 +326,4 @@ public sealed class RecordSaleReturnCommandHandler(
             ? errors
             : Result.Success;
     }
-
-    private sealed record Restoration(ValidatedSaleReturnLine Line, InventoryBatch Batch, StockTransaction Movement);
-
-    private sealed record StockRestoration(List<SaleReturnLineInput> ReturnLines, List<Restoration> Restorations);
 }

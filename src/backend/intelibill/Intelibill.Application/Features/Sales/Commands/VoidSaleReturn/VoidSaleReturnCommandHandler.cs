@@ -19,9 +19,7 @@ public sealed class VoidSaleReturnCommandHandler(
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
     ISaleReturnRepository saleReturnRepository,
-    IInventoryRepository inventoryRepository,
-    IInventoryBatchRepository inventoryBatchRepository,
-    IStockTransactionRepository stockTransactionRepository,
+    SaleReturnStockPoster stockPoster,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     ICreditNoteRepository creditNoteRepository,
     ISaleReturnMutationCoordinator mutationCoordinator,
@@ -117,7 +115,10 @@ public sealed class VoidSaleReturnCommandHandler(
         // fenced the period with.
         var voidDate = businessClock.GetBusinessDate(processedAt, shop.BusinessTimeZoneId);
 
-        var stockReversals = await ReverseStockAsync(
+        // The batch lock precedes every inventory read.
+        await dispositions.LockBatchesAsync(command.ShopId, saleReturn.Items.Where(x => x.QuarantineChangeId.HasValue && saleItemsById.ContainsKey(x.SaleItemId))
+            .Select(x => saleItemsById[x.SaleItemId]).Where(x => x.InventoryBatchId.HasValue).Select(x => x.InventoryBatchId!.Value), cancellationToken);
+        var stockReversals = await stockPoster.ReverseStockUnderBatchLockAsync(
             command,
             saleReturn,
             saleItemsById,
@@ -141,8 +142,7 @@ public sealed class VoidSaleReturnCommandHandler(
         if (voided.IsError)
             return voided.Errors;
 
-        foreach (var stockReversal in stockReversals.Value)
-            await stockTransactionRepository.AddAsync(stockReversal, cancellationToken);
+        await stockPoster.AddReversalsAsync(stockReversals.Value, cancellationToken);
 
         if (returnCreditReversal is not null)
             await customerLedgerEntryRepository.AddAsync(returnCreditReversal, cancellationToken);
@@ -176,96 +176,6 @@ public sealed class VoidSaleReturnCommandHandler(
         if (SaleReturnSourcePolicy.Check(licence, sale, businessClock, saleReturn) is { } denied) return denied;
 
         return (saleReturn, sale);
-    }
-
-    private async Task<ErrorOr<List<StockTransaction>>> ReverseStockAsync(
-        VoidSaleReturnCommand command,
-        SaleReturn saleReturn,
-        Dictionary<Guid, SaleItem> saleItemsById,
-        DateTimeOffset processedAt,
-        DateOnly voidDate,
-        CancellationToken cancellationToken)
-    {
-        var stockReversals = new List<StockTransaction>();
-
-        await dispositions.LockBatchesAsync(command.ShopId, saleReturn.Items.Where(x => x.QuarantineChangeId.HasValue && saleItemsById.ContainsKey(x.SaleItemId))
-            .Select(x => saleItemsById[x.SaleItemId]).Where(x => x.InventoryBatchId.HasValue).Select(x => x.InventoryBatchId!.Value), cancellationToken);
-        foreach (var returnItem in saleReturn.Items.Where(item => item.Condition == SaleReturnCondition.Restockable))
-        {
-            if (!saleItemsById.TryGetValue(returnItem.SaleItemId, out var saleItem))
-                return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
-
-            var reversal = await ReverseLineStockAsync(
-                command,
-                saleReturn,
-                returnItem,
-                saleItem,
-                processedAt,
-                voidDate,
-                cancellationToken);
-            if (reversal.IsError)
-                return reversal.Errors;
-
-            stockReversals.Add(reversal.Value);
-        }
-
-        return stockReversals;
-    }
-
-    private async Task<ErrorOr<StockTransaction>> ReverseLineStockAsync(
-        VoidSaleReturnCommand command,
-        SaleReturn saleReturn,
-        SaleReturnItem returnItem,
-        SaleItem saleItem,
-        DateTimeOffset processedAt,
-        DateOnly voidDate,
-        CancellationToken cancellationToken)
-    {
-        if (!saleItem.ItemId.HasValue || !saleItem.InventoryBatchId.HasValue)
-            return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
-
-        var itemId = saleItem.ItemId.Value;
-        var batchId = saleItem.InventoryBatchId.Value;
-
-        var batch = await inventoryBatchRepository.GetByIdAsync(batchId, cancellationToken);
-        if (batch is null || batch.ShopId != command.ShopId)
-            return Errors.Sale.ReturnBatchNotFound(batchId);
-
-        var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
-        if (inventory is null)
-            return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
-
-        if (batch.Quantity < returnItem.Quantity || inventory.Quantity < returnItem.Quantity)
-            return Errors.Sale.ReturnVoidInsufficientStock;
-
-        var inventoryResult = inventory.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
-        if (inventoryResult.IsError)
-            return inventoryResult.Errors;
-
-        var stockTransaction = StockTransaction.Create(
-            command.ShopId,
-            itemId,
-            batchId,
-            StockTransactionType.Out,
-            -returnItem.Quantity,
-            saleReturn.ReturnNumber,
-            command.Reason,
-            processedAt,
-            command.ActorUserId,
-            command.ActorUserId);
-        if (stockTransaction.IsError)
-            return stockTransaction.Errors;
-
-        ErrorOr<Success> batchResult;
-        if (returnItem.QuarantineChangeId.HasValue)
-            batchResult = await dispositions.StageReversalAsync(command.ShopId, command.ActorUserId, batch, returnItem.QuarantineChangeId.Value,
-                returnItem.QuarantinedQuantity, stockTransaction.Value.Id, voidDate, saleReturn.Id, returnItem.Id, processedAt, cancellationToken);
-        else
-            batchResult = batch.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
-        if (batchResult.IsError) return batchResult.Errors;
-        inventoryBatchRepository.Update(batch);
-        inventoryRepository.Update(inventory);
-        return stockTransaction.Value;
     }
 
     private static ErrorOr<CustomerLedgerEntry> CreateReturnCreditReversal(

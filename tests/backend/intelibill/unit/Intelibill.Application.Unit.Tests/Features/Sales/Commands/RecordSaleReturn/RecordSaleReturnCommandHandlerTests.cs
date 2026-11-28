@@ -50,6 +50,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
 
     private RecordSaleReturnCommandHandler CreateHandler()
     {
+        var dispositions = ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time));
         return new(
             new SaleReturnValidator(
                 _userRepository,
@@ -63,18 +64,14 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 _itemRepository,
                 new BusinessClock(_time), ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time))),
             _returnNumberGenerator,
-            _creditNoteCodeGenerator,
-            _creditNoteRepository,
-            _inventoryRepository,
-            _inventoryBatchRepository,
-            _stockTransactionRepository,
+            new SaleReturnCreditIssuer(_creditNoteCodeGenerator, _creditNoteRepository, _customerLedgerEntryRepository),
+            new SaleReturnStockPoster(_inventoryRepository, _inventoryBatchRepository, _stockTransactionRepository, dispositions),
             _saleReturnRepository,
-            _customerLedgerEntryRepository,
             _accountingPolicy,
             new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>(), Substitute.For<IShopLicenceFence>()),
             _unitOfWork,
             new BusinessClock(_time), _shopRepository, _saleRepository,
-            BusinessTestDoubles.DisabledTillPosting(), _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
+            BusinessTestDoubles.DisabledTillPosting(), _executor, dispositions);
     }
 
     private readonly MutableTimeProvider _time = new();

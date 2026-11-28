@@ -30,6 +30,12 @@ public static class DependencyInjection
         services.AddScoped<Features.Expiry.BatchDispositionService>();
         services.AddScoped<Features.Expiry.ExpiryPolicyService>();
         services.AddScoped<Features.Expiry.SaleExpiryGuard>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleReplayReader>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SalePostingContextReader>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleLinePricer>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleCreditDecider>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleCreditNoteRedeemer>();
+        services.AddScoped<Features.Sales.Commands.RecordSale.SaleStockAndDuePoster>();
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.IOfflineLicenceHistoryAuthority, Features.Sales.Commands.SyncOfflineSales.OfflineLicenceHistoryAuthority>();
         services.AddScoped<Features.Expiry.IOfflineExpiryAuthority, Features.Expiry.OfflineExpiryAuthority>();
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.OfflineTillReconciliationEligibility>();
@@ -38,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderTrading>();
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderHistory>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
+        services.AddScoped<SaleReturnStockPoster>();
+        services.AddScoped<Intelibill.Application.Features.Sales.Commands.RecordSaleReturn.SaleReturnCreditIssuer>();
         services.AddScoped<Features.Tills.ITillPostingService, Features.Tills.Services.TillPostingService>();
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();
         services.AddScoped<Features.Shops.TillSettings.ShopTillSettingsService>();
@@ -47,6 +55,10 @@ public static class DependencyInjection
         services.AddScoped<Features.Tills.Services.TillLifecycleService>();
         services.AddScoped<Features.Tills.Services.TillSourceSettlementService>();
         services.AddScoped<Features.Tills.Services.TillReadService>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationCaseAuthorizer>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationExpiryReviewVerifier>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationStockCorrectionLinker>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ReconciliationSaleLinker>();
 
         services.AddScoped<Common.Licensing.DefinitionCreationTransaction>();
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();
@@ -57,6 +69,9 @@ public static class DependencyInjection
         services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptReversalPolicy>();
         services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptReversalService>();
         services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.SupplierReturnCreditPoster>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.SupplierReturnShipper>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptDetailReader>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.PurchaseReceiptLotReverser>();
 
         services.AddScoped<IItemResolver, ItemResolver>();
         services.AddScoped<ISupplierResolver, SupplierResolver>();
