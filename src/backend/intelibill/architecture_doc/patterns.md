@@ -217,7 +217,7 @@ All NuGet versions declared once in `Directory.Packages.props`; project files re
 Handlers that post money or stock read as an ordered list of named steps. Work that needs its own repositories lives in a small collaborator class next to the handler, so the handler injects only what its top-level flow calls.
 
 **Where it appears:**
-- Sale posting: `src/backend/intelibill/Intelibill.Application/Features/Sales/Commands/RecordSale/` — `RecordSaleCommandHandler` with `SaleReplayReader`, `SalePostingContextReader`, `SaleLinePricer`, `SaleCreditDecider`, `SaleCreditNoteRedeemer`, `SaleStockAndDuePoster`
+- Sale posting: `src/backend/intelibill/Intelibill.Application/Features/Sales/Commands/RecordSale/` — `RecordSaleCommandHandler` with `SaleReplayReader`, `SalePostingContextReader`, `SaleLinePricer`, `SaleCreditDecider`, `SaleCreditNoteRedeemer`, `SaleStockAndDuePoster`; `Features/Sales/Services/SaleStockOutPoster.cs` holds the sold-stock OUT movement shared by online and offline sales
 - Sale returns: `src/backend/intelibill/Intelibill.Application/Features/Sales/Services/Returns/SaleReturnStockPoster.cs` (shared by record and void), `Commands/RecordSaleReturn/SaleReturnCreditIssuer.cs`
 - Supplier returns: `src/backend/intelibill/Intelibill.Application/Features/SupplierReturns/Services/` — `SupplierReturnShipper`, `PurchaseReceiptDetailReader`, `PurchaseReceiptLotReverser`
 - Reconciliation: `src/backend/intelibill/Intelibill.Application/Features/OfflineReconciliation/Commands/ResolveReconciliationCase/` — `ReconciliationCaseAuthorizer`, `ReconciliationExpiryReviewVerifier`, `ReconciliationStockCorrectionLinker`, `ReconciliationSaleLinker`

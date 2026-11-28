@@ -6,6 +6,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Common.Errors;
 namespace Intelibill.Application.Features.Auth.Services;
 
 public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, IUserRepository users,
@@ -14,12 +15,12 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
 {
     private static readonly Error Invalid = Error.Validation("Auth.InvalidChallenge", "The proof is invalid, expired, superseded, or already used.");
     private static readonly Error Conflict = Error.Conflict("Auth.EmailUnavailable", "This email is unavailable. Request a new verification or sign in to your existing account.");
-    private static readonly Error Reauth = Error.Unauthorized("Auth.ReauthenticationRequired", "Please authenticate again.");
+    private static readonly Error Reauth = Errors.Phone.ReauthenticationRequired;
     private static readonly Error Unavailable = Error.Failure("Auth.EmailUnavailable", "Email verification delivery is unavailable. Please try again later.");
     private static readonly Error RecoverySupportRequired = Error.Conflict("Auth.RecoverySupportRequired", "This account requires an ownership review. Contact support; your data has been preserved.");
     public async Task<ErrorOr<Guid>> RequestAsync(string email, CancellationToken ct)
     {
-        if (!ValidEmail(email)) return Error.Validation("Auth.InvalidEmail", "Enter a valid email address.");
+        if (!ValidEmail(email)) return Errors.Auth.InvalidEmail;
         if (!mail.Enabled) return Unavailable;
         email = email.Trim().ToLowerInvariant();
         await using var transaction = await repository.BeginAsync(ct);
@@ -62,7 +63,7 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
     }
     public async Task<ErrorOr<Guid>> RequestEmailChangeAsync(Guid actor, long version, string email, string proof, CancellationToken ct)
     {
-        if (!ValidEmail(email)) return Error.Validation("Auth.InvalidEmail", "Enter a valid email address.");
+        if (!ValidEmail(email)) return Errors.Auth.InvalidEmail;
         if (!mail.Enabled) return Unavailable;
         email = email.Trim().ToLowerInvariant();
         await using var transaction = await repository.BeginAsync(ct);

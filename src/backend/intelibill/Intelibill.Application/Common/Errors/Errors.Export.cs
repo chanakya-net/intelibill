@@ -35,5 +35,11 @@ public static partial class Errors
             Error.Conflict(
                 "Export.VoucherInvalid",
                 $"Voucher {voucherNumber} cannot be exported: {reason}.");
+
+        public static Error UnsupportedFormat =>
+            Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.");
+
+        public static Error UnsupportedLevel =>
+            Error.Validation("Export.UnsupportedLevel", "The requested export level is not supported.");
     }
 }

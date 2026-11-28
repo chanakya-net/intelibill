@@ -203,7 +203,7 @@ public sealed class CorrectStockCountCommandHandler(
     private static Error? CheckBatchCountable(CorrectStockCountCommand command, InventoryBatch batch)
     {
         if (command.CountedQuantity < batch.QuarantinedQuantity)
-            return Error.Conflict("Expiry.QuarantineProtected", "Count cannot reduce physical stock below quarantine.");
+            return Errors.Expiry.QuarantineProtected;
 
         if (batch.IsVoided)
             return Errors.Inventory.BatchAlreadyVoided;

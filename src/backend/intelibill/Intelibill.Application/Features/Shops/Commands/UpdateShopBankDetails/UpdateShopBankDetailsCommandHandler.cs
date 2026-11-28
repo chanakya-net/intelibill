@@ -28,7 +28,7 @@ public sealed class UpdateShopBankDetailsCommandHandler(ShopSetupAccess access, 
         var bankName = ToOptional(command.BankName);
         var accountNumber = ToOptional(command.AccountNumber);
         if (bankName is null || accountNumber is null)
-            return Error.Validation("BankAccount.Required", "Bank name and account number are required.");
+            return Errors.BankAccount.Required;
 
         var ifscCode = ToOptional(command.IfscCode);
         if (ifscCode is not null && !IfscRegex.IsMatch(ifscCode))

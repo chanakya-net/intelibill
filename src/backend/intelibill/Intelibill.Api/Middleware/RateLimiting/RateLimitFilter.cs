@@ -6,6 +6,7 @@ using Intelibill.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Api.Middleware.RateLimiting;
 
@@ -35,7 +36,7 @@ public sealed partial class RateLimitFilter(
     private const int MaxRetryAfterSeconds = 86_400;
 
     private static readonly Error StoreUnavailable =
-        Error.Failure("RateLimit.Unavailable", "This service is temporarily unavailable. Try again shortly.");
+        Errors.RateLimit.Unavailable;
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {

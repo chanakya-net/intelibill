@@ -3,12 +3,13 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
 internal sealed partial class MerchantBillingClient
 {
-    private static Error CancellationInvalid => Error.Validation("Billing.CancellationInvalid", "Confirm the current term end and affected shops.");
+    private static Error CancellationInvalid => Errors.Billing.CancellationInvalid;
 
     public Task<ErrorOr<SubscriptionCancellationDetailV1>> ReadCancellationAsync(MerchantBillingCaller caller, Guid account,
         Guid term, Guid? after, CancellationToken ct) =>

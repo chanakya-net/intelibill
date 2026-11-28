@@ -8,6 +8,7 @@ using Intelibill.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -51,7 +52,7 @@ internal sealed partial class MerchantClosureConsentStore(ApplicationDbContext d
 
         var binding = await db.Set<ShopLicenseState>().AsNoTracking().SingleOrDefaultAsync(row => row.ShopId == shop, ct);
         if (binding is null)
-            return Error.Conflict("Closure.AffiliationUnavailable", "The shop affiliation needs review before closure.");
+            return Errors.Closure.AffiliationUnavailable;
         return new ClosureAccess(binding, owner);
     }
 

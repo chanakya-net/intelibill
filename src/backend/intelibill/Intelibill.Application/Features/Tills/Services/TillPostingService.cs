@@ -5,6 +5,7 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using TillErrors = Intelibill.Application.Common.Errors.Errors.Till;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Tills.Services;
 
@@ -60,15 +61,15 @@ public sealed class TillPostingService(ITillRepository tills, IShopRepository sh
             string.IsNullOrWhiteSpace(source.Purpose) || source.Purpose.Length > 100 || string.IsNullOrWhiteSpace(source.OperationKey) ||
             source.OperationKey.Length > 128 || source.Reason?.Length > 500 || source.OccurredAt < session.OpenedAt || source.OccurredAt > clock.UtcNow ||
             !TillMoney.IsValid(source.StoreCreditIssued) || !TillMoney.IsValid(source.StoreCreditRedeemed) || !TillMoney.IsValid(source.ReceivableChange))
-            return Error.Validation("Till.SourceInvalid", "A valid source, operation and signed settlement amounts are required.");
+            return Errors.Till.SourceInvalid;
         if (source.SourceType == TillMovementSource.ManualCash && (source.Lines.Count != 1 || source.Lines[0].Method != ReceiptTenderMethod.Cash || string.IsNullOrWhiteSpace(source.Reason)))
-            return Error.Validation("Till.ReasonRequired", "Manual cash transfers require cash and a reason.");
+            return Errors.Till.ReasonRequired;
         foreach (var line in source.Lines)
         {
             var valid = line.Validate();
             if (valid.IsError) return valid.Errors;
             if (line.BankAccountId is { } bankId && (await banks.GetByIdAsync(bankId, ct))?.ShopId != session.ShopId)
-                return Error.Validation("Till.TenderReferenceInvalid", "The bank account must belong to this shop.");
+                return Errors.Till.TenderReferenceInvalid;
         }
         if (await tills.FindSourceAsync(session.ShopId, source.SourceType, source.SourceId, source.Purpose.Trim(), ct) is not null)
             return TillErrors.DuplicateSource;

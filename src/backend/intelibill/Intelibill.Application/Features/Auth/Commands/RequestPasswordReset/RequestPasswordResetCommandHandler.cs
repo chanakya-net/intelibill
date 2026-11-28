@@ -5,6 +5,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 
@@ -26,7 +27,7 @@ public sealed class RequestPasswordResetCommandHandler(
     {
         // Checked before any lookup, so the 503 says nothing about whether the account exists.
         if (!mail.Enabled)
-            return Error.Failure("Auth.EmailDeliveryUnavailable", "Email delivery is temporarily unavailable.");
+            return Errors.Auth.EmailDeliveryUnavailable;
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
 
         // Always return success to avoid revealing whether the email exists.

@@ -10,6 +10,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.SupplierReturns.Services;
 
@@ -211,7 +212,7 @@ public sealed class SupplierReturnService(
                 if (lease.Value.CurrentDecision().EnforcedDenial() is { } admissionDenial) return admissionDenial;
                 var source = await returns.GetDetailAsync(shopId, id, token);
                 if (lease.Value.CurrentDecision().EnforcedDenial() is { } sourceDenial) return sourceDenial;
-                if (source is null) return Error.NotFound("SupplierReturn.NotFound", "Supplier return was not found.");
+                if (source is null) return Errors.SupplierReturn.NotFound;
                 var ids=source.Lines.Select(x=>x.ReceiptValueId).ToArray();
                 var locked=await FenceAndLock(auth.Value,source.SupplierId,ids,token);
                 if(locked.IsError) return locked.Errors;
@@ -254,7 +255,7 @@ public sealed class SupplierReturnService(
         var auth=await access.AuthorizeAsync(actor,shopId,false,ct);
         if(auth.IsError) return auth.Errors;
         var document=await returns.GetDetailAsync(shopId,id,ct);
-        return document is null?Error.NotFound("SupplierReturn.NotFound","Supplier return was not found."):Map(document);
+        return document is null?Errors.SupplierReturn.NotFound:Map(document);
     }
     public async Task<ErrorOr<IReadOnlyList<SupplierReturnDetailDto>>> ListAsync(
         Guid actor,

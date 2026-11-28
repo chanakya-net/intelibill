@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.SupplierReturns.Services;
 
@@ -35,6 +36,5 @@ public static class SupplierReturnPolicy
         return null;
     }
 
-    private static Error SourceIneligible => Error.Conflict("SupplierReturn.SourceIneligible",
-        "Completion requires an eligible receipt or shipment already recorded for this shop.");
+    private static Error SourceIneligible => Errors.SupplierReturn.SourceIneligible;
 }

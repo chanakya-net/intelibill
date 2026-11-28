@@ -34,7 +34,7 @@ public sealed class UpdateMyProfileCommandHandler(
 
         var emailChanged = !string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase);
         if (emailChanged)
-            return Error.Conflict("Auth.EmailChangeRequired", "Use verified email change to replace a sign-in address.");
+            return Errors.Auth.EmailChangeRequired;
 
         var phoneChanged = !string.Equals(user.PhoneNumber, normalizedPhone, StringComparison.Ordinal);
 

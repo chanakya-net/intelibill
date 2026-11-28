@@ -43,8 +43,7 @@ public sealed class SaleCancellationCompletionPolicy(
         if (Denial(decision) is { } denial) return denial;
         var currentDate = clock.Today(day.TimeZoneId);
         if (PostingPeriod.MonthOf(currentDate) != PostingPeriod.MonthOf(day.Date))
-            return Error.Conflict("SaleCancellation.OtherMonthBlocked",
-                "Use the return or financial adjustment workflow for a sale from another month.");
+            return Errors.SaleCancellation.OtherMonthBlocked;
         if (currentDate != day.Date) return Errors.SaleCancellation.Busy;
         return SourceRefusal(decision, shop, sale) is { } invalid
             ? Error.Conflict(invalid.Code, invalid.Message) : null;

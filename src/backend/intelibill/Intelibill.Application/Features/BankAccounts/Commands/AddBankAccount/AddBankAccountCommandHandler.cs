@@ -27,7 +27,7 @@ public sealed class AddBankAccountCommandHandler(
     {
         if (string.IsNullOrWhiteSpace(command.BankName) || string.IsNullOrWhiteSpace(command.AccountNumber))
         {
-            return Error.Validation("BankAccount.Required", "Bank name and account number are required.");
+            return Errors.BankAccount.Required;
         }
 
         BankAccountType? accountType = Enum.TryParse<BankAccountType>(command.AccountType, true, out var parsed)

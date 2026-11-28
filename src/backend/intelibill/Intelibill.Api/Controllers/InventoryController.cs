@@ -123,13 +123,13 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
         if (request.Items.Count == 0)
             return new List<Error>
             {
-                Error.Validation("Inventory.BatchEmpty", "At least one inventory row is required.")
+                Errors.Inventory.BatchEmpty
             }.ToProblemResult();
 
         if (request.Items.Count > 100)
             return new List<Error>
             {
-                Error.Validation("Inventory.BatchLimitExceeded", "Only 100 items are allowed in a batch.")
+                Errors.Inventory.BatchLimitExceeded
             }.ToProblemResult();
 
         var result = await Bus.InvokeAsync<ErrorOr<AddInventoryBatchResultDto>>(

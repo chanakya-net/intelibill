@@ -8,6 +8,7 @@ using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -26,7 +27,7 @@ internal sealed class TrialActivationConsentStore(ApplicationDbContext db, ShopA
     internal Task<ErrorOr<ShopTrialOperationV1>> ReadAsync(MerchantBillingCaller caller, Guid shop, Guid key, CancellationToken ct) =>
         WithOwnerAsync<ShopTrialOperationV1>(caller, shop, async (owner, token) =>
             await FindAsync(shop, owner.ActorId, key, token) is { } row
-                ? ToResult(row) : Error.NotFound("Trial.OperationNotFound", "The trial operation was not found."), ct);
+                ? ToResult(row) : Errors.Trial.OperationNotFound, ct);
 
     private async Task<ErrorOr<T>> WithOwnerAsync<T>(MerchantBillingCaller caller, Guid shop,
         Func<ShopAffiliationConsentStore.LiveOwner, CancellationToken, Task<ErrorOr<T>>> action, CancellationToken ct)
@@ -36,7 +37,7 @@ internal sealed class TrialActivationConsentStore(ApplicationDbContext db, ShopA
             await using var tx = await db.Database.BeginTransactionAsync(ct);
             await db.SetLockTimeoutAsync(LockWait.Brief, ct);
             if (await authority.LockOwnerAsync(caller, shop, ct) is not { } owner)
-                return Error.Forbidden("Trial.OwnerRequired", "Only the active shop's owner can start or recover its trial.");
+                return Errors.Trial.OwnerRequired;
             var result = await action(owner, ct);
             if (!result.IsError)
                 await tx.CommitAsync(ct);
@@ -53,12 +54,12 @@ internal sealed class TrialActivationConsentStore(ApplicationDbContext db, ShopA
         ShopTrialAcceptanceV1? request, CancellationToken ct)
     {
         if (!ShopTrialsV1.Valid(request))
-            return Error.Validation("Trial.AcceptanceRequired", "Confirm the exact trial terms to start a trial.");
+            return Errors.Trial.AcceptanceRequired;
         var accepted = request!;
         if (await FindAsync(shop, owner.ActorId, accepted.OperationKey, ct) is { } existing)
             return Consent(existing).Acceptance == accepted ? ToResult(existing) : MerchantBillingErrors.PayloadMismatch;
         if (await HasPendingAsync(shop, ct))
-            return Error.Conflict("Trial.OperationPending", "A trial activation is already pending for this shop.");
+            return Errors.Trial.OperationPending;
 
         var now = clock.GetUtcNow();
         var at = new DateTimeOffset(now.UtcTicks - now.UtcTicks % 10, TimeSpan.Zero);

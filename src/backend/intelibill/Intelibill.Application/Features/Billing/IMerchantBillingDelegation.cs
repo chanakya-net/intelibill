@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Security;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Billing;
 
@@ -30,13 +31,12 @@ public interface IMerchantBillingAccess
 
 public static class MerchantBillingErrors
 {
-    public static Error PlanVersionNotFound => Error.NotFound("Billing.PlanVersionNotFound", "The plan version was not found.");
-    public static Error Unavailable => Error.Failure("Billing.DelegationUnavailable", "Billing access is temporarily unavailable.");
-    public static Error Denied => Error.Forbidden("Billing.AccountAccessDenied", "Billing account access was denied.");
-    public static Error SessionInvalid => Error.Unauthorized("Billing.SessionInvalid", "A live verified merchant session is required.");
+    public static Error PlanVersionNotFound => Errors.Billing.PlanVersionNotFound;
+    public static Error Unavailable => Errors.Billing.DelegationUnavailable;
+    public static Error Denied => Errors.Billing.AccountAccessDenied;
+    public static Error SessionInvalid => Errors.Billing.SessionInvalid;
     public static Error NameInvalid => Error.Validation("Billing.AccountNameInvalid",
         $"Enter a billing account name of 1 to {MerchantBillingDelegationV1.MaximumAccountNameLength} characters.");
-    public static Error OperationKeyInvalid => Error.Validation("Billing.OperationKeyInvalid", "The operation key is invalid.");
-    public static Error PayloadMismatch => Error.Conflict("Billing.OperationPayloadMismatch",
-        "This operation key was already used with different details.");
+    public static Error OperationKeyInvalid => Errors.Billing.OperationKeyInvalid;
+    public static Error PayloadMismatch => Errors.Billing.OperationPayloadMismatch;
 }

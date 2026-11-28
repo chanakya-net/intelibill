@@ -77,7 +77,7 @@ internal sealed class SaleReturnValidator(
     {
         var user = await userRepository.GetByIdAsync(request.ActorUserId, cancellationToken);
         if (user is null)
-            return Error.NotFound("User.NotFound", "User not found.");
+            return Errors.User.NotFound;
 
         var shop = await shopRepository.GetByIdAsync(request.ShopId, cancellationToken);
         if (shop is null)
@@ -92,7 +92,7 @@ internal sealed class SaleReturnValidator(
             return Errors.Sale.NotFound(request.SaleId);
 
         if (sale.Status == SaleStatus.Cancelled)
-            return Error.Conflict("SaleReturn.SaleCancelled", "A cancelled sale cannot be returned.");
+            return Errors.SaleReturn.SaleCancelled;
 
         if (request.Licence is { } licence && SaleReturnSourcePolicy.Check(licence, sale, businessClock) is { } refusal)
             return refusal;

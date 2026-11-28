@@ -50,5 +50,11 @@ public static partial class Errors
 
         public static Error BankAccountTypeInvalid =>
             Error.Validation("Shop.BankAccountTypeInvalid", "Bank account type must be Savings or Current.");
+
+        public static Error AccessDenied =>
+            Error.Forbidden("Shop.AccessDenied", "You do not have access to this shop.");
+
+        public static Error PermissionDenied =>
+            Error.Forbidden("Shop.PermissionDenied", "Only owners or managers can change discount rules.");
     }
 }

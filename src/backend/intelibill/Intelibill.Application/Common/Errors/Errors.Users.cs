@@ -44,5 +44,10 @@ public static partial class Errors
 
         public static Error InvitationAlreadyMember =>
             Error.Conflict("Users.InvitationAlreadyMember", "That email address already has an active membership in this shop.");
+
+        public static Error InvitationDeliveryUnavailable =>
+            Error.Failure(
+                "Users.InvitationDeliveryUnavailable",
+                "Email delivery is temporarily unavailable, so invitations cannot be sent.");
     }
 }

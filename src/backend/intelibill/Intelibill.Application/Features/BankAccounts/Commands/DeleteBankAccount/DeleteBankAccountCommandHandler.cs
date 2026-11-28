@@ -25,7 +25,7 @@ public sealed class DeleteBankAccountCommandHandler(
         var bankAccount = await bankAccountRepository.GetByIdAsync(command.Id, cancellationToken);
         if (bankAccount is null || bankAccount.ShopId != command.ShopId)
         {
-            return Error.NotFound("BankAccount.NotFound", "Bank account not found.");
+            return Errors.BankAccount.NotFound;
         }
 
         if (ShopSetupAccess.Denial(lease.CurrentDecision()) is { } denied) return denied;

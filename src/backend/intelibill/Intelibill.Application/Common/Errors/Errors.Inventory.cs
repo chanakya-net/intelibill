@@ -121,5 +121,14 @@ public static partial class Errors
 
         public static Error RowRetryable =>
             Error.Failure("Inventory.RowRetryable", "This row was not saved because of a temporary problem. Send the same batch again to retry it.");
+
+        public static Error BatchEmpty =>
+            Error.Validation("Inventory.BatchEmpty", "At least one inventory row is required.");
+
+        public static Error BatchLimitExceeded =>
+            Error.Validation("Inventory.BatchLimitExceeded", "Only 100 items are allowed in a batch.");
+
+        public static Error InsufficientStock =>
+            Error.Conflict("Inventory.InsufficientStock", "Not enough stock available for this operation.");
     }
 }

@@ -3,6 +3,7 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -38,6 +39,5 @@ internal sealed partial class MerchantBillingClient
         _ => Unavailable("UpstreamStatus"),
     };
 
-    private static Error InvalidRemoval() => Error.Validation("Billing.MemberRemovalInvalid",
-        "Enter valid removal details and a reason.");
+    private static Error InvalidRemoval() => Errors.Billing.MemberRemovalInvalid;
 }

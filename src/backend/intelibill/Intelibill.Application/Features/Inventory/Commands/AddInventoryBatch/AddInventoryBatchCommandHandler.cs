@@ -45,10 +45,10 @@ public sealed class AddInventoryBatchCommandHandler(
     public async Task<ErrorOr<AddInventoryBatchResultDto>> HandleAsync(AddInventoryBatchCommand command, CancellationToken cancellationToken)
     {
         if (command.Items.Count == 0)
-            return Error.Validation("Inventory.BatchEmpty", "At least one inventory row is required.");
+            return Errors.Inventory.BatchEmpty;
 
         if (command.Items.Count > MaxBatchSize)
-            return Error.Validation("Inventory.BatchLimitExceeded", "Only 100 items are allowed in a batch.");
+            return Errors.Inventory.BatchLimitExceeded;
 
         var shapeError = ValidateShape(command);
         if (shapeError is not null)

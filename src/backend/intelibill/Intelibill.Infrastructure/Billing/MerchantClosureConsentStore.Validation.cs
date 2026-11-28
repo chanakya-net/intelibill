@@ -8,6 +8,7 @@ using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -135,7 +136,7 @@ internal sealed partial class MerchantClosureConsentStore
         request.ScopeDigest == SignedServiceAssertion.Digest(JsonSerializer.SerializeToUtf8Bytes(targets, Json));
 
     private static Error ValidationUnavailable =>
-        Error.Failure("Closure.MerchantUnavailable", "The merchant service could not validate closure.");
+        Errors.Closure.MerchantUnavailable;
 
     private sealed record ValidationEntry(ClosureTargetV1 Target, ConsentRow Consent);
 }

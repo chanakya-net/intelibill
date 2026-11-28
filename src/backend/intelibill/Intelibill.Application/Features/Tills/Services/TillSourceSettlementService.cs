@@ -32,9 +32,9 @@ public sealed class TillSourceSettlementService(ITillSessionPolicy policy, ITill
         if (valid.IsError) return valid.Errors;
         if (evidence.Disposition == TillSettlementDisposition.NoPhysicalMovement) return (TillSession?)null;
         if (actualDelta == 0 || (actualDelta > 0 ? TillSettlementDisposition.MoneyReceived : TillSettlementDisposition.MoneyPaid) != evidence.Disposition)
-            return Error.Validation("Till.SettlementDirectionInvalid", "Settlement must match the source's exact signed change.");
+            return Errors.Till.SettlementDirectionInvalid;
         if (evidence.Tender!.AppliedAmount != Math.Abs(actualDelta))
-            return Error.Validation("Till.TenderAmountMismatch", "Tender must equal the exact source settlement amount.");
+            return Errors.Till.TenderAmountMismatch;
         return await posting.AcquireAsync(shopId, actorId, context, sourceDate, ct);
     }
 

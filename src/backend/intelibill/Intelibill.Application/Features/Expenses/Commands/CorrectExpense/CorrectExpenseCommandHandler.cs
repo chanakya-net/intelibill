@@ -50,7 +50,7 @@ public sealed class CorrectExpenseCommandHandler(
             return Error.Validation("Expense.InvalidTreatment", "Supplier settlements retain their source treatment; other expenses require a valid treatment.");
 
         if (original.Treatment == ExpenseTreatment.SupplierSettlement || original.SupplierLedgerEntryId.HasValue)
-            return Error.Validation("Expense.SupplierSettlementCorrectionRefused", "Correct supplier settlement through its payment receipt.");
+            return Errors.Expense.SupplierSettlementCorrectionRefused;
 
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseCorrection, key) { SuspensionAction = LicenceAction.SourceCorrection },
@@ -78,7 +78,7 @@ public sealed class CorrectExpenseCommandHandler(
 
         if ((await settlement.IsEnabledAsync(command.ShopId, cancellationToken) || command.SettlementEvidence is not null) &&
             (command.Amount <= 0 || !TillMoney.IsValid(command.Amount)))
-            return Error.Validation("Till.AmountInvalid", "Expense amount must be positive INR with at most two decimals.");
+            return Errors.Till.AmountInvalid;
         var acquired = await settlement.AcquireAsync(command.ShopId, command.UserId, command.Till, command.OperationKey,
             command.SettlementEvidence, original.Amount - command.Amount, postingDate, cancellationToken);
         if (acquired.IsError) return acquired.Errors;

@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Billing;
 
@@ -17,6 +18,5 @@ public interface IMerchantSubscriptionStatus
 
 public static class MerchantSubscriptionStatusErrors
 {
-    public static Error ShopScope => Error.Forbidden("Licensing.ShopScopeRequired",
-        "Select this shop as your active shop to read its access status.");
+    public static Error ShopScope => Errors.Licensing.ShopScopeRequired;
 }

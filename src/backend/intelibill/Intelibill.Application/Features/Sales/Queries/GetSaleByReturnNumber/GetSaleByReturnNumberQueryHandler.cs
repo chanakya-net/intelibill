@@ -17,7 +17,7 @@ public sealed class GetSaleByReturnNumberQueryHandler(
     {
         var user = await userRepository.GetByIdAsync(query.UserId, cancellationToken);
         if (user is null)
-            return Error.NotFound("User.NotFound", "User not found.");
+            return Errors.User.NotFound;
 
         var shop = await shopRepository.GetByIdAsync(query.ShopId, cancellationToken);
         if (shop is null)

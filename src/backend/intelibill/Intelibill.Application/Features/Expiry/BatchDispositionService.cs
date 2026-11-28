@@ -99,7 +99,7 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
         if (string.IsNullOrWhiteSpace(request.OperationKey) || request.OperationKey.Trim().Length > 128 || request.ExpectedVersion == 0 ||
             request.QuarantineChangeId == Guid.Empty || request.Action is not ("Release" or "Dispose") || request.Quantity <= 0 ||
             string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > 500)
-            return Error.Validation("Expiry.DispositionInvalid", "Supply an operation key, version, root, positive quantity, action and 1 to 500 character reason.");
+            return Errors.Expiry.DispositionInvalid;
 
         var posting = new DispositionPosting(shopId, actor, batchId, request, session!);
         var hash = FinancialOperationHasher.Compute(new { batchId, request.ExpectedVersion, request.QuarantineChangeId, request.Action, request.Quantity, Reason = request.Reason.Trim() });
@@ -158,7 +158,7 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
         if (batch.Version != request.ExpectedVersion) return Refused("BatchVersionConflict", "Reload the batch version.");
         var detailed = await batches.GetByIdWithItemAsync(batchId, shopId, ct);
         if (!QuantityPolicy.FitsScale(request.Quantity, detailed!.Item.QuantityScale))
-            return Error.Validation("Expiry.QuantityPrecisionExceeded", "Quantity exceeds the item's scale.");
+            return Errors.Expiry.QuantityPrecisionExceeded;
 
         var root = await journal.GetRootAsync(shopId, batchId, request.QuarantineChangeId, ct);
         if (root is null || root.ItemId != batch.ItemId || root.Action != "Quarantine")
