@@ -84,27 +84,30 @@ internal sealed partial class MerchantBillingClient : IMerchantLicenseNotices
             ct);
     }
 
-    public Task<ErrorOr<BillingContactV1[]>> ListContactsAsync(
+    public Task<ErrorOr<BillingContactsPageV1>> ListContactsAsync(
         MerchantBillingCaller caller,
         Guid accountId,
+        Guid? after,
         CancellationToken ct)
     {
-        if (accountId == Guid.Empty)
-            return Task.FromResult<ErrorOr<BillingContactV1[]>>(MerchantBillingErrors.Denied);
+        if (accountId == Guid.Empty || after == Guid.Empty)
+            return Task.FromResult<ErrorOr<BillingContactsPageV1>>(MerchantBillingErrors.Denied);
 
-        return RunAsync<BillingContactV1[]>(
+        return RunAsync<BillingContactsPageV1>(
             caller,
             new BillingDelegationIntent(
                 LicenseNoticesV1.ContactList,
                 HttpMethod.Get,
-                LicenseNoticesV1.AccountContactsPath(accountId),
+                LicenseNoticesV1.AccountContactsPath(accountId, after),
                 accountId,
                 []),
             LicenseNoticesV1.ContactResponseLimit,
             async (response, token) =>
             {
-                var payload = await ReadJsonAsync<BillingContactV1[]>(response, token);
-                return payload is not null ? payload : Unavailable("InvalidContactListContract");
+                var payload = await ReadJsonAsync<BillingContactsPageV1>(response, token);
+                return payload is not null && IsValidContactsPage(payload, accountId)
+                    ? payload
+                    : Unavailable("InvalidContactListContract");
             },
             ct);
     }
@@ -242,6 +245,7 @@ internal sealed partial class MerchantBillingClient : IMerchantLicenseNotices
 
     private static Error MapNotificationContactFailure(string? code) => code switch
     {
+        "Notifications.InvalidCursor" => Errors.Notifications.InvalidCursor,
         "Notifications.ContactInvalid" => Errors.Notifications.ContactInvalid,
         "Notifications.ContactNotFound" => Errors.Notifications.ContactNotFound,
         "Notifications.ContactConflict" => Errors.Notifications.ContactConflict,
@@ -261,4 +265,12 @@ internal sealed partial class MerchantBillingClient : IMerchantLicenseNotices
         && payload.AccountId == accountId
         && payload.Notices is { Length: <= LicenseNoticesV1.PageSize }
         && payload.Notices.All(item => item.NoticeId != Guid.Empty && item.AccountId == accountId);
+
+    private static bool IsValidContactsPage(BillingContactsPageV1 payload, Guid accountId) =>
+        payload.SchemaVersion == LicenseNoticesV1.SchemaVersion
+        && payload.AccountId == accountId
+        && payload.Items is { Length: <= LicenseNoticesV1.ContactPageSize }
+        && payload.TotalCount >= payload.Items.Length
+        && (payload.NextCursor is null || (payload.NextCursor != Guid.Empty && payload.Items.Length > 0))
+        && payload.Items.All(item => item.ContactId != Guid.Empty && item.AccountId == accountId);
 }

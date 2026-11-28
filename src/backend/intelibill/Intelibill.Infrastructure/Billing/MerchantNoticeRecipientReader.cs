@@ -23,8 +23,9 @@ public interface INoticeRecipientAuthorityReceiver
 
 /// <summary>
 /// Answers licensing's signed notice-recipient query with live verified merchant identities,
-/// preferred languages, and paged active shop memberships. Consumes the single-use service
-/// assertion in a Read Committed transaction under shop-scoped RLS when a shop is named.
+/// preferred languages, and paged active shop memberships. Validates the exact
+/// <c>(shop, account, affiliation)</c> binding before returning any shop roster and minimizes
+/// personal data on the wire (never exporting raw phone numbers or staff email addresses).
 /// </summary>
 internal sealed class MerchantNoticeRecipientReader(
     ApplicationDbContext db,
@@ -45,50 +46,7 @@ internal sealed class MerchantNoticeRecipientReader(
 
         try
         {
-            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
-            if (request.ShopId is { } shopId)
-            {
-                await db.Database.ExecuteSqlInterpolatedAsync($"""
-                    SELECT set_config('app.active_shop_id', {shopId.ToString("D")}, true),
-                           set_config('app.entitlement_account_id', {request.AccountId.ToString("D")}, true)
-                    """, ct);
-            }
-
-            if (!await projection.ConsumeAsync(proof, ct))
-                return Errors.Notifications.RecipientAuthorityUnauthorized;
-
-            var observedAt = EntitlementSnapshotsV1.Instant(businessClock);
-            var affiliationMatches = true;
-            NoticeRecipientActorV1[] shopMembers = [];
-            Guid? nextCursor = null;
-
-            if (request.ShopId is { } targetShop)
-            {
-                affiliationMatches = await MatchesKnownAffiliationAsync(targetShop, request.AccountId, ct);
-                if (affiliationMatches)
-                    (shopMembers, nextCursor) = await ReadShopMemberPageAsync(targetShop, request.AfterUserId, request.PageSize, ct);
-            }
-
-            var actors = request.ActorIds.Length > 0
-                ? await ReadRequestedActorsAsync(request.ActorIds, request.ShopId, ct)
-                : [];
-
-            if (transportClock.GetUtcNow() >= request.Deadline)
-                return Errors.Notifications.RecipientAuthorityUnauthorized;
-
-            await tx.CommitAsync(ct);
-            return new NoticeRecipientAuthorityResponseV1(
-                LicenseNoticesV1.SchemaVersion,
-                request.Challenge,
-                request.AccountId,
-                request.ShopId,
-                request.AffiliationRequestId,
-                affiliationMatches,
-                observedAt,
-                actors,
-                shopMembers,
-                nextCursor);
+            return await ExecuteInspectionTransactionAsync(request, proof, ct);
         }
         catch (Exception error) when (error is NpgsqlException or TimeoutException)
         {
@@ -97,17 +55,98 @@ internal sealed class MerchantNoticeRecipientReader(
         }
     }
 
-    private async Task<bool> MatchesKnownAffiliationAsync(Guid shopId, Guid expectedAccountId, CancellationToken ct)
+    private async Task<ErrorOr<NoticeRecipientAuthorityResponseV1>> ExecuteInspectionTransactionAsync(
+        NoticeRecipientAuthorityRequestV1 request,
+        VerifiedServiceAssertion proof,
+        CancellationToken ct)
     {
-        var projectedAccounts = await db.Database.SqlQuery<Guid>($"""
-            SELECT account_id AS "Value"
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+        await db.SetLockTimeoutAsync(LockWait.Brief, ct);
+        if (request.ShopId is { } shopId)
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                SELECT set_config('app.active_shop_id', {shopId.ToString("D")}, true),
+                       set_config('app.entitlement_account_id', {request.AccountId.ToString("D")}, true)
+                """, ct);
+        }
+
+        if (!await projection.ConsumeAsync(proof, ct))
+            return Errors.Notifications.RecipientAuthorityUnauthorized;
+
+        var observedAt = EntitlementSnapshotsV1.Instant(businessClock);
+        var (affiliationMatches, shopMembers, nextCursor) = await ReadShopRosterIfBoundAsync(request, ct);
+        var actors = request.ActorIds.Length > 0
+            ? await ReadRequestedActorsAsync(request.ActorIds, request.ShopId, ct)
+            : [];
+
+        if (transportClock.GetUtcNow() >= request.Deadline)
+            return Errors.Notifications.RecipientAuthorityUnauthorized;
+
+        await tx.CommitAsync(ct);
+        return new NoticeRecipientAuthorityResponseV1(
+            LicenseNoticesV1.SchemaVersion,
+            request.Challenge,
+            request.AccountId,
+            request.ShopId,
+            request.AffiliationRequestId,
+            affiliationMatches,
+            observedAt,
+            actors,
+            shopMembers,
+            nextCursor);
+    }
+
+    private async Task<(bool Matches, NoticeRecipientActorV1[] Members, Guid? NextCursor)> ReadShopRosterIfBoundAsync(
+        NoticeRecipientAuthorityRequestV1 request,
+        CancellationToken ct)
+    {
+        if (request.ShopId is not { } targetShop || request.AffiliationRequestId is not { } affiliationId)
+            return (true, [], null);
+
+        var matches = await MatchesKnownAffiliationAsync(targetShop, request.AccountId, affiliationId, ct);
+        if (!matches)
+            return (false, [], null);
+
+        var (members, nextCursor) = await ReadShopMemberPageAsync(targetShop, request.AfterUserId, request.PageSize, ct);
+        return (true, members, nextCursor);
+    }
+
+    private async Task<bool> MatchesKnownAffiliationAsync(
+        Guid shopId,
+        Guid expectedAccountId,
+        Guid expectedAffiliationRequestId,
+        CancellationToken ct)
+    {
+        var projected = await db.Database.SqlQuery<ProjectedBindingRow>($"""
+            SELECT account_id, affiliation_request_id
             FROM public.shop_license_states
             WHERE shop_id = {shopId}
             """).ToListAsync(ct);
-        if (projectedAccounts is [var actualAccount])
-            return actualAccount == expectedAccountId;
+        if (projected is [var current])
+        {
+            return current.AccountId == expectedAccountId
+                && current.AffiliationRequestId == expectedAffiliationRequestId;
+        }
 
-        return await db.Shops.AsNoTracking().AnyAsync(shop => shop.Id == shopId, ct);
+        // Before the first entitlement projection arrives, require independently confirmed merchant
+        // affiliation consent for the exact (shop, account, request_id) binding.
+        return await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (
+                SELECT FROM public.shop_affiliation_consent_events e
+                LEFT JOIN public.shop_affiliation_delivery_receipts r ON r.event_id = e.id
+                WHERE e.shop_id = {shopId}
+                  AND e.account_id = {expectedAccountId}
+                  AND e.request_id = {expectedAffiliationRequestId}
+                  AND e.kind = 'Accepted'
+                  AND r.status IS DISTINCT FROM 'NeedsReview'
+                  AND NOT EXISTS (
+                      SELECT FROM public.shop_affiliation_consent_events rev
+                      WHERE rev.shop_id = e.shop_id
+                        AND rev.request_id = e.request_id
+                        AND rev.kind = 'Revoked'
+                  )
+            ) AS "Value"
+            """).SingleAsync(ct);
     }
 
     private async Task<(NoticeRecipientActorV1[] Members, Guid? NextCursor)> ReadShopMemberPageAsync(
@@ -152,7 +191,8 @@ internal sealed class MerchantNoticeRecipientReader(
                 row.PhoneNumber,
                 row.Language,
                 row.Role.ToString(),
-                row.AuthorityVersion))
+                row.AuthorityVersion,
+                includeEmail: row.Role == ShopRole.Owner))
             .ToArray();
         var nextCursor = hasMore && page.Length > 0 ? page[^1].UserId : (Guid?)null;
         return (page, nextCursor);
@@ -205,7 +245,8 @@ internal sealed class MerchantNoticeRecipientReader(
                     user.PhoneNumber,
                     user.Language,
                     hasRole && user.IsLoginEnabled ? role.Role.ToString() : null,
-                    hasRole && user.IsLoginEnabled ? role.AuthorityVersion : null);
+                    hasRole && user.IsLoginEnabled ? role.AuthorityVersion : null,
+                    includeEmail: true);
             }),
         ];
     }
@@ -219,23 +260,22 @@ internal sealed class MerchantNoticeRecipientReader(
         string? phone,
         string? language,
         string? shopRole,
-        long? authorityVersion)
+        long? authorityVersion,
+        bool includeEmail)
     {
-        var verifiedEmail = isLoginEnabled && isEmailVerified && !string.IsNullOrWhiteSpace(email)
-            ? email.Trim().ToLowerInvariant()
-            : null;
-        var verifiedPhone = isLoginEnabled && isPhoneVerified && !string.IsNullOrWhiteSpace(phone)
-            ? phone.Trim()
-            : null;
+        var hasVerifiedEmail = isLoginEnabled && isEmailVerified && !string.IsNullOrWhiteSpace(email);
+        var hasVerifiedPhone = isLoginEnabled && isPhoneVerified && !string.IsNullOrWhiteSpace(phone);
+        var verifiedEmail = includeEmail && hasVerifiedEmail ? email!.Trim().ToLowerInvariant() : null;
         return new NoticeRecipientActorV1(
             userId,
             isLoginEnabled,
-            isLoginEnabled && isEmailVerified && verifiedEmail is not null,
+            hasVerifiedEmail,
             verifiedEmail,
-            isLoginEnabled && isPhoneVerified && verifiedPhone is not null,
-            verifiedPhone,
+            hasVerifiedPhone,
             LicenseNoticesV1.NormalizeLocale(language),
             shopRole,
             authorityVersion);
     }
+
+    private sealed record ProjectedBindingRow(Guid AccountId, Guid AffiliationRequestId);
 }

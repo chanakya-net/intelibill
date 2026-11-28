@@ -46,13 +46,14 @@ public sealed partial class BillingController
     [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> ListNoticeContacts(
         Guid accountId,
+        [FromQuery] Guid? after,
         [FromServices] IMerchantLicenseNotices notices,
         CancellationToken ct)
     {
         if (ReadCaller() is not { } caller)
             return SessionInvalid();
 
-        var result = await notices.ListContactsAsync(caller, accountId, ct);
+        var result = await notices.ListContactsAsync(caller, accountId, after, ct);
         return result.IsError ? Failure(result.FirstError) : Ok(result.Value);
     }
 

@@ -9,13 +9,18 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
     public partial class PlanLicenseNotices : Migration
     {
         private static readonly string[] ContactEventRevisionColumns = ["contact_id", "revision", "event_kind"];
-        private static readonly string[] ContactAccountColumns = ["account_id", "id"];
+        private static readonly string[] ContactAccountColumns = ["account_id", "approved_at", "id"];
         private static readonly string[] ContactActiveDestinationColumns = ["account_id", "destination_hash"];
         private static readonly string[] ContactActiveUserColumns = ["account_id", "merchant_user_id"];
         private static readonly string[] ContactOperationColumns = ["account_id", "operation_key"];
         private static readonly string[] JobAccountActorDueColumns = ["account_id", "recipient_user_id", "due_at", "id"];
         private static readonly string[] JobAccountDueColumns = ["account_id", "due_at", "id"];
         private static readonly string[] JobShopActorDueColumns = ["scope_id", "recipient_user_id", "due_at", "id"];
+        private static readonly string[] JobEmailDestinationColumns =
+        [
+            "account_id", "scope_kind", "scope_id", "destination_hash", "purpose",
+            "source_kind", "source_id", "source_revision", "threshold",
+        ];
         private static readonly string[] JobSemanticKeyColumns =
         [
             "account_id", "scope_kind", "scope_id", "recipient_key", "purpose",
@@ -87,6 +92,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     status = table.Column<string>(type: "text", nullable: false),
                     template_key = table.Column<string>(type: "text", nullable: false),
                     template_arguments = table.Column<string>(type: "jsonb", nullable: false),
+                    destination_hash = table.Column<byte[]>(type: "bytea", nullable: true),
                     protected_destination = table.Column<string>(type: "text", nullable: true),
                     destination_hint = table.Column<string>(type: "text", nullable: true),
                     planned_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -95,7 +101,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("pk_notification_jobs", x => x.id);
-                    table.CheckConstraint("ck_notification_jobs_channels", "cardinality(allowed_channels) >= 1\nAND allowed_channels <@ ARRAY['InApp', 'Email']::text[]\nAND (audience <> 'ShopStaffOperational' OR allowed_channels = ARRAY['InApp']::text[])\nAND (audience <> 'CommercialContact' OR allowed_channels = ARRAY['Email']::text[])\nAND (NOT ('Email' = ANY(allowed_channels)) OR (protected_destination IS NOT NULL AND destination_hint IS NOT NULL))");
+                    table.CheckConstraint("ck_notification_jobs_channels", "cardinality(allowed_channels) >= 1\nAND allowed_channels <@ ARRAY['InApp', 'Email']::text[]\nAND (audience <> 'ShopStaffOperational' OR allowed_channels = ARRAY['InApp']::text[])\nAND (audience <> 'CommercialContact' OR allowed_channels = ARRAY['Email']::text[])\nAND (NOT ('Email' = ANY(allowed_channels)) OR (\n    protected_destination IS NOT NULL\n    AND destination_hint IS NOT NULL\n    AND destination_hash IS NOT NULL\n    AND octet_length(destination_hash) = 32))\nAND ('Email' = ANY(allowed_channels) OR destination_hash IS NULL)");
                     table.CheckConstraint("ck_notification_jobs_dates", "effective_deadline_at >= due_at AND time_zone = 'Asia/Kolkata'");
                     table.CheckConstraint("ck_notification_jobs_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND scope_id <> '00000000-0000-0000-0000-000000000000'\nAND source_id <> '00000000-0000-0000-0000-000000000000'\nAND (recipient_user_id IS NULL OR recipient_user_id <> '00000000-0000-0000-0000-000000000000')\nAND (contact_id IS NULL OR contact_id <> '00000000-0000-0000-0000-000000000000')");
                     table.CheckConstraint("ck_notification_jobs_locale", "locale IN ('en-IN', 'hi-IN', 'ta-IN', 'te-IN', 'bn-IN', 'ml-IN', 'kn-IN', 'mr-IN', 'gu-IN')");
@@ -130,7 +136,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 {
                     table.PrimaryKey("pk_billing_notice_contact_events", x => x.id);
                     table.CheckConstraint("ck_billing_notice_contact_events_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND contact_id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND (actor_id IS NULL OR actor_id <> '00000000-0000-0000-0000-000000000000')");
-                    table.CheckConstraint("ck_billing_notice_contact_events_kind", "event_kind IN ('Approved', 'Verified', 'OptedIn', 'Revoked') AND revision >= 1");
+                    table.CheckConstraint("ck_billing_notice_contact_events_kind", "event_kind IN ('Approved', 'Verified', 'OptedIn', 'OptedOut', 'Revoked') AND revision >= 1");
                     table.ForeignKey(
                         name: "fk_billing_notice_contact_events_billing_accounts_account_id",
                         column: x => x.account_id,
@@ -139,6 +145,38 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "fk_billing_notice_contact_events_billing_notice_contacts_conta",
+                        column: x => x.contact_id,
+                        principalTable: "billing_notice_contacts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "billing_notice_contact_operations",
+                columns: table => new
+                {
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    action = table.Column<string>(type: "text", nullable: false),
+                    operation_key = table.Column<Guid>(type: "uuid", nullable: false),
+                    contact_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    actor_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    payload_hash = table.Column<byte[]>(type: "bytea", nullable: false),
+                    resulting_revision = table.Column<int>(type: "integer", nullable: false),
+                    recorded_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_billing_notice_contact_operations", x => new { x.account_id, x.action, x.operation_key });
+                    table.CheckConstraint("ck_billing_notice_contact_operations_action", "action IN ('Approve', 'SelfConsent', 'StandaloneConsent', 'OwnerRevoke', 'HolderRevoke')\nAND octet_length(payload_hash) = 32\nAND resulting_revision >= 1");
+                    table.CheckConstraint("ck_billing_notice_contact_operations_ids", "account_id <> '00000000-0000-0000-0000-000000000000'\nAND contact_id <> '00000000-0000-0000-0000-000000000000'\nAND operation_key <> '00000000-0000-0000-0000-000000000000'\nAND (actor_id IS NULL OR actor_id <> '00000000-0000-0000-0000-000000000000')");
+                    table.ForeignKey(
+                        name: "fk_billing_notice_contact_operations_billing_accounts_account_",
+                        column: x => x.account_id,
+                        principalTable: "billing_accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_billing_notice_contact_operations_billing_notice_contacts_c",
                         column: x => x.contact_id,
                         principalTable: "billing_notice_contacts",
                         principalColumn: "id",
@@ -155,6 +193,11 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 table: "billing_notice_contact_events",
                 columns: ContactEventRevisionColumns,
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_billing_notice_contact_operations_contact_id",
+                table: "billing_notice_contact_operations",
+                column: "contact_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_billing_notice_contacts_account",
@@ -199,6 +242,13 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 filter: "scope_kind = 'Shop' AND recipient_user_id IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "ux_notification_jobs_email_destination",
+                table: "notification_jobs",
+                columns: JobEmailDestinationColumns,
+                unique: true,
+                filter: "destination_hash IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "ux_notification_jobs_semantic_key",
                 table: "notification_jobs",
                 columns: JobSemanticKeyColumns,
@@ -222,6 +272,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     BEFORE UPDATE OR DELETE OR TRUNCATE ON public.billing_notice_contact_events
                     FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
 
+                CREATE TRIGGER billing_notice_contact_operations_immutable
+                    BEFORE UPDATE OR DELETE OR TRUNCATE ON public.billing_notice_contact_operations
+                    FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
+
                 CREATE TRIGGER billing_notice_contacts_retain
                     BEFORE DELETE OR TRUNCATE ON public.billing_notice_contacts
                     FOR EACH STATEMENT EXECUTE FUNCTION public.refuse_notification_evidence_mutation();
@@ -232,8 +286,12 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                 ALTER TABLE public.billing_notice_contacts FORCE ROW LEVEL SECURITY;
                 ALTER TABLE public.billing_notice_contact_events ENABLE ROW LEVEL SECURITY;
                 ALTER TABLE public.billing_notice_contact_events FORCE ROW LEVEL SECURITY;
+                ALTER TABLE public.billing_notice_contact_operations ENABLE ROW LEVEL SECURITY;
+                ALTER TABLE public.billing_notice_contact_operations FORCE ROW LEVEL SECURITY;
 
                 DO $$
+                DECLARE
+                    discovery_table text;
                 BEGIN
                     EXECUTE format(
                         'CREATE POLICY notification_jobs_owner ON public.notification_jobs TO %I USING (true) WITH CHECK (true)',
@@ -245,8 +303,24 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         'CREATE POLICY billing_notice_contact_events_owner ON public.billing_notice_contact_events TO %I USING (true) WITH CHECK (true)',
                         current_user);
                     EXECUTE format(
-                        'CREATE POLICY notification_planner_discovery ON public.subscription_coverage_terms FOR SELECT TO %I USING (true)',
+                        'CREATE POLICY billing_notice_contact_operations_owner ON public.billing_notice_contact_operations TO %I USING (true) WITH CHECK (true)',
                         current_user);
+                    FOREACH discovery_table IN ARRAY ARRAY[
+                        'subscription_coverage_terms',
+                        'subscription_term_facts',
+                        'trial_history',
+                        'trial_extensions',
+                        'payment_trial_conversions',
+                        'complimentary_grants',
+                        'operational_closures',
+                        'payment_fulfilments',
+                        'paid_fresh_starts'
+                    ] LOOP
+                        EXECUTE format(
+                            'CREATE POLICY notification_planner_discovery ON public.%I FOR SELECT TO %I USING (true)',
+                            discovery_table,
+                            current_user);
+                    END LOOP;
                 END;
                 $$;
 
@@ -287,24 +361,84 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     FOR INSERT
                     WITH CHECK (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
 
-                CREATE FUNCTION public.due_notification_planning(p_after_account uuid, p_limit integer)
+                CREATE POLICY billing_notice_contact_operations_account_read ON public.billing_notice_contact_operations
+                    FOR SELECT
+                    USING (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
+
+                CREATE POLICY billing_notice_contact_operations_account_insert ON public.billing_notice_contact_operations
+                    FOR INSERT
+                    WITH CHECK (account_id = NULLIF(current_setting('app.billing_account_id', true), '')::uuid);
+
+                CREATE FUNCTION public.due_notification_planning(
+                    p_now timestamp with time zone,
+                    p_after_account uuid,
+                    p_limit integer)
                     RETURNS TABLE(account_id uuid)
                     LANGUAGE sql STABLE SECURITY DEFINER
                     SET search_path TO 'pg_catalog'
                 AS $$
                     SELECT DISTINCT t.account_id
                     FROM public.subscription_coverage_terms t
+                    LEFT JOIN public.subscription_term_facts f
+                        ON f.account_id = t.account_id AND f.term_id = t.term_id
+                    LEFT JOIN public.trial_history h
+                        ON h.account_id = t.account_id AND h.term_id = t.term_id
+                    LEFT JOIN LATERAL (
+                        SELECT e.ends_at
+                        FROM public.trial_extensions e
+                        WHERE e.account_id = h.account_id AND e.shop_id = h.shop_id
+                        ORDER BY e.revision DESC
+                        LIMIT 1
+                    ) ext ON true
+                    LEFT JOIN public.payment_trial_conversions x
+                        ON x.account_id = h.account_id AND x.shop_id = h.shop_id
+                    LEFT JOIN public.complimentary_grants g
+                        ON g.account_id = t.account_id AND g.term_id = t.term_id
                     WHERE (p_after_account IS NULL OR t.account_id > p_after_account)
+                      AND g.grant_id IS NULL
+                      AND NOT EXISTS (
+                          SELECT FROM public.operational_closures oc
+                          WHERE oc.account_id = t.account_id AND oc.shop_id IS NULL
+                      )
+                      AND (
+                          (f.basis = 'Paid'
+                              AND t.ends_at + interval '7 days' >= p_now
+                              AND NOT EXISTS (
+                                  SELECT FROM public.payment_fulfilments pf
+                                  WHERE pf.account_id = t.account_id
+                                    AND pf.predecessor_term_id = t.term_id
+                                    AND pf.fulfilled_at <= p_now
+                                    AND NOT EXISTS (
+                                        SELECT FROM public.paid_fresh_starts pfs
+                                        WHERE pfs.account_id = pf.account_id
+                                          AND pfs.order_id = pf.order_id
+                                          AND pfs.kind = 'RestoredAccess'
+                                    )
+                              ))
+                          OR (h.term_id IS NOT NULL
+                              AND COALESCE(ext.ends_at, t.ends_at) > p_now
+                              AND (x.paid_starts_at IS NULL OR x.paid_starts_at > p_now))
+                      )
                       AND nullif(current_setting('app.active_shop_id', true), '') IS NULL
                       AND nullif(current_setting('app.current_user_id', true), '') IS NULL
                       AND nullif(current_setting('app.billing_account_id', true), '') IS NULL
+                      AND nullif(current_setting('app.billing_actor_id', true), '') IS NULL
                       AND nullif(current_setting('app.entitlement_account_id', true), '') IS NULL
                       AND nullif(current_setting('app.status_shop_id', true), '') IS NULL
+                      AND nullif(current_setting('app.provider_session_id', true), '') IS NULL
+                      AND nullif(current_setting('app.restriction_account_id', true), '') IS NULL
+                      AND nullif(current_setting('app.affiliation_shop_id', true), '') IS NULL
+                      AND nullif(current_setting('app.affiliation_request_id', true), '') IS NULL
+                      AND nullif(current_setting('app.catalogue_admin_id', true), '') IS NULL
+                      AND nullif(current_setting('app.grant_admin_id', true), '') IS NULL
+                      AND nullif(current_setting('app.manual_admin_id', true), '') IS NULL
+                      AND nullif(current_setting('app.exception_admin_id', true), '') IS NULL
+                      AND nullif(current_setting('app.trial_extension_admin_id', true), '') IS NULL
                     ORDER BY t.account_id
                     LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100)
                 $$;
 
-                REVOKE ALL ON FUNCTION public.due_notification_planning(uuid, integer) FROM PUBLIC;
+                REVOKE ALL ON FUNCTION public.due_notification_planning(timestamp with time zone, uuid, integer) FROM PUBLIC;
 
                 CREATE FUNCTION public.account_notification_billing_members(
                     p_account uuid,
@@ -335,16 +469,28 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
         {
             migrationBuilder.Sql("""
                 DROP FUNCTION IF EXISTS public.account_notification_billing_members(uuid, uuid, integer);
-                DROP FUNCTION IF EXISTS public.due_notification_planning(uuid, integer);
+                DROP FUNCTION IF EXISTS public.due_notification_planning(timestamp with time zone, uuid, integer);
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.paid_fresh_starts;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.payment_fulfilments;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.operational_closures;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.complimentary_grants;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.payment_trial_conversions;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.trial_extensions;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.trial_history;
+                DROP POLICY IF EXISTS notification_planner_discovery ON public.subscription_term_facts;
                 DROP POLICY IF EXISTS notification_planner_discovery ON public.subscription_coverage_terms;
                 DROP TRIGGER IF EXISTS notification_jobs_immutable ON public.notification_jobs;
                 DROP TRIGGER IF EXISTS billing_notice_contact_events_immutable ON public.billing_notice_contact_events;
+                DROP TRIGGER IF EXISTS billing_notice_contact_operations_immutable ON public.billing_notice_contact_operations;
                 DROP TRIGGER IF EXISTS billing_notice_contacts_retain ON public.billing_notice_contacts;
                 DROP FUNCTION IF EXISTS public.refuse_notification_evidence_mutation();
                 """);
 
             migrationBuilder.DropTable(
                 name: "billing_notice_contact_events");
+
+            migrationBuilder.DropTable(
+                name: "billing_notice_contact_operations");
 
             migrationBuilder.DropTable(
                 name: "notification_jobs");

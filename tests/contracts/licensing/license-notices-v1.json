@@ -18,6 +18,14 @@
       "path": "/internal/licensing/v1/customer/accounts/{accountId}/notices",
       "continuation": "/internal/licensing/v1/customer/accounts/{accountId}/notices/after/{noticeId}"
     },
+    "contactList": {
+      "action": "licensing.notice-contacts.list",
+      "scope": "account",
+      "roles": ["Owner"],
+      "method": "GET",
+      "path": "/internal/licensing/v1/customer/accounts/{accountId}/notice-contacts",
+      "continuation": "/internal/licensing/v1/customer/accounts/{accountId}/notice-contacts/after/{contactId}"
+    },
     "recipientAuthority": {
       "method": "POST",
       "path": "/internal/merchant/v1/licensing/notice-recipients",
@@ -25,16 +33,21 @@
     }
   },
   "publicRoutes": {
-    "merchantShop": "GET /api/licensing/shops/{shopId}/notices?after= (live active-shop member, operational only)",
-    "merchantAccount": "GET /api/billing/accounts/{accountId}/notices?after= (verified Billing Owner/Manager, no shop required)",
+    "merchantShop": "GET /api/licensing/shops/{shopId}/notices?after= (live active-shop member, current operational guidance only)",
+    "merchantAccount": "GET /api/billing/accounts/{accountId}/notices?after= (verified Billing Owner/Manager, current per-source commercial notices)",
+    "merchantContacts": "GET /api/billing/accounts/{accountId}/notice-contacts?after= (verified Billing Owner, paged without verification secrets)",
     "providerAccount": "GET /api/admin/accounts/{accountId}/notifications?after= (Support redacted; Billing or Licensing Manager commercial)"
   },
   "bounds": {
     "pageSize": 50,
+    "contactPageSize": 25,
+    "maxShopNameSampleCount": 5,
+    "maxShopNamePreviewCodeUnits": 64,
     "maxRecipientPageSize": 50,
     "maxActorLookupCount": 50,
     "shopResponseLimit": 131072,
-    "accountResponseLimit": 262144
+    "accountResponseLimit": 262144,
+    "contactResponseLimit": 32768
   },
   "vocabularies": {
     "scopeKinds": ["Account", "Shop"],
@@ -54,10 +67,14 @@
     "statuses": ["Scheduled"],
     "guidanceCodes": [
       "TrialEnding",
+      "TrialEndingPartialSuspension",
       "PaidRenewalDue",
+      "PaidRenewalPartialSuspension",
       "PaidTermCancelled",
       "GraceActive",
+      "GraceActivePartialSuspension",
       "GraceEnding",
+      "GraceEndingPartialSuspension",
       "AccessExpired",
       "SuspendedNoPaymentLift"
     ],
@@ -80,6 +97,16 @@
     "invoiceReference",
     "paymentAction",
     "commercial"
+  ],
+  "forbiddenContactFields": [
+    "verificationProofToken",
+    "proofToken",
+    "protectedDestination",
+    "destinationHash"
+  ],
+  "forbiddenAuthorityWireFields": [
+    "verifiedPhone",
+    "phoneNumber"
   ],
   "timeVectors": {
     "timeZone": "Asia/Kolkata",

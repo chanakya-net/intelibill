@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace Intelibill.Shared.Contracts.V1;
@@ -22,6 +23,9 @@ public static class LicenseNoticesV1
     public const string ProofHeader = "X-Licensing-Notice-Recipients-Proof";
 
     public const int PageSize = 50;
+    public const int ContactPageSize = 25;
+    public const int MaxShopNameSampleCount = 5;
+    public const int MaxShopNamePreviewCodeUnits = 64;
     public const int MaxRecipientPageSize = 50;
     public const int MaxActorLookupCount = 50;
     public const int ShopResponseLimit = 128 * 1024;
@@ -59,10 +63,14 @@ public static class LicenseNoticesV1
     public const string StatusScheduled = "Scheduled";
 
     public const string GuidanceTrialEnding = "TrialEnding";
+    public const string GuidanceTrialEndingPartialSuspension = "TrialEndingPartialSuspension";
     public const string GuidancePaidRenewalDue = "PaidRenewalDue";
+    public const string GuidancePaidRenewalPartialSuspension = "PaidRenewalPartialSuspension";
     public const string GuidancePaidTermCancelled = "PaidTermCancelled";
     public const string GuidanceGraceActive = "GraceActive";
+    public const string GuidanceGraceActivePartialSuspension = "GraceActivePartialSuspension";
     public const string GuidanceGraceEnding = "GraceEnding";
+    public const string GuidanceGraceEndingPartialSuspension = "GraceEndingPartialSuspension";
     public const string GuidanceAccessExpired = "AccessExpired";
     public const string GuidanceSuspendedNoPaymentLift = "SuspendedNoPaymentLift";
 
@@ -107,10 +115,14 @@ public static class LicenseNoticesV1
     public static readonly string[] GuidanceCodes =
     [
         GuidanceTrialEnding,
+        GuidanceTrialEndingPartialSuspension,
         GuidancePaidRenewalDue,
+        GuidancePaidRenewalPartialSuspension,
         GuidancePaidTermCancelled,
         GuidanceGraceActive,
+        GuidanceGraceActivePartialSuspension,
         GuidanceGraceEnding,
+        GuidanceGraceEndingPartialSuspension,
         GuidanceAccessExpired,
         GuidanceSuspendedNoPaymentLift,
     ];
@@ -136,6 +148,39 @@ public static class LicenseNoticesV1
         return SupportedLocales.Contains(trimmed, StringComparer.Ordinal) ? trimmed : "en-IN";
     }
 
+    /// <summary>
+    /// Truncates a shop display name without splitting UTF-16 surrogate pairs so worst-case JSON
+    /// escaping stays bounded under delegated merchant and provider page response limits.
+    /// </summary>
+    public static string BoundShopName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return string.Empty;
+        var trimmed = name.Trim();
+        if (trimmed.Length <= MaxShopNamePreviewCodeUnits)
+            return trimmed;
+
+        var limit = MaxShopNamePreviewCodeUnits - 1;
+        var sb = new StringBuilder(MaxShopNamePreviewCodeUnits);
+        foreach (var rune in trimmed.EnumerateRunes())
+        {
+            if (sb.Length + rune.Utf16SequenceLength > limit)
+                break;
+            sb.Append(rune.ToString());
+        }
+
+        sb.Append('…');
+        return sb.ToString();
+    }
+
+    public static string[] BoundShopNameSample(IEnumerable<string> names) =>
+    [
+        .. names
+            .Select(BoundShopName)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .Take(MaxShopNameSampleCount),
+    ];
+
     public static string ShopNoticesPath(Guid shop, Guid? after = null) => after is { } id
         ? $"{MerchantBillingDelegationV1.InternalPrefix}/shops/{shop:D}/notices/after/{id:D}"
         : $"{MerchantBillingDelegationV1.InternalPrefix}/shops/{shop:D}/notices";
@@ -144,8 +189,9 @@ public static class LicenseNoticesV1
         ? $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/notices/after/{id:D}"
         : $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/notices";
 
-    public static string AccountContactsPath(Guid account) =>
-        $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/notice-contacts";
+    public static string AccountContactsPath(Guid account, Guid? after = null) => after is { } id
+        ? $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/notice-contacts/after/{id:D}"
+        : $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/notice-contacts";
 
     public static string ContactOwnerRevokePath(Guid account, Guid contactId) =>
         $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/notice-contacts/{contactId:D}/revoke";
@@ -189,14 +235,23 @@ public sealed record NoticeRecipientActorV1(
     [property: JsonPropertyName("isEmailVerified")] bool IsEmailVerified,
     [property: JsonPropertyName("verifiedEmail")] string? VerifiedEmail,
     [property: JsonPropertyName("isPhoneVerified")] bool IsPhoneVerified,
-    [property: JsonPropertyName("verifiedPhone")] string? VerifiedPhone,
     [property: JsonPropertyName("language")] string Language,
     [property: JsonPropertyName("shopRole")] string? ShopRole,
     [property: JsonPropertyName("authorityVersion")] long? AuthorityVersion)
 {
-    public bool IsValid() => UserId != Guid.Empty
+    public bool IsValidForCommercialActor() => IsValidBase()
+        && (IsLoginEnabled && IsEmailVerified
+            ? !string.IsNullOrWhiteSpace(VerifiedEmail)
+            : VerifiedEmail is null);
+
+    public bool IsValidForShopMember() => IsValidBase()
+        && ShopRole is "Owner" or "Manager" or "Staff"
+        && (string.Equals(ShopRole, "Owner", StringComparison.Ordinal)
+            ? (IsLoginEnabled && IsEmailVerified ? !string.IsNullOrWhiteSpace(VerifiedEmail) : VerifiedEmail is null)
+            : VerifiedEmail is null);
+
+    private bool IsValidBase() => UserId != Guid.Empty
         && LicenseNoticesV1.SupportedLocales.Contains(Language, StringComparer.Ordinal)
-        && (!IsEmailVerified || !IsLoginEnabled || !string.IsNullOrWhiteSpace(VerifiedEmail))
         && (ShopRole is null or "Owner" or "Manager" or "Staff");
 }
 
@@ -212,137 +267,59 @@ public sealed record NoticeRecipientAuthorityResponseV1(
     [property: JsonPropertyName("shopMembers")] NoticeRecipientActorV1[] ShopMembers,
     [property: JsonPropertyName("nextShopMemberCursor")] Guid? NextShopMemberCursor)
 {
-    public bool IsValid(NoticeRecipientAuthorityRequestV1 request) => SchemaVersion == LicenseNoticesV1.SchemaVersion
+    public bool IsValid(NoticeRecipientAuthorityRequestV1 request) =>
+        HasMatchingEnvelope(request)
+        && HasValidRequestedActors(request)
+        && HasValidShopMembersPage(request);
+
+    private bool HasMatchingEnvelope(NoticeRecipientAuthorityRequestV1 request) =>
+        SchemaVersion == LicenseNoticesV1.SchemaVersion
         && Challenge == request.Challenge
         && AccountId == request.AccountId
         && ShopId == request.ShopId
         && AffiliationRequestId == request.AffiliationRequestId
-        && Actors is { Length: <= LicenseNoticesV1.MaxActorLookupCount }
-        && Actors.All(actor => actor.IsValid())
-        && ShopMembers is { Length: <= LicenseNoticesV1.MaxRecipientPageSize }
-        && ShopMembers.All(member => member.IsValid())
-        && (NextShopMemberCursor is null || (ShopId is not null && NextShopMemberCursor != Guid.Empty && ShopMembers.Length > 0));
+        && (request.ShopId is not null || AffiliationMatches);
+
+    private bool HasValidRequestedActors(NoticeRecipientAuthorityRequestV1 request)
+    {
+        if (Actors is null || Actors.Length > request.ActorIds.Length || Actors.Length > LicenseNoticesV1.MaxActorLookupCount)
+            return false;
+
+        var requested = request.ActorIds.ToHashSet();
+        var seen = new HashSet<Guid>();
+        foreach (var actor in Actors)
+        {
+            if (!actor.IsValidForCommercialActor() || !requested.Contains(actor.UserId) || !seen.Add(actor.UserId))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool HasValidShopMembersPage(NoticeRecipientAuthorityRequestV1 request)
+    {
+        if (ShopMembers is null)
+            return false;
+        if (request.ShopId is null || !AffiliationMatches)
+            return ShopMembers.Length == 0 && NextShopMemberCursor is null;
+        if (ShopMembers.Length > request.PageSize || ShopMembers.Length > LicenseNoticesV1.MaxRecipientPageSize)
+            return false;
+
+        var previous = request.AfterUserId;
+        foreach (var member in ShopMembers)
+        {
+            if (!member.IsValidForShopMember())
+                return false;
+            if (previous is { } prev && member.UserId.CompareTo(prev) <= 0)
+                return false;
+            previous = member.UserId;
+        }
+
+        if (NextShopMemberCursor is not { } cursor)
+            return true;
+
+        return ShopMembers.Length == request.PageSize
+            && cursor == ShopMembers[^1].UserId
+            && (request.AfterUserId is not { } after || cursor.CompareTo(after) > 0);
+    }
 }
-
-public sealed record ShopLicenseNoticeItemV1(
-    [property: JsonPropertyName("noticeId")] Guid NoticeId,
-    [property: JsonPropertyName("shopId")] Guid ShopId,
-    [property: JsonPropertyName("purpose")] string Purpose,
-    [property: JsonPropertyName("threshold")] string Threshold,
-    [property: JsonPropertyName("accessState")] string AccessState,
-    [property: JsonPropertyName("guidanceCode")] string GuidanceCode,
-    [property: JsonPropertyName("templateKey")] string TemplateKey,
-    [property: JsonPropertyName("dueAt")] DateTimeOffset DueAt,
-    [property: JsonPropertyName("effectiveDeadlineAt")] DateTimeOffset EffectiveDeadlineAt,
-    [property: JsonPropertyName("timeZone")] string TimeZone,
-    [property: JsonPropertyName("locale")] string Locale,
-    [property: JsonPropertyName("shopName")] string ShopName);
-
-public sealed record ShopLicenseNoticesV1(
-    [property: JsonPropertyName("schemaVersion")] int SchemaVersion,
-    [property: JsonPropertyName("shopId")] Guid ShopId,
-    [property: JsonPropertyName("evaluatedAt")] DateTimeOffset EvaluatedAt,
-    [property: JsonPropertyName("notices")] ShopLicenseNoticeItemV1[] Notices,
-    [property: JsonPropertyName("nextDueAt")] DateTimeOffset? NextDueAt,
-    [property: JsonPropertyName("nextCursor")] Guid? NextCursor);
-
-public sealed record AccountLicenseNoticeItemV1(
-    [property: JsonPropertyName("noticeId")] Guid NoticeId,
-    [property: JsonPropertyName("accountId")] Guid AccountId,
-    [property: JsonPropertyName("purpose")] string Purpose,
-    [property: JsonPropertyName("sourceKind")] string SourceKind,
-    [property: JsonPropertyName("sourceId")] Guid SourceId,
-    [property: JsonPropertyName("threshold")] string Threshold,
-    [property: JsonPropertyName("accessState")] string AccessState,
-    [property: JsonPropertyName("guidanceCode")] string GuidanceCode,
-    [property: JsonPropertyName("templateKey")] string TemplateKey,
-    [property: JsonPropertyName("dueAt")] DateTimeOffset DueAt,
-    [property: JsonPropertyName("effectiveDeadlineAt")] DateTimeOffset EffectiveDeadlineAt,
-    [property: JsonPropertyName("timeZone")] string TimeZone,
-    [property: JsonPropertyName("locale")] string Locale,
-    [property: JsonPropertyName("allowedChannels")] string[] AllowedChannels,
-    [property: JsonPropertyName("coveredShopCount")] int CoveredShopCount,
-    [property: JsonPropertyName("coveredShopNames")] string[] CoveredShopNames,
-    [property: JsonPropertyName("evidencedTermPricePaise")] long? EvidencedTermPricePaise,
-    [property: JsonPropertyName("evidencedTermCurrency")] string? EvidencedTermCurrency,
-    [property: JsonPropertyName("renewalQuoteRequired")] bool RenewalQuoteRequired,
-    [property: JsonPropertyName("paymentDoesNotLiftSuspension")] bool PaymentDoesNotLiftSuspension);
-
-public sealed record AccountLicenseNoticesV1(
-    [property: JsonPropertyName("schemaVersion")] int SchemaVersion,
-    [property: JsonPropertyName("accountId")] Guid AccountId,
-    [property: JsonPropertyName("evaluatedAt")] DateTimeOffset EvaluatedAt,
-    [property: JsonPropertyName("notices")] AccountLicenseNoticeItemV1[] Notices,
-    [property: JsonPropertyName("nextDueAt")] DateTimeOffset? NextDueAt,
-    [property: JsonPropertyName("nextCursor")] Guid? NextCursor);
-
-public sealed record ProviderNotificationCommercialV1(
-    [property: JsonPropertyName("evidencedTermPricePaise")] long? EvidencedTermPricePaise,
-    [property: JsonPropertyName("evidencedTermCurrency")] string? EvidencedTermCurrency,
-    [property: JsonPropertyName("renewalQuoteRequired")] bool RenewalQuoteRequired,
-    [property: JsonPropertyName("destinationHint")] string? DestinationHint,
-    [property: JsonPropertyName("recipientReference")] string? RecipientReference,
-    [property: JsonPropertyName("coveredShopNames")] string[] CoveredShopNames);
-
-public sealed record ProviderNotificationItemV1(
-    [property: JsonPropertyName("jobId")] Guid JobId,
-    [property: JsonPropertyName("scopeKind")] string ScopeKind,
-    [property: JsonPropertyName("scopeId")] Guid ScopeId,
-    [property: JsonPropertyName("audience")] string Audience,
-    [property: JsonPropertyName("purpose")] string Purpose,
-    [property: JsonPropertyName("sourceKind")] string SourceKind,
-    [property: JsonPropertyName("sourceId")] Guid SourceId,
-    [property: JsonPropertyName("sourceRevision")] string SourceRevision,
-    [property: JsonPropertyName("threshold")] string Threshold,
-    [property: JsonPropertyName("status")] string Status,
-    [property: JsonPropertyName("isDue")] bool IsDue,
-    [property: JsonPropertyName("dueAt")] DateTimeOffset DueAt,
-    [property: JsonPropertyName("effectiveDeadlineAt")] DateTimeOffset EffectiveDeadlineAt,
-    [property: JsonPropertyName("timeZone")] string TimeZone,
-    [property: JsonPropertyName("locale")] string Locale,
-    [property: JsonPropertyName("allowedChannels")] string[] AllowedChannels,
-    [property: JsonPropertyName("templateKey")] string TemplateKey,
-    [property: JsonPropertyName("guidanceCode")] string GuidanceCode,
-    [property: JsonPropertyName("coveredShopCount")] int CoveredShopCount,
-    [property: JsonPropertyName("paymentDoesNotLiftSuspension")] bool PaymentDoesNotLiftSuspension,
-    [property: JsonPropertyName("plannedAt")] DateTimeOffset PlannedAt,
-    [property: JsonPropertyName("commercial")] ProviderNotificationCommercialV1? Commercial);
-
-public sealed record ProviderNotificationsPageV1(
-    [property: JsonPropertyName("schemaVersion")] int SchemaVersion,
-    [property: JsonPropertyName("accountId")] Guid AccountId,
-    [property: JsonPropertyName("evaluatedAt")] DateTimeOffset EvaluatedAt,
-    [property: JsonPropertyName("commercialIncluded")] bool CommercialIncluded,
-    [property: JsonPropertyName("items")] ProviderNotificationItemV1[] Items,
-    [property: JsonPropertyName("nextCursor")] Guid? NextCursor);
-
-public sealed record ApproveBillingContactRequestV1(
-    [property: JsonPropertyName("operationKey")] Guid OperationKey,
-    [property: JsonPropertyName("merchantUserId")] Guid? MerchantUserId,
-    [property: JsonPropertyName("email")] string? Email,
-    [property: JsonPropertyName("locale")] string? Locale);
-
-public sealed record ConfirmBillingContactConsentRequestV1(
-    [property: JsonPropertyName("operationKey")] Guid OperationKey,
-    [property: JsonPropertyName("verifiedEmail")] string? VerifiedEmail,
-    [property: JsonPropertyName("proofToken")] string? ProofToken,
-    [property: JsonPropertyName("optedIn")] bool OptedIn,
-    [property: JsonPropertyName("locale")] string? Locale);
-
-public sealed record RevokeBillingContactRequestV1(
-    [property: JsonPropertyName("operationKey")] Guid OperationKey);
-
-public sealed record BillingContactV1(
-    [property: JsonPropertyName("contactId")] Guid ContactId,
-    [property: JsonPropertyName("accountId")] Guid AccountId,
-    [property: JsonPropertyName("merchantUserId")] Guid? MerchantUserId,
-    [property: JsonPropertyName("destinationHint")] string DestinationHint,
-    [property: JsonPropertyName("locale")] string Locale,
-    [property: JsonPropertyName("approvedAt")] DateTimeOffset ApprovedAt,
-    [property: JsonPropertyName("verifiedAt")] DateTimeOffset? VerifiedAt,
-    [property: JsonPropertyName("optedInAt")] DateTimeOffset? OptedInAt,
-    [property: JsonPropertyName("revokedAt")] DateTimeOffset? RevokedAt,
-    [property: JsonPropertyName("revision")] int Revision,
-    [property: JsonPropertyName("eligible")] bool Eligible,
-    [property: JsonPropertyName("verificationProofToken"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? VerificationProofToken = null);

@@ -38,5 +38,6 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new NotificationJobConfiguration());
         modelBuilder.ApplyConfiguration(new BillingNoticeContactConfiguration());
         modelBuilder.ApplyConfiguration(new BillingNoticeContactEventConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingNoticeContactOperationConfiguration());
     }
 }

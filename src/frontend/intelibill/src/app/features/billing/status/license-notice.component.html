@@ -11,7 +11,7 @@
         <i class="pi pi-info-circle" aria-hidden="true"></i>
         <div class="license-shop-banner__body">
           <strong>{{ item.shopName }}</strong>
-          <span>{{ guidanceKey(item.guidanceCode) | transloco }}</span>
+          <span data-testid="shop-license-notice-guidance">{{ operationalGuidanceKey(item.guidanceCode) | transloco }}</span>
           <span>
             {{
               'billing.notices.deadlineAt'
@@ -57,7 +57,22 @@
               <dt>{{ 'billing.notices.effectiveDeadline' | transloco }}</dt>
               <dd data-testid="account-notice-deadline">{{ instant(item.effectiveDeadlineAt) }}</dd>
               <dt>{{ 'billing.notices.coveredShops' | transloco }}</dt>
-              <dd>{{ item.coveredShopNames.join(', ') }} ({{ item.coveredShopCount }})</dd>
+              <dd data-testid="account-notice-shops">
+                {{ item.coveredShopNames.join(', ') }}
+                @if (item.coveredShopNamesTruncated || item.coveredShopCount > item.coveredShopNames.length) {
+                  <span>
+                    {{
+                      'billing.notices.moreShops'
+                        | transloco: {
+                            count: item.coveredShopCount - item.coveredShopNames.length,
+                            total: item.coveredShopCount
+                          }
+                    }}
+                  </span>
+                } @else {
+                  <span>({{ item.coveredShopCount }})</span>
+                }
+              </dd>
               @if (item.evidencedTermPricePaise !== null) {
                 <dt>{{ 'billing.notices.evidencedTermPrice' | transloco }}</dt>
                 <dd data-testid="account-notice-price">

@@ -13,6 +13,7 @@ public sealed class NotificationPlanningOptions
     public bool PlanInBackground { get; init; } = true;
     public int IntervalMilliseconds { get; init; } = 5000;
     public int AccountPageSize { get; init; } = 20;
+    public int MaxAccountsPerTick { get; init; } = 100;
     public int TermPageSize { get; init; } = 50;
     public int MemberPageSize { get; init; } = 50;
 
@@ -25,6 +26,8 @@ internal sealed partial class NotificationPlanningWorker(
     IOptions<NotificationPlanningOptions> options,
     ILogger<NotificationPlanningWorker> logger) : BackgroundService
 {
+    private Guid? _nextAfterAccount;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Value.PlanInBackground)
@@ -48,11 +51,14 @@ internal sealed partial class NotificationPlanningWorker(
 
             var planner = scope.ServiceProvider.GetRequiredService<NotificationPlanner>();
             var settings = options.Value;
-            await planner.PlanAllDueAsync(
-                ct,
+            var batch = await planner.PlanBatchAsync(
+                afterAccount: _nextAfterAccount,
+                maxAccounts: Math.Clamp(settings.MaxAccountsPerTick, 1, 1000),
                 accountPageSize: Math.Clamp(settings.AccountPageSize, 1, 100),
                 termPageSize: Math.Clamp(settings.TermPageSize, 1, 100),
-                memberPageSize: Math.Clamp(settings.MemberPageSize, 1, 50));
+                memberPageSize: Math.Clamp(settings.MemberPageSize, 1, 50),
+                ct: ct);
+            _nextAfterAccount = batch.NextAfterAccount;
         }
         catch (Exception error) when (!ct.IsCancellationRequested)
         {

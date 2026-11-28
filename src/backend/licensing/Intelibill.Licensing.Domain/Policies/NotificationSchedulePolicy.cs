@@ -5,6 +5,13 @@ using Intelibill.Licensing.Domain.ValueObjects;
 
 namespace Intelibill.Licensing.Domain.Policies;
 
+public enum NoticeRestrictionScope
+{
+    None = 0,
+    Partial = 1,
+    Full = 2,
+}
+
 public sealed record PlannedThreshold(
     string Purpose,
     string SourceKind,
@@ -29,6 +36,17 @@ public static class NotificationSchedulePolicy
         SubscriptionAccessFacts facts,
         DateTimeOffset now,
         bool isSuspended,
+        bool isClosed) =>
+        PlanThresholds(
+            facts,
+            now,
+            isSuspended ? NoticeRestrictionScope.Full : NoticeRestrictionScope.None,
+            isClosed);
+
+    public static IReadOnlyList<PlannedThreshold> PlanThresholds(
+        SubscriptionAccessFacts facts,
+        DateTimeOffset now,
+        NoticeRestrictionScope restriction,
         bool isClosed)
     {
         if (facts.Evidence != TermEvidenceState.Complete || isClosed || facts.Basis is null)
@@ -37,15 +55,12 @@ public static class NotificationSchedulePolicy
         var evaluated = SubscriptionAccessPolicy.Evaluate(facts, now);
         var candidates = facts.Basis.Value switch
         {
-            SubscriptionBasis.Trial => TrialCandidates(evaluated, isSuspended),
-            SubscriptionBasis.Paid => PaidCandidates(facts, evaluated, isSuspended),
+            SubscriptionBasis.Trial => TrialCandidates(evaluated, restriction),
+            SubscriptionBasis.Paid => PaidCandidates(facts, evaluated, restriction),
             _ => [],
         };
 
-        if (candidates.Count == 0)
-            return [];
-
-        return DeduplicateAndFilter(candidates, now);
+        return candidates.Count == 0 ? [] : DeduplicateAndFilter(candidates, now);
     }
 
     public static string BuildCommercialSourceRevision(
@@ -95,157 +110,213 @@ public static class NotificationSchedulePolicy
         return $"{RevisionVersion}:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload)))}";
     }
 
+    /// <summary>
+    /// Maps a base threshold guidance code to the live restriction-safe guidance and state without
+    /// altering the immutable semantic job key.
+    /// </summary>
+    public static (string AccessState, string GuidanceCode, bool PaymentDoesNotLiftSuspension) ProjectLiveRestriction(
+        string baseAccessState,
+        string baseGuidanceCode,
+        NoticeRestrictionScope restriction)
+    {
+        if (restriction == NoticeRestrictionScope.Full)
+            return (nameof(SubscriptionAccessState.Suspended), "SuspendedNoPaymentLift", true);
+
+        if (restriction == NoticeRestrictionScope.None)
+            return (baseAccessState, StripPartialSuffix(baseGuidanceCode), false);
+
+        var partialGuidance = baseGuidanceCode switch
+        {
+            "TrialEnding" or "TrialEndingPartialSuspension" => "TrialEndingPartialSuspension",
+            "PaidRenewalDue" or "PaidRenewalPartialSuspension" => "PaidRenewalPartialSuspension",
+            "GraceActive" or "GraceActivePartialSuspension" => "GraceActivePartialSuspension",
+            "GraceEnding" or "GraceEndingPartialSuspension" => "GraceEndingPartialSuspension",
+            _ => baseGuidanceCode,
+        };
+        return (baseAccessState, partialGuidance, true);
+    }
+
+    private static string StripPartialSuffix(string code) => code switch
+    {
+        "TrialEndingPartialSuspension" => "TrialEnding",
+        "PaidRenewalPartialSuspension" => "PaidRenewalDue",
+        "GraceActivePartialSuspension" => "GraceActive",
+        "GraceEndingPartialSuspension" => "GraceEnding",
+        _ => code,
+    };
+
     private static List<CandidateThreshold> TrialCandidates(
         SubscriptionAccessEvaluation evaluated,
-        bool isSuspended)
+        NoticeRestrictionScope restriction)
     {
-        var guidance = isSuspended ? "SuspendedNoPaymentLift" : "TrialEnding";
-        var state = isSuspended ? nameof(SubscriptionAccessState.Suspended) : nameof(SubscriptionAccessState.Active);
+        var full = restriction == NoticeRestrictionScope.Full;
+        var guidance = restriction switch
+        {
+            NoticeRestrictionScope.Full => "SuspendedNoPaymentLift",
+            NoticeRestrictionScope.Partial => "TrialEndingPartialSuspension",
+            _ => "TrialEnding",
+        };
+        var state = full ? nameof(SubscriptionAccessState.Suspended) : nameof(SubscriptionAccessState.Active);
+        var noLift = restriction != NoticeRestrictionScope.None;
         var results = new List<CandidateThreshold>(2);
-        AddIfAtOrAfter(
+        AddCandidate(
             results,
             evaluated.StartsAt,
-            new CandidateThreshold(
-                Priority: 1,
-                new PlannedThreshold(
-                    "TrialReminder",
-                    "Trial",
-                    "TrialMinus3Days",
-                    evaluated.PaidThrough.AddDays(-3),
-                    evaluated.PaidThrough,
-                    state,
-                    guidance,
-                    isSuspended ? "notice.suspended.trial.minus3" : "notice.trial.minus3",
-                    isSuspended)));
-        AddIfAtOrAfter(
+            priority: 1,
+            new PlannedThreshold(
+                "TrialReminder",
+                "Trial",
+                "TrialMinus3Days",
+                evaluated.PaidThrough.AddDays(-3),
+                evaluated.PaidThrough,
+                state,
+                guidance,
+                full ? "notice.suspended.trial.minus3" : "notice.trial.minus3",
+                noLift));
+        AddCandidate(
             results,
             evaluated.StartsAt,
-            new CandidateThreshold(
-                Priority: 2,
-                new PlannedThreshold(
-                    "TrialReminder",
-                    "Trial",
-                    "TrialMinus1Day",
-                    evaluated.PaidThrough.AddDays(-1),
-                    evaluated.PaidThrough,
-                    state,
-                    guidance,
-                    isSuspended ? "notice.suspended.trial.minus1" : "notice.trial.minus1",
-                    isSuspended)));
+            priority: 2,
+            new PlannedThreshold(
+                "TrialReminder",
+                "Trial",
+                "TrialMinus1Day",
+                evaluated.PaidThrough.AddDays(-1),
+                evaluated.PaidThrough,
+                state,
+                guidance,
+                full ? "notice.suspended.trial.minus1" : "notice.trial.minus1",
+                noLift));
         return results;
     }
 
     private static List<CandidateThreshold> PaidCandidates(
         SubscriptionAccessFacts facts,
         SubscriptionAccessEvaluation evaluated,
-        bool isSuspended)
+        NoticeRestrictionScope restriction)
     {
         if (facts.RenewedAtEnd)
             return [];
 
         var results = new List<CandidateThreshold>(5);
-        var cancelled = facts.Cancellation is { IsEffective: true } cancellation
-            && cancellation.EffectiveAt <= facts.EndsAt;
-
-        // Active suspension suppresses payment-invitation reminders so no notice implies paying removes suspension.
-        if (!isSuspended)
-        {
-            var paidGuidance = cancelled ? "PaidTermCancelled" : "PaidRenewalDue";
-            AddIfAtOrAfter(
-                results,
-                evaluated.StartsAt,
-                new CandidateThreshold(
-                    Priority: 3,
-                    new PlannedThreshold(
-                        "PaidRenewalReminder",
-                        "Paid",
-                        "PaidMinus7Days",
-                        evaluated.PaidThrough.AddDays(-7),
-                        evaluated.PaidThrough,
-                        nameof(SubscriptionAccessState.Active),
-                        paidGuidance,
-                        cancelled ? "notice.paid.cancelled.minus7" : "notice.paid.minus7",
-                        false)));
-            AddIfAtOrAfter(
-                results,
-                evaluated.StartsAt,
-                new CandidateThreshold(
-                    Priority: 4,
-                    new PlannedThreshold(
-                        "PaidRenewalReminder",
-                        "Paid",
-                        "PaidMinus1Day",
-                        evaluated.PaidThrough.AddDays(-1),
-                        evaluated.PaidThrough,
-                        nameof(SubscriptionAccessState.Active),
-                        paidGuidance,
-                        cancelled ? "notice.paid.cancelled.minus1" : "notice.paid.minus1",
-                        false)));
-        }
-
-        if (evaluated.GraceEndsAt is not { } graceEnds || graceEnds <= evaluated.PaidThrough)
-            return results;
-
-        if (!isSuspended)
-        {
-            AddIfAtOrAfter(
-                results,
-                evaluated.StartsAt,
-                new CandidateThreshold(
-                    Priority: 6,
-                    new PlannedThreshold(
-                        "GraceNotice",
-                        "Paid",
-                        "GraceStart",
-                        evaluated.PaidThrough,
-                        graceEnds,
-                        nameof(SubscriptionAccessState.Grace),
-                        "GraceActive",
-                        "notice.grace.start",
-                        false)));
-            AddIfAtOrAfter(
-                results,
-                evaluated.PaidThrough,
-                new CandidateThreshold(
-                    Priority: 5,
-                    new PlannedThreshold(
-                        "GraceNotice",
-                        "Paid",
-                        "GraceMinus1Day",
-                        graceEnds.AddDays(-1),
-                        graceEnds,
-                        nameof(SubscriptionAccessState.Grace),
-                        "GraceEnding",
-                        "notice.grace.minus1",
-                        false)));
-        }
-
-        AddIfAtOrAfter(
-            results,
-            evaluated.PaidThrough,
-            new CandidateThreshold(
-                Priority: 7,
-                new PlannedThreshold(
-                    "GraceNotice",
-                    "Paid",
-                    "GraceExpiry",
-                    graceEnds,
-                    graceEnds,
-                    isSuspended ? nameof(SubscriptionAccessState.Suspended) : nameof(SubscriptionAccessState.Expired),
-                    isSuspended ? "SuspendedNoPaymentLift" : "AccessExpired",
-                    isSuspended ? "notice.suspended.grace.expiry" : "notice.grace.expiry",
-                    isSuspended)));
-
+        AddPaidRenewalCandidates(results, facts, evaluated, restriction);
+        AddGraceCandidates(results, evaluated, restriction);
         return results;
     }
 
-    private static void AddIfAtOrAfter(
+    private static void AddPaidRenewalCandidates(
+        List<CandidateThreshold> results,
+        SubscriptionAccessFacts facts,
+        SubscriptionAccessEvaluation evaluated,
+        NoticeRestrictionScope restriction)
+    {
+        // Full suspension suppresses payment-invitation reminders so no notice implies paying removes suspension.
+        if (restriction == NoticeRestrictionScope.Full)
+            return;
+
+        var cancelled = facts.Cancellation is { IsEffective: true } cancellation
+            && cancellation.EffectiveAt <= facts.EndsAt;
+        var noLift = restriction == NoticeRestrictionScope.Partial;
+        var guidance = cancelled
+            ? "PaidTermCancelled"
+            : noLift ? "PaidRenewalPartialSuspension" : "PaidRenewalDue";
+
+        AddCandidate(
+            results,
+            evaluated.StartsAt,
+            priority: 3,
+            new PlannedThreshold(
+                "PaidRenewalReminder",
+                "Paid",
+                "PaidMinus7Days",
+                evaluated.PaidThrough.AddDays(-7),
+                evaluated.PaidThrough,
+                nameof(SubscriptionAccessState.Active),
+                guidance,
+                cancelled ? "notice.paid.cancelled.minus7" : "notice.paid.minus7",
+                noLift));
+        AddCandidate(
+            results,
+            evaluated.StartsAt,
+            priority: 4,
+            new PlannedThreshold(
+                "PaidRenewalReminder",
+                "Paid",
+                "PaidMinus1Day",
+                evaluated.PaidThrough.AddDays(-1),
+                evaluated.PaidThrough,
+                nameof(SubscriptionAccessState.Active),
+                guidance,
+                cancelled ? "notice.paid.cancelled.minus1" : "notice.paid.minus1",
+                noLift));
+    }
+
+    private static void AddGraceCandidates(
+        List<CandidateThreshold> results,
+        SubscriptionAccessEvaluation evaluated,
+        NoticeRestrictionScope restriction)
+    {
+        if (evaluated.GraceEndsAt is not { } graceEnds || graceEnds <= evaluated.PaidThrough)
+            return;
+
+        var full = restriction == NoticeRestrictionScope.Full;
+        var noLift = restriction != NoticeRestrictionScope.None;
+        if (!full)
+        {
+            AddCandidate(
+                results,
+                evaluated.StartsAt,
+                priority: 6,
+                new PlannedThreshold(
+                    "GraceNotice",
+                    "Paid",
+                    "GraceStart",
+                    evaluated.PaidThrough,
+                    graceEnds,
+                    nameof(SubscriptionAccessState.Grace),
+                    noLift ? "GraceActivePartialSuspension" : "GraceActive",
+                    "notice.grace.start",
+                    noLift));
+            AddCandidate(
+                results,
+                evaluated.PaidThrough,
+                priority: 5,
+                new PlannedThreshold(
+                    "GraceNotice",
+                    "Paid",
+                    "GraceMinus1Day",
+                    graceEnds.AddDays(-1),
+                    graceEnds,
+                    nameof(SubscriptionAccessState.Grace),
+                    noLift ? "GraceEndingPartialSuspension" : "GraceEnding",
+                    "notice.grace.minus1",
+                    noLift));
+        }
+
+        AddCandidate(
+            results,
+            evaluated.PaidThrough,
+            priority: 7,
+            new PlannedThreshold(
+                "GraceNotice",
+                "Paid",
+                "GraceExpiry",
+                graceEnds,
+                graceEnds,
+                full ? nameof(SubscriptionAccessState.Suspended) : nameof(SubscriptionAccessState.Expired),
+                full ? "SuspendedNoPaymentLift" : "AccessExpired",
+                full ? "notice.suspended.grace.expiry" : "notice.grace.expiry",
+                noLift));
+    }
+
+    private static void AddCandidate(
         List<CandidateThreshold> list,
         DateTimeOffset floor,
-        CandidateThreshold candidate)
+        int priority,
+        PlannedThreshold plan)
     {
-        if (candidate.Plan.DueAt >= floor)
-            list.Add(candidate);
+        if (plan.DueAt >= floor)
+            list.Add(new CandidateThreshold(priority, plan));
     }
 
     private static IReadOnlyList<PlannedThreshold> DeduplicateAndFilter(

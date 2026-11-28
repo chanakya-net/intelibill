@@ -16,6 +16,7 @@ internal sealed record ResolvedCommercialRecipient(
     string Locale,
     string[] AllowedChannels,
     string? EmailDestination,
+    byte[]? EmailDestinationHash,
     string? DestinationHint);
 
 internal static class NotificationRecipientPlanner
@@ -38,6 +39,9 @@ internal static class NotificationRecipientPlanner
         TermPlanSource termSource,
         SubscriptionAccessFacts facts,
         ShopPlanSource[] activeShops,
+        NoticeRestrictionScope restriction,
+        int suspendedShopCount,
+        string rosterFingerprint,
         IReadOnlyList<PlannedThreshold> thresholds,
         List<ResolvedCommercialRecipient> recipients,
         List<PlannedNotificationWrite> writes)
@@ -52,50 +56,27 @@ internal static class NotificationRecipientPlanner
             cancellationVersion,
             termSource.Term.PricePaise,
             termSource.Term.Currency);
-        var shopNames = activeShops
-            .Select(shop => shop.ShopName)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToArray();
+        var shopSample = LicenseNoticesV1.BoundShopNameSample(activeShops.Select(shop => shop.ShopName));
 
         foreach (var threshold in thresholds)
         {
-            var argsJson = JsonSerializer.Serialize(new
-            {
-                accessState = threshold.AccessStateAtDue,
-                guidanceCode = threshold.GuidanceCode,
-                coveredShopCount = activeShops.Length,
-                coveredShopNames = shopNames,
-                evidencedTermPricePaise = termSource.Term.PricePaise,
-                evidencedTermCurrency = termSource.Term.Currency,
-                renewalQuoteRequired = termSource.Term.Basis == nameof(SubscriptionBasis.Paid),
-                paymentDoesNotLiftSuspension = threshold.PaymentDoesNotLiftSuspension,
-            });
-
+            var argsJson = SerializeCommercialArgs(
+                termSource,
+                activeShops.Length,
+                suspendedShopCount,
+                shopSample,
+                threshold);
             foreach (var recipient in recipients)
             {
-                writes.Add(new PlannedNotificationWrite(
+                writes.Add(BuildCommercialWrite(
                     context.AccountId,
-                    LicenseNoticesV1.ScopeAccount,
-                    context.AccountId,
-                    recipient.RecipientKey,
-                    recipient.MerchantUserId,
-                    recipient.ContactId,
-                    recipient.ExpectedMemberRevision,
-                    recipient.ExpectedContactRevision,
-                    recipient.Audience,
-                    threshold.Purpose,
-                    threshold.SourceKind,
                     termSource.Term.TermId,
                     revision,
-                    threshold.Threshold,
-                    threshold.DueAt,
-                    threshold.EffectiveDeadlineAt,
-                    recipient.Locale,
-                    recipient.AllowedChannels,
-                    threshold.TemplateKey,
+                    restriction,
+                    rosterFingerprint,
+                    threshold,
                     argsJson,
-                    recipient.EmailDestination,
-                    recipient.DestinationHint));
+                    recipient));
             }
         }
     }
@@ -105,6 +86,7 @@ internal static class NotificationRecipientPlanner
         TermPlanSource termSource,
         SubscriptionAccessFacts facts,
         ShopPlanSource shop,
+        NoticeRestrictionScope restriction,
         IReadOnlyList<PlannedThreshold> thresholds,
         IReadOnlyList<NoticeRecipientActorV1> members,
         HashSet<Guid> commercialUserIds,
@@ -118,62 +100,152 @@ internal static class NotificationRecipientPlanner
             facts,
             termSource.TrialExtensionRevision,
             cancellationVersion);
+        var boundedShopName = LicenseNoticesV1.BoundShopName(shop.ShopName);
 
         foreach (var threshold in thresholds)
         {
-            var argsJson = JsonSerializer.Serialize(new
-            {
-                shopName = shop.ShopName,
-                accessState = threshold.AccessStateAtDue,
-                guidanceCode = threshold.GuidanceCode,
-                paymentDoesNotLiftSuspension = threshold.PaymentDoesNotLiftSuspension,
-            });
-
+            var argsJson = SerializeOperationalArgs(boundedShopName, threshold);
             foreach (var member in members)
             {
-                if (!member.IsLoginEnabled || (!member.IsEmailVerified && !member.IsPhoneVerified))
-                    continue;
-
-                var isShopOwner = string.Equals(member.ShopRole, "Owner", StringComparison.Ordinal);
-                var audience = isShopOwner
-                    ? LicenseNoticesV1.AudienceShopOwnerOperational
-                    : LicenseNoticesV1.AudienceShopStaffOperational;
-
-                var allowOperationalEmail = isShopOwner
-                    && !commercialUserIds.Contains(member.UserId)
-                    && member.IsEmailVerified
-                    && !string.IsNullOrWhiteSpace(member.VerifiedEmail);
-                var channels = allowOperationalEmail
-                    ? new[] { LicenseNoticesV1.ChannelInApp, LicenseNoticesV1.ChannelEmail }
-                    : new[] { LicenseNoticesV1.ChannelInApp };
-                var email = allowOperationalEmail ? NotificationPlanner.NormalizeEmail(member.VerifiedEmail!) : null;
-                var hint = email is not null ? NotificationPlanner.MaskEmail(email) : null;
-
-                writes.Add(new PlannedNotificationWrite(
+                if (TryBuildOperationalWrite(
                     accountId,
-                    LicenseNoticesV1.ScopeShop,
-                    shop.ShopId,
-                    NotificationPlanner.UserRecipientKey(member.UserId),
-                    member.UserId,
-                    ContactId: null,
-                    ExpectedMemberRevision: null,
-                    ExpectedContactRevision: null,
-                    audience,
-                    threshold.Purpose,
-                    threshold.SourceKind,
                     termSource.Term.TermId,
                     revision,
-                    threshold.Threshold,
-                    threshold.DueAt,
-                    threshold.EffectiveDeadlineAt,
-                    LicenseNoticesV1.NormalizeLocale(member.Language),
-                    channels,
-                    threshold.TemplateKey,
+                    shop,
+                    restriction,
+                    threshold,
                     argsJson,
-                    email,
-                    hint));
+                    member,
+                    commercialUserIds) is { } write)
+                {
+                    writes.Add(write);
+                }
             }
         }
+    }
+
+    private static string SerializeCommercialArgs(
+        TermPlanSource termSource,
+        int coveredShopCount,
+        int suspendedShopCount,
+        string[] shopSample,
+        PlannedThreshold threshold) =>
+        JsonSerializer.Serialize(new
+        {
+            accessState = threshold.AccessStateAtDue,
+            guidanceCode = threshold.GuidanceCode,
+            coveredShopCount,
+            suspendedShopCount,
+            coveredShopNames = shopSample,
+            coveredShopNamesTruncated = coveredShopCount > shopSample.Length,
+            evidencedTermPricePaise = termSource.Term.PricePaise,
+            evidencedTermCurrency = termSource.Term.Currency,
+            renewalQuoteRequired = termSource.Term.Basis == nameof(SubscriptionBasis.Paid),
+            paymentDoesNotLiftSuspension = threshold.PaymentDoesNotLiftSuspension,
+        });
+
+    private static PlannedNotificationWrite BuildCommercialWrite(
+        Guid accountId,
+        Guid termId,
+        string revision,
+        NoticeRestrictionScope restriction,
+        string rosterFingerprint,
+        PlannedThreshold threshold,
+        string argsJson,
+        ResolvedCommercialRecipient recipient) =>
+        new(
+            accountId,
+            LicenseNoticesV1.ScopeAccount,
+            accountId,
+            recipient.RecipientKey,
+            recipient.MerchantUserId,
+            recipient.ContactId,
+            recipient.ExpectedMemberRevision,
+            recipient.ExpectedContactRevision,
+            ExpectedAffiliationRequestId: null,
+            ExpectedRestriction: restriction,
+            ExpectedRosterFingerprint: rosterFingerprint,
+            recipient.Audience,
+            threshold.Purpose,
+            threshold.SourceKind,
+            termId,
+            revision,
+            threshold.Threshold,
+            threshold.DueAt,
+            threshold.EffectiveDeadlineAt,
+            recipient.Locale,
+            recipient.AllowedChannels,
+            threshold.TemplateKey,
+            argsJson,
+            recipient.EmailDestination,
+            recipient.EmailDestinationHash,
+            recipient.DestinationHint);
+
+    private static string SerializeOperationalArgs(string boundedShopName, PlannedThreshold threshold) =>
+        JsonSerializer.Serialize(new
+        {
+            shopName = boundedShopName,
+            accessState = threshold.AccessStateAtDue,
+            guidanceCode = threshold.GuidanceCode,
+            paymentDoesNotLiftSuspension = threshold.PaymentDoesNotLiftSuspension,
+        });
+
+    private static PlannedNotificationWrite? TryBuildOperationalWrite(
+        Guid accountId,
+        Guid termId,
+        string revision,
+        ShopPlanSource shop,
+        NoticeRestrictionScope restriction,
+        PlannedThreshold threshold,
+        string argsJson,
+        NoticeRecipientActorV1 member,
+        HashSet<Guid> commercialUserIds)
+    {
+        if (!member.IsLoginEnabled || (!member.IsEmailVerified && !member.IsPhoneVerified))
+            return null;
+
+        var isShopOwner = string.Equals(member.ShopRole, "Owner", StringComparison.Ordinal);
+        var audience = isShopOwner
+            ? LicenseNoticesV1.AudienceShopOwnerOperational
+            : LicenseNoticesV1.AudienceShopStaffOperational;
+        var allowOperationalEmail = isShopOwner
+            && !commercialUserIds.Contains(member.UserId)
+            && member.IsEmailVerified
+            && !string.IsNullOrWhiteSpace(member.VerifiedEmail);
+        var channels = allowOperationalEmail
+            ? new[] { LicenseNoticesV1.ChannelInApp, LicenseNoticesV1.ChannelEmail }
+            : new[] { LicenseNoticesV1.ChannelInApp };
+        var email = allowOperationalEmail ? NotificationPlanner.NormalizeEmail(member.VerifiedEmail!) : null;
+        var emailHash = email is not null ? NotificationPlanner.HashEmail(email) : null;
+        var hint = email is not null ? NotificationPlanner.MaskEmail(email) : null;
+
+        return new PlannedNotificationWrite(
+            accountId,
+            LicenseNoticesV1.ScopeShop,
+            shop.ShopId,
+            NotificationPlanner.UserRecipientKey(member.UserId),
+            member.UserId,
+            ContactId: null,
+            ExpectedMemberRevision: null,
+            ExpectedContactRevision: null,
+            ExpectedAffiliationRequestId: shop.AffiliationRequestId,
+            ExpectedRestriction: restriction,
+            ExpectedRosterFingerprint: null,
+            audience,
+            threshold.Purpose,
+            threshold.SourceKind,
+            termId,
+            revision,
+            threshold.Threshold,
+            threshold.DueAt,
+            threshold.EffectiveDeadlineAt,
+            LicenseNoticesV1.NormalizeLocale(member.Language),
+            channels,
+            threshold.TemplateKey,
+            argsJson,
+            email,
+            emailHash,
+            hint);
     }
 
     private static void AddVerifiedMembers(
@@ -193,6 +265,7 @@ internal static class NotificationRecipientPlanner
             var verifiedEmail = actor.IsEmailVerified && !string.IsNullOrWhiteSpace(actor.VerifiedEmail)
                 ? NotificationPlanner.NormalizeEmail(actor.VerifiedEmail)
                 : null;
+            var emailHash = verifiedEmail is not null ? NotificationPlanner.HashEmail(verifiedEmail) : null;
             var channels = verifiedEmail is not null
                 ? new[] { LicenseNoticesV1.ChannelInApp, LicenseNoticesV1.ChannelEmail }
                 : new[] { LicenseNoticesV1.ChannelInApp };
@@ -212,6 +285,7 @@ internal static class NotificationRecipientPlanner
                 LicenseNoticesV1.NormalizeLocale(actor.Language),
                 channels,
                 verifiedEmail,
+                emailHash,
                 hint));
         }
     }
@@ -225,52 +299,73 @@ internal static class NotificationRecipientPlanner
     {
         foreach (var contact in context.EligibleContacts.OrderBy(item => item.ContactId))
         {
-            var normalizedEmail = NotificationPlanner.NormalizeEmail(contact.NormalizedEmail);
-            if (contact.MerchantUserId is { } userId)
-            {
-                if (coveredUsers.Contains(userId))
-                    continue;
-                if (!verifiedActors.TryGetValue(userId, out var actor)
-                    || !actor.IsLoginEnabled
-                    || !actor.IsEmailVerified
-                    || string.IsNullOrWhiteSpace(actor.VerifiedEmail)
-                    || !string.Equals(NotificationPlanner.NormalizeEmail(actor.VerifiedEmail), normalizedEmail, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                coveredUsers.Add(userId);
-                coveredEmails.Add(normalizedEmail);
-                recipients.Add(new ResolvedCommercialRecipient(
-                    NotificationPlanner.UserRecipientKey(userId),
-                    userId,
-                    contact.ContactId,
-                    ExpectedMemberRevision: null,
-                    ExpectedContactRevision: contact.Revision,
-                    LicenseNoticesV1.AudienceCommercialContact,
-                    LicenseNoticesV1.NormalizeLocale(
-                        string.IsNullOrWhiteSpace(contact.Locale) ? actor.Language : contact.Locale),
-                    [LicenseNoticesV1.ChannelEmail],
-                    normalizedEmail,
-                    NotificationPlanner.MaskEmail(normalizedEmail)));
-                continue;
-            }
-
-            if (coveredEmails.Contains(normalizedEmail))
-                continue;
-
-            coveredEmails.Add(normalizedEmail);
-            recipients.Add(new ResolvedCommercialRecipient(
-                NotificationPlanner.EmailRecipientKey(normalizedEmail),
-                MerchantUserId: null,
-                contact.ContactId,
-                ExpectedMemberRevision: null,
-                ExpectedContactRevision: contact.Revision,
-                LicenseNoticesV1.AudienceCommercialContact,
-                LicenseNoticesV1.NormalizeLocale(contact.Locale),
-                [LicenseNoticesV1.ChannelEmail],
-                normalizedEmail,
-                NotificationPlanner.MaskEmail(normalizedEmail)));
+            var resolved = contact.MerchantUserId is { } userId
+                ? TryResolveIdentityContact(contact, userId, verifiedActors, coveredUsers, coveredEmails)
+                : TryResolveStandaloneContact(contact, coveredEmails);
+            if (resolved is not null)
+                recipients.Add(resolved);
         }
+    }
+
+    private static ResolvedCommercialRecipient? TryResolveIdentityContact(
+        BillingContactSnapshot contact,
+        Guid userId,
+        Dictionary<Guid, NoticeRecipientActorV1> verifiedActors,
+        HashSet<Guid> coveredUsers,
+        HashSet<string> coveredEmails)
+    {
+        var normalizedEmail = NotificationPlanner.NormalizeEmail(contact.NormalizedEmail);
+        if (coveredUsers.Contains(userId) || coveredEmails.Contains(normalizedEmail))
+            return null;
+        if (!verifiedActors.TryGetValue(userId, out var actor)
+            || !actor.IsLoginEnabled
+            || !actor.IsEmailVerified
+            || string.IsNullOrWhiteSpace(actor.VerifiedEmail)
+            || !string.Equals(
+                NotificationPlanner.NormalizeEmail(actor.VerifiedEmail),
+                normalizedEmail,
+                StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        coveredUsers.Add(userId);
+        coveredEmails.Add(normalizedEmail);
+        // CommercialContact always keys by email hash so later promotion to BillingRole can insert its own InApp row.
+        return new ResolvedCommercialRecipient(
+            NotificationPlanner.EmailRecipientKey(normalizedEmail),
+            userId,
+            contact.ContactId,
+            ExpectedMemberRevision: null,
+            ExpectedContactRevision: contact.Revision,
+            LicenseNoticesV1.AudienceCommercialContact,
+            LicenseNoticesV1.NormalizeLocale(
+                string.IsNullOrWhiteSpace(contact.Locale) ? actor.Language : contact.Locale),
+            [LicenseNoticesV1.ChannelEmail],
+            normalizedEmail,
+            contact.DestinationHash,
+            NotificationPlanner.MaskEmail(normalizedEmail));
+    }
+
+    private static ResolvedCommercialRecipient? TryResolveStandaloneContact(
+        BillingContactSnapshot contact,
+        HashSet<string> coveredEmails)
+    {
+        var normalizedEmail = NotificationPlanner.NormalizeEmail(contact.NormalizedEmail);
+        if (!coveredEmails.Add(normalizedEmail))
+            return null;
+
+        return new ResolvedCommercialRecipient(
+            NotificationPlanner.EmailRecipientKey(normalizedEmail),
+            MerchantUserId: null,
+            contact.ContactId,
+            ExpectedMemberRevision: null,
+            ExpectedContactRevision: contact.Revision,
+            LicenseNoticesV1.AudienceCommercialContact,
+            LicenseNoticesV1.NormalizeLocale(contact.Locale),
+            [LicenseNoticesV1.ChannelEmail],
+            normalizedEmail,
+            contact.DestinationHash,
+            NotificationPlanner.MaskEmail(normalizedEmail));
     }
 }

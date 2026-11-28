@@ -9,10 +9,11 @@ namespace Intelibill.Licensing.Application.Notifications;
 
 /// <summary>
 /// Plans durable, role-appropriate licence notification intents across accounts and shops.
-/// Reads business time once per pass, keeps merchant HTTP verification outside SQL transactions,
-/// and delegates atomic lock-rechecked insertion to <see cref="INotificationPlanStore"/>.
+/// Reads business time once per pass, computes thresholds before live merchant HTTP lookups,
+/// keeps HTTP outside SQL transactions, and delegates atomic lock-rechecked insertion to
+/// <see cref="INotificationPlanStore"/>.
 /// </summary>
-public sealed class NotificationPlanner(
+public sealed partial class NotificationPlanner(
     INotificationPlanStore store,
     IMerchantNoticeRecipientAuthority merchantAuthority,
     TimeProvider statusClock,
@@ -26,41 +27,54 @@ public sealed class NotificationPlanner(
         int termPageSize = 50,
         int memberPageSize = 50)
     {
-        var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
-        var accountsScanned = 0;
-        var accountsSkipped = 0;
-        var inserted = 0;
-        var duplicates = 0;
-        var authorityChanged = 0;
-        Guid? afterAccount = null;
+        var batch = await PlanBatchAsync(
+            afterAccount: null,
+            maxAccounts: int.MaxValue,
+            accountPageSize: accountPageSize,
+            termPageSize: termPageSize,
+            memberPageSize: memberPageSize,
+            ct: ct);
+        return batch.Pass;
+    }
 
-        while (true)
+    public async Task<NotificationBatchResult> PlanBatchAsync(
+        Guid? afterAccount,
+        int maxAccounts,
+        int accountPageSize,
+        int termPageSize,
+        int memberPageSize,
+        CancellationToken ct)
+    {
+        var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
+        var totals = new PassTotals();
+        var cursor = afterAccount;
+        var limit = Math.Max(1, maxAccounts);
+        Guid? nextCursor = null;
+
+        while (totals.AccountsScanned < limit)
         {
-            var accounts = await store.DiscoverAccountsAsync(afterAccount, accountPageSize, ct);
+            var pageTake = Math.Min(Math.Clamp(accountPageSize, 1, 100), limit - totals.AccountsScanned);
+            var accounts = await store.DiscoverAccountsAsync(now, cursor, pageTake, ct);
             if (accounts.Count == 0)
+            {
+                nextCursor = null;
                 break;
+            }
 
             foreach (var accountId in accounts)
             {
-                accountsScanned++;
+                totals.AccountsScanned++;
                 var outcome = await PlanAccountAtAsync(accountId, now, termPageSize, memberPageSize, ct);
-                if (outcome is null)
-                {
-                    accountsSkipped++;
-                    continue;
-                }
-
-                inserted += outcome.Inserted;
-                duplicates += outcome.SkippedDuplicate;
-                authorityChanged += outcome.SkippedAuthorityChanged;
+                totals.Record(outcome);
             }
 
-            afterAccount = accounts[^1];
-            if (accounts.Count < accountPageSize)
+            cursor = accounts[^1];
+            nextCursor = accounts.Count < pageTake ? null : cursor;
+            if (accounts.Count < pageTake)
                 break;
         }
 
-        return new NotificationPassResult(accountsScanned, accountsSkipped, inserted, duplicates, authorityChanged);
+        return new NotificationBatchResult(totals.ToResult(), nextCursor);
     }
 
     public Task<NotificationPlanCommitResult?> PlanAccountAsync(
@@ -84,8 +98,15 @@ public sealed class NotificationPlanner(
         if (context is null || context.IsAccountClosed || context.Terms.Count == 0)
             return new NotificationPlanCommitResult(0, 0, 0);
 
-        var actorLookupIds = CollectAccountActorIds(context);
-        var verifiedActors = await ResolveAccountActorsAsync(accountId, actorLookupIds, ct);
+        var evaluatedTerms = EvaluateTerms(context, now);
+        if (evaluatedTerms.Count == 0)
+            return new NotificationPlanCommitResult(0, 0, 0);
+
+        var needsActors = evaluatedTerms.Any(term => term.CommercialThresholds.Count > 0)
+            || evaluatedTerms.Any(term => term.ShopPlans.Count > 0);
+        var verifiedActors = needsActors
+            ? await ResolveAccountActorsAsync(accountId, CollectAccountActorIds(context), ct)
+            : [];
         if (verifiedActors is null)
             return null;
 
@@ -97,12 +118,11 @@ public sealed class NotificationPlanner(
 
         var writes = new List<PlannedNotificationWrite>();
         var shopMembersCache = new Dictionary<(Guid ShopId, Guid AffiliationId), IReadOnlyList<NoticeRecipientActorV1>?>();
-        foreach (var termSource in context.Terms)
+        foreach (var evaluated in evaluatedTerms)
         {
-            var collected = await CollectTermWritesAsync(
+            var collected = await CollectEvaluatedTermWritesAsync(
                 context,
-                termSource,
-                now,
+                evaluated,
                 memberPageSize,
                 commercialRecipients,
                 commercialUserIds,
@@ -113,93 +133,30 @@ public sealed class NotificationPlanner(
                 return null;
         }
 
-        if (writes.Count == 0)
-            return new NotificationPlanCommitResult(0, 0, 0);
-
-        return await store.CommitPlannedJobsAsync(accountId, now, writes, ct);
+        return writes.Count == 0
+            ? new NotificationPlanCommitResult(0, 0, 0)
+            : await store.CommitPlannedJobsAsync(accountId, now, writes, ct);
     }
 
-    private async Task<bool> CollectTermWritesAsync(
-        AccountPlanContext context,
-        TermPlanSource termSource,
-        DateTimeOffset now,
+    private async Task<IReadOnlyList<NoticeRecipientActorV1>?> GetOrResolveShopMembersAsync(
+        Guid accountId,
+        ShopPlanSource shop,
         int memberPageSize,
-        List<ResolvedCommercialRecipient> commercialRecipients,
-        HashSet<Guid> commercialUserIds,
-        Dictionary<(Guid ShopId, Guid AffiliationId), IReadOnlyList<NoticeRecipientActorV1>?> shopMembersCache,
-        List<PlannedNotificationWrite> writes,
+        Dictionary<(Guid ShopId, Guid AffiliationId), IReadOnlyList<NoticeRecipientActorV1>?> cache,
         CancellationToken ct)
     {
-        var facts = SubscriptionStatusProjection.ToFacts(termSource.Term);
-        if (facts.Evidence != TermEvidenceState.Complete || facts.Basis is null)
-            return true;
+        var key = (shop.ShopId, shop.AffiliationRequestId);
+        if (cache.TryGetValue(key, out var existing))
+            return existing;
 
-        var activeShops = termSource.Shops.Where(shop => !shop.IsClosed).ToArray();
-        var allShopsClosed = termSource.Shops.Count > 0 && activeShops.Length == 0;
-        var termSuspended = context.IsAccountSuspended
-            || (activeShops.Length > 0 && activeShops.All(shop => shop.IsSuspended));
-
-        var commercialThresholds = NotificationSchedulePolicy.PlanThresholds(
-            facts,
-            now,
-            isSuspended: termSuspended,
-            isClosed: context.IsAccountClosed || allShopsClosed);
-
-        if (commercialThresholds.Count > 0 && commercialRecipients.Count > 0)
-        {
-            NotificationRecipientPlanner.AddCommercialWrites(
-                context,
-                termSource,
-                facts,
-                activeShops,
-                commercialThresholds,
-                commercialRecipients,
-                writes);
-        }
-
-        foreach (var shop in activeShops)
-        {
-            var shopFacts = shop.HandoffEndsAt is { } handoff && facts.Basis == SubscriptionBasis.Paid
-                ? facts with { HandoffEndsAt = handoff }
-                : facts;
-            var shopSuspended = context.IsAccountSuspended || shop.IsSuspended;
-            var shopThresholds = NotificationSchedulePolicy.PlanThresholds(
-                shopFacts,
-                now,
-                isSuspended: shopSuspended,
-                isClosed: false);
-            if (shopThresholds.Count == 0)
-                continue;
-
-            var key = (shop.ShopId, shop.AffiliationRequestId);
-            if (!shopMembersCache.TryGetValue(key, out var shopMembers))
-            {
-                shopMembers = await ResolveShopMembersAsync(
-                    context.AccountId,
-                    shop.ShopId,
-                    shop.AffiliationRequestId,
-                    memberPageSize,
-                    ct);
-                shopMembersCache[key] = shopMembers;
-            }
-
-            if (shopMembers is null)
-                return false;
-            if (shopMembers.Count == 0)
-                continue;
-
-            NotificationRecipientPlanner.AddOperationalShopWrites(
-                context.AccountId,
-                termSource,
-                shopFacts,
-                shop,
-                shopThresholds,
-                shopMembers,
-                commercialUserIds,
-                writes);
-        }
-
-        return true;
+        var resolved = await ResolveShopMembersAsync(
+            accountId,
+            shop.ShopId,
+            shop.AffiliationRequestId,
+            memberPageSize,
+            ct);
+        cache[key] = resolved;
+        return resolved;
     }
 
     private static Guid[] CollectAccountActorIds(AccountPlanContext context) =>
@@ -293,18 +250,55 @@ public sealed class NotificationPlanner(
     public static string UserRecipientKey(Guid userId) => $"user:{userId:D}";
 
     public static string EmailRecipientKey(string normalizedEmail) =>
-        $"email:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(NormalizeEmail(normalizedEmail))))}";
+        $"email:{Convert.ToHexStringLower(HashEmail(normalizedEmail))}";
+
+    public static byte[] HashEmail(string normalizedEmail) =>
+        SHA256.HashData(Encoding.UTF8.GetBytes(NormalizeEmail(normalizedEmail)));
 
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
+    /// <summary>
+    /// Produces a bounded masked destination hint that never equals the full email address for any
+    /// valid local-part length, including single-character local parts.
+    /// </summary>
     public static string MaskEmail(string normalizedEmail)
     {
         var at = normalizedEmail.IndexOf('@');
         if (at <= 0 || at >= normalizedEmail.Length - 1)
             return "***";
+
         var local = normalizedEmail[..at];
         var domain = normalizedEmail[(at + 1)..];
-        var prefix = local.Length == 1 ? local[..1] : local[..1] + "***";
-        return $"{prefix}@{domain}";
+        var boundedDomain = domain.Length > 64 ? "…" + domain[^63..] : domain;
+        var prefix = local.Length <= 1 ? "***" : $"{local[..1]}***";
+        var hint = $"{prefix}@{boundedDomain}";
+        return string.Equals(hint, normalizedEmail, StringComparison.OrdinalIgnoreCase)
+            ? $"****@{boundedDomain}"
+            : hint;
+    }
+
+    private sealed class PassTotals
+    {
+        public int AccountsScanned { get; set; }
+        public int AccountsSkippedUnavailable { get; set; }
+        public int Inserted { get; set; }
+        public int SkippedDuplicate { get; set; }
+        public int SkippedAuthorityChanged { get; set; }
+
+        public void Record(NotificationPlanCommitResult? outcome)
+        {
+            if (outcome is null)
+            {
+                AccountsSkippedUnavailable++;
+                return;
+            }
+
+            Inserted += outcome.Inserted;
+            SkippedDuplicate += outcome.SkippedDuplicate;
+            SkippedAuthorityChanged += outcome.SkippedAuthorityChanged;
+        }
+
+        public NotificationPassResult ToResult() =>
+            new(AccountsScanned, AccountsSkippedUnavailable, Inserted, SkippedDuplicate, SkippedAuthorityChanged);
     }
 }

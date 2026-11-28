@@ -61,7 +61,12 @@
       "GraceActive": "Account entered its grace period.",
       "GraceEnding": "Grace period ends soon.",
       "AccessExpired": "Subscription access has expired.",
-      "SuspendedNoPaymentLift": "Access is suspended; payment alone does not lift suspension."
-    }
+      "SuspendedNoPaymentLift": "Access is suspended; payment alone does not lift suspension.",
+      "TrialEndingPartialSuspension": "Trial access is ending soon for active shops on this account. At least one covered shop is suspended; payment alone does not lift a suspension.",
+      "PaidRenewalPartialSuspension": "Paid subscription coverage is ending soon for active shops on this account. At least one covered shop is suspended; renewing does not lift a suspension.",
+      "GraceActivePartialSuspension": "Grace period is active for eligible covered shops. At least one covered shop is suspended; renewing does not lift a suspension.",
+      "GraceEndingPartialSuspension": "Grace period ends soon for eligible covered shops. At least one covered shop is suspended; renewing does not lift a suspension."
+    },
+    "moreShops": "+{{count}} more (total: {{total}})"
   }
 }

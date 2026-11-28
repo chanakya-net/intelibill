@@ -151,7 +151,20 @@
                     }
                     @if (commercial.coveredShopNames.length > 0) {
                       <dt>{{ 'notifications.coveredShopNames' | transloco }}</dt>
-                      <dd>{{ commercial.coveredShopNames.join(', ') }}</dd>
+                      <dd data-testid="provider-notification-shops">
+                        {{ commercial.coveredShopNames.join(', ') }}
+                        @if (commercial.coveredShopNamesTruncated || item.coveredShopCount > commercial.coveredShopNames.length) {
+                          <span>
+                            {{
+                              'notifications.moreShops'
+                                | transloco: {
+                                    count: item.coveredShopCount - commercial.coveredShopNames.length,
+                                    total: item.coveredShopCount
+                                  }
+                            }}
+                          </span>
+                        }
+                      </dd>
                     }
                   </dl>
                   @if (commercial.renewalQuoteRequired) {

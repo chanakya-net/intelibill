@@ -25,50 +25,26 @@ public sealed partial class P0701Tests(LicensingPostgreSqlFixture database) : IC
         var owner = await SignInAsync(trial.Hosts, ShopRole.Owner);
         var payer = await SignInAsync(trial.Hosts);
         var account = await CreateAccountAsync(payer.Client);
-        await trial.LinkAsync(account, payer.UserId, owner);
+        await P0213Fixture.LinkAsync(account, payer, owner);
 
-        // Also seed a second account to prove discovery pages beyond the first page (AccountPageSize=1).
+        // Seed a second account to prove discovery pages beyond the first page (AccountPageSize=1).
         var secondOwner = await SignInAsync(trial.Hosts, ShopRole.Owner);
         var secondPayer = await SignInAsync(trial.Hosts);
         var secondAccount = await CreateAccountAsync(secondPayer.Client);
-        await trial.LinkAsync(secondAccount, secondPayer.UserId, secondOwner);
+        await P0213Fixture.LinkAsync(secondAccount, secondPayer, secondOwner);
 
-        var applied = await P0210Tests.StartAndWaitAsync(owner, trial.Accept());
-        Assert.Equal("Applied", applied.Status);
-        var secondApplied = await P0210Tests.StartAndWaitAsync(secondOwner, trial.Accept());
-        Assert.Equal("Applied", secondApplied.Status);
+        Assert.Equal("Applied", (await P0210Tests.StartAndWaitAsync(owner, trial.Accept())).Status);
+        Assert.Equal("Applied", (await P0210Tests.StartAndWaitAsync(secondOwner, trial.Accept())).Status);
 
         var expectedDueAt = P0210Fixture.Start.AddDays(11);
-        var count = await WaitForScheduledCountAsync(
-            trial.LicensingOwner,
-            account,
-            $"user:{payer.UserId:D}",
-            expectedDueAt);
-        var secondCount = await WaitForScheduledCountAsync(
-            trial.LicensingOwner,
-            secondAccount,
-            $"user:{secondPayer.UserId:D}",
-            expectedDueAt);
-
-        Assert.Equal(1L, count);
-        Assert.Equal(1L, secondCount);
+        Assert.Equal(1L, await WaitForScheduledCountAsync(trial.LicensingOwner, account, $"user:{payer.UserId:D}", expectedDueAt));
+        Assert.Equal(1L, await WaitForScheduledCountAsync(trial.LicensingOwner, secondAccount, $"user:{secondPayer.UserId:D}", expectedDueAt));
 
         // Revisiting after a new billing manager joins schedules that manager without duplicating the owner.
         var manager = await SignInAsync(trial.Hosts);
         await P0204Tests.InviteManagerAsync(payer.Client, account, manager.Client, manager.Email);
-        var managerCount = await WaitForScheduledCountAsync(
-            trial.LicensingOwner,
-            account,
-            $"user:{manager.UserId:D}",
-            expectedDueAt);
-        Assert.Equal(1L, managerCount);
-        Assert.Equal(
-            1L,
-            await CountScheduledTrialThreeDayNoticesAsync(
-                trial.LicensingOwner,
-                account,
-                $"user:{payer.UserId:D}",
-                expectedDueAt));
+        Assert.Equal(1L, await WaitForScheduledCountAsync(trial.LicensingOwner, account, $"user:{manager.UserId:D}", expectedDueAt));
+        Assert.Equal(1L, await CountScheduledTrialThreeDayNoticesAsync(trial.LicensingOwner, account, $"user:{payer.UserId:D}", expectedDueAt));
     }
 
     internal static async Task<NotificationPassResult> RunPlannerPassAsync(

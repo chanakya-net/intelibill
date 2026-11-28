@@ -5,7 +5,8 @@ namespace Intelibill.Licensing.Domain.Entities;
 /// <summary>
 /// Durable planned notification intent (the licensing outbox intent). One row exists per
 /// semantic key <c>(account_id, scope_kind, scope_id, recipient_key, purpose, source_kind,
-/// source_id, source_revision, threshold)</c>; delivery transport and send-time invalidation
+/// source_id, source_revision, threshold)</c>, and at most one Email intent exists per verified
+/// destination hash for the same threshold; delivery transport and send-time invalidation
 /// belong to later slices.
 /// </summary>
 public sealed class NotificationJob
@@ -36,6 +37,7 @@ public sealed class NotificationJob
         string status,
         string templateKey,
         string templateArguments,
+        byte[]? destinationHash,
         string? protectedDestination,
         string? destinationHint,
         DateTimeOffset plannedAt,
@@ -62,6 +64,7 @@ public sealed class NotificationJob
         Status = status;
         TemplateKey = templateKey;
         TemplateArguments = templateArguments;
+        DestinationHash = destinationHash;
         ProtectedDestination = protectedDestination;
         DestinationHint = destinationHint;
         PlannedAt = plannedAt;
@@ -89,6 +92,7 @@ public sealed class NotificationJob
     public string Status { get; private set; } = "Scheduled";
     public string TemplateKey { get; private set; } = string.Empty;
     public string TemplateArguments { get; private set; } = "{}";
+    public byte[]? DestinationHash { get; private set; }
     public string? ProtectedDestination { get; private set; }
     public string? DestinationHint { get; private set; }
     public DateTimeOffset PlannedAt { get; private set; }
@@ -113,6 +117,7 @@ public sealed class NotificationJob
         string[] allowedChannels,
         string templateKey,
         string templateArguments,
+        byte[]? destinationHash,
         string? protectedDestination,
         string? destinationHint,
         DateTimeOffset plannedAt) =>
@@ -138,6 +143,7 @@ public sealed class NotificationJob
             "Scheduled",
             templateKey,
             templateArguments,
+            destinationHash,
             protectedDestination,
             destinationHint,
             plannedAt,
@@ -189,5 +195,25 @@ public sealed class BillingNoticeContactEvent
     public string EventKind { get; private set; } = string.Empty;
     public Guid? ActorId { get; private set; }
     public int Revision { get; private set; }
+    public DateTimeOffset RecordedAt { get; private set; }
+}
+
+/// <summary>
+/// Append-only idempotency ledger binding each contact mutation key to its actor, contact, action,
+/// and normalized payload digest so retries never replay superseded consent decisions.
+/// </summary>
+public sealed class BillingNoticeContactOperation
+{
+    private BillingNoticeContactOperation()
+    {
+    }
+
+    public Guid AccountId { get; private set; }
+    public string Action { get; private set; } = string.Empty;
+    public Guid OperationKey { get; private set; }
+    public Guid ContactId { get; private set; }
+    public Guid? ActorId { get; private set; }
+    public byte[] PayloadHash { get; private set; } = [];
+    public int ResultingRevision { get; private set; }
     public DateTimeOffset RecordedAt { get; private set; }
 }

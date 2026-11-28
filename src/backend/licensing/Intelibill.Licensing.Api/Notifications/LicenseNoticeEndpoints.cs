@@ -34,7 +34,11 @@ internal static class LicenseNoticeEndpoints
             ReadAccountAsync(context, account, after, handler, ct)).RequireAuthorization(policy);
 
         const string contacts = MerchantBillingDelegationV1.AccountsPath + "/{account:guid}/notice-contacts";
-        app.MapGet(contacts, ListContactsAsync).RequireAuthorization(policy);
+        app.MapGet(contacts, (HttpContext context, Guid account, BillingContactConsentHandler handler, CancellationToken ct) =>
+            ListContactsAsync(context, account, null, handler, ct)).RequireAuthorization(policy);
+        app.MapGet(contacts + "/after/{after:guid}", (HttpContext context, Guid account, Guid after,
+            BillingContactConsentHandler handler, CancellationToken ct) =>
+            ListContactsAsync(context, account, after, handler, ct)).RequireAuthorization(policy);
         app.MapPost(contacts, ApproveContactAsync).RequireAuthorization(policy);
         app.MapPost(contacts + "/{contactId:guid}/revoke", RevokeContactByOwnerAsync).RequireAuthorization(policy);
 
@@ -104,6 +108,7 @@ internal static class LicenseNoticeEndpoints
     private static async Task<IResult> ListContactsAsync(
         HttpContext context,
         Guid account,
+        Guid? after,
         BillingContactConsentHandler handler,
         CancellationToken ct)
     {
@@ -111,10 +116,10 @@ internal static class LicenseNoticeEndpoints
             context,
             account,
             LicenseNoticesV1.ContactList,
-            LicenseNoticesV1.AccountContactsPath(account));
+            LicenseNoticesV1.AccountContactsPath(account, after));
         return proof is null
             ? Invalid(context)
-            : Respond(context, await handler.ListAsync(proof, account, ct));
+            : Respond(context, await handler.ListAsync(proof, account, after, ct));
     }
 
     private static async Task<IResult> ApproveContactAsync(

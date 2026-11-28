@@ -66,6 +66,7 @@ The context starts from one `Baseline` migration that runs an embedded `pg_dump`
 - Warnings are errors: every build must be analyzer-clean.
 - Tenant tables are protected by PostgreSQL RLS keyed on `app.current_user_id` and `app.active_shop_id`.
 - Never log exception messages, tokens, links or DTOs by hand; logging goes through `LogEventRedactor`.
+- Licence notice recipient authority (`POST /internal/merchant/v1/licensing/notice-recipients`) validates exact `(shop, account, affiliation)` bindings and minimizes personal data on the wire (no raw phones, no staff emails); merchant notice/contact relays in `BillingController.Notices.cs` enforce live shop/account authority with `Cache-Control: no-store`.
 
 ## Documentation
 

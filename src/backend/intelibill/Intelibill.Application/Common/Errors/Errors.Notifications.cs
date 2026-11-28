@@ -15,6 +15,9 @@ public static partial class Errors
         public static Error RecipientAuthorityUnavailable =>
             Error.Failure("Notifications.RecipientAuthorityUnavailable", "Notice recipient authority is temporarily unavailable.");
 
+        public static Error InvalidCursor =>
+            Error.Validation("Notifications.InvalidCursor", "The requested notification cursor does not belong to this account.");
+
         public static Error ContactInvalid =>
             Error.Validation("Notifications.ContactInvalid", "Enter a valid billing contact email address and operation key.");
 

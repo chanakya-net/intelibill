@@ -46,6 +46,8 @@ export interface AccountLicenseNoticeItem {
   readonly evidencedTermCurrency: string | null;
   readonly renewalQuoteRequired: boolean;
   readonly paymentDoesNotLiftSuspension: boolean;
+  readonly suspendedShopCount?: number;
+  readonly coveredShopNamesTruncated?: boolean;
 }
 
 export interface AccountLicenseNotices {

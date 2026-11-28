@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Domain.Entities;
+using Intelibill.Licensing.Domain.Policies;
 using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Notifications;
@@ -81,6 +82,9 @@ public sealed record PlannedNotificationWrite(
     Guid? ContactId,
     int? ExpectedMemberRevision,
     int? ExpectedContactRevision,
+    Guid? ExpectedAffiliationRequestId,
+    NoticeRestrictionScope ExpectedRestriction,
+    string? ExpectedRosterFingerprint,
     string Audience,
     string Purpose,
     string SourceKind,
@@ -94,6 +98,7 @@ public sealed record PlannedNotificationWrite(
     string TemplateKey,
     string TemplateArgumentsJson,
     string? EmailDestination,
+    byte[]? EmailDestinationHash,
     string? DestinationHint);
 
 public sealed record NotificationPlanCommitResult(
@@ -107,6 +112,19 @@ public sealed record NotificationPassResult(
     int Inserted,
     int SkippedDuplicate,
     int SkippedAuthorityChanged);
+
+public sealed record NotificationBatchResult(
+    NotificationPassResult Pass,
+    Guid? NextAfterAccount);
+
+public sealed record CurrentCommercialSource(
+    Guid SourceId,
+    string SourceRevision,
+    NoticeRestrictionScope Restriction,
+    int CoveredShopCount,
+    int SuspendedShopCount,
+    string[] CoveredShopNames,
+    bool CoveredShopNamesTruncated);
 
 public sealed record NotificationJobReadRow(
     Guid Id,
@@ -140,7 +158,11 @@ public sealed record NotificationReadPage(
 
 public interface INotificationPlanStore
 {
-    Task<IReadOnlyList<Guid>> DiscoverAccountsAsync(Guid? afterAccount, int take, CancellationToken ct);
+    Task<IReadOnlyList<Guid>> DiscoverAccountsAsync(
+        DateTimeOffset now,
+        Guid? afterAccount,
+        int take,
+        CancellationToken ct);
 
     Task<AccountPlanContext?> ReadAccountPlanContextAsync(
         Guid accountId,
@@ -166,20 +188,26 @@ public interface IMerchantNoticeRecipientAuthority
 
 public interface ILicenseNoticeReader
 {
-    Task<Guid?> ReadCurrentShopAccountAsync(Guid shopId, CancellationToken ct);
+    Task<int> ReadTrialExtensionRevisionAsync(Guid accountId, Guid termId, CancellationToken ct);
 
-    Task<NotificationReadPage> ReadDueShopNoticesAsync(
+    Task<IReadOnlyList<CurrentCommercialSource>> ReadCurrentAccountSourcesAsync(
+        Guid accountId,
+        DateTimeOffset now,
+        CancellationToken ct);
+
+    Task<NotificationReadPage> ReadCurrentDueShopNoticeAsync(
         Guid accountId,
         Guid shopId,
         Guid actorId,
+        Guid sourceId,
+        string sourceRevision,
         DateTimeOffset now,
-        Guid? after,
-        int take,
         CancellationToken ct);
 
-    Task<NotificationReadPage> ReadDueAccountNoticesAsync(
+    Task<NotificationReadPage> ReadCurrentDueAccountNoticesAsync(
         Guid accountId,
         Guid actorId,
+        IReadOnlyList<CurrentCommercialSource> activeSources,
         DateTimeOffset now,
         Guid? after,
         int take,
@@ -194,14 +222,18 @@ public interface ILicenseNoticeReader
 
 public interface IBillingContactStore
 {
-    Task<ErrorOr<BillingContactV1>> ApproveAsync(
+    Task<ErrorOr<ApprovedBillingContactResult>> ApproveAsync(
         Guid accountId,
         Guid ownerActorId,
         ApproveBillingContactRequestV1 request,
         DateTimeOffset now,
         CancellationToken ct);
 
-    Task<IReadOnlyList<BillingContactV1>> ListAsync(Guid accountId, CancellationToken ct);
+    Task<ErrorOr<BillingContactsPageV1>> ListAsync(
+        Guid accountId,
+        Guid? after,
+        int take,
+        CancellationToken ct);
 
     Task<ErrorOr<BillingContactV1>> RevokeByOwnerAsync(
         Guid accountId,

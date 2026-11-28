@@ -21,9 +21,10 @@ public interface IMerchantLicenseNotices
         Guid? after,
         CancellationToken ct);
 
-    Task<ErrorOr<BillingContactV1[]>> ListContactsAsync(
+    Task<ErrorOr<BillingContactsPageV1>> ListContactsAsync(
         MerchantBillingCaller caller,
         Guid accountId,
+        Guid? after,
         CancellationToken ct);
 
     Task<ErrorOr<BillingContactV1>> ApproveContactAsync(

@@ -2,19 +2,26 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Billing;
+using Intelibill.Licensing.Application.Restrictions;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Domain.Entities;
+using Intelibill.Licensing.Domain.Policies;
+using Intelibill.Licensing.Domain.ValueObjects;
 using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Notifications;
 
 /// <summary>
 /// Separate merchant shop, merchant billing-account, and provider preview reads over persisted
-/// <see cref="NotificationJob"/> rows. Strictly read-only: never writes jobs or claims delivery.
+/// <see cref="NotificationJob"/> rows. Merchant reads project only the current applicable status
+/// per live source; provider preview preserves full immutable schedule history. Strictly read-only.
 /// </summary>
 public sealed class ReadLicenseNoticesHandler(
     IBillingDelegationAccess access,
     ISubscriptionStatusStore statusStore,
+    ISubscriptionAccessFactsReader factsReader,
+    ISuspensionStore suspensions,
+    IClosureStore closures,
     ILicenseNoticeReader reader,
     TimeProvider statusClock,
     TimeProvider sessionClock)
@@ -39,32 +46,10 @@ public sealed class ReadLicenseNoticesHandler(
             return Task.FromResult<ErrorOr<ShopLicenseNoticesV1>>(BillingDelegationErrors.Invalid);
         }
 
-        return access.ExecuteAsync<ShopLicenseNoticesV1>(delegation, async (scope, token) =>
-        {
-            var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
-            await statusStore.UseShopAsync(shopId, token);
-            var accountId = await reader.ReadCurrentShopAccountAsync(shopId, token);
-            if (accountId is not { } currentAccount)
-                return new ShopLicenseNoticesV1(LicenseNoticesV1.SchemaVersion, shopId, now, [], null, null);
-
-            var page = await reader.ReadDueShopNoticesAsync(
-                currentAccount,
-                shopId,
-                scope.ActorId,
-                now,
-                after,
-                LicenseNoticesV1.PageSize,
-                token);
-            var items = page.Rows.Select(ProjectShopNotice).ToArray();
-            var nextCursor = page.HasMore && items.Length > 0 ? items[^1].NoticeId : (Guid?)null;
-            return new ShopLicenseNoticesV1(
-                LicenseNoticesV1.SchemaVersion,
-                shopId,
-                now,
-                items,
-                page.NextDueAt,
-                nextCursor);
-        }, ct);
+        return access.ExecuteAsync<ShopLicenseNoticesV1>(
+            delegation,
+            (scope, token) => ReadCurrentShopNoticesAsync(scope, shopId, after, token),
+            ct);
     }
 
     public Task<ErrorOr<AccountLicenseNoticesV1>> ReadAccountAsync(
@@ -82,26 +67,10 @@ public sealed class ReadLicenseNoticesHandler(
         }
 
         // Delegation transaction already locks active Owner/Manager membership FOR SHARE.
-        return access.ExecuteAsync<AccountLicenseNoticesV1>(delegation, async (scope, token) =>
-        {
-            var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
-            var page = await reader.ReadDueAccountNoticesAsync(
-                accountId,
-                scope.ActorId,
-                now,
-                after,
-                LicenseNoticesV1.PageSize,
-                token);
-            var items = page.Rows.Select(ProjectAccountNotice).ToArray();
-            var nextCursor = page.HasMore && items.Length > 0 ? items[^1].NoticeId : (Guid?)null;
-            return new AccountLicenseNoticesV1(
-                LicenseNoticesV1.SchemaVersion,
-                accountId,
-                now,
-                items,
-                page.NextDueAt,
-                nextCursor);
-        }, ct);
+        return access.ExecuteAsync<AccountLicenseNoticesV1>(
+            delegation,
+            (scope, token) => ReadCurrentAccountNoticesAsync(accountId, scope.ActorId, after, token),
+            ct);
     }
 
     public Task<ErrorOr<ProviderNotificationsPageV1>> ReadProviderPreviewAsync(
@@ -136,6 +105,115 @@ public sealed class ReadLicenseNoticesHandler(
                 nextCursor);
         }, ct);
 
+    private async Task<ErrorOr<ShopLicenseNoticesV1>> ReadCurrentShopNoticesAsync(
+        IBillingDelegationScope scope,
+        Guid shopId,
+        Guid? after,
+        CancellationToken ct)
+    {
+        var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
+        await statusStore.UseShopAsync(shopId, ct);
+        var coverage = await factsReader.ReadShopAsync(shopId, ct, now);
+        if (coverage is null)
+            return EmptyShopNotices(shopId, now);
+
+        await scope.UseAccountAsync(coverage.AccountId, ct);
+        var closure = await closures.ReadShopClosureStatusAsync(coverage.AccountId, shopId, ct);
+        if (closure.ClosedAt is not null && closure.ReopenedAt is null)
+            return EmptyShopNotices(shopId, now);
+
+        var baseline = coverage.Term is { } baselineTerm ? SubscriptionStatusProjection.ToFacts(baselineTerm) : null;
+        var grants = (coverage.Grants ?? []).Select(SubscriptionStatusProjection.ToFacts).ToArray();
+        var chosen = ComplimentaryAccessPolicy.Select(baseline, grants, now);
+        if (chosen is not -1 || coverage.Term is not { } currentTerm || baseline is null
+            || baseline.Evidence != TermEvidenceState.Complete
+            || baseline.Basis is null
+            || baseline.RenewedAtEnd)
+        {
+            // Active complimentary grant, missing/incomplete term, or already-renewed predecessor has no due warning.
+            return EmptyShopNotices(shopId, now);
+        }
+
+        if (after is not null)
+            return EmptyShopNotices(shopId, now);
+
+        var suspension = await suspensions.ReadCustomerAsync(coverage.AccountId, shopId, now, ct);
+        var restriction = suspension is not null && suspension.EffectiveAt <= now
+            ? NoticeRestrictionScope.Full
+            : NoticeRestrictionScope.None;
+        var sourceRevision = await BuildCurrentShopSourceRevisionAsync(coverage.AccountId, currentTerm, baseline, ct);
+        var page = await reader.ReadCurrentDueShopNoticeAsync(
+            coverage.AccountId,
+            shopId,
+            scope.ActorId,
+            currentTerm.TermId,
+            sourceRevision,
+            now,
+            ct);
+        var items = page.Rows.Select(row => ProjectShopNotice(row, restriction)).ToArray();
+        return new ShopLicenseNoticesV1(
+            LicenseNoticesV1.SchemaVersion,
+            shopId,
+            now,
+            items,
+            page.NextDueAt,
+            NextCursor: null);
+    }
+
+    private async Task<string> BuildCurrentShopSourceRevisionAsync(
+        Guid accountId,
+        TermFactsRow currentTerm,
+        SubscriptionAccessFacts baseline,
+        CancellationToken ct)
+    {
+        var trialExtRev = currentTerm.Trial is not null
+            ? await reader.ReadTrialExtensionRevisionAsync(accountId, currentTerm.TermId, ct)
+            : 0;
+        var cancelVersion = SubscriptionStatusProjection.ActiveCancellation(currentTerm)?.Version ?? 0L;
+        return NotificationSchedulePolicy.BuildOperationalSourceRevision(
+            baseline.Basis!.Value.ToString(),
+            currentTerm.TermId,
+            baseline,
+            trialExtRev,
+            cancelVersion);
+    }
+
+    private async Task<ErrorOr<AccountLicenseNoticesV1>> ReadCurrentAccountNoticesAsync(
+        Guid accountId,
+        Guid actorId,
+        Guid? after,
+        CancellationToken ct)
+    {
+        var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
+        if (await closures.AccountClosedAsync(accountId, ct))
+            return new AccountLicenseNoticesV1(LicenseNoticesV1.SchemaVersion, accountId, now, [], null, null);
+
+        var activeSources = await reader.ReadCurrentAccountSourcesAsync(accountId, now, ct);
+        if (activeSources.Count == 0)
+            return new AccountLicenseNoticesV1(LicenseNoticesV1.SchemaVersion, accountId, now, [], null, null);
+
+        var bySource = activeSources.ToDictionary(source => source.SourceId);
+        var page = await reader.ReadCurrentDueAccountNoticesAsync(
+            accountId,
+            actorId,
+            activeSources,
+            now,
+            after,
+            LicenseNoticesV1.PageSize,
+            ct);
+        var items = page.Rows
+            .Select(row => ProjectAccountNotice(row, bySource.GetValueOrDefault(row.SourceId)))
+            .ToArray();
+        var nextCursor = page.HasMore && items.Length > 0 ? items[^1].NoticeId : (Guid?)null;
+        return new AccountLicenseNoticesV1(
+            LicenseNoticesV1.SchemaVersion,
+            accountId,
+            now,
+            items,
+            page.NextDueAt,
+            nextCursor);
+    }
+
     private async Task<ErrorOr<bool>> AuthorizeProviderAsync(AdminSessionCaller caller, CancellationToken ct)
     {
         var (actor, session) = await statusStore.LockProviderAsync(caller, ct);
@@ -154,29 +232,52 @@ public sealed class ReadLicenseNoticesHandler(
         return (actor.Capabilities & CommercialReaders) != 0;
     }
 
-    private static ShopLicenseNoticeItemV1 ProjectShopNotice(NotificationJobReadRow row)
+    private static ShopLicenseNoticesV1 EmptyShopNotices(Guid shopId, DateTimeOffset now) =>
+        new(LicenseNoticesV1.SchemaVersion, shopId, now, [], null, null);
+
+    private static ShopLicenseNoticeItemV1 ProjectShopNotice(
+        NotificationJobReadRow row,
+        NoticeRestrictionScope liveRestriction)
     {
         using var args = JsonDocument.Parse(row.TemplateArguments);
         var root = args.RootElement;
+        var baseState = ReadString(root, "accessState", "Active");
+        var baseGuidance = ReadString(root, "guidanceCode", LicenseNoticesV1.GuidanceTrialEnding);
+        var (state, guidance, _) = NotificationSchedulePolicy.ProjectLiveRestriction(
+            baseState,
+            baseGuidance,
+            liveRestriction);
         return new ShopLicenseNoticeItemV1(
             row.Id,
             row.ScopeId,
             row.Purpose,
             row.Threshold,
-            ReadString(root, "accessState", "Active"),
-            ReadString(root, "guidanceCode", LicenseNoticesV1.GuidanceTrialEnding),
+            state,
+            guidance,
             row.TemplateKey,
             row.DueAt,
             row.EffectiveDeadlineAt,
             row.TimeZone,
             row.Locale,
-            ReadString(root, "shopName", string.Empty));
+            LicenseNoticesV1.BoundShopName(ReadString(root, "shopName", string.Empty)));
     }
 
-    private static AccountLicenseNoticeItemV1 ProjectAccountNotice(NotificationJobReadRow row)
+    private static AccountLicenseNoticeItemV1 ProjectAccountNotice(
+        NotificationJobReadRow row,
+        CurrentCommercialSource? liveSource)
     {
         using var args = JsonDocument.Parse(row.TemplateArguments);
         var root = args.RootElement;
+        var baseState = ReadString(root, "accessState", "Active");
+        var baseGuidance = ReadString(root, "guidanceCode", LicenseNoticesV1.GuidancePaidRenewalDue);
+        var (state, guidance, noLift) = liveSource is not null
+            ? NotificationSchedulePolicy.ProjectLiveRestriction(baseState, baseGuidance, liveSource.Restriction)
+            : (baseState, baseGuidance, ReadBool(root, "paymentDoesNotLiftSuspension"));
+        var coveredCount = liveSource?.CoveredShopCount ?? ReadInt(root, "coveredShopCount");
+        var suspendedCount = liveSource?.SuspendedShopCount ?? ReadInt(root, "suspendedShopCount");
+        var coveredNames = liveSource?.CoveredShopNames
+            ?? LicenseNoticesV1.BoundShopNameSample(ReadStringArray(root, "coveredShopNames"));
+        var truncated = liveSource?.CoveredShopNamesTruncated ?? (coveredCount > coveredNames.Length);
         return new AccountLicenseNoticeItemV1(
             row.Id,
             row.AccountId,
@@ -184,20 +285,22 @@ public sealed class ReadLicenseNoticesHandler(
             row.SourceKind,
             row.SourceId,
             row.Threshold,
-            ReadString(root, "accessState", "Active"),
-            ReadString(root, "guidanceCode", LicenseNoticesV1.GuidancePaidRenewalDue),
+            state,
+            guidance,
             row.TemplateKey,
             row.DueAt,
             row.EffectiveDeadlineAt,
             row.TimeZone,
             row.Locale,
             row.AllowedChannels,
-            ReadInt(root, "coveredShopCount"),
-            ReadStringArray(root, "coveredShopNames"),
+            coveredCount,
+            coveredNames,
             ReadNullableLong(root, "evidencedTermPricePaise"),
             ReadNullableString(root, "evidencedTermCurrency"),
             ReadBool(root, "renewalQuoteRequired"),
-            ReadBool(root, "paymentDoesNotLiftSuspension"));
+            noLift,
+            suspendedCount,
+            truncated);
     }
 
     private static ProviderNotificationItemV1 ProjectProviderItem(
@@ -209,19 +312,21 @@ public sealed class ReadLicenseNoticesHandler(
         var root = args.RootElement;
         var isCommercialAudience = row.ScopeKind == LicenseNoticesV1.ScopeAccount;
         var coveredShopCount = isCommercialAudience ? ReadInt(root, "coveredShopCount") : 1;
+        var suspendedShopCount = isCommercialAudience ? ReadInt(root, "suspendedShopCount") : 0;
         ProviderNotificationCommercialV1? commercial = null;
         if (commercialAllowed && isCommercialAudience)
         {
-            var recipientReference = row.Audience == LicenseNoticesV1.AudienceCommercialContact
-                ? "Approved billing contact"
-                : "Verified billing role";
+            var shopSample = LicenseNoticesV1.BoundShopNameSample(ReadStringArray(root, "coveredShopNames"));
             commercial = new ProviderNotificationCommercialV1(
                 ReadNullableLong(root, "evidencedTermPricePaise"),
                 ReadNullableString(root, "evidencedTermCurrency"),
                 ReadBool(root, "renewalQuoteRequired"),
                 row.DestinationHint,
-                recipientReference,
-                ReadStringArray(root, "coveredShopNames"));
+                row.Audience == LicenseNoticesV1.AudienceCommercialContact
+                    ? "Approved billing contact"
+                    : "Verified billing role",
+                shopSample,
+                coveredShopCount > shopSample.Length);
         }
 
         return new ProviderNotificationItemV1(
@@ -246,7 +351,8 @@ public sealed class ReadLicenseNoticesHandler(
             coveredShopCount,
             ReadBool(root, "paymentDoesNotLiftSuspension"),
             row.PlannedAt,
-            commercial);
+            commercial,
+            suspendedShopCount);
     }
 
     private static string ReadString(JsonElement root, string name, string fallback) =>

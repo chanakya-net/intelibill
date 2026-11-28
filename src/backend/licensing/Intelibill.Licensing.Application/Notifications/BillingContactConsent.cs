@@ -5,6 +5,33 @@ using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Notifications;
 
+public sealed record StandaloneMailboxProof(
+    Guid AccountId,
+    Guid ContactId,
+    string NormalizedEmail,
+    string ProofToken,
+    DateTimeOffset ExpiresAt);
+
+public sealed record ApprovedBillingContactResult(
+    BillingContactV1 Contact,
+    StandaloneMailboxProof? PendingMailboxProof);
+
+/// <summary>
+/// Out-of-band mailbox proof handoff seam. Production binds a no-op until outbound email delivery
+/// (#925) dispatches mailbox proofs directly to the address holder; proofs never return to the approver.
+/// </summary>
+public interface IBillingContactMailboxProofDispatch
+{
+    void OnStandaloneProofIssued(StandaloneMailboxProof proof);
+}
+
+public sealed class NoOpBillingContactMailboxProofDispatch : IBillingContactMailboxProofDispatch
+{
+    public void OnStandaloneProofIssued(StandaloneMailboxProof proof)
+    {
+    }
+}
+
 /// <summary>
 /// Manages account-approved commercial billing contacts with separate holder verification, opt-in,
 /// and revocation. Contact consent never grants billing membership, login, or shop data access.
@@ -12,9 +39,10 @@ namespace Intelibill.Licensing.Application.Notifications;
 public sealed class BillingContactConsentHandler(
     IBillingDelegationAccess access,
     IBillingContactStore store,
+    IBillingContactMailboxProofDispatch proofDispatch,
     TimeProvider clock)
 {
-    public Task<ErrorOr<BillingContactV1>> ApproveAsync(
+    public async Task<ErrorOr<BillingContactV1>> ApproveAsync(
         VerifiedBillingDelegation delegation,
         Guid accountId,
         ApproveBillingContactRequestV1 request,
@@ -24,13 +52,13 @@ public sealed class BillingContactConsentHandler(
             || delegation.Action != LicenseNoticesV1.ContactApprove
             || accountId == Guid.Empty)
         {
-            return Task.FromResult<ErrorOr<BillingContactV1>>(BillingDelegationErrors.Invalid);
+            return BillingDelegationErrors.Invalid;
         }
 
         if (!IsValidApproveRequest(request))
-            return Task.FromResult<ErrorOr<BillingContactV1>>(NotificationErrors.ContactInvalid);
+            return NotificationErrors.ContactInvalid;
 
-        return access.ExecuteAsync(
+        var saved = await access.ExecuteAsync(
             delegation,
             (scope, token) => store.ApproveAsync(
                 accountId,
@@ -39,23 +67,32 @@ public sealed class BillingContactConsentHandler(
                 BillingAccountRules.StorageInstant(clock.GetUtcNow()),
                 token),
             ct);
+        if (saved.IsError)
+            return saved.Errors;
+
+        if (saved.Value.PendingMailboxProof is { } proof)
+            proofDispatch.OnStandaloneProofIssued(proof);
+
+        return saved.Value.Contact;
     }
 
-    public Task<ErrorOr<IReadOnlyList<BillingContactV1>>> ListAsync(
+    public Task<ErrorOr<BillingContactsPageV1>> ListAsync(
         VerifiedBillingDelegation delegation,
         Guid accountId,
+        Guid? after,
         CancellationToken ct)
     {
         if (delegation.AccountId != accountId
             || delegation.Action != LicenseNoticesV1.ContactList
-            || accountId == Guid.Empty)
+            || accountId == Guid.Empty
+            || after == Guid.Empty)
         {
-            return Task.FromResult<ErrorOr<IReadOnlyList<BillingContactV1>>>(BillingDelegationErrors.Invalid);
+            return Task.FromResult<ErrorOr<BillingContactsPageV1>>(BillingDelegationErrors.Invalid);
         }
 
-        return access.ExecuteAsync<IReadOnlyList<BillingContactV1>>(
+        return access.ExecuteAsync(
             delegation,
-            async (_, token) => ErrorOrFactory.From(await store.ListAsync(accountId, token)),
+            (_, token) => store.ListAsync(accountId, after, LicenseNoticesV1.ContactPageSize, token),
             ct);
     }
 

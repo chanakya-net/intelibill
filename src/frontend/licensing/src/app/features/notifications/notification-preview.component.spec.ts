@@ -19,15 +19,31 @@ import { NotificationPreviewComponent } from './notification-preview.component';
 const accountA = '33333333-3333-4333-8333-333333333333';
 const accountB = '55555555-5555-4555-8555-555555555555';
 
-function makePage(accountId: string, commercialIncluded: boolean): ProviderNotificationsPage {
+function makePage(
+  accountId: string,
+  commercialIncluded: boolean,
+  options: {
+    dueAt?: string;
+    effectiveDeadlineAt?: string;
+    nextCursor?: string | null;
+    prefix?: string;
+    coveredShopCount?: number;
+    coveredShopNames?: string[];
+  } = {},
+): ProviderNotificationsPage {
+  const prefix = options.prefix ?? `job-${accountId}`;
+  const dueAt = options.dueAt ?? '2028-02-22T04:30:00Z';
+  const deadline = options.effectiveDeadlineAt ?? '2028-02-29T04:30:00Z';
+  const names = options.coveredShopNames ?? ['North Shop', 'South Shop'];
+  const count = options.coveredShopCount ?? names.length;
   return {
     schemaVersion: 1,
     accountId,
-    evaluatedAt: '2028-02-22T04:30:00Z',
+    evaluatedAt: dueAt,
     commercialIncluded,
     items: [
       {
-        jobId: `job-${accountId}-1`,
+        jobId: `${prefix}-1`,
         scopeKind: 'Account',
         scopeId: accountId,
         audience: 'CommercialBillingRole',
@@ -38,14 +54,14 @@ function makePage(accountId: string, commercialIncluded: boolean): ProviderNotif
         threshold: 'PaidMinus7Days',
         status: 'Scheduled',
         isDue: true,
-        dueAt: '2028-02-22T04:30:00Z',
-        effectiveDeadlineAt: '2028-02-29T04:30:00Z',
+        dueAt,
+        effectiveDeadlineAt: deadline,
         timeZone: 'Asia/Kolkata',
         locale: 'en-IN',
         allowedChannels: ['InApp', 'Email'],
         templateKey: 'notice.paid.minus7',
         guidanceCode: 'PaidRenewalDue',
-        coveredShopCount: 2,
+        coveredShopCount: count,
         paymentDoesNotLiftSuspension: false,
         plannedAt: '2028-01-31T04:30:00Z',
         commercial: commercialIncluded
@@ -54,13 +70,14 @@ function makePage(accountId: string, commercialIncluded: boolean): ProviderNotif
               evidencedTermCurrency: 'INR',
               renewalQuoteRequired: true,
               destinationHint: 'o***@example.test',
-              recipientReference: 'user:1',
-              coveredShopNames: ['North Shop', 'South Shop'],
+              recipientReference: 'Verified billing role',
+              coveredShopNames: names,
+              coveredShopNamesTruncated: count > names.length,
             }
           : null,
       },
       {
-        jobId: `job-${accountId}-2`,
+        jobId: `${prefix}-2`,
         scopeKind: 'Account',
         scopeId: accountId,
         audience: 'CommercialBillingRole',
@@ -72,19 +89,19 @@ function makePage(accountId: string, commercialIncluded: boolean): ProviderNotif
         status: 'Scheduled',
         isDue: false,
         dueAt: '2028-02-28T04:30:00Z',
-        effectiveDeadlineAt: '2028-02-29T04:30:00Z',
+        effectiveDeadlineAt: deadline,
         timeZone: 'Asia/Kolkata',
         locale: 'en-IN',
         allowedChannels: ['InApp', 'Email'],
         templateKey: 'notice.paid.minus1',
         guidanceCode: 'PaidRenewalDue',
-        coveredShopCount: 2,
+        coveredShopCount: count,
         paymentDoesNotLiftSuspension: false,
         plannedAt: '2028-01-31T04:30:00Z',
         commercial: null,
       },
     ],
-    nextCursor: null,
+    nextCursor: options.nextCursor ?? null,
   };
 }
 
@@ -114,18 +131,30 @@ function setup(read: NotificationPreviewApi['read'], grants: string[] = ['billin
 afterEach(() => TestBed.resetTestingModule());
 
 describe('NotificationPreviewComponent', () => {
-  it('shows commercial preview with UTC and IST due times and due/future badges for Billing', async () => {
-    const read = vi.fn(() => of(makePage(accountA, true)));
+  it('shows commercial preview with exact microsecond UTC and IST instants, bounded shops, and due/future badges', async () => {
+    const read = vi.fn(() =>
+      of(
+        makePage(accountA, true, {
+          dueAt: '2028-02-22T04:30:00.123456Z',
+          effectiveDeadlineAt: '2028-02-29T04:30:00.123456Z',
+          coveredShopCount: 1200,
+          coveredShopNames: ['Shop 1', 'Shop 2', 'Shop 3', 'Shop 4', 'Shop 5'],
+        }),
+      ),
+    );
     const { fixture, el } = setup(read, ['billing']);
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(read).toHaveBeenCalledWith(accountA, null);
-    const rows = el.querySelectorAll('[data-testid="provider-notification-row"]');
-    expect(rows.length).toBe(2);
-    expect(el.querySelector('[data-testid="provider-notification-due-utc"]')?.textContent).toContain('22 Feb 2028, 04:30:00 UTC');
-    expect(el.querySelector('[data-testid="provider-notification-due-ist"]')?.textContent).toContain('22 Feb 2028, 10:00:00 IST');
-    expect(el.querySelector('[data-testid="provider-notification-commercial"]')).not.toBeNull();
+    expect(el.querySelectorAll('[data-testid="provider-notification-row"]').length).toBe(2);
+    expect(el.querySelector('[data-testid="provider-notification-due-utc"]')?.textContent).toContain(
+      '22 Feb 2028, 04:30:00.123456 UTC',
+    );
+    expect(el.querySelector('[data-testid="provider-notification-due-ist"]')?.textContent).toContain(
+      '22 Feb 2028, 10:00:00.123456 IST',
+    );
+    expect(el.querySelector('[data-testid="provider-notification-shops"]')?.textContent).toContain('+1195 more (total: 1200)');
     expect(el.querySelector('[data-testid="provider-notification-price"]')?.textContent).toContain('120');
     const badges = Array.from(el.querySelectorAll('[data-testid="provider-notification-due-badge"]')).map((node) =>
       node.textContent?.trim(),
@@ -144,6 +173,95 @@ describe('NotificationPreviewComponent', () => {
     expect(el.textContent).not.toContain('o***@example.test');
   });
 
+  it('keeps newer redacted or denied focus response authoritative when an older commercial response finishes last', async () => {
+    const delayedCommercial = new Subject<ProviderNotificationsPage>();
+    const newerRedacted = new Subject<ProviderNotificationsPage>();
+    const read = vi
+      .fn()
+      .mockReturnValueOnce(delayedCommercial.asObservable())
+      .mockReturnValueOnce(newerRedacted.asObservable());
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    try {
+      const { fixture, el } = setup(read, ['billing'], accountA);
+      window.dispatchEvent(new Event('focus'));
+
+      // Newer Support-redacted response arrives first (same account, local capability token unchanged).
+      newerRedacted.next(makePage(accountA, false, { prefix: 'redacted' }));
+      newerRedacted.complete();
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="provider-notifications-redacted"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="provider-notification-commercial"]')).toBeNull();
+
+      // Older commercial Billing response finishes last -> must be rejected!
+      delayedCommercial.next(makePage(accountA, true, { prefix: 'stale-commercial' }));
+      delayedCommercial.complete();
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="provider-notification-commercial"]')).toBeNull();
+      expect(el.querySelector('[data-job-id="stale-commercial-1"]')).toBeNull();
+      expect(el.querySelector('[data-testid="provider-notifications-redacted"]')).not.toBeNull();
+    } finally {
+      visibility.mockRestore();
+    }
+  });
+
+  it('rejects delayed second-page commercial load after newer 403 and clears page 1 on mid-pagination downgrade', async () => {
+    const delayedPage2 = new Subject<ProviderNotificationsPage>();
+    const focusDenied = new Subject<ProviderNotificationsPage>();
+    const read = vi
+      .fn()
+      .mockReturnValueOnce(of(makePage(accountA, true, { nextCursor: 'cursor-1', prefix: 'page1' })))
+      .mockReturnValueOnce(delayedPage2.asObservable())
+      .mockReturnValueOnce(focusDenied.asObservable());
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    try {
+      const { fixture, el } = setup(read, ['billing'], accountA);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      el.querySelector<HTMLButtonElement>('[data-testid="provider-notifications-more"]')!.click();
+      window.dispatchEvent(new Event('focus'));
+
+      focusDenied.error(new HttpErrorResponse({ status: 403 }));
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="provider-notifications-denied"]')).not.toBeNull();
+      expect(el.querySelectorAll('[data-testid="provider-notification-row"]').length).toBe(0);
+
+      // Delayed commercial page 2 completes after 403 -> must NOT restore rows!
+      delayedPage2.next(makePage(accountA, true, { prefix: 'page2' }));
+      delayedPage2.complete();
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="provider-notifications-denied"]')).not.toBeNull();
+      expect(el.querySelectorAll('[data-testid="provider-notification-row"]').length).toBe(0);
+    } finally {
+      visibility.mockRestore();
+    }
+
+    // Same-account mid-pagination downgrade: page 1 commercial -> page 2 redacted -> clears page 1 & reloads redacted!
+    TestBed.resetTestingModule();
+    const downgradeRead = vi
+      .fn()
+      .mockReturnValueOnce(of(makePage(accountA, true, { nextCursor: 'cursor-1', prefix: 'comm-p1' })))
+      .mockReturnValueOnce(of(makePage(accountA, false, { prefix: 'redacted-p2' })))
+      .mockReturnValueOnce(of(makePage(accountA, false, { prefix: 'redacted-p1' })));
+    const downgraded = setup(downgradeRead, ['billing'], accountA);
+    await downgraded.fixture.whenStable();
+    downgraded.fixture.detectChanges();
+    expect(downgraded.el.querySelector('[data-testid="provider-notification-commercial"]')).not.toBeNull();
+
+    downgraded.el.querySelector<HTMLButtonElement>('[data-testid="provider-notifications-more"]')!.click();
+    await downgraded.fixture.whenStable();
+    downgraded.fixture.detectChanges();
+    expect(downgradeRead).toHaveBeenCalledTimes(3);
+    expect(downgraded.el.querySelector('[data-testid="provider-notification-commercial"]')).toBeNull();
+    expect(downgraded.el.querySelector('[data-job-id="comm-p1-1"]')).toBeNull();
+    expect(downgraded.el.querySelector('[data-job-id="redacted-p1-1"]')).not.toBeNull();
+    expect(downgraded.el.querySelector('[data-testid="provider-notifications-redacted"]')).not.toBeNull();
+  });
+
   it('clears stale rows immediately on capability removal and drops late responses from earlier accounts', async () => {
     const delayedA = new Subject<ProviderNotificationsPage>();
     const read = vi.fn((id: string) =>
@@ -157,14 +275,12 @@ describe('NotificationPreviewComponent', () => {
     fixture.detectChanges();
     expect(el.querySelectorAll('[data-testid="provider-notification-row"]').length).toBe(2);
 
-    // Late reply for account A must be dropped.
     delayedA.next(makePage(accountA, true));
     delayedA.complete();
     await Promise.resolve();
     fixture.detectChanges();
     expect(el.querySelector('[data-job-id="job-' + accountA + '-1"]')).toBeNull();
 
-    // Removing capability clears the panel immediately.
     capabilities.set(['security-administrator']);
     fixture.detectChanges();
     expect(el.querySelector('[data-testid="provider-notifications-panel"]')).toBeNull();

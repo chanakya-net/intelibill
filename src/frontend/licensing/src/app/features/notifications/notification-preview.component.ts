@@ -16,8 +16,8 @@ type Outcome = 'idle' | 'loading' | 'denied' | 'missing' | 'unavailable' | 'sess
 
 /**
  * Read-only preview of persisted scheduled licence notification jobs for one billing account.
- * Never writes or claims delivery. Clears immediately on account, capability, or session change
- * and drops late answers from earlier requests.
+ * Never writes or claims delivery. Enforces one strictly ordered request sequence per view so
+ * older commercial responses can never overwrite newer redacted or denied responses.
  */
 @Component({
   selector: 'adm-notification-preview',
@@ -57,7 +57,7 @@ export class NotificationPreviewComponent {
   protected readonly outcome = signal<Outcome>('idle');
   protected readonly loadingMore = signal(false);
 
-  private generation = 0;
+  private requestSeq = 0;
   private inFlight = false;
 
   constructor() {
@@ -69,7 +69,7 @@ export class NotificationPreviewComponent {
     });
 
     inject(DestroyRef).onDestroy(() => {
-      this.generation++;
+      this.requestSeq++;
     });
   }
 
@@ -85,21 +85,25 @@ export class NotificationPreviewComponent {
   protected loadMore(): void {
     const cursor = this.nextCursor();
     const account = this.account().trim().toLowerCase();
-    if (!cursor || !account || !this.mayRead() || this.loadingMore()) {
+    if (!cursor || !account || !this.mayRead() || this.loadingMore() || this.inFlight) {
       return;
     }
 
-    void this.fetchPage(account, cursor, this.generation, true);
+    const seq = ++this.requestSeq;
+    void this.fetchPage(account, cursor, seq, true, this.commercialIncluded());
   }
 
   protected revalidate(): void {
-    if (this.inFlight || document.visibilityState !== 'visible') {
+    if (document.visibilityState !== 'visible') {
       return;
     }
 
     const account = this.account().trim().toLowerCase();
     if (account && this.mayRead()) {
-      void this.fetchPage(account, null, this.generation, false);
+      // Advance sequence so any older in-flight commercial read or pagination is superseded.
+      const seq = ++this.requestSeq;
+      this.loadingMore.set(false);
+      void this.fetchPage(account, null, seq, false, null);
     }
   }
 
@@ -149,25 +153,30 @@ export class NotificationPreviewComponent {
   }
 
   private resetAndLoad(account: string, allowed: boolean): void {
-    this.generation++;
+    const seq = ++this.requestSeq;
     this.inFlight = false;
+    this.clearData();
+    this.outcome.set(allowed && account ? 'loading' : 'idle');
+
+    if (allowed && account) {
+      void this.fetchPage(account, null, seq, false, null);
+    }
+  }
+
+  private clearData(): void {
     this.items.set([]);
     this.evaluatedAt.set(null);
     this.commercialIncluded.set(false);
     this.nextCursor.set(null);
     this.loadingMore.set(false);
-    this.outcome.set(allowed && account ? 'loading' : 'idle');
-
-    if (allowed && account) {
-      void this.fetchPage(account, null, this.generation, false);
-    }
   }
 
   private async fetchPage(
     account: string,
     after: string | null,
-    generation: number,
+    seq: number,
     append: boolean,
+    expectedCommercial: boolean | null,
   ): Promise<void> {
     this.inFlight = true;
     if (append) {
@@ -178,7 +187,16 @@ export class NotificationPreviewComponent {
 
     try {
       const page = await firstValueFrom(this.api.read(account, after));
-      if (generation !== this.generation || page.accountId.toLowerCase() !== account) {
+      if (seq !== this.requestSeq || page.accountId.toLowerCase() !== account) {
+        return;
+      }
+
+      // If server visibility changed mid-pagination, drop all prior rows and reload page 1 cleanly.
+      if (append && expectedCommercial !== null && page.commercialIncluded !== expectedCommercial) {
+        this.clearData();
+        this.outcome.set('loading');
+        const freshSeq = ++this.requestSeq;
+        void this.fetchPage(account, null, freshSeq, false, null);
         return;
       }
 
@@ -188,19 +206,17 @@ export class NotificationPreviewComponent {
       this.items.set(append ? [...this.items(), ...page.items] : page.items);
       this.outcome.set('idle');
     } catch (error: unknown) {
-      if (generation !== this.generation) {
+      if (seq !== this.requestSeq) {
         return;
       }
 
       const code = error instanceof HttpErrorResponse ? error.status : 0;
-      this.items.set([]);
-      this.nextCursor.set(null);
-      this.commercialIncluded.set(false);
+      this.clearData();
       this.outcome.set(
         code === 401 ? 'session' : code === 403 ? 'denied' : code === 404 ? 'missing' : 'unavailable',
       );
     } finally {
-      if (generation === this.generation) {
+      if (seq === this.requestSeq) {
         this.inFlight = false;
         this.loadingMore.set(false);
       }

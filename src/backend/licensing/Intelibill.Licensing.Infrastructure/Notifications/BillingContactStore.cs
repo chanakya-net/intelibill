@@ -1,23 +1,25 @@
-using System.Data;
 using System.Security.Cryptography;
+using System.Text;
 using ErrorOr;
 using Intelibill.Licensing.Application.Notifications;
-using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
-using Intelibill.Shared.Web.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Intelibill.Licensing.Infrastructure.Notifications;
 
-internal sealed class BillingContactStore(
+internal sealed partial class BillingContactStore(
     LicensingDbContext db,
     NotificationDestinationProtector protector) : IBillingContactStore
 {
+    private const string ActionApprove = "Approve";
+    private const string ActionSelfConsent = "SelfConsent";
+    private const string ActionStandaloneConsent = "StandaloneConsent";
+    private const string ActionOwnerRevoke = "OwnerRevoke";
+    private const string ActionHolderRevoke = "HolderRevoke";
     private static readonly TimeSpan ProofLifetime = TimeSpan.FromHours(24);
 
-    public async Task<ErrorOr<BillingContactV1>> ApproveAsync(
+    public async Task<ErrorOr<ApprovedBillingContactResult>> ApproveAsync(
         Guid accountId,
         Guid ownerActorId,
         ApproveBillingContactRequestV1 request,
@@ -27,38 +29,143 @@ internal sealed class BillingContactStore(
         var normalizedEmail = NotificationPlanner.NormalizeEmail(request.Email!);
         var destinationHash = NotificationDestinationProtector.HashEmail(normalizedEmail);
         var locale = LicenseNoticesV1.NormalizeLocale(request.Locale);
+        var payloadHash = HashOperationPayload(
+            ActionApprove,
+            ownerActorId,
+            accountId,
+            contactId: Guid.Empty,
+            request.MerchantUserId,
+            normalizedEmail,
+            optedIn: null,
+            locale,
+            proofDigestHex: null);
 
-        var existingByOp = await ReadContactByOperationAsync(accountId, request.OperationKey, ct);
-        if (existingByOp is not null)
+        var replay = await CheckExistingApproveAsync(accountId, ownerActorId, request, payloadHash, ct);
+        if (replay is not null)
+            return replay.Value;
+
+        if (await HasActiveConflictAsync(accountId, destinationHash, request.MerchantUserId, ct))
+            return NotificationErrors.ContactConflict;
+
+        return await InsertApprovedContactAsync(
+            accountId,
+            ownerActorId,
+            request,
+            normalizedEmail,
+            destinationHash,
+            locale,
+            payloadHash,
+            now,
+            ct);
+    }
+
+    public async Task<ErrorOr<BillingContactsPageV1>> ListAsync(
+        Guid accountId,
+        Guid? after,
+        int take,
+        CancellationToken ct)
+    {
+        DateTimeOffset? cursorApprovedAt = null;
+        if (after is { } cursorId)
         {
-            var same = existingByOp.MerchantUserId == request.MerchantUserId
-                && existingByOp.DestinationHash.AsSpan().SequenceEqual(destinationHash);
-            return same ? ToContract(existingByOp) : NotificationErrors.ContactOperationMismatch;
+            var found = await db.Database.SqlQuery<DateTimeOffset>($"""
+                SELECT approved_at AS "Value"
+                FROM public.billing_notice_contacts
+                WHERE account_id = {accountId} AND id = {cursorId}
+                """).ToListAsync(ct);
+            if (found is not [var value])
+                return NotificationErrors.InvalidCursor;
+            cursorApprovedAt = value;
         }
 
-        var conflict = await db.Database.SqlQuery<bool>($"""
+        var totalCount = await db.Database.SqlQuery<int>($"""
+            SELECT count(*)::int AS "Value"
+            FROM public.billing_notice_contacts
+            WHERE account_id = {accountId}
+            """).SingleAsync(ct);
+
+        var clamped = Math.Clamp(take, 1, LicenseNoticesV1.ContactPageSize);
+        var rows = await db.Database.SqlQuery<ContactRow>($"""
+            SELECT id, account_id, merchant_user_id, destination_hash, destination_hint, locale,
+                approved_at, verification_token_hash, verification_expires_at, verified_at,
+                opted_in_at, revoked_at, revision
+            FROM public.billing_notice_contacts
+            WHERE account_id = {accountId}
+              AND ({after}::uuid IS NULL OR (approved_at, id) > ({cursorApprovedAt}, {after}::uuid))
+            ORDER BY approved_at ASC, id ASC
+            LIMIT {clamped + 1}
+            """).ToListAsync(ct);
+
+        var hasMore = rows.Count > clamped;
+        var items = rows.Take(clamped).Select(ToContract).ToArray();
+        var nextCursor = hasMore && items.Length > 0 ? items[^1].ContactId : (Guid?)null;
+        return new BillingContactsPageV1(
+            LicenseNoticesV1.SchemaVersion,
+            accountId,
+            totalCount,
+            items,
+            nextCursor);
+    }
+
+    private async Task<ErrorOr<ApprovedBillingContactResult>?> CheckExistingApproveAsync(
+        Guid accountId,
+        Guid ownerActorId,
+        ApproveBillingContactRequestV1 request,
+        byte[] payloadHash,
+        CancellationToken ct)
+    {
+        var existingOp = await ReadOperationAsync(accountId, ActionApprove, request.OperationKey, ct);
+        if (existingOp is null)
+            return null;
+
+        if (existingOp.ActorId != ownerActorId
+            || !CryptographicOperations.FixedTimeEquals(existingOp.PayloadHash, payloadHash))
+        {
+            return NotificationErrors.ContactOperationMismatch;
+        }
+
+        var existingContact = await ReadContactForAccountAsync(accountId, existingOp.ContactId, ct);
+        return existingContact is null
+            ? NotificationErrors.ContactNotFound
+            : new ApprovedBillingContactResult(ToContract(existingContact), PendingMailboxProof: null);
+    }
+
+    private Task<bool> HasActiveConflictAsync(
+        Guid accountId,
+        byte[] destinationHash,
+        Guid? merchantUserId,
+        CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (
                 SELECT FROM public.billing_notice_contacts
                 WHERE account_id = {accountId}
                   AND revoked_at IS NULL
                   AND (destination_hash = {destinationHash}
-                       OR ({request.MerchantUserId}::uuid IS NOT NULL AND merchant_user_id = {request.MerchantUserId}::uuid))
+                       OR ({merchantUserId}::uuid IS NOT NULL AND merchant_user_id = {merchantUserId}::uuid))
             ) AS "Value"
             """).SingleAsync(ct);
-        if (conflict)
-            return NotificationErrors.ContactConflict;
 
+    private async Task<ApprovedBillingContactResult> InsertApprovedContactAsync(
+        Guid accountId,
+        Guid ownerActorId,
+        ApproveBillingContactRequestV1 request,
+        string normalizedEmail,
+        byte[] destinationHash,
+        string locale,
+        byte[] payloadHash,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
         var contactId = Guid.CreateVersion7(now);
         var protectedDestination = protector.ProtectContactDestination(accountId, contactId, normalizedEmail);
         var hint = NotificationPlanner.MaskEmail(normalizedEmail);
-        string? proofToken = null;
-        byte[]? proofHash = null;
-        DateTimeOffset? proofExpiry = null;
-        if (request.MerchantUserId is null)
-        {
-            (proofToken, proofHash) = protector.CreateStandaloneProof(accountId, contactId, destinationHash);
-            proofExpiry = now.Add(ProofLifetime);
-        }
+        var (pendingProof, proofHash, proofExpiry) = PrepareStandaloneProof(
+            accountId,
+            contactId,
+            request.MerchantUserId,
+            normalizedEmail,
+            destinationHash,
+            now);
 
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.billing_notice_contacts (
@@ -73,241 +180,37 @@ internal sealed class BillingContactStore(
             """, ct);
 
         await AppendEventAsync(contactId, accountId, "Approved", ownerActorId, revision: 1, now, ct);
-        return new BillingContactV1(
-            contactId,
-            accountId,
-            request.MerchantUserId,
-            hint,
-            locale,
-            now,
-            VerifiedAt: null,
-            OptedInAt: null,
-            RevokedAt: null,
-            Revision: 1,
-            Eligible: false,
-            VerificationProofToken: proofToken);
+        await RecordOperationAsync(
+            accountId, ActionApprove, request.OperationKey, contactId, ownerActorId, payloadHash, 1, now, ct);
+
+        var contract = new BillingContactV1(
+            contactId, accountId, request.MerchantUserId, hint, locale, now, null, null, null, 1, false);
+        return new ApprovedBillingContactResult(contract, pendingProof);
     }
 
-    public async Task<IReadOnlyList<BillingContactV1>> ListAsync(Guid accountId, CancellationToken ct)
-    {
-        var rows = await db.Database.SqlQuery<ContactRow>($"""
-            SELECT id, account_id, merchant_user_id, destination_hash, destination_hint, locale,
-                approved_at, verification_token_hash, verification_expires_at, verified_at,
-                opted_in_at, revoked_at, revision
-            FROM public.billing_notice_contacts
-            WHERE account_id = {accountId}
-            ORDER BY approved_at ASC, id ASC
-            """).ToListAsync(ct);
-        return [.. rows.Select(ToContract)];
-    }
-
-    public async Task<ErrorOr<BillingContactV1>> RevokeByOwnerAsync(
-        Guid accountId,
-        Guid ownerActorId,
-        Guid contactId,
-        Guid operationKey,
-        DateTimeOffset now,
-        CancellationToken ct)
-    {
-        var row = await LockContactForAccountAsync(accountId, contactId, ct);
-        if (row is null)
-            return NotificationErrors.ContactNotFound;
-
-        return await RevokeLockedAsync(row, ownerActorId, now, ct);
-    }
-
-    public async Task<ErrorOr<BillingContactV1>> ConfirmSelfConsentAsync(
-        Guid actorId,
-        Guid contactId,
-        ConfirmBillingContactConsentRequestV1 request,
-        DateTimeOffset now,
-        CancellationToken ct)
-    {
-        var row = await db.Database.SqlQuery<ContactRow>($"""
-            SELECT id, account_id, merchant_user_id, destination_hash, destination_hint, locale,
-                approved_at, verification_token_hash, verification_expires_at, verified_at,
-                opted_in_at, revoked_at, revision
-            FROM public.billing_notice_contacts
-            WHERE id = {contactId} AND merchant_user_id = {actorId}
-            FOR UPDATE
-            """).SingleOrDefaultAsync(ct);
-        if (row is null || row.RevokedAt is not null)
-            return NotificationErrors.ContactNotFound;
-
-        var emailHash = NotificationDestinationProtector.HashEmail(
-            NotificationPlanner.NormalizeEmail(request.VerifiedEmail!));
-        if (!CryptographicOperations.FixedTimeEquals(row.DestinationHash, emailHash))
-            return NotificationErrors.ContactProofInvalid;
-
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT set_config('app.billing_account_id', {row.AccountId.ToString("D")}, true)",
-            ct);
-        return await ApplyConsentAsync(row, actorId, request.OptedIn, request.Locale, now, ct);
-    }
-
-    public async Task<ErrorOr<BillingContactV1>> ConfirmStandaloneProofAsync(
+    private (StandaloneMailboxProof? Pending, byte[]? Hash, DateTimeOffset? Expiry) PrepareStandaloneProof(
         Guid accountId,
         Guid contactId,
-        ConfirmBillingContactConsentRequestV1 request,
-        DateTimeOffset now,
-        CancellationToken ct)
+        Guid? merchantUserId,
+        string normalizedEmail,
+        byte[] destinationHash,
+        DateTimeOffset now)
     {
-        try
-        {
-            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            await db.SetLockTimeoutAsync(LockWait.Brief, ct);
-            await db.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT set_config('app.billing_account_id', {accountId.ToString("D")}, true)",
-                ct);
-            await BillingAccountLock.TakeAsync(db, accountId, ct);
+        if (merchantUserId is not null)
+            return (null, null, null);
 
-            var row = await LockContactForAccountAsync(accountId, contactId, ct);
-            if (row is null
-                || row.MerchantUserId is not null
-                || row.RevokedAt is not null
-                || row.VerificationTokenHash is null
-                || row.VerificationExpiresAt is not { } expiry
-                || now >= expiry)
-            {
-                return NotificationErrors.ContactProofInvalid;
-            }
-
-            var emailHash = NotificationDestinationProtector.HashEmail(
-                NotificationPlanner.NormalizeEmail(request.VerifiedEmail!));
-            if (!CryptographicOperations.FixedTimeEquals(row.DestinationHash, emailHash))
-                return NotificationErrors.ContactProofInvalid;
-
-            var presentedHash = NotificationDestinationProtector.HashProof(
-                accountId,
-                contactId,
-                row.DestinationHash,
-                request.ProofToken!);
-            if (!CryptographicOperations.FixedTimeEquals(row.VerificationTokenHash, presentedHash))
-                return NotificationErrors.ContactProofInvalid;
-
-            var result = await ApplyConsentAsync(row, actorId: null, request.OptedIn, request.Locale, now, ct);
-            if (!result.IsError)
-                await tx.CommitAsync(ct);
-            return result;
-        }
-        catch (Exception error) when (error is NpgsqlException or TimeoutException)
-        {
-            ct.ThrowIfCancellationRequested();
-            return NotificationErrors.Unavailable;
-        }
+        var (proofToken, createdHash) = protector.CreateStandaloneProof(accountId, contactId, destinationHash);
+        var expiry = now.Add(ProofLifetime);
+        return (new StandaloneMailboxProof(accountId, contactId, normalizedEmail, proofToken, expiry), createdHash, expiry);
     }
 
-    public async Task<ErrorOr<BillingContactV1>> RevokeByHolderAsync(
-        Guid actorId,
-        Guid contactId,
-        Guid operationKey,
-        DateTimeOffset now,
-        CancellationToken ct)
-    {
-        var row = await db.Database.SqlQuery<ContactRow>($"""
-            SELECT id, account_id, merchant_user_id, destination_hash, destination_hint, locale,
-                approved_at, verification_token_hash, verification_expires_at, verified_at,
-                opted_in_at, revoked_at, revision
-            FROM public.billing_notice_contacts
-            WHERE id = {contactId} AND merchant_user_id = {actorId}
-            FOR UPDATE
-            """).SingleOrDefaultAsync(ct);
-        if (row is null)
-            return NotificationErrors.ContactNotFound;
-
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT set_config('app.billing_account_id', {row.AccountId.ToString("D")}, true)",
-            ct);
-        return await RevokeLockedAsync(row, actorId, now, ct);
-    }
-
-    private async Task<ErrorOr<BillingContactV1>> ApplyConsentAsync(
-        ContactRow row,
-        Guid? actorId,
-        bool optedIn,
-        string? requestedLocale,
-        DateTimeOffset now,
-        CancellationToken ct)
-    {
-        var locale = string.IsNullOrWhiteSpace(requestedLocale)
-            ? row.Locale
-            : LicenseNoticesV1.NormalizeLocale(requestedLocale);
-        var nextRevision = row.Revision + 1;
-        var verifiedAt = row.VerifiedAt ?? now;
-        DateTimeOffset? optedInAt = optedIn ? row.OptedInAt ?? now : null;
-
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE public.billing_notice_contacts
-            SET verified_at = {verifiedAt},
-                opted_in_at = {optedInAt},
-                verification_token_hash = NULL,
-                verification_expires_at = NULL,
-                locale = {locale},
-                revision = {nextRevision}
-            WHERE id = {row.Id} AND account_id = {row.AccountId}
-            """, ct);
-
-        if (row.VerifiedAt is null)
-            await AppendEventAsync(row.Id, row.AccountId, "Verified", actorId, nextRevision, now, ct);
-        if (optedIn && row.OptedInAt is null)
-            await AppendEventAsync(row.Id, row.AccountId, "OptedIn", actorId, nextRevision, now, ct);
-
-        return new BillingContactV1(
-            row.Id,
-            row.AccountId,
-            row.MerchantUserId,
-            row.DestinationHint,
-            locale,
-            row.ApprovedAt.ToUniversalTime(),
-            verifiedAt.ToUniversalTime(),
-            optedInAt?.ToUniversalTime(),
-            RevokedAt: null,
-            nextRevision,
-            Eligible: optedInAt is not null);
-    }
-
-    private async Task<ErrorOr<BillingContactV1>> RevokeLockedAsync(
-        ContactRow row,
-        Guid actorId,
-        DateTimeOffset now,
-        CancellationToken ct)
-    {
-        if (row.RevokedAt is not null)
-            return ToContract(row);
-
-        var nextRevision = row.Revision + 1;
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE public.billing_notice_contacts
-            SET revoked_at = {now},
-                revoked_by_actor_id = {actorId},
-                verification_token_hash = NULL,
-                verification_expires_at = NULL,
-                revision = {nextRevision}
-            WHERE id = {row.Id} AND account_id = {row.AccountId}
-            """, ct);
-
-        await AppendEventAsync(row.Id, row.AccountId, "Revoked", actorId, nextRevision, now, ct);
-        return new BillingContactV1(
-            row.Id,
-            row.AccountId,
-            row.MerchantUserId,
-            row.DestinationHint,
-            row.Locale,
-            row.ApprovedAt.ToUniversalTime(),
-            row.VerifiedAt?.ToUniversalTime(),
-            row.OptedInAt?.ToUniversalTime(),
-            now,
-            nextRevision,
-            Eligible: false);
-    }
-
-    private Task<ContactRow?> ReadContactByOperationAsync(Guid accountId, Guid operationKey, CancellationToken ct) =>
+    private Task<ContactRow?> ReadContactForAccountAsync(Guid accountId, Guid contactId, CancellationToken ct) =>
         db.Database.SqlQuery<ContactRow>($"""
             SELECT id, account_id, merchant_user_id, destination_hash, destination_hint, locale,
                 approved_at, verification_token_hash, verification_expires_at, verified_at,
                 opted_in_at, revoked_at, revision
             FROM public.billing_notice_contacts
-            WHERE account_id = {accountId} AND operation_key = {operationKey}
+            WHERE account_id = {accountId} AND id = {contactId}
             """).SingleOrDefaultAsync(ct);
 
     private Task<ContactRow?> LockContactForAccountAsync(Guid accountId, Guid contactId, CancellationToken ct) =>
@@ -319,6 +222,37 @@ internal sealed class BillingContactStore(
             WHERE account_id = {accountId} AND id = {contactId}
             FOR UPDATE
             """).SingleOrDefaultAsync(ct);
+
+    private Task<OperationRow?> ReadOperationAsync(
+        Guid accountId,
+        string action,
+        Guid operationKey,
+        CancellationToken ct) =>
+        db.Database.SqlQuery<OperationRow>($"""
+            SELECT contact_id, actor_id, payload_hash, resulting_revision
+            FROM public.billing_notice_contact_operations
+            WHERE account_id = {accountId}
+              AND action = {action}
+              AND operation_key = {operationKey}
+            """).SingleOrDefaultAsync(ct);
+
+    private Task<int> RecordOperationAsync(
+        Guid accountId,
+        string action,
+        Guid operationKey,
+        Guid contactId,
+        Guid? actorId,
+        byte[] payloadHash,
+        int resultingRevision,
+        DateTimeOffset recordedAt,
+        CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.billing_notice_contact_operations
+                (account_id, action, operation_key, contact_id, actor_id, payload_hash, resulting_revision, recorded_at)
+            VALUES (
+                {accountId}, {action}, {operationKey}, {contactId}, {actorId},
+                {payloadHash}, {resultingRevision}, {recordedAt})
+            """, ct);
 
     private Task<int> AppendEventAsync(
         Guid contactId,
@@ -334,6 +268,31 @@ internal sealed class BillingContactStore(
             VALUES
                 ({Guid.CreateVersion7(recordedAt)}, {contactId}, {accountId}, {kind}, {actorId}, {revision}, {recordedAt})
             """, ct);
+
+    private static byte[] HashOperationPayload(
+        string action,
+        Guid? actorId,
+        Guid accountId,
+        Guid contactId,
+        Guid? merchantUserId,
+        string? normalizedEmail,
+        bool? optedIn,
+        string? normalizedLocaleToken,
+        string? proofDigestHex)
+    {
+        var raw = string.Join(
+            '|',
+            action,
+            actorId?.ToString("D") ?? string.Empty,
+            accountId.ToString("D"),
+            contactId.ToString("D"),
+            merchantUserId?.ToString("D") ?? string.Empty,
+            normalizedEmail ?? string.Empty,
+            optedIn is null ? string.Empty : (optedIn.Value ? "1" : "0"),
+            normalizedLocaleToken ?? string.Empty,
+            proofDigestHex ?? string.Empty);
+        return SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+    }
 
     private static BillingContactV1 ToContract(ContactRow row) => new(
         row.Id,
@@ -362,4 +321,10 @@ internal sealed class BillingContactStore(
         DateTimeOffset? OptedInAt,
         DateTimeOffset? RevokedAt,
         int Revision);
+
+    private sealed record OperationRow(
+        Guid ContactId,
+        Guid? ActorId,
+        byte[] PayloadHash,
+        int ResultingRevision);
 }

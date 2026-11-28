@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { fillSecret, otp } from './p01-12-fixture';
@@ -42,14 +42,22 @@ async function signInAdmin(page: Page, email: string, seed: string, timeSeconds:
   await expect(page).toHaveURL(`${adminWeb}/`);
 }
 
-async function waitForFile(path: string, timeoutMs = 15_000) {
+async function signalHost(reqName: string, ackName: string, body = 'go', timeoutMs = 20_000) {
+  const ackPath = join(scratch, ackName);
+  if (existsSync(ackPath)) rmSync(ackPath);
+  writeFileSync(join(scratch, reqName), body);
   const started = Date.now();
-  while (!existsSync(path)) {
-    if (Date.now() - started > timeoutMs) {
-      throw new Error(`Timed out waiting for ${path}`);
-    }
+  while (!existsSync(ackPath)) {
+    if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for ${ackName}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  const result = readFileSync(ackPath, 'utf8').trim();
+  rmSync(ackPath);
+  return result;
+}
+
+async function settleFrames(page: Page) {
+  await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
 }
 
 async function merchantAuthedFetch(page: Page, path: string): Promise<{ status: number; text: string }> {
@@ -65,143 +73,243 @@ async function merchantAuthedFetch(page: Page, path: string): Promise<{ status: 
   }, path);
 }
 
+async function createDelayedRouteGate(page: Page, pattern: string) {
+  let markIntercepted!: () => void;
+  let release!: () => void;
+  let markSettled!: (outcome: string) => void;
+  const intercepted = new Promise<void>((r) => { markIntercepted = r; });
+  const hold = new Promise<void>((r) => { release = r; });
+  const settled = new Promise<string>((r) => { markSettled = r; });
+  let count = 0;
+
+  await page.route(pattern, async (route) => {
+    if (count === 0) {
+      count++;
+      markIntercepted();
+      try {
+        const upstream = await route.fetch();
+        const body = await upstream.text();
+        await hold;
+        await route.fulfill({ response: upstream, body });
+        markSettled('fulfilled');
+      } catch {
+        markSettled('aborted');
+      }
+      return;
+    }
+    await route.continue();
+  });
+
+  return {
+    intercepted,
+    settled,
+    release,
+    hits: () => count,
+    cleanup: () => page.unroute(pattern),
+  };
+}
+
+async function verifyStaffOperationalBoundaries(page: Page) {
+  const noticeReplyPromise = page.waitForResponse(
+    (r) => r.url().includes('/api/licensing/shops/') && r.url().endsWith('/notices') && r.request().method() === 'GET',
+  );
+  await page.goto(`${merchantWeb}/`);
+  const noticeReply = await noticeReplyPromise;
+  expect(noticeReply.status()).toBe(200);
+  expect(noticeReply.headers()['cache-control'] ?? '').toContain('no-store');
+  const staffJsonText = await noticeReply.text();
+  const staffJson = JSON.parse(staffJsonText);
+  expect(staffJson.notices.length).toBe(1);
+  expect(staffJsonText).not.toContain('12000');
+  expect(staffJsonText).not.toContain('INR');
+  expect(staffJsonText).not.toContain('evidencedTermPricePaise');
+  expect(staffJsonText).not.toContain(cfg.accountA);
+  expect(staffJsonText).not.toContain(cfg.accountB);
+
+  const banner = page.getByTestId('shop-license-notice');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('North Shop');
+  await expect(banner).toContainText('29 Feb 2028, 10:00:00 IST');
+  const guidanceText = (await page.getByTestId('shop-license-notice-guidance').innerText()).toLowerCase();
+  expect(guidanceText).toContain('contact the account billing owner or manager');
+  expect(guidanceText).not.toContain('renew');
+  const ariaText = await page.getByTestId('shop-license-notices').ariaSnapshot();
+  expect(ariaText).toContain('North Shop');
+  expect(ariaText).not.toContain('120');
+  await page.screenshot({ path: join(evidence, 'merchant-staff-operational-notice.png'), fullPage: true });
+  return { status: noticeReply.status(), cacheControl: noticeReply.headers()['cache-control'], count: staffJson.notices.length };
+}
+
+async function verifyStaffClockProgression(page: Page) {
+  const steps = [
+    { at: '2028-02-28T04:30:00Z', threshold: 'PaidMinus1Day', state: 'Active' },
+    { at: '2028-02-29T04:30:00Z', threshold: 'GraceStart', state: 'Grace' },
+    { at: '2028-03-06T04:30:00Z', threshold: 'GraceMinus1Day', state: 'Grace' },
+    { at: '2028-03-07T04:30:00Z', threshold: 'GraceExpiry', state: 'Expired' },
+  ];
+  for (const step of steps) {
+    await signalHost('advance-clock.req', 'advance-clock.ack', step.at);
+    const replyPromise = page.waitForResponse(
+      (r) => r.url().includes(`/api/licensing/shops/${cfg.northShopId}/notices`) && r.request().method() === 'GET',
+    );
+    await page.reload();
+    const json = await (await replyPromise).json();
+    expect(json.notices.length).toBe(1);
+    expect(json.notices[0].threshold).toBe(step.threshold);
+    expect(json.notices[0].accessState).toBe(step.state);
+    await expect(page.getByTestId('shop-license-notice')).toHaveCount(1);
+    const guidance = (await page.getByTestId('shop-license-notice-guidance').innerText()).toLowerCase();
+    expect(guidance).toContain('contact the account billing owner or manager');
+    expect(guidance).not.toContain('renew');
+  }
+
+  await signalHost('advance-clock.req', 'advance-clock.ack', '2028-02-22T04:30:00Z');
+}
+
+async function verifyStaffStaleShopSwitchAndLogout(page: Page) {
+  const gate = await createDelayedRouteGate(page, `**/api/licensing/shops/${cfg.northShopId}/notices**`);
+  const shopsLoaded = page.waitForResponse((r) => r.url().endsWith('/api/shops/me') && r.status() === 200);
+  await page.reload();
+  await Promise.all([gate.intercepted, shopsLoaded]);
+  expect(gate.hits()).toBe(1);
+
+  const switchToSouth = page.waitForResponse(
+    (r) => r.url().endsWith('/api/shops/switch') && r.request().method() === 'POST',
+  );
+  await page.locator('.active-shop-trigger-desktop').click();
+  await page.getByRole('menuitem', { name: /South Shop/ }).click();
+  expect((await switchToSouth).status()).toBe(200);
+  await expect(page.getByTestId('shop-license-notice')).toContainText('South Shop');
+
+  gate.release();
+  const outcome = await gate.settled;
+  await settleFrames(page);
+  expect(['fulfilled', 'aborted']).toContain(outcome);
+  await expect(page.getByTestId('shop-license-notice')).toContainText('South Shop');
+  await expect(page.getByTestId('shop-license-notice')).not.toContainText('North Shop');
+  await gate.cleanup();
+
+  const switchToNorth = page.waitForResponse(
+    (r) => r.url().endsWith('/api/shops/switch') && r.request().method() === 'POST',
+  );
+  await page.locator('.active-shop-trigger-desktop').click();
+  await page.getByRole('menuitem', { name: /North Shop/ }).click();
+  expect((await switchToNorth).status()).toBe(200);
+  await expect(page.getByTestId('shop-license-notice')).toContainText('North Shop');
+  await page.locator('.sidebar-profile .p-panelmenu-header-link').first().click();
+  await page.locator('.sidebar-profile').getByText('Logout', { exact: true }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByTestId('shop-license-notice')).toHaveCount(0);
+  return outcome;
+}
+
+async function verifyBillingManagerPartialSuspensionStaleReplyAndRenewal(page: Page) {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await page.goto(`${merchantWeb}/billing/accounts/${cfg.accountA}/status`);
+  const accountNotice = page.getByTestId('account-license-notice');
+  await expect(accountNotice).toBeVisible();
+  await expect(page.getByTestId('account-notice-price')).toContainText('120');
+  await expect(page.getByTestId('account-notice-quote-note')).toBeVisible();
+  await page.screenshot({ path: join(evidence, 'merchant-billing-manager-commercial-notice.png'), fullPage: true });
+
+  // Partial suspension (North suspended, South active): raw commercial JSON & DOM must not promise uninterrupted trading.
+  await signalHost('suspend-north.req', 'suspend-north.ack');
+  const suspReply = page.waitForResponse((r) => r.url().includes(`/api/billing/accounts/${cfg.accountA}/notices`));
+  await page.reload();
+  const suspJson = await (await suspReply).json();
+  expect(suspJson.notices.length).toBe(1);
+  expect(suspJson.notices[0].paymentDoesNotLiftSuspension).toBe(true);
+  expect(suspJson.notices[0].guidanceCode).toBe('PaidRenewalPartialSuspension');
+  await expect(accountNotice).toContainText('At least one covered shop is suspended');
+  await expect(accountNotice).not.toContainText('keep trading uninterrupted');
+
+  await signalHost('release-north.req', 'release-north.ack');
+  const relReply = page.waitForResponse((r) => r.url().includes(`/api/billing/accounts/${cfg.accountA}/notices`));
+  await page.reload();
+  expect((await (await relReply).json()).notices[0].paymentDoesNotLiftSuspension).toBe(false);
+
+  // Deterministic delayed commercial Account A response released after SPA navigation away and unauthorized Account B view.
+  const commercialGate = await createDelayedRouteGate(page, `**/api/billing/accounts/${cfg.accountA}/notices**`);
+  await page.getByTestId('status-retry').click();
+  await commercialGate.intercepted;
+  expect(commercialGate.hits()).toBe(1);
+
+  await page.locator('a[href="/billing"]').click();
+  await expect(page).toHaveURL(`${merchantWeb}/billing`);
+  commercialGate.release();
+  const commercialOutcome = await commercialGate.settled;
+  await settleFrames(page);
+  expect(['fulfilled', 'aborted']).toContain(commercialOutcome);
+  await expect(page.getByTestId('account-license-notice')).toHaveCount(0);
+  await commercialGate.cleanup();
+
+  await page.goto(`${merchantWeb}/billing/accounts/${cfg.accountB}/status`);
+  await expect(page.locator('.status-page [role="alert"]')).toBeVisible();
+  await expect(page.getByTestId('account-license-notice')).toHaveCount(0);
+  expect(await page.locator('body').innerText()).not.toContain('North Shop');
+  expect(await page.locator('body').innerText()).not.toContain('₹120');
+
+  // Renewal: old predecessor deadline must no longer be presented as current on Account A.
+  await signalHost('renew-account-a.req', 'renew-account-a.ack');
+  const postRenew = page.waitForResponse((r) => r.url().includes(`/api/billing/accounts/${cfg.accountA}/notices`));
+  await page.goto(`${merchantWeb}/billing/accounts/${cfg.accountA}/status`);
+  expect((await (await postRenew).json()).notices.length).toBe(0);
+  await expect(page.getByTestId('account-license-notice')).toHaveCount(0);
+  return commercialOutcome;
+}
+
 test('MerchantNoticesFollowLiveShopAndBillingAuthority', async ({ browser }) => {
   const merchantEvidence: Record<string, unknown> = {};
 
-  // 1. Ordinary Shop Staff (active in North Shop and South Shop, no billing role).
   const staffSession = await signInMerchant(browser, cfg.staffEmail);
   try {
-    const page = staffSession.page;
-    await page.setViewportSize({ width: 1280, height: 860 });
-
-    const noticeReplyPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/licensing/shops/') && r.url().endsWith('/notices') && r.request().method() === 'GET',
-    );
-    await page.goto(`${merchantWeb}/`);
-    const noticeReply = await noticeReplyPromise;
-    expect(noticeReply.status()).toBe(200);
-    expect(noticeReply.headers()['cache-control'] ?? '').toContain('no-store');
-    const staffJsonText = await noticeReply.text();
-    const staffJson = JSON.parse(staffJsonText);
-    expect(staffJson.notices.length).toBe(1);
-    expect(staffJsonText).not.toContain('12000');
-    expect(staffJsonText).not.toContain('INR');
-    expect(staffJsonText).not.toContain('evidencedTermPricePaise');
-    expect(staffJsonText).not.toContain(cfg.accountA);
-    expect(staffJsonText).not.toContain(cfg.accountB);
-
-    const banner = page.getByTestId('shop-license-notice');
-    await expect(banner).toBeVisible();
-    await expect(banner).toContainText('North Shop');
-    await expect(banner).toContainText('29 Feb 2028, 10:00:00 IST');
-    const domText = await page.locator('body').innerText();
-    expect(domText).not.toContain('120.00');
-    expect(domText).not.toContain(cfg.accountA);
-    expect(domText).not.toContain(cfg.accountB);
-
-    const ariaText = await page.getByTestId('shop-license-notices').ariaSnapshot();
-    expect(ariaText).toContain('North Shop');
-    expect(ariaText).not.toContain('120');
-    await page.screenshot({ path: join(evidence, 'merchant-staff-operational-notice.png'), fullPage: true });
-
-    // Direct denied account commercial notice read for Staff.
-    const staffDeniedAccount = await merchantAuthedFetch(page, `/api/billing/accounts/${cfg.accountA}/notices`);
+    await staffSession.page.setViewportSize({ width: 1280, height: 860 });
+    const initial = await verifyStaffOperationalBoundaries(staffSession.page);
+    const staffDeniedAccount = await merchantAuthedFetch(staffSession.page, `/api/billing/accounts/${cfg.accountA}/notices`);
     expect(staffDeniedAccount.status).toBe(403);
     expect(staffDeniedAccount.text).not.toContain('12000');
 
-    // Switch shops North -> South -> North and test stale in-flight response rejection.
-    let releaseStaleNorth: (() => void) | null = null;
-    const staleNorthGate = new Promise<void>((resolve) => {
-      releaseStaleNorth = resolve;
-    });
-    let delayedOnce = false;
-    await page.route(`**/api/licensing/shops/${cfg.northShopId}/notices**`, async (route) => {
-      if (!delayedOnce) {
-        delayedOnce = true;
-        const upstream = await route.fetch();
-        const body = await upstream.text();
-        await staleNorthGate;
-        await route.fulfill({ response: upstream, body });
-        return;
-      }
-      await route.continue();
-    });
-
-    // Reload triggers a delayed North request, then immediately switch to South before North resolves.
-    await page.reload();
-    await page.locator('.active-shop-trigger-desktop').click();
-    await page.getByRole('menuitem', { name: /South Shop/ }).click();
-    await expect(page.getByTestId('shop-license-notice')).toContainText('South Shop');
-    releaseStaleNorth!();
-    await page.waitForTimeout(300);
-    await expect(page.getByTestId('shop-license-notice')).toContainText('South Shop');
-    await expect(page.getByTestId('shop-license-notice')).not.toContainText('North Shop');
-    await page.unroute(`**/api/licensing/shops/${cfg.northShopId}/notices**`);
-
-    // Switch back to North Shop (A -> B -> A) and reload to prove fresh non-cached API read.
-    await page.locator('.active-shop-trigger-desktop').click();
-    await page.getByRole('menuitem', { name: /North Shop/ }).click();
-    await expect(page.getByTestId('shop-license-notice')).toContainText('North Shop');
-    await page.reload();
-    await expect(page.getByTestId('shop-license-notice')).toContainText('North Shop');
-
-    // Log out clears operational notice immediately.
-    await page.locator('.sidebar-profile .p-panelmenu-header-link').first().click();
-    await page.locator('.sidebar-profile').getByText('Logout', { exact: true }).click();
-    await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByTestId('shop-license-notice')).toHaveCount(0);
-
+    await verifyStaffClockProgression(staffSession.page);
+    const staleShopOutcome = await verifyStaffStaleShopSwitchAndLogout(staffSession.page);
     merchantEvidence.staff = {
-      status: noticeReply.status(),
-      cacheControl: noticeReply.headers()['cache-control'],
-      noticeCount: staffJson.notices.length,
+      ...initial,
       accountReadStatus: staffDeniedAccount.status,
-      forbiddenFieldsAbsent: true,
+      staleShopReplyOutcome: staleShopOutcome,
+      coherentThroughGraceExpiry: true,
     };
   } finally {
     await staffSession.context.close();
   }
 
-  // 2. Non-billing Shop Owner (South Shop owner, no Account A billing role).
   const shopOwnerSession = await signInMerchant(browser, cfg.southOwnerEmail);
   try {
-    const page = shopOwnerSession.page;
-    await page.goto(`${merchantWeb}/`);
-    const banner = page.getByTestId('shop-license-notice');
+    await shopOwnerSession.page.goto(`${merchantWeb}/`);
+    const banner = shopOwnerSession.page.getByTestId('shop-license-notice');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('South Shop');
     await expect(banner).not.toContainText('North Shop');
     await expect(banner).not.toContainText('120');
-
-    const deniedAccount = (await merchantAuthedFetch(page, `/api/billing/accounts/${cfg.accountA}/notices`)).status;
+    const ownerGuidance = (await shopOwnerSession.page.getByTestId('shop-license-notice-guidance').innerText()).toLowerCase();
+    expect(ownerGuidance).not.toContain('renew');
+    const deniedAccount = (await merchantAuthedFetch(shopOwnerSession.page, `/api/billing/accounts/${cfg.accountA}/notices`)).status;
     expect(deniedAccount).toBe(403);
     merchantEvidence.nonBillingShopOwner = { shopBannerVisible: true, accountReadStatus: deniedAccount };
   } finally {
     await shopOwnerSession.context.close();
   }
 
-  // 3. Billing-only Manager on Account A (zero shop membership).
   const managerSession = await signInMerchant(browser, cfg.billingManagerEmail);
   try {
-    const page = managerSession.page;
-    await page.setViewportSize({ width: 1280, height: 860 });
-    await page.goto(`${merchantWeb}/billing/accounts/${cfg.accountA}/status`);
-    const accountNotice = page.getByTestId('account-license-notice');
-    await expect(accountNotice).toBeVisible();
-    await expect(page.getByTestId('account-notice-price')).toContainText('120');
-    await expect(page.getByTestId('account-notice-quote-note')).toBeVisible();
-    await expect(accountNotice).toContainText('North Shop');
-    await expect(accountNotice).toContainText('South Shop');
-    await page.screenshot({ path: join(evidence, 'merchant-billing-manager-commercial-notice.png'), fullPage: true });
-
-    const deniedShop = (await merchantAuthedFetch(page, `/api/licensing/shops/${cfg.northShopId}/notices`)).status;
+    const staleCommercialOutcome = await verifyBillingManagerPartialSuspensionStaleReplyAndRenewal(managerSession.page);
+    const deniedShop = (await merchantAuthedFetch(managerSession.page, `/api/licensing/shops/${cfg.northShopId}/notices`)).status;
+    const deniedAccountB = (await merchantAuthedFetch(managerSession.page, `/api/billing/accounts/${cfg.accountB}/notices`)).status;
     expect(deniedShop).toBe(403);
-
-    const deniedAccountB = (await merchantAuthedFetch(page, `/api/billing/accounts/${cfg.accountB}/notices`)).status;
     expect(deniedAccountB).toBe(403);
-
     merchantEvidence.billingOnlyManager = {
       commercialVisible: true,
+      partialSuspensionVerified: true,
+      staleCommercialReplyOutcome: staleCommercialOutcome,
+      supersededPredecessorClearedAfterRenewal: true,
       shopReadStatus: deniedShop,
       accountBReadStatus: deniedAccountB,
     };
@@ -209,7 +317,6 @@ test('MerchantNoticesFollowLiveShopAndBillingAuthority', async ({ browser }) => 
     await managerSession.context.close();
   }
 
-  // 4. Verified opted-in contact user has zero account/shop read rights (uses real login JWT from setup).
   const contactCtx = await browser.newContext();
   try {
     const page = await contactCtx.newPage();
@@ -233,111 +340,106 @@ test('MerchantNoticesFollowLiveShopAndBillingAuthority', async ({ browser }) => 
   writeFileSync(join(evidence, 'merchant-browser-assertions.json'), JSON.stringify(merchantEvidence, null, 2));
 });
 
+async function verifyBillingOperatorWithStaleCommercialRace(page: Page) {
+  await page.goto(`${adminWeb}/accounts`);
+  const previewReplyPromise = page.waitForResponse(
+    (r) => r.url().includes(`/api/admin/accounts/${cfg.accountA}/notifications`) && r.request().method() === 'GET',
+  );
+  await page.getByLabel('Billing account ID').fill(cfg.accountA);
+  await page.getByRole('button', { name: 'Read access status' }).click();
+  const previewReply = await previewReplyPromise;
+  expect(previewReply.status()).toBe(200);
+  expect(previewReply.headers()['cache-control'] ?? '').toContain('no-store');
+  expect((await previewReply.json()).commercialIncluded).toBe(true);
+
+  const panel = page.getByTestId('provider-notifications-panel');
+  await expect(panel.getByTestId('provider-notification-row').first()).toBeVisible();
+  await expect(panel.getByTestId('provider-notification-due-utc').first()).toContainText('22 Feb 2028, 04:30:00 UTC');
+  await expect(panel.getByTestId('provider-notification-due-ist').first()).toContainText('22 Feb 2028, 10:00:00 IST');
+  await expect(panel.getByTestId('provider-notification-price').first()).toContainText('120');
+
+  const renderedIds = await panel.getByTestId('provider-notification-row').evaluateAll((nodes) =>
+    nodes.map((n) => n.getAttribute('data-job-id')),
+  );
+  for (const id of renderedIds) expect(cfg.expectedJobIds).toContain(id);
+  const badges = await panel.getByTestId('provider-notification-due-badge').allTextContents();
+  expect(badges.some((text) => text.trim() === 'Due')).toBe(true);
+  expect(badges.some((text) => text.trim() === 'Scheduled (future)')).toBe(true);
+
+  const localeSelect = panel.getByTestId('provider-notifications-locale');
+  await localeSelect.focus();
+  await expect(localeSelect).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(panel.getByTestId('provider-notifications-refresh')).toBeFocused();
+  await localeSelect.selectOption('hi-IN');
+  await expect(panel.locator('#provider-notifications-heading')).toContainText('निर्धारित लाइसेंस सूचनाएं');
+  await localeSelect.selectOption('en-IN');
+  await expect(panel.locator('#provider-notifications-heading')).toContainText('Scheduled licence notifications');
+  await page.screenshot({ path: join(evidence, 'admin-billing-commercial-preview.png'), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: join(evidence, 'admin-billing-390px.png'), fullPage: true });
+
+  // Deterministic race: hold a commercial refresh, revoke capability, fire focus revalidation (403), then release old commercial reply.
+  const gate = await createDelayedRouteGate(page, `**/api/admin/accounts/${cfg.accountA}/notifications**`);
+  await panel.getByTestId('provider-notifications-refresh').click();
+  await gate.intercepted;
+  expect(gate.hits()).toBe(1);
+
+  await signalHost('revoke-billing-capability', 'billing-revoked', 'revoke');
+  const deniedReply = page.waitForResponse(
+    (r) => r.url().includes(`/api/admin/accounts/${cfg.accountA}/notifications`) && [401, 403].includes(r.status()),
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  expect([401, 403]).toContain((await deniedReply).status());
+  await expect(panel.getByTestId('provider-notification-row')).toHaveCount(0);
+
+  gate.release();
+  const staleAdminOutcome = await gate.settled;
+  await settleFrames(page);
+  expect(['fulfilled', 'aborted']).toContain(staleAdminOutcome);
+  await expect(panel.getByTestId('provider-notification-row')).toHaveCount(0);
+  await expect(panel.getByTestId('provider-notification-commercial')).toHaveCount(0);
+  await gate.cleanup();
+
+  return {
+    commercialIncluded: true,
+    renderedJobCount: renderedIds.length,
+    narrowScrollWidth: scrollWidth,
+    staleCommercialAfterRevocationOutcome: staleAdminOutcome,
+    browserLanguagesSwitched: ['hi-IN', 'en-IN'],
+  };
+}
+
 test('ProviderPreviewUsesLiveCapabilityAndShowsScheduledState', async ({ browser }) => {
   const adminEvidence: Record<string, unknown> = {};
 
-  // 1. Billing operator: commercial preview, UTC+IST, keyboard focus, localization, narrow 390px, mid-session revocation.
   const billingCtx = await browser.newContext();
   try {
     const page = await billingCtx.newPage();
     await page.setViewportSize({ width: 1440, height: 960 });
     await signInAdmin(page, cfg.billingAdminEmail, cfg.billingAdminSeed, cfg.adminTime);
-
-    await page.goto(`${adminWeb}/accounts`);
-    const previewReplyPromise = page.waitForResponse(
-      (r) => r.url().includes(`/api/admin/accounts/${cfg.accountA}/notifications`) && r.request().method() === 'GET',
-    );
-    await page.getByLabel('Billing account ID').fill(cfg.accountA);
-    await page.getByRole('button', { name: 'Read access status' }).click();
-    const previewReply = await previewReplyPromise;
-    expect(previewReply.status()).toBe(200);
-    expect(previewReply.headers()['cache-control'] ?? '').toContain('no-store');
-    const previewJson = await previewReply.json();
-    expect(previewJson.commercialIncluded).toBe(true);
-
-    const panel = page.getByTestId('provider-notifications-panel');
-    await expect(panel).toBeVisible();
-    await expect(panel.getByTestId('provider-notification-row').first()).toBeVisible();
-    await expect(panel.getByTestId('provider-notification-due-utc').first()).toContainText('22 Feb 2028, 04:30:00 UTC');
-    await expect(panel.getByTestId('provider-notification-due-ist').first()).toContainText('22 Feb 2028, 10:00:00 IST');
-    await expect(panel.getByTestId('provider-notification-price').first()).toContainText('120');
-
-    // Verify both Due and Scheduled (future) badges are present and job IDs match persisted DB jobs.
-    const renderedIds = await panel
-      .getByTestId('provider-notification-row')
-      .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-job-id')));
-    for (const id of renderedIds) {
-      expect(cfg.expectedJobIds).toContain(id);
-    }
-    const badges = await panel.getByTestId('provider-notification-due-badge').allTextContents();
-    expect(badges.some((text) => text.trim() === 'Due')).toBe(true);
-    expect(badges.some((text) => text.trim() === 'Scheduled (future)')).toBe(true);
-
-    // Keyboard focus & localization check.
-    const localeSelect = panel.getByTestId('provider-notifications-locale');
-    await localeSelect.focus();
-    await expect(localeSelect).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(panel.getByTestId('provider-notifications-refresh')).toBeFocused();
-    await localeSelect.selectOption('hi-IN');
-    await expect(panel.locator('#provider-notifications-heading')).toContainText('निर्धारित लाइसेंस सूचनाएं');
-    await localeSelect.selectOption('en-IN');
-    await expect(panel.locator('#provider-notifications-heading')).toContainText('Scheduled licence notifications');
-
-    await page.screenshot({ path: join(evidence, 'admin-billing-commercial-preview.png'), fullPage: true });
-
-    // Refresh preview (confirmed non-writing in C# post-check).
-    const refreshReply = page.waitForResponse(
-      (r) => r.url().includes(`/api/admin/accounts/${cfg.accountA}/notifications`) && r.request().method() === 'GET',
-    );
-    await panel.getByTestId('provider-notifications-refresh').click();
-    expect((await refreshReply).status()).toBe(200);
-
-    // Narrow 390px viewport check (zero horizontal overflow).
-    await page.setViewportSize({ width: 390, height: 844 });
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-    expect(scrollWidth).toBeLessThanOrEqual(390);
-    await page.screenshot({ path: join(evidence, 'admin-billing-390px.png'), fullPage: true });
-
-    // Mid-session capability removal: signal C# host, wait for confirmation, refresh -> stale rows cleared + 403.
-    writeFileSync(join(scratch, 'revoke-billing-capability'), 'revoke');
-    await waitForFile(join(scratch, 'billing-revoked'));
-    const revokedReply = page.waitForResponse(
-      (r) => r.url().includes(`/api/admin/accounts/${cfg.accountA}/notifications`) && r.request().method() === 'GET',
-    );
-    await panel.getByTestId('provider-notifications-refresh').click();
-    expect([401, 403]).toContain((await revokedReply).status());
-    await expect(panel.getByTestId('provider-notification-row')).toHaveCount(0);
-
-    adminEvidence.billingOperator = {
-      commercialIncluded: true,
-      renderedJobCount: renderedIds.length,
-      narrowScrollWidth: scrollWidth,
-      revokedClearedStaleRows: true,
-    };
+    adminEvidence.billingOperator = await verifyBillingOperatorWithStaleCommercialRace(page);
   } finally {
     await billingCtx.close();
   }
 
-  // 2. Support operator: redacted operational preview only.
   const supportCtx = await browser.newContext();
   try {
     const page = await supportCtx.newPage();
     await page.setViewportSize({ width: 1440, height: 960 });
     await signInAdmin(page, cfg.supportAdminEmail, cfg.supportAdminSeed, cfg.adminTime);
-
     await page.goto(`${adminWeb}/accounts`);
-    const supportReplyPromise = page.waitForResponse(
+    const supportReply = page.waitForResponse(
       (r) => r.url().includes(`/api/admin/accounts/${cfg.accountA}/notifications`) && r.request().method() === 'GET',
     );
     await page.getByLabel('Billing account ID').fill(cfg.accountA);
     await page.getByRole('button', { name: 'Read access status' }).click();
-    const supportReply = await supportReplyPromise;
-    expect(supportReply.status()).toBe(200);
-    const supportBody = await supportReply.text();
+    const supportBody = await (await supportReply).text();
     expect(supportBody).not.toContain('12000');
     expect(supportBody).not.toContain('destinationHint');
-
     const panel = page.getByTestId('provider-notifications-panel');
     await expect(panel.getByTestId('provider-notifications-redacted')).toBeVisible();
     await expect(panel.getByTestId('provider-notification-commercial')).toHaveCount(0);
@@ -347,7 +449,6 @@ test('ProviderPreviewUsesLiveCapabilityAndShowsScheduledState', async ({ browser
     await supportCtx.close();
   }
 
-  // 3. Security-only operator: direct API request denied with 403.
   const secCtx = await browser.newContext();
   try {
     const page = await secCtx.newPage();

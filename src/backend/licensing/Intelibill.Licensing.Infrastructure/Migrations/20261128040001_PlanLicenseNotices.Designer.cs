@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intelibill.Licensing.Infrastructure.Migrations
 {
     [DbContext(typeof(LicensingDbContext))]
-    [Migration("20261128014150_PlanLicenseNotices")]
+    [Migration("20261128040001_PlanLicenseNotices")]
     partial class PlanLicenseNotices
     {
         /// <inheritdoc />
@@ -549,9 +549,6 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasDatabaseName("ux_billing_notice_contacts_active_destination")
                         .HasFilter("revoked_at IS NULL");
 
-                    b.HasIndex("AccountId", "Id")
-                        .HasDatabaseName("ix_billing_notice_contacts_account");
-
                     b.HasIndex("AccountId", "MerchantUserId")
                         .IsUnique()
                         .HasDatabaseName("ux_billing_notice_contacts_active_user")
@@ -560,6 +557,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.HasIndex("AccountId", "OperationKey")
                         .IsUnique()
                         .HasDatabaseName("ux_billing_notice_contacts_operation");
+
+                    b.HasIndex("AccountId", "ApprovedAt", "Id")
+                        .HasDatabaseName("ix_billing_notice_contacts_account");
 
                     b.ToTable("billing_notice_contacts", null, t =>
                         {
@@ -618,7 +618,56 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_billing_notice_contact_events_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND contact_id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND (actor_id IS NULL OR actor_id <> '00000000-0000-0000-0000-000000000000')");
 
-                            t.HasCheckConstraint("ck_billing_notice_contact_events_kind", "event_kind IN ('Approved', 'Verified', 'OptedIn', 'Revoked') AND revision >= 1");
+                            t.HasCheckConstraint("ck_billing_notice_contact_events_kind", "event_kind IN ('Approved', 'Verified', 'OptedIn', 'OptedOut', 'Revoked') AND revision >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContactOperation", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Action")
+                        .HasColumnType("text")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("OperationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_key");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contact_id");
+
+                    b.Property<byte[]>("PayloadHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("payload_hash");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<int>("ResultingRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("resulting_revision");
+
+                    b.HasKey("AccountId", "Action", "OperationKey")
+                        .HasName("pk_billing_notice_contact_operations");
+
+                    b.HasIndex("ContactId")
+                        .HasDatabaseName("ix_billing_notice_contact_operations_contact_id");
+
+                    b.ToTable("billing_notice_contact_operations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_billing_notice_contact_operations_action", "action IN ('Approve', 'SelfConsent', 'StandaloneConsent', 'OwnerRevoke', 'HolderRevoke')\nAND octet_length(payload_hash) = 32\nAND resulting_revision >= 1");
+
+                            t.HasCheckConstraint("ck_billing_notice_contact_operations_ids", "account_id <> '00000000-0000-0000-0000-000000000000'\nAND contact_id <> '00000000-0000-0000-0000-000000000000'\nAND operation_key <> '00000000-0000-0000-0000-000000000000'\nAND (actor_id IS NULL OR actor_id <> '00000000-0000-0000-0000-000000000000')");
                         });
                 });
 
@@ -1025,6 +1074,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<byte[]>("DestinationHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("destination_hash");
+
                     b.Property<string>("DestinationHint")
                         .HasColumnType("text")
                         .HasColumnName("destination_hint");
@@ -1126,13 +1179,18 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasDatabaseName("ix_notification_jobs_shop_actor_due")
                         .HasFilter("scope_kind = 'Shop' AND recipient_user_id IS NOT NULL");
 
+                    b.HasIndex("AccountId", "ScopeKind", "ScopeId", "DestinationHash", "Purpose", "SourceKind", "SourceId", "SourceRevision", "Threshold")
+                        .IsUnique()
+                        .HasDatabaseName("ux_notification_jobs_email_destination")
+                        .HasFilter("destination_hash IS NOT NULL");
+
                     b.HasIndex("AccountId", "ScopeKind", "ScopeId", "RecipientKey", "Purpose", "SourceKind", "SourceId", "SourceRevision", "Threshold")
                         .IsUnique()
                         .HasDatabaseName("ux_notification_jobs_semantic_key");
 
                     b.ToTable("notification_jobs", null, t =>
                         {
-                            t.HasCheckConstraint("ck_notification_jobs_channels", "cardinality(allowed_channels) >= 1\nAND allowed_channels <@ ARRAY['InApp', 'Email']::text[]\nAND (audience <> 'ShopStaffOperational' OR allowed_channels = ARRAY['InApp']::text[])\nAND (audience <> 'CommercialContact' OR allowed_channels = ARRAY['Email']::text[])\nAND (NOT ('Email' = ANY(allowed_channels)) OR (protected_destination IS NOT NULL AND destination_hint IS NOT NULL))");
+                            t.HasCheckConstraint("ck_notification_jobs_channels", "cardinality(allowed_channels) >= 1\nAND allowed_channels <@ ARRAY['InApp', 'Email']::text[]\nAND (audience <> 'ShopStaffOperational' OR allowed_channels = ARRAY['InApp']::text[])\nAND (audience <> 'CommercialContact' OR allowed_channels = ARRAY['Email']::text[])\nAND (NOT ('Email' = ANY(allowed_channels)) OR (\n    protected_destination IS NOT NULL\n    AND destination_hint IS NOT NULL\n    AND destination_hash IS NOT NULL\n    AND octet_length(destination_hash) = 32))\nAND ('Email' = ANY(allowed_channels) OR destination_hash IS NULL)");
 
                             t.HasCheckConstraint("ck_notification_jobs_dates", "effective_deadline_at >= due_at AND time_zone = 'Asia/Kolkata'");
 
@@ -1762,6 +1820,23 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_billing_notice_contact_events_billing_notice_contacts_conta");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingNoticeContactOperation", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contact_operations_billing_accounts_account_");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingNoticeContact", null)
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_notice_contact_operations_billing_notice_contacts_c");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>

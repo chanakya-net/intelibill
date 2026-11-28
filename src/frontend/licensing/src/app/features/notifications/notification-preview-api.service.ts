@@ -1,7 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
-import { formatIstExact } from '../accounts/account-status-api.service';
 
 export const notificationReaders = ['support', 'billing', 'licensing-manager'] as const;
 
@@ -12,6 +11,7 @@ export interface ProviderNotificationCommercial {
   readonly destinationHint: string | null;
   readonly recipientReference: string | null;
   readonly coveredShopNames: readonly string[];
+  readonly coveredShopNamesTruncated?: boolean;
 }
 
 export interface ProviderNotificationItem {
@@ -37,6 +37,7 @@ export interface ProviderNotificationItem {
   readonly paymentDoesNotLiftSuspension: boolean;
   readonly plannedAt: string;
   readonly commercial: ProviderNotificationCommercial | null;
+  readonly suspendedShopCount?: number;
 }
 
 export interface ProviderNotificationsPage {
@@ -69,7 +70,11 @@ export class NotificationPreviewApi {
   }
 }
 
-export function formatUtcExact(value: string | null): string | null {
+function formatZoneExact(
+  value: string | null,
+  timeZone: 'UTC' | 'Asia/Kolkata',
+  zoneLabel: 'UTC' | 'IST',
+): string | null {
   if (!value) {
     return null;
   }
@@ -80,7 +85,7 @@ export function formatUtcExact(value: string | null): string | null {
   }
 
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'UTC',
+    timeZone,
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -90,9 +95,16 @@ export function formatUtcExact(value: string | null): string | null {
     hourCycle: 'h23',
   }).formatToParts(parsed);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? '';
-  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}:${part('second')} UTC`;
+  // Preserve sub-second microsecond precision from the server ISO string (neither UTC nor IST has DST).
+  const fraction = /T\d{2}:\d{2}:\d{2}\.(\d+)/.exec(value)?.[1]?.replace(/0+$/, '') ?? '';
+  const suffix = fraction ? `.${fraction}` : '';
+  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}:${part('second')}${suffix} ${zoneLabel}`;
+}
+
+export function formatUtcExact(value: string | null): string | null {
+  return formatZoneExact(value, 'UTC', 'UTC');
 }
 
 export function formatIstNoticeInstant(value: string | null): string | null {
-  return formatIstExact(value);
+  return formatZoneExact(value, 'Asia/Kolkata', 'IST');
 }

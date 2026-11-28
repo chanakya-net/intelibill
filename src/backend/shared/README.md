@@ -68,3 +68,7 @@ source files linked (`<Compile Include … Link>`) into the merchant and licensi
   response more informative; see the invariants in the architecture doc.
 - Adding a shared project means adding it to all three `.slnx` files and to the restore `COPY`
   lines of the `Dockerfile` and `Dockerfile.migrate` of both backends.
+- `Contracts/V1/LicenseNoticesV1.cs` defines separate operational shop (`ShopLicenseNoticesV1`),
+  commercial account (`AccountLicenseNoticesV1`), provider preview (`ProviderNotificationsPageV1`),
+  paged contact (`BillingContactsPageV1`), and minimized recipient-authority wire DTOs (no raw phone
+  numbers, no staff emails, no verification proof tokens, and bounded shop-name samples).

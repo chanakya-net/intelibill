@@ -8,8 +8,10 @@ import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { formatBillingInstant } from './subscription-status.models';
 import type {
   AccountLicenseNoticeItem,
+  AccountLicenseNotices,
   LicenseNoticeFailure,
   ShopLicenseNoticeItem,
+  ShopLicenseNotices,
 } from './license-notice.models';
 import { LicenseNoticeReadError, LicenseNoticeService } from './license-notice.service';
 
@@ -24,13 +26,20 @@ type NoticeView =
       readonly nextDueAt: string | null;
     };
 
+type NoticeScope = {
+  readonly mode: 'shop' | 'account';
+  readonly userId: string;
+  readonly targetId: string;
+};
+
 const MIN_REFRESH_MS = 1_000;
-const MAX_REFRESH_MS = 24 * 60 * 60 * 1_000;
+const MAX_STEP_MS = 6 * 60 * 60 * 1_000;
+const DEADLINE_SETTLE_MS = 250;
 
 /**
  * Displays due operational shop notices (shell banner) or due commercial account notices (selected account).
  * Clears immediately on scope/account/session transitions, drops late epoch replies, and revalidates on
- * focus, visibility, reconnect, and the server-reported next due boundary.
+ * focus, visibility, reconnect, and bounded server-relative timers across multi-day deadlines.
  */
 @Component({
   selector: 'app-license-notice',
@@ -56,7 +65,7 @@ export class LicenseNoticeComponent {
 
   protected readonly view = signal<NoticeView>({ kind: 'idle' });
 
-  private readonly scope = computed(() => {
+  private readonly scope = computed<NoticeScope | null>(() => {
     const session = this.auth.session();
     if (!session || this.shopContext.transitioning()) {
       return null;
@@ -78,6 +87,7 @@ export class LicenseNoticeComponent {
 
   private generation = 0;
   private inFlight = false;
+  private refreshPendingAfterInFlight = false;
   private nextTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -93,7 +103,12 @@ export class LicenseNoticeComponent {
   }
 
   protected revalidate(): void {
-    if (this.inFlight || document.visibilityState !== 'visible') {
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
+    if (this.inFlight) {
+      this.refreshPendingAfterInFlight = true;
       return;
     }
 
@@ -111,6 +126,10 @@ export class LicenseNoticeComponent {
     return paise === null ? null : paise / 100;
   }
 
+  protected operationalGuidanceKey(code: string): string {
+    return `billing.notices.operationalGuidance.${code}`;
+  }
+
   protected guidanceKey(code: string): string {
     return `billing.notices.guidance.${code}`;
   }
@@ -123,11 +142,10 @@ export class LicenseNoticeComponent {
     return `billing.notices.thresholds.${threshold}`;
   }
 
-  private resetAndLoad(
-    current: { readonly mode: 'shop' | 'account'; readonly userId: string; readonly targetId: string } | null,
-  ): void {
+  private resetAndLoad(current: NoticeScope | null): void {
     this.generation++;
     this.inFlight = false;
+    this.refreshPendingAfterInFlight = false;
     this.clearTimer();
     this.view.set({ kind: 'idle' });
     if (!current) {
@@ -141,35 +159,17 @@ export class LicenseNoticeComponent {
     void this.fetchNotices(current, this.generation);
   }
 
-  private async fetchNotices(
-    target: { readonly mode: 'shop' | 'account'; readonly userId: string; readonly targetId: string },
-    generation: number,
-  ): Promise<void> {
+  private async fetchNotices(target: NoticeScope, generation: number): Promise<void> {
     this.inFlight = true;
     try {
       if (target.mode === 'shop') {
         const result = await firstValueFrom(this.api.shop(target.targetId));
-        if (generation !== this.generation || result.shopId !== target.targetId) {
-          return;
-        }
-
-        this.view.set({ kind: 'shop', notices: result.notices, nextDueAt: result.nextDueAt });
-        this.scheduleNextRefresh(result.nextDueAt, generation);
+        this.applyShopResult(result, target.targetId, generation);
         return;
       }
 
       const result = await firstValueFrom(this.api.account(target.targetId));
-      if (generation !== this.generation || result.accountId.toLowerCase() !== target.targetId) {
-        return;
-      }
-
-      this.view.set({
-        kind: 'account',
-        evaluatedAt: result.evaluatedAt,
-        notices: result.notices,
-        nextDueAt: result.nextDueAt,
-      });
-      this.scheduleNextRefresh(result.nextDueAt, generation);
+      this.applyAccountResult(result, target.targetId, generation);
     } catch (error: unknown) {
       if (generation !== this.generation) {
         return;
@@ -178,15 +178,53 @@ export class LicenseNoticeComponent {
       const failure: LicenseNoticeFailure = error instanceof LicenseNoticeReadError ? error.failure : 'unavailable';
       this.view.set(target.mode === 'account' ? { kind: 'failed', failure } : { kind: 'idle' });
     } finally {
-      if (generation === this.generation) {
-        this.inFlight = false;
-      }
+      this.finishRequest(generation);
     }
   }
 
-  private scheduleNextRefresh(nextDueAt: string | null, generation: number): void {
+  private applyShopResult(result: ShopLicenseNotices, shopId: string, generation: number): void {
+    if (generation !== this.generation || result.shopId !== shopId) {
+      return;
+    }
+
+    this.view.set({ kind: 'shop', notices: result.notices, nextDueAt: result.nextDueAt });
+    this.scheduleNextRefresh(result.evaluatedAt, result.nextDueAt, generation);
+  }
+
+  private applyAccountResult(result: AccountLicenseNotices, accountId: string, generation: number): void {
+    if (generation !== this.generation || result.accountId.toLowerCase() !== accountId) {
+      return;
+    }
+
+    this.view.set({
+      kind: 'account',
+      evaluatedAt: result.evaluatedAt,
+      notices: result.notices,
+      nextDueAt: result.nextDueAt,
+    });
+    this.scheduleNextRefresh(result.evaluatedAt, result.nextDueAt, generation);
+  }
+
+  private finishRequest(generation: number): void {
+    if (generation !== this.generation) {
+      return;
+    }
+
+    this.inFlight = false;
+    if (!this.refreshPendingAfterInFlight) {
+      return;
+    }
+
+    this.refreshPendingAfterInFlight = false;
+    const current = this.scope();
+    if (current) {
+      void this.fetchNotices(current, generation);
+    }
+  }
+
+  private scheduleNextRefresh(evaluatedAt: string, nextDueAt: string | null, generation: number): void {
     this.clearTimer();
-    if (!nextDueAt) {
+    if (!nextDueAt || generation !== this.generation) {
       return;
     }
 
@@ -195,21 +233,50 @@ export class LicenseNoticeComponent {
       return;
     }
 
-    const delay = dueMs - Date.now();
-    if (delay < 0 || delay > MAX_REFRESH_MS) {
+    // Use server evaluation time to compute relative delay so client clock skew cannot miss or shift updates.
+    const evaluatedMs = Date.parse(evaluatedAt);
+    const serverRemainingMs = Number.isFinite(evaluatedMs)
+      ? Math.max(0, dueMs - evaluatedMs)
+      : Math.max(0, dueMs - Date.now());
+    const targetLocalMs = Date.now() + serverRemainingMs + DEADLINE_SETTLE_MS;
+    this.armBoundedTimer(targetLocalMs, generation);
+  }
+
+  private armBoundedTimer(targetLocalMs: number, generation: number): void {
+    this.clearTimer();
+    if (generation !== this.generation) {
+      return;
+    }
+
+    const remainingMs = targetLocalMs - Date.now();
+    if (remainingMs <= MAX_STEP_MS) {
+      this.nextTimer = setTimeout(() => {
+        this.nextTimer = null;
+        this.onDeadlineReached(generation);
+      }, Math.max(MIN_REFRESH_MS, remainingMs));
       return;
     }
 
     this.nextTimer = setTimeout(() => {
-      if (generation !== this.generation || this.inFlight) {
-        return;
-      }
+      this.nextTimer = null;
+      this.armBoundedTimer(targetLocalMs, generation);
+    }, MAX_STEP_MS);
+  }
 
-      const current = this.scope();
-      if (current) {
-        void this.fetchNotices(current, generation);
-      }
-    }, Math.max(MIN_REFRESH_MS, delay + 250));
+  private onDeadlineReached(generation: number): void {
+    if (generation !== this.generation) {
+      return;
+    }
+
+    if (this.inFlight) {
+      this.refreshPendingAfterInFlight = true;
+      return;
+    }
+
+    const current = this.scope();
+    if (current) {
+      void this.fetchNotices(current, generation);
+    }
   }
 
   private clearTimer(): void {

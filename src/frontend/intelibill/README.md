@@ -64,3 +64,4 @@ bun run build && bun run audit:ui:release
 - [Architecture](architecture_doc/architecture.md): folder structure, routing and auth, state, storage, shop context transitions, protected API cache isolation, offline pack and printing, shared styles, feature notes, tests.
 - [Patterns](architecture_doc/patterns.md): standalone components, feature-first layout, NgRx boundaries, interceptors, guards.
 - Rollout and operations notes that span projects are in the repo-root [`docs/`](../../../docs), for example [`docs/operations/offline-sales.md`](../../../docs/operations/offline-sales.md).
+- Role-correct licence notices (`src/app/features/billing/status/license-notice.component.ts`) show operational contact-owner guidance in the shop shell banner and commercial renewal/suspension guidance on authorized billing account pages across all 9 locales, using server-relative bounded timers for multi-day deadlines.
