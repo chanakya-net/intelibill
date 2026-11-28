@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Security;
@@ -28,7 +29,7 @@ public class AddInventoryCommandHandlerTests
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
 
     [Fact]
     public async Task HandleAsync_WhenStaffRole_ReturnsForbidden()
@@ -512,7 +513,9 @@ public class AddInventoryCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Dates(), IntakeAccess());
+        new(_userRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), IntakeAccess(),
+            new ReceiptIntakeResolver(_supplierRepository, _itemRepository, _inventoryBatchRepository, ExpiryTestDoubles.Dates()),
+            new ReceiptStockAndPayablePoster(_inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, BusinessTestDoubles.RealClock()));
 
     private static StockIntakeAccess IntakeAccess()
     {

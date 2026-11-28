@@ -1,4 +1,3 @@
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -12,7 +11,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 
@@ -36,18 +34,14 @@ public sealed class CorrectStockCountCommandHandler(
     IUserRepository userRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IInventoryRepository inventoryRepository,
-    IStockTransactionRepository stockTransactionRepository,
-    IInventoryAdjustmentRepository inventoryAdjustmentRepository,
-    IStockCountRepository stockCountRepository,
-    IInventoryAdjustmentNumberGenerator adjustmentNumberGenerator,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
     IItemRepository itemRepository,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    IShopLicenceFence licenceFence,
-    ILiveSessionAuthority sessions)
+    StockCorrectionAccess access,
+    StockCountPoster poster)
 {
     private static readonly CorrectStockCountCommandValidator Validator = new();
 
@@ -102,27 +96,20 @@ public sealed class CorrectStockCountCommandHandler(
             cancellationToken);
     }
 
-    private async Task<Error?> CheckAuthorityAsync(CorrectStockCountCommand command, CancellationToken ct)
-    {
-        if (command.Session is { } session &&
-            (session.UserId != command.ActorUserId || session.ActiveShopId != command.ActiveShopId ||
-             !await sessions.IsValidAsync(session, ct)))
-            return Errors.Auth.SessionInvalidated;
-
-        return await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ActiveShopId, ct) switch
-        {
-            ShopRole.Owner or ShopRole.Manager => null,
-            null => Errors.Shop.MembershipNotFound,
-            _ => Errors.Inventory.UserIsNotOwnerOrManager,
-        };
-    }
+    private Task<Error?> CheckAuthorityAsync(CorrectStockCountCommand command, CancellationToken ct) =>
+        access.CheckAuthorityAsync(command.ActorUserId, command.ActiveShopId, command.Session, ct);
 
     private async Task<ErrorOr<StockCountResultDto>> CountAsync(
         CorrectStockCountCommand command,
         Action<ShopLicenceLease>? retainLease,
         CancellationToken cancellationToken)
     {
-        var licence = await EnterLicenceAsync(command, retainLease, cancellationToken);
+        var licence = await access.EnterLicenceAsync(
+            command.ActorUserId,
+            command.ActiveShopId,
+            command.Session,
+            retainLease,
+            cancellationToken);
         if (licence.IsError)
             return licence.Errors;
 
@@ -163,7 +150,7 @@ public sealed class CorrectStockCountCommandHandler(
         StockTransaction? movement = null;
         if (delta != 0)
         {
-            var posted = PostDelta(batch, inventory, command, delta, performedAt, businessDate);
+            var posted = poster.PostDelta(batch, inventory, command, delta, performedAt, businessDate);
             if (posted.IsError)
                 return posted.Errors;
 
@@ -213,23 +200,6 @@ public sealed class CorrectStockCountCommandHandler(
             performedAt);
     }
 
-    private async Task<ErrorOr<ShopLicenceLease>> EnterLicenceAsync(
-        CorrectStockCountCommand command,
-        Action<ShopLicenceLease>? retainLease,
-        CancellationToken cancellationToken)
-    {
-        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
-        if (licence.IsError)
-            return licence.Errors;
-        retainLease?.Invoke(licence.Value);
-        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
-            return denied;
-        if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
-            return admissionDenied;
-
-        return licence;
-    }
-
     private static Error? CheckBatchCountable(CorrectStockCountCommand command, InventoryBatch batch)
     {
         if (command.CountedQuantity < batch.QuarantinedQuantity)
@@ -270,16 +240,7 @@ public sealed class CorrectStockCountCommandHandler(
         StockCount count,
         CancellationToken cancellationToken)
     {
-        batch.MarkUpdatedBy(command.ActorUserId);
-        inventoryBatchRepository.Update(batch);
-        if (movement is not null)
-        {
-            inventoryRepository.Update(inventory);
-            await stockTransactionRepository.AddAsync(movement, cancellationToken);
-            await inventoryAdjustmentRepository.AddAsync(adjustment!, cancellationToken);
-        }
-
-        await stockCountRepository.AddAsync(count, cancellationToken);
+        await poster.StageCountAsync(command, batch, inventory, adjustment, movement, count, cancellationToken);
 
         if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
             return authorityDenied;
@@ -290,7 +251,7 @@ public sealed class CorrectStockCountCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.Inventory.BatchVersionConflict;
         }
@@ -301,72 +262,6 @@ public sealed class CorrectStockCountCommandHandler(
             return postingDenial;
 
         return null;
-    }
-
-    private ErrorOr<(InventoryAdjustment Adjustment, StockTransaction Movement)> PostDelta(
-        InventoryBatch batch,
-        Domain.Entities.Inventory inventory,
-        CorrectStockCountCommand command,
-        decimal delta,
-        DateTimeOffset performedAt,
-        DateOnly businessDate)
-    {
-        var quantity = Math.Abs(delta);
-        var direction = delta > 0 ? InventoryAdjustmentDirection.Increase : InventoryAdjustmentDirection.Decrease;
-        var batchQuantityBefore = batch.Quantity;
-        var inventoryQuantityBefore = inventory.Quantity;
-
-        var batchUpdate = delta > 0
-            ? batch.AddQuantity(quantity, command.ActorUserId)
-            : batch.SubtractQuantity(quantity, command.ActorUserId);
-        if (batchUpdate.IsError)
-            return batchUpdate.Errors;
-
-        var inventoryUpdate = delta > 0
-            ? inventory.AddQuantity(quantity, command.ActorUserId)
-            : inventory.SubtractQuantity(quantity, command.ActorUserId);
-        if (inventoryUpdate.IsError)
-            return inventoryUpdate.Errors;
-
-        var adjustmentNumber = adjustmentNumberGenerator.Generate(businessDate);
-        var reason = command.Reason.Trim();
-
-        var movement = StockTransaction.Create(
-            command.ActiveShopId,
-            batch.ItemId,
-            batch.Id,
-            delta > 0 ? StockTransactionType.In : StockTransactionType.Out,
-            delta,
-            adjustmentNumber,
-            reason,
-            performedAt,
-            command.ActorUserId,
-            command.ActorUserId);
-        if (movement.IsError)
-            return movement.Errors;
-
-        var adjustment = InventoryAdjustment.Create(
-            command.ActiveShopId,
-            batch.ItemId,
-            batch.Id,
-            adjustmentNumber,
-            direction,
-            InventoryAdjustmentReason.StockCountCorrection,
-            quantity,
-            batch.CostPrice,
-            decimal.Round(quantity * batch.CostPrice, 2, MidpointRounding.AwayFromZero),
-            batchQuantityBefore,
-            batch.Quantity,
-            inventoryQuantityBefore,
-            inventory.Quantity,
-            performedAt,
-            command.ActorUserId,
-            reason,
-            command.ActorUserId);
-        if (adjustment.IsError)
-            return adjustment.Errors;
-
-        return (adjustment.Value, movement.Value);
     }
 
     private sealed record StockCountPayload(Guid BatchId, uint ExpectedVersion, decimal CountedQuantity, string Reason);

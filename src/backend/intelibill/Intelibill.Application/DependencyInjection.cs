@@ -29,6 +29,9 @@ public static class DependencyInjection
         // and only this assembly can see the internal implementation.
         services.AddScoped<Features.Expiry.BatchDispositionService>();
         services.AddScoped<Features.Expiry.ExpiryPolicyService>();
+        services.AddScoped<Features.Expiry.BatchDisposalPoster>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationStockRestorer>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationRecorder>();
         services.AddScoped<Features.Expiry.SaleExpiryGuard>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SaleReplayReader>();
         services.AddScoped<Features.Sales.Commands.RecordSale.SalePostingContextReader>();
@@ -41,6 +44,11 @@ public static class DependencyInjection
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.OfflineTillReconciliationEligibility>();
         services.AddScoped<Features.Expiry.BatchExpiryRevisionService>();
         services.AddScoped<Features.Inventory.Services.StockIntakeAccess>();
+        services.AddScoped<Features.Inventory.Commands.AddInventory.ReceiptIntakeResolver>();
+        services.AddScoped<Features.Inventory.Commands.AddInventory.ReceiptStockAndPayablePoster>();
+        services.AddScoped<Features.Inventory.Services.StockCorrectionAccess>();
+        services.AddScoped<Features.Inventory.Commands.CorrectStockCount.StockCountPoster>();
+        services.AddScoped<Features.Inventory.Commands.CreateAdjustment.StockAdjustmentPoster>();
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderTrading>();
         services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderHistory>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
@@ -80,6 +88,11 @@ public static class DependencyInjection
         services.AddScoped<IInventoryUpdater, InventoryUpdater>();
         services.AddScoped<IInboundInventoryLineProcessor, InboundInventoryLineProcessor>();
         services.AddScoped<IInventoryAdjustmentNumberGenerator, InventoryAdjustmentNumberGenerator>();
+        services.AddScoped<Features.Inventory.Commands.VoidBatch.BatchVoidSourceReader>();
+        services.AddScoped<Features.Inventory.Commands.VoidBatch.BatchVoidPoster>();
+        services.AddScoped<Features.PurchaseReceipts.Commands.CorrectReceiptCost.ReceiptCostSourceReader>();
+        services.AddScoped<Features.PurchaseReceipts.Commands.CorrectReceiptCost.ReceiptCostCorrectionWriter>();
+        services.AddScoped<Features.Inventory.Commands.ReassignBatchSupplier.BatchSupplierLedgerReassigner>();
 
         services.AddScoped<ISaleLineValidator, SaleLineValidator>();
         services.AddScoped<ICustomerResolver, CustomerResolver>();
@@ -99,6 +112,9 @@ public static class DependencyInjection
         services.AddScoped<IPaymentTransactionRunner, PaymentTransactionRunner>();
         services.AddScoped<PaymentReceiptDtoBuilder>();
         services.AddScoped<PaymentCompletionPolicy>();
+        services.AddScoped<PaymentReceiptPoster>();
+        services.AddScoped<SupplierPaymentExpensePoster>();
+        services.AddScoped<ReversalLedgerEntryPoster>();
 
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationPolicy>();
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationCompletionPolicy>();
@@ -116,6 +132,12 @@ public static class DependencyInjection
         services.AddScoped<IOfflineSalePoster, OfflineSalePoster>();
         services.AddScoped<LicenseHistoryReviewAssessment>();
         services.AddScoped<ReconciliationCaseMapper>();
+        services.AddScoped<OfflineSaleTillSettler>();
+        services.AddScoped<OfflineSaleCustomerReviewer>();
+        services.AddScoped<OfflineSaleStockAndDuePoster>();
+        services.AddScoped<OfflineSaleReceiptReader>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.SubmitRecoveryBundle.RecoveryOperatorAuthorizer>();
+        services.AddScoped<Features.OfflineReconciliation.Commands.SubmitRecoveryBundle.RecoveryInvoiceReceiver>();
 
         return services;
     }

@@ -11,7 +11,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.SupplierReturns.Services;
 
@@ -106,7 +105,7 @@ public sealed class PurchaseReceiptReversalService(
                 }
                 if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId, clock, now) is { } denied)
                     return denied;
-                try {await uow.SaveChangesAsync(token);} catch(DbUpdateConcurrencyException) {return VersionConflict;}
+                try {await uow.SaveChangesAsync(token);} catch (Exception ex) when (uow.IsConcurrencyConflict(ex)) {return VersionConflict;}
                 return new PurchaseReceiptReversalResultDto(results);
             },ct);
         if(!outcome.IsError)

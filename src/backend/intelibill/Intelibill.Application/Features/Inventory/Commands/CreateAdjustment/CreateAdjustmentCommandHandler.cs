@@ -1,4 +1,3 @@
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -18,16 +17,13 @@ public sealed class CreateAdjustmentCommandHandler(
     IUserRepository userRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IInventoryRepository inventoryRepository,
-    IStockTransactionRepository stockTransactionRepository,
-    IInventoryAdjustmentRepository inventoryAdjustmentRepository,
-    IInventoryAdjustmentNumberGenerator adjustmentNumberGenerator,
     IUnitOfWork unitOfWork,
     IItemRepository itemRepository,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    IShopLicenceFence licenceFence,
-    ILiveSessionAuthority sessions)
+    StockCorrectionAccess access,
+    StockAdjustmentPoster poster)
 {
     private static readonly CreateAdjustmentCommandValidator Validator = new();
 
@@ -66,20 +62,8 @@ public sealed class CreateAdjustmentCommandHandler(
             cancellationToken);
     }
 
-    private async Task<Error?> CheckAuthorityAsync(CreateAdjustmentCommand command, CancellationToken ct)
-    {
-        if (command.Session is { } session &&
-            (session.UserId != command.ActorUserId || session.ActiveShopId != command.ActiveShopId ||
-             !await sessions.IsValidAsync(session, ct)))
-            return Errors.Auth.SessionInvalidated;
-
-        return await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ActiveShopId, ct) switch
-        {
-            ShopRole.Owner or ShopRole.Manager => null,
-            null => Errors.Shop.MembershipNotFound,
-            _ => Errors.Inventory.UserIsNotOwnerOrManager,
-        };
-    }
+    private Task<Error?> CheckAuthorityAsync(CreateAdjustmentCommand command, CancellationToken ct) =>
+        access.CheckAuthorityAsync(command.ActorUserId, command.ActiveShopId, command.Session, ct);
 
     private async Task<ErrorOr<InventoryAdjustmentResultDto>> CreateAsync(
         CreateAdjustmentCommand command,
@@ -87,7 +71,12 @@ public sealed class CreateAdjustmentCommandHandler(
         DateTimeOffset performedAt,
         CancellationToken cancellationToken)
     {
-        var licence = await EnterLicenceAsync(command, cancellationToken);
+        var licence = await access.EnterLicenceAsync(
+            command.ActorUserId,
+            command.ActiveShopId,
+            command.Session,
+            retainLease: null,
+            cancellationToken);
         if (licence.IsError)
             return licence.Errors;
 
@@ -117,62 +106,24 @@ public sealed class CreateAdjustmentCommandHandler(
         if (command.Direction == InventoryAdjustmentDirection.Decrease && command.Quantity > batch.UnquarantinedQuantity)
             return Errors.Inventory.AdjustmentQuantityExceedsBatchQuantity;
 
-        var batchQuantityBefore = batch.Quantity;
-        var inventoryQuantityBefore = inventory.Quantity;
+        var posted = poster.ApplyAdjustment(command, shop, batch, inventory, performedAt);
+        if (posted.IsError)
+            return posted.Errors;
 
-        var batchUpdate = ApplyBatchAdjustment(batch, command);
-        if (batchUpdate.IsError)
-            return batchUpdate.Errors;
-
-        var inventoryUpdate = ApplyInventoryAdjustment(inventory, command);
-        if (inventoryUpdate.IsError)
-            return inventoryUpdate.Errors;
-
-        var adjustmentNumber = adjustmentNumberGenerator.Generate(
-            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId));
-
-        var stockTransaction = BuildStockTransaction(command, batch, adjustmentNumber, performedAt);
-        if (stockTransaction.IsError)
-            return stockTransaction.Errors;
-
-        var adjustment = BuildAdjustment(
-            command,
-            batch,
-            inventory,
-            adjustmentNumber,
-            batchQuantityBefore,
-            inventoryQuantityBefore,
-            performedAt);
-        if (adjustment.IsError)
-            return adjustment.Errors;
+        var (stockTransaction, adjustment) = posted.Value;
 
         var saveDenied = await SaveAdjustmentAsync(
             command,
             licence.Value,
             batch,
             inventory,
-            stockTransaction.Value,
-            adjustment.Value,
+            stockTransaction,
+            adjustment,
             cancellationToken);
         if (saveDenied is { } denied)
             return denied;
 
-        return BuildResult(batch, stockTransaction.Value, adjustment.Value);
-    }
-
-    private async Task<ErrorOr<ShopLicenceLease>> EnterLicenceAsync(
-        CreateAdjustmentCommand command,
-        CancellationToken cancellationToken)
-    {
-        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
-        if (licence.IsError)
-            return licence.Errors;
-        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
-            return denied;
-        if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
-            return admissionDenied;
-
-        return licence;
+        return BuildResult(batch, stockTransaction, adjustment);
     }
 
     private async Task<ErrorOr<InventoryBatch>> LoadAdjustableBatchAsync(
@@ -205,60 +156,6 @@ public sealed class CreateAdjustmentCommandHandler(
         return Result.Success;
     }
 
-    private static ErrorOr<StockTransaction> BuildStockTransaction(
-        CreateAdjustmentCommand command,
-        InventoryBatch batch,
-        string adjustmentNumber,
-        DateTimeOffset performedAt)
-    {
-        var signedQuantity = command.Direction == InventoryAdjustmentDirection.Increase
-            ? command.Quantity
-            : -command.Quantity;
-
-        return StockTransaction.Create(
-            command.ActiveShopId,
-            batch.ItemId,
-            batch.Id,
-            MapStockTransactionType(command.Direction, command.Reason),
-            signedQuantity,
-            adjustmentNumber,
-            command.Notes,
-            performedAt,
-            command.ActorUserId,
-            command.ActorUserId);
-    }
-
-    private static ErrorOr<InventoryAdjustment> BuildAdjustment(
-        CreateAdjustmentCommand command,
-        InventoryBatch batch,
-        Intelibill.Domain.Entities.Inventory inventory,
-        string adjustmentNumber,
-        decimal batchQuantityBefore,
-        decimal inventoryQuantityBefore,
-        DateTimeOffset performedAt)
-    {
-        var costImpact = decimal.Round(command.Quantity * batch.CostPrice, 2, MidpointRounding.AwayFromZero);
-
-        return InventoryAdjustment.Create(
-            command.ActiveShopId,
-            batch.ItemId,
-            batch.Id,
-            adjustmentNumber,
-            command.Direction,
-            command.Reason,
-            command.Quantity,
-            batch.CostPrice,
-            costImpact,
-            batchQuantityBefore,
-            batch.Quantity,
-            inventoryQuantityBefore,
-            inventory.Quantity,
-            performedAt,
-            command.ActorUserId,
-            command.Notes,
-            command.ActorUserId);
-    }
-
     private async Task<Error?> SaveAdjustmentAsync(
         CreateAdjustmentCommand command,
         ShopLicenceLease licence,
@@ -268,10 +165,7 @@ public sealed class CreateAdjustmentCommandHandler(
         InventoryAdjustment adjustment,
         CancellationToken cancellationToken)
     {
-        inventoryBatchRepository.Update(batch);
-        inventoryRepository.Update(inventory);
-        await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
-        await inventoryAdjustmentRepository.AddAsync(adjustment, cancellationToken);
+        await poster.StageAdjustmentAsync(batch, inventory, stockTransaction, adjustment, cancellationToken);
         if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
             return authorityDenied;
         if (licence.CurrentDecision().EnforcedDenial() is { } saveDenial)
@@ -304,33 +198,4 @@ public sealed class CreateAdjustmentCommandHandler(
             adjustment.InventoryQuantityAfter,
             stockTransaction.Id,
             adjustment.PerformedAt);
-
-    private static ErrorOr<Success> ApplyBatchAdjustment(InventoryBatch batch, CreateAdjustmentCommand command)
-    {
-        return command.Direction == InventoryAdjustmentDirection.Increase
-            ? batch.AddQuantity(command.Quantity, command.ActorUserId)
-            : batch.SubtractQuantity(command.Quantity, command.ActorUserId);
-    }
-
-    private static ErrorOr<Success> ApplyInventoryAdjustment(Intelibill.Domain.Entities.Inventory inventory, CreateAdjustmentCommand command)
-    {
-        return command.Direction == InventoryAdjustmentDirection.Increase
-            ? inventory.AddQuantity(command.Quantity, command.ActorUserId)
-            : inventory.SubtractQuantity(command.Quantity, command.ActorUserId);
-    }
-
-    private static StockTransactionType MapStockTransactionType(
-        InventoryAdjustmentDirection direction,
-        InventoryAdjustmentReason reason)
-    {
-        if (direction == InventoryAdjustmentDirection.Increase)
-            return StockTransactionType.In;
-
-        return reason switch
-        {
-            InventoryAdjustmentReason.Damaged or InventoryAdjustmentReason.Expired => StockTransactionType.Dmg,
-            InventoryAdjustmentReason.Stolen => StockTransactionType.Stol,
-            _ => StockTransactionType.Out,
-        };
-    }
 }

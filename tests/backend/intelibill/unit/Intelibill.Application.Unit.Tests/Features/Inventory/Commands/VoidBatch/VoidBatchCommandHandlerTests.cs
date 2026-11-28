@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Features.SupplierReturns.Services;
@@ -30,7 +31,7 @@ public class VoidBatchCommandHandlerTests
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
     private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
 
@@ -379,23 +380,32 @@ public class VoidBatchCommandHandlerTests
     }
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
-    private VoidBatchCommandHandler CreateHandler() =>
-        new(
+    private VoidBatchCommandHandler CreateHandler()
+    {
+        var clock = BusinessTestDoubles.RealClock();
+        return new(
             _userRepository,
-            _inventoryBatchRepository,
-            _stockTransactionRepository,
-            _supplierLedgerEntryRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _inventoryRepository,
             _unitOfWork,
             _messageBus,
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
-            BusinessTestDoubles.RealClock(),
-            new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>()),
-            _reversals,
-            _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
+            clock,
+            _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>(),
+            new BatchVoidSourceReader(
+                _inventoryBatchRepository,
+                _purchaseReceiptValueRepository,
+                _paymentReceiptRepository,
+                _inventoryRepository,
+                new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>())),
+            new BatchVoidPoster(
+                _inventoryBatchRepository,
+                _stockTransactionRepository,
+                _supplierLedgerEntryRepository,
+                _purchaseReceiptValueRepository,
+                _inventoryRepository,
+                _reversals,
+                clock));
+    }
 
     private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
 

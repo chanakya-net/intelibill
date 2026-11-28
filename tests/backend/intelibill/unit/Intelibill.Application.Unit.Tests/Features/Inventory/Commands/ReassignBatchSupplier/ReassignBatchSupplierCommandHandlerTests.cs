@@ -103,8 +103,9 @@ public class ReassignBatchSupplierCommandHandlerTests
     }
 
     private ReassignBatchSupplierCommandHandler CreateHandler() =>
-        new(_userRepository, _inventoryBatchRepository, _supplierLedgerEntryRepository, _supplierRepository, _purchaseReceiptValueRepository, _paymentReceiptRepository,
-            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
+        new(_userRepository, _inventoryBatchRepository, _purchaseReceiptValueRepository, _paymentReceiptRepository,
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>(),
+            new BatchSupplierLedgerReassigner(_supplierLedgerEntryRepository, _supplierRepository));
 
     private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
 

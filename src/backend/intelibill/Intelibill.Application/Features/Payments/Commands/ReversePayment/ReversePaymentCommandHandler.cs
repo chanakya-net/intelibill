@@ -28,8 +28,6 @@ namespace Intelibill.Application.Features.Payments.Commands.ReversePayment;
 public sealed class ReversePaymentCommandHandler(
     IUserRepository userRepository,
     IPaymentReceiptRepository receiptRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IExpenseRepository expenseRepository,
     IPaymentTransactionRunner transactionRunner,
     PaymentReceiptDtoBuilder dtoBuilder,
@@ -39,7 +37,8 @@ public sealed class ReversePaymentCommandHandler(
     IBusinessClock businessClock,
     TillSourceSettlementService settlement,
     IShopLicenceFence licenceFence,
-    PaymentCompletionPolicy completionPolicy)
+    PaymentCompletionPolicy completionPolicy,
+    ReversalLedgerEntryPoster ledgerEntryPoster)
 {
     [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(ReversePaymentCommand command, CancellationToken cancellationToken)
@@ -110,7 +109,7 @@ public sealed class ReversePaymentCommandHandler(
         var permitted = await completionPolicy.CheckReceiptAsync(licence.Value, receipt, cancellationToken);
         if (permitted.IsError) return permitted.Errors;
 
-        var ledgerEntryId = await PostReversalLedgerEntryAsync(
+        var ledgerEntryId = await ledgerEntryPoster.PostReversalLedgerEntryAsync(
             receipt,
             reason,
             businessDate,
@@ -204,63 +203,6 @@ public sealed class ReversePaymentCommandHandler(
             return locked.Errors;
 
         return Result.Success;
-    }
-
-    /// <summary>Adds the reversing ledger entry for the party (voiding a supplier payment's expense) and returns its id.</summary>
-    private async Task<ErrorOr<Guid>> PostReversalLedgerEntryAsync(
-        PaymentReceipt receipt,
-        string reason,
-        DateOnly businessDate,
-        Guid actorUserId,
-        List<Expense> expensesToVoid,
-        CancellationToken cancellationToken)
-    {
-        var notes = $"Reversal of payment {receipt.Id:N}: {reason}";
-        if (notes.Length > 255)
-            notes = notes[..255];
-
-        if (receipt.PartyType == PaymentPartyType.Customer)
-        {
-            var entry = CustomerLedgerEntry.Create(
-                receipt.ShopId,
-                receipt.PartyId,
-                saleId: null,
-                CustomerLedgerEntryType.PaymentReversal,
-                receipt.Amount,
-                businessDate,
-                notes,
-                actorUserId);
-            if (entry.IsError)
-                return entry.Errors;
-
-            await customerLedgerEntryRepository.AddAsync(entry.Value, cancellationToken);
-            return entry.Value.Id;
-        }
-        else
-        {
-            var entry = SupplierLedgerEntry.Create(
-                receipt.ShopId,
-                receipt.PartyId,
-                batchId: null,
-                SupplierLedgerEntryType.Reversal,
-                receipt.Amount,
-                businessDate,
-                notes,
-                actorUserId);
-            if (entry.IsError)
-                return entry.Errors;
-
-            await supplierLedgerEntryRepository.AddAsync(entry.Value, cancellationToken);
-            var ledgerEntryId = entry.Value.Id;
-
-            foreach (var expense in expensesToVoid)
-            {
-                expense.MarkVoided();
-                expenseRepository.Update(expense);
-            }
-
-            return ledgerEntryId;
-        }
     }
 
     private sealed record ReversalPayload(Guid ReceiptId, string Reason, TillPostingContext? Till, TillSettlementEvidence? SettlementEvidence);

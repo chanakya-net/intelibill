@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using System.Linq.Expressions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Security;
@@ -29,7 +30,7 @@ public sealed class CorrectReceiptCostCommandHandlerTests
     private readonly IPurchaseReceiptCostAdjustmentRepository _adjustmentRepository = Substitute.For<IPurchaseReceiptCostAdjustmentRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ISupplierLedgerEntryRepository _ledgerRepository = Substitute.For<ISupplierLedgerEntryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IFinancialOperationExecutor _operationExecutor = Substitute.For<IFinancialOperationExecutor>();
 
     private readonly User _actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
@@ -222,22 +223,22 @@ public sealed class CorrectReceiptCostCommandHandlerTests
         Assert.Equal(Errors.PurchaseReceipt.VersionConflict.Code, result.FirstError.Code);
         await _supplierLock.DidNotReceive().LockAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
     }
-    private CorrectReceiptCostCommandHandler CreateHandler() =>
-        new(
-            _receiptRepository,
-            _adjustmentRepository,
-            _batchRepository,
-            _ledgerRepository,
+    private CorrectReceiptCostCommandHandler CreateHandler()
+    {
+        var clock = BusinessTestDoubles.RealClock();
+        return new(
             _paymentReceiptRepository,
             _unitOfWork,
             _operationExecutor,
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
-            BusinessTestDoubles.RealClock(),
+            clock,
             _supplierLock,
-            _supplierReturns,
             Substitute.For<IShopLicenceFence>(),
-            _sessions);
+            _sessions,
+            new ReceiptCostSourceReader(_receiptRepository, _batchRepository, _supplierReturns, clock),
+            new ReceiptCostCorrectionWriter(_receiptRepository, _batchRepository, _ledgerRepository, _adjustmentRepository));
+    }
 
     [Fact]
     public async Task ClosedPeriod_RefusesCorrection_WithoutPostingTheDelta()

@@ -6,7 +6,6 @@ using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Services.Returns;
 
@@ -54,7 +53,7 @@ internal sealed class SaleReturnMutationCoordinator(
             committed = true;
             return result;
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             // A batch or aggregate the mutation changed was written by a sale or stock correction
             // that does not take the sale lock. Nothing was kept; the caller can reload and retry.

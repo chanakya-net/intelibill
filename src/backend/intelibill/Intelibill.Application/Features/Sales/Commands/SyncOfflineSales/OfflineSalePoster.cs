@@ -3,12 +3,10 @@ using System.Globalization;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
-using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -17,19 +15,14 @@ using Intelibill.Domain.ValueObjects;
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
 [LicenceAction(LicenceAction.Recovery)]
-internal sealed partial class OfflineSalePoster(
+internal sealed class OfflineSalePoster(
     ISaleLineValidator saleLineValidator,
-    ICustomerResolver customerResolver,
-    ISaleRepository saleRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    IStockTransactionRepository stockTransactionRepository,
+    OfflineSaleCustomerReviewer customerReviewer,
+    OfflineSaleStockAndDuePoster stockAndDuePoster,
     IShopRepository shopRepository,
-    IOfflineSaleVarianceAnalyzer varianceAnalyzer,
     IBusinessClock businessClock,
     IPostingPeriodPolicy postingPeriodPolicy,
-    ITillPostingService tillPosting,
-    ITillRepository tills,
-    IBankAccountRepository banks,
+    OfflineSaleTillSettler tillSettler,
     IExpiryPolicyFence expiryFence,
     IOfflineExpiryAuthority expiryAuthority,
     IShopLicenceFence licenceFence,
@@ -96,14 +89,14 @@ internal sealed partial class OfflineSalePoster(
         var expiry = await expiryAuthority.ValidateFrozenAsync(shopId, sale, request.Now, cancellationToken);
         if (expiry.IsError) return ClassifyExpiryFailure(expiry.FirstError);
 
-        var till = await PrepareTillAsync(request, businessDay.Date, cancellationToken);
+        var till = await tillSettler.LockAndPrepareTillAsync(request, businessDay.Date, cancellationToken);
         if (till.IsError) return ClassifyTillFailure(till.FirstError);
 
         var invoiceNumber = (sale.InvoiceNumber ?? string.Empty).Trim();
 
         var warnings = new List<string>();
         var pendingIssues = new List<ReconciliationIssue>();
-        var customerRes = await ResolveCustomerAsync(request, warnings, pendingIssues, cancellationToken);
+        var customerRes = await customerReviewer.ResolveCustomerAsync(request, warnings, pendingIssues, cancellationToken);
         if (customerRes.IsError) return new OfflineSalePostingOutcome.Rejected(customerRes.FirstError);
         var resolvedCust = customerRes.Value;
 
@@ -111,7 +104,7 @@ internal sealed partial class OfflineSalePoster(
         // customer's policy would refuse online posts with a review case instead. Offline devices
         // cannot see other devices' due, so the limit is not a guarantee across devices.
         if (sale.DueAmount > 0m && resolvedCust is { IsActive: true } && !request.CreditReviewed)
-            await ReviewCustomerCreditAsync(request, resolvedCust, warnings, pendingIssues, cancellationToken);
+            await customerReviewer.ReviewCustomerCreditAsync(request, resolvedCust, warnings, pendingIssues, cancellationToken);
 
         var (lineCmds, lineByKey) = BuildLineCommands(sale.Items);
 
@@ -142,17 +135,11 @@ internal sealed partial class OfflineSalePoster(
             dueEntry = ledger.Value;
         }
 
-        var settlement = await StageTillAsync(request, saleEntity, till.Value, cancellationToken);
+        var settlement = await tillSettler.StageTillAsync(request, saleEntity, till.Value, cancellationToken);
         if (settlement.IsError) return new OfflineSalePostingOutcome.Rejected(settlement.FirstError);
 
-        await DeductStockAsync(request, vLines, consumption, invoiceNumber, cancellationToken);
-
-        await saleRepository.AddAsync(saleEntity, cancellationToken);
-
-        await PersistReviewIssuesAsync(request, saleEntity, invoiceNumber, pendingIssues, cancellationToken);
-
-        if (dueEntry is not null)
-            await customerLedgerEntryRepository.AddAsync(dueEntry, cancellationToken);
+        await stockAndDuePoster.StageSaleStockAndDueAsync(
+            request, vLines, consumption, invoiceNumber, saleEntity, pendingIssues, dueEntry, cancellationToken);
 
         if (licenceLease.CurrentDecision() != initialDecision &&
             await licenceHistory.EvaluateAsync(licenceLease, request, cancellationToken) is { } changed) return changed;
@@ -192,62 +179,6 @@ internal sealed partial class OfflineSalePoster(
         tillError.Code == Errors.Till.Busy.Code
             ? new OfflineSalePostingOutcome.Rejected(tillError)
             : new OfflineSalePostingOutcome.Held(ReconciliationIssueType.TillReview, tillError, tillError.Description, []);
-
-    /// <summary>Resolves the invoice's customer and records how it differs from what the device captured.</summary>
-    private async Task<ErrorOr<Customer?>> ResolveCustomerAsync(
-        OfflineSalePostingRequest request,
-        List<string> warnings,
-        List<ReconciliationIssue> pendingIssues,
-        CancellationToken cancellationToken)
-    {
-        var sale = request.Sale;
-        var customerRes = await customerResolver.ResolveAsync(
-            request.ShopId,
-            sale.CustomerId,
-            sale.CustomerPhone,
-            sale.DueAmount > 0,
-            sale.PaymentMethod,
-            cancellationToken);
-        if (customerRes.IsError) return customerRes;
-
-        OfflineSaleSyncHelpers.AddCustomerVarianceWarnings(
-            request.ShopId,
-            request.RecordedByUserId,
-            request.ClientSaleId,
-            request.DeviceId,
-            sale,
-            customerRes.Value,
-            warnings,
-            pendingIssues);
-        return customerRes;
-    }
-
-    private async Task ReviewCustomerCreditAsync(
-        OfflineSalePostingRequest request,
-        Customer customer,
-        List<string> warnings,
-        List<ReconciliationIssue> pendingIssues,
-        CancellationToken cancellationToken)
-    {
-        var shopId = request.ShopId;
-        var dueAmount = request.Sale.DueAmount;
-        var exposure = await customerLedgerEntryRepository.GetCustomerBalanceAsync(shopId, customer.Id, cancellationToken);
-        var credit = CustomerCreditPolicy.Evaluate(CustomerCreditState.Of(customer), exposure, dueAmount, null, null);
-        if (credit.IsError)
-        {
-            OfflineSaleSyncHelpers.AddCreditPolicyViolation(
-                shopId,
-                request.RecordedByUserId,
-                request.ClientSaleId,
-                request.DeviceId,
-                customer,
-                exposure,
-                dueAmount,
-                credit.FirstError,
-                warnings,
-                pendingIssues);
-        }
-    }
 
     private static (List<RecordSaleItemCommand> LineCmds, Dictionary<string, OfflineSaleSyncLineCommand> LineByKey)
         BuildLineCommands(IReadOnlyList<OfflineSaleSyncLineCommand> items)
@@ -484,51 +415,6 @@ internal sealed partial class OfflineSalePoster(
             saleEntity.BusinessDate,
             $"Due recorded from sale {saleEntity.InvoiceNumber}",
             recordedBy);
-
-    private async Task DeductStockAsync(
-        OfflineSalePostingRequest request,
-        IReadOnlyList<ValidatedSaleLine> vLines,
-        List<OfflineStockConsumption> consumption,
-        string invoiceNumber,
-        CancellationToken cancellationToken)
-    {
-        var recordedBy = request.RecordedByUserId;
-        for (var i = 0; i < vLines.Count; i++)
-        {
-            var consumed = consumption[i].ConsumedQuantity;
-            if (consumed <= 0) continue;
-            if (vLines[i].LineType == SaleLineType.Service) continue;
-            var batchResult = vLines[i].Batch!.SubtractQuantity(consumed, recordedBy);
-            if (batchResult.IsError) throw new InvalidOperationException(batchResult.FirstError.Description);
-            var inventoryResult = vLines[i].Inventory!.SubtractQuantity(consumed, recordedBy);
-            if (inventoryResult.IsError) throw new InvalidOperationException(inventoryResult.FirstError.Description);
-            var tx = StockTransaction.Create(
-                request.ShopId,
-                vLines[i].Item!.Id,
-                vLines[i].Batch!.Id,
-                StockTransactionType.Out,
-                -consumed,
-                invoiceNumber,
-                null,
-                request.Sale.SoldAt,
-                request.AttributedUserId,
-                recordedBy);
-            if (tx.IsError) throw new InvalidOperationException(tx.FirstError.Description);
-            await stockTransactionRepository.AddAsync(tx.Value, cancellationToken);
-        }
-    }
-
-    private async Task PersistReviewIssuesAsync(
-        OfflineSalePostingRequest request,
-        Sale saleEntity,
-        string invoiceNumber,
-        List<ReconciliationIssue> pendingIssues,
-        CancellationToken cancellationToken)
-    {
-        foreach (var issue in pendingIssues)
-            issue.AttachEvidence(invoiceNumber, request.OfflineSubmissionId);
-        await varianceAnalyzer.PersistReviewIssuesAsync(saleEntity.Id, pendingIssues, cancellationToken);
-    }
 
     /// <summary>
     /// Issues the sale's document under the profile its lease froze (the shop's current one for

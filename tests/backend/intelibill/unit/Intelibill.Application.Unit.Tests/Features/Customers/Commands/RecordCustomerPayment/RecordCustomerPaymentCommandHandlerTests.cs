@@ -39,11 +39,13 @@ public class RecordCustomerPaymentCommandHandlerTests
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private RecordCustomerPaymentCommandHandler CreateHandler() =>
         new(_userRepository, _customerRepository, _customerLedgerEntryRepository, _paymentReceiptRepository,
-            _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
+            _bankAccountRepository,
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
-            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
+            BusinessTestDoubles.DisabledTillPosting(),
             Substitute.For<IShopLicenceFence>(), new PaymentCompletionPolicy(_balanceReader, Substitute.For<ICustomerLedgerEntryRepository>(),
-                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()));
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()),
+            new PaymentReceiptPoster(_paymentReceiptRepository, new PaymentAllocationPlanner(_balanceReader),
+                BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock()));
 
     private void ExecutorRunsAction() =>
         _executor.ExecuteAsync(

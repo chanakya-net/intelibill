@@ -14,7 +14,6 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Application.Features.Tills;
-using Microsoft.EntityFrameworkCore;
 
 using CustomerCreditCheck = Intelibill.Application.Features.Sales.Commands.RecordSale.SaleCreditDecider.CustomerCreditCheck;
 using SalePostingContext = Intelibill.Application.Features.Sales.Commands.RecordSale.SalePostingContextReader.SalePostingContext;
@@ -234,11 +233,11 @@ public sealed class RecordSaleCommandHandler
 
             return saleDtoBuilder.BuildSaleDto(sale, lines.ItemById, sale.Warnings, creditNoteRedemptionsOrError.Value);
         }
-        catch (DbUpdateConcurrencyException exception) when (IsCreditNoteConcurrencyConflict(command, exception))
+        catch (Exception exception) when (unitOfWork.IsConcurrencyConflict(exception) && IsCreditNoteConcurrencyConflict(command, exception))
         {
             return Errors.Sale.CreditNoteRedemptionConflict;
         }
-        catch (DbUpdateException)
+        catch (Exception exception) when (unitOfWork.IsWriteFailure(exception))
         {
             if (transactionStarted && !transactionCommitted)
             {
@@ -421,9 +420,14 @@ public sealed class RecordSaleCommandHandler
         return Result.Success;
     }
 
-    private static bool IsCreditNoteConcurrencyConflict(
+    private bool IsCreditNoteConcurrencyConflict(
         RecordSaleCommand command,
-        DbUpdateConcurrencyException exception) =>
-        command.CreditNoteRedemptions is { Count: > 0 }
-        && (exception.Entries.Count == 0 || exception.Entries.Any(entry => entry.Entity is CreditNote));
+        Exception exception)
+    {
+        if (command.CreditNoteRedemptions is not { Count: > 0 })
+            return false;
+
+        var entities = unitOfWork.ConflictedEntities(exception);
+        return entities.Count == 0 || entities.Any(entity => entity is CreditNote);
+    }
 }

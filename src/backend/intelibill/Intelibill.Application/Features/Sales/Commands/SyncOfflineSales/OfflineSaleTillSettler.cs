@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -9,11 +10,23 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-internal sealed partial class OfflineSalePoster
+/// <summary>
+/// Decides which till an offline sale settles into (its own open session, or a reviewed late posting
+/// against the historical session) and stages that settlement.
+/// </summary>
+public sealed class OfflineSaleTillSettler(
+    ITillPostingService tillPosting,
+    ITillRepository tills,
+    IBankAccountRepository banks,
+    IBusinessClock businessClock)
 {
-    private sealed record TillPreparation(TillSession? NormalSession, TillSession? HistoricalSession, TillClose? Close);
+    internal sealed record TillPreparation(TillSession? NormalSession, TillSession? HistoricalSession, TillClose? Close);
 
-    private async Task<ErrorOr<TillPreparation>> PrepareTillAsync(OfflineSalePostingRequest request, DateOnly businessDate, CancellationToken ct)
+    /// <summary>
+    /// Takes the till lock: the claimed historical session's row lock for a reviewed sale, otherwise
+    /// the till posting acquisition of the cashier's session.
+    /// </summary>
+    internal async Task<ErrorOr<TillPreparation>> LockAndPrepareTillAsync(OfflineSalePostingRequest request, DateOnly businessDate, CancellationToken ct)
     {
         var gate = await tillPosting.GateAsync(request.ShopId, ct);
         if (gate.IsError) return gate.Errors;
@@ -90,7 +103,7 @@ internal sealed partial class OfflineSalePoster
     private static bool MatchesHistorical(OfflineSalePostingRequest request, TillSession session, DateOnly businessDate) =>
         OfflineTillReconciliationEligibility.MatchesHistorical(request.ShopId, request.Sale, session, request.AttributedUserId, businessDate, request.Now);
 
-    private async Task<ErrorOr<Success>> StageTillAsync(OfflineSalePostingRequest request, Sale sale, TillPreparation till, CancellationToken ct)
+    internal async Task<ErrorOr<Success>> StageTillAsync(OfflineSalePostingRequest request, Sale sale, TillPreparation till, CancellationToken ct)
     {
         if (request.ReviewedTill is { } reviewed)
         {

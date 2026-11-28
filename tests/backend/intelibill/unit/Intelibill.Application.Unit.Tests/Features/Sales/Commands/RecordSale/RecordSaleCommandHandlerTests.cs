@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.Expiry;
@@ -39,7 +40,7 @@ public class RecordSaleCommandHandlerTests
     private readonly ICreditNoteRedemptionRepository _creditNoteRedemptionRepository = Substitute.For<ICreditNoteRedemptionRepository>();
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly IShopLicenceFence _licenceFence = Substitute.For<IShopLicenceFence>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly ILiveSessionAuthority _sessionAuthority = Substitute.For<ILiveSessionAuthority>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInvoiceNumberAllocator _invoiceNumberAllocator = Substitute.For<IInvoiceNumberAllocator>();

@@ -6,7 +6,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
@@ -16,8 +15,7 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 /// </summary>
 public sealed class SyncOfflineSalesCommandHandler(
     IUserRepository userRepository,
-    IShopRepository shopRepository,
-    IInvoiceLeaseRepository invoiceLeaseRepository,
+    OfflineSaleReceiptReader receiptReader,
     IOfflineSubmissionRepository offlineSubmissionRepository,
     ISaleRepository saleRepository,
     IDiscountRuleRepository discountRuleRepository,
@@ -70,14 +68,8 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (OfflineSaleSyncHelpers.CheckIdentity(sale, out var normalizedId, out var invNum) is { } identityError)
             return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, identityError);
 
-        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, deviceId, sale);
-        var incomingLease = await invoiceLeaseRepository.FindReservedRangeAsync(command.ShopId, deviceId, invNum, cancellationToken);
-        var (assertedIssuer, verifiedIssuer) = await ResolveIssuerAsync(command, deviceId, sale.IssuedByUserId, cancellationToken);
-
-        var candidate = OfflineSubmission.Record(
-            command.ShopId, deviceId, normalizedId, invNum, hash, OfflineSubmissionPayload.Serialize(sale),
-            sale.SoldAt, now, OfflineSubmissionSource.Sync, command.ActorUserId,
-            assertedIssuer, verifiedIssuer, incomingLease?.Id, recoveryOperationId: null);
+        var (candidate, incomingLease) = await receiptReader.ReadCandidateAsync(
+            command, sale, deviceId, normalizedId, invNum, now, cancellationToken);
 
         var recorded = await CommitReceiptAsync(command.ShopId, deviceId, candidate, cancellationToken);
         if (recorded.IsError)
@@ -181,7 +173,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (storedSale is null)
             return await HoldCorruptedPayloadAsync(hold, now, cancellationToken);
 
-        var lease = await ResolveEffectiveLeaseAsync(command.ShopId, submission, incomingLease, cancellationToken);
+        var lease = await receiptReader.ResolveEffectiveLeaseAsync(command.ShopId, submission, incomingLease, cancellationToken);
 
         // Existing canonical history hold wins immediately after authorized receipt capture, including linked envelopes.
         var existingHistory = await reconciliationIssueRepository.FindCanonicalHistoryCaseAsync(
@@ -511,7 +503,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                 [])
             { Warnings = warnings };
         }
-        catch (DbUpdateException ex)
+        catch (Exception ex) when (unitOfWork.IsWriteFailure(ex))
         {
             await RollbackStageSavepointAsync();
             var concurrent = await saleRepository.GetByClientSaleIdAsync(hold.ShopId, hold.DeviceId, hold.ClientSaleId, cancellationToken);
@@ -583,28 +575,6 @@ public sealed class SyncOfflineSalesCommandHandler(
             hold.ClientSaleId, Error.Conflict(existingCase.Code, existingCase.Message), VisibleCaseId(hold, existingCase)));
     }
 
-    private async Task<InvoiceLease?> ResolveEffectiveLeaseAsync(
-        Guid shopId,
-        OfflineSubmission submission,
-        InvoiceLease? incomingLease,
-        CancellationToken cancellationToken)
-    {
-        if (submission.OriginalLeaseId is { } leaseId)
-        {
-            if (incomingLease is not null && incomingLease.Id == leaseId)
-                return incomingLease;
-            var original = await invoiceLeaseRepository.GetByIdAsync(leaseId, cancellationToken);
-            if (original is not null && original.ShopId == shopId)
-                return original;
-        }
-
-        return incomingLease ?? await invoiceLeaseRepository.FindReservedRangeAsync(
-            shopId,
-            submission.DeviceId,
-            submission.InvoiceNumber,
-            cancellationToken);
-    }
-
     private async Task RollbackStageSavepointAsync()
     {
         await unitOfWork.RollbackToSavepointAsync(StageSavepoint, CancellationToken.None);
@@ -637,23 +607,6 @@ public sealed class SyncOfflineSalesCommandHandler(
         var result = await HoldInTransactionAsync(hold, saleId, issueType, error, cancellationToken);
         await unitOfWork.CommitTransactionAsync(cancellationToken);
         return result;
-    }
-
-    private async Task<(Guid? Asserted, Guid? Verified)> ResolveIssuerAsync(
-        SyncOfflineSalesCommand command,
-        string deviceId,
-        Guid? issuedByUserId,
-        CancellationToken cancellationToken)
-    {
-        if (issuedByUserId is not { } asserted)
-            return (null, null);
-
-        if (asserted == command.ActorUserId)
-            return (asserted, asserted);
-
-        var standing = await OfflineIssuerVerification.AssessAsync(
-            shopRepository, offlineSubmissionRepository, command.ShopId, deviceId, asserted, cancellationToken);
-        return (asserted, standing == OfflineIssuerStanding.Verified ? asserted : null);
     }
 
     private async Task<OfflineSaleSyncResultDto> HoldLicenceHistoryAsync(

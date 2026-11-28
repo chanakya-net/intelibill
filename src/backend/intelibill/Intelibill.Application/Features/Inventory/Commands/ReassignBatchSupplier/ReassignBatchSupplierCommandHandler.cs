@@ -9,15 +9,12 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 
 public sealed class ReassignBatchSupplierCommandHandler(
     IUserRepository userRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
-    ISupplierRepository supplierRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     IShopRepository shopRepository,
@@ -26,7 +23,8 @@ public sealed class ReassignBatchSupplierCommandHandler(
     IUnitOfWork unitOfWork,
     ISupplierReturnMutationLock supplierReturnLock,
     IShopLicenceFence licenceFence,
-    ILiveSessionAuthority authority)
+    ILiveSessionAuthority authority,
+    BatchSupplierLedgerReassigner ledgerReassigner)
 {
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
@@ -85,13 +83,13 @@ public sealed class ReassignBatchSupplierCommandHandler(
             return Errors.Payment.DocumentHasAllocations;
         }
 
-        var batchEntries = await supplierLedgerEntryRepository.GetByBatchAsync(
-            command.ActiveShopId,
-            batch.Id,
+        var batchEntries = await ledgerReassigner.LoadBatchEntriesAsync(
+            command,
+            batch,
             cancellationToken);
         var goodsReceivedEntry = batchEntries.FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);
 
-        var newSupplierOrError = await ResolveNewSupplierAsync(
+        var newSupplierOrError = await ledgerReassigner.ResolveNewSupplierAsync(
             command,
             batch,
             goodsReceivedEntry,
@@ -112,7 +110,7 @@ public sealed class ReassignBatchSupplierCommandHandler(
         if (licence.Value.CurrentDecision().ExistingSourceDenial(receiptValue?.ReceivedAt ?? batch.CreatedAt) is { } sourceDenial)
             return sourceDenial;
 
-        ReassignLedgerEntries(goodsReceivedEntry, batchEntries, newSupplier.Id);
+        ledgerReassigner.ReassignLedgerEntries(goodsReceivedEntry, batchEntries, newSupplier.Id);
 
         if (receiptValue?.HasSupplierReturns == true)
             return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments; its supplier cannot change.");
@@ -155,37 +153,6 @@ public sealed class ReassignBatchSupplierCommandHandler(
             PaymentAllocationTargetType.SupplierReceipt,
             receiptValue.Id,
             cancellationToken);
-
-    /// <summary>
-    /// Checks the batch's current supplier is the system placeholder and returns the real supplier to move it to.
-    /// </summary>
-    private async Task<ErrorOr<Supplier>> ResolveNewSupplierAsync(
-        ReassignBatchSupplierCommand command,
-        InventoryBatch batch,
-        SupplierLedgerEntry? goodsReceivedEntry,
-        CancellationToken cancellationToken)
-    {
-        // A free receipt has no payable; its batch alone records who supplied it.
-        var currentSupplierId = goodsReceivedEntry?.SupplierId ?? (batch.CostPrice == 0 ? batch.SupplierId : null);
-        if (currentSupplierId is null)
-            return Errors.Inventory.SupplierLedgerEntryInvalid;
-
-        var currentSupplier = await supplierRepository.GetByIdAsync(currentSupplierId.Value, cancellationToken);
-        if (currentSupplier is null || currentSupplier.ShopId != command.ActiveShopId)
-            return Errors.Supplier.SupplierNotFound;
-
-        if (!currentSupplier.IsSystem)
-            return Errors.Supplier.CannotReassignFromRealSupplier;
-
-        var newSupplier = await supplierRepository.GetByIdAsync(command.NewSupplierId, cancellationToken);
-        if (newSupplier is null || newSupplier.ShopId != command.ActiveShopId)
-            return Errors.Supplier.SupplierNotFound;
-
-        if (newSupplier.IsSystem)
-            return Errors.Supplier.CannotModifySystemSupplier;
-
-        return newSupplier;
-    }
 
     private async Task<ErrorOr<Success>> AuthorizePostingPeriodsAsync(
         ReassignBatchSupplierCommand command,
@@ -230,33 +197,13 @@ public sealed class ReassignBatchSupplierCommandHandler(
         return Result.Success;
     }
 
-    private void ReassignLedgerEntries(
-        SupplierLedgerEntry? goodsReceivedEntry,
-        IReadOnlyList<SupplierLedgerEntry> batchEntries,
-        Guid newSupplierId)
-    {
-        if (goodsReceivedEntry is not null)
-        {
-            goodsReceivedEntry.ReassignSupplier(newSupplierId);
-            supplierLedgerEntryRepository.Update(goodsReceivedEntry);
-        }
-
-        // Cost corrections belong to the same receipt: they follow it, or the placeholder supplier
-        // would keep owing (or being owed) the difference.
-        foreach (var costAdjustment in batchEntries.Where(e => e.EntryType == SupplierLedgerEntryType.CostAdjusted))
-        {
-            costAdjustment.ReassignSupplier(newSupplierId);
-            supplierLedgerEntryRepository.Update(costAdjustment);
-        }
-    }
-
     private async Task<ErrorOr<Success>> SaveAsync(CancellationToken cancellationToken)
     {
         try
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
         {
             return Errors.Inventory.ConcurrentChange;
         }

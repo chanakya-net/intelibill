@@ -51,10 +51,11 @@ public class PaymentCommandHandlerTests
                 Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
     private ReversePaymentCommandHandler ReverseHandler() => new(
-        _users, _receipts, Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISupplierLedgerEntryRepository>(),
+        _users, _receipts,
         _expenses, new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork,
         BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), BusinessTestDoubles.DisabledTillSettlement(),
-        Substitute.For<IShopLicenceFence>(), CompletionPolicy());
+        Substitute.For<IShopLicenceFence>(), CompletionPolicy(),
+        new ReversalLedgerEntryPoster(Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISupplierLedgerEntryRepository>(), _expenses));
 
     [Fact]
     public async Task Reverse_SuspendedOwner_IsRefusedBeforeReplay()

@@ -257,7 +257,8 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
             _supplierRepository,
             _externalProductLookupService,
             CreateTransaction(),
-            Substitute.For<ISuspensionAccessReader>());
+            Substitute.For<ISuspensionAccessReader>(),
+            _unitOfWork);
 
     private static GetProductDetailsByNameOrBarcodeQuery CreateQuery(
         Guid userId,

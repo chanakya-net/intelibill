@@ -723,15 +723,13 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
 
     private Task<ErrorOr<RecoverySubmissionResultDto>> Handle(SubmitRecoveryBundleCommand command) =>
         new SubmitRecoveryBundleCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _leaseRepository,
+            new RecoveryOperatorAuthorizer(_userRepository),
+            new RecoveryInvoiceReceiver(_poster, _leaseRepository, _shopRepository, _submissionRepository),
             _submissionRepository,
             _saleRepository,
             _issueRepository,
             _eventRepository,
             new OfflineSaleVarianceAnalyzer(_issueRepository),
-            _poster,
             _unitOfWork,
             _executor,
             new FixedClock(Now), ExpiryAuthority()).HandleAsync(command, CancellationToken.None);

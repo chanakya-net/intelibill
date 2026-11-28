@@ -10,7 +10,6 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.SupplierReturns.Services;
 
@@ -102,7 +101,7 @@ public sealed class SupplierReturnService(
                         document.ShippedAt,
                         document) is { } denied)
                     return denied;
-                try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) { return VersionConflict; }
+                try { await uow.SaveChangesAsync(token); } catch (Exception ex) when (uow.IsConcurrencyConflict(ex)) { return VersionConflict; }
                 return Map(document);
             },ct);
         if(!outcome.IsError)
@@ -245,7 +244,7 @@ public sealed class SupplierReturnService(
                         document.ShippedAt,
                         document) is { } denied)
                     return denied;
-                try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) {return VersionConflict;}
+                try { await uow.SaveChangesAsync(token); } catch (Exception ex) when (uow.IsConcurrencyConflict(ex)) {return VersionConflict;}
                 return Map(document);
             },ct);
     }

@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Infrastructure;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
@@ -29,7 +30,7 @@ public sealed class CorrectStockCountCommandHandlerTests
     private readonly IInventoryAdjustmentRepository _adjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
     private readonly IStockCountRepository _stockCountRepository = Substitute.For<IStockCountRepository>();
     private readonly IInventoryAdjustmentNumberGenerator _numberGenerator = Substitute.For<IInventoryAdjustmentNumberGenerator>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>().ClassifiesFailuresLikeEf();
     private readonly IFinancialOperationExecutor _operationExecutor = Substitute.For<IFinancialOperationExecutor>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
@@ -269,18 +270,20 @@ public sealed class CorrectStockCountCommandHandlerTests
             _userRepository,
             _batchRepository,
             _inventoryRepository,
-            _stockTransactionRepository,
-            _adjustmentRepository,
-            _stockCountRepository,
-            _numberGenerator,
             _unitOfWork,
             _operationExecutor,
             _itemRepository,
             _shops,
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
-            Substitute.For<IShopLicenceFence>(),
-            Substitute.For<ILiveSessionAuthority>());
+            new StockCorrectionAccess(_shops, Substitute.For<IShopLicenceFence>(), Substitute.For<ILiveSessionAuthority>()),
+            new StockCountPoster(
+                _batchRepository,
+                _inventoryRepository,
+                _stockTransactionRepository,
+                _adjustmentRepository,
+                _stockCountRepository,
+                _numberGenerator));
 
     [Fact]
     public async Task ClosedPeriod_RefusesCount_UnkeyedAndKeyed_WithoutWriting()

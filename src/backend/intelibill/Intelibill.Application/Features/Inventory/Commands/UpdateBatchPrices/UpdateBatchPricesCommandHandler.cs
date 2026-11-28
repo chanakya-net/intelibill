@@ -10,7 +10,6 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Events;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Microsoft.EntityFrameworkCore;
 using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
@@ -102,7 +101,7 @@ public sealed class UpdateBatchPricesCommandHandler(
             {
                 await unitOfWork.SaveChangesAsync(cancellationToken);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception ex) when (unitOfWork.IsConcurrencyConflict(ex))
             {
                 return Errors.Inventory.BatchVersionConflict;
             }
