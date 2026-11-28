@@ -109,3 +109,7 @@ The read-only scheduled notification preview panel (`src/app/features/notificati
 - [Licensing backend](../../backend/licensing/architecture_doc/architecture.md)
 - [Merchant web app](../intelibill/architecture_doc/architecture.md)
 - [Licensing stack rollout and compose notes](../../../docs/licensing-rollout.md)
+
+Billing and Licensing Manager users can expand email detail in the account notification preview.
+It shows recorded attempts, timestamps and the SMTP outcome in the selected locale.
+Local capture links search Mailpit by the message identifier. Support receives the operational preview.

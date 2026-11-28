@@ -14,7 +14,17 @@ export interface ProviderNotificationCommercial {
   readonly coveredShopNamesTruncated?: boolean;
 }
 
+export interface ProviderEmailDelivery {
+  readonly state: string;
+  readonly attempts: number;
+  readonly lastAttemptAt: string | null;
+  readonly nextAttemptAt: string | null;
+  readonly outcomeAt: string | null;
+  readonly captureUrl: string | null;
+}
+
 export interface ProviderNotificationItem {
+  readonly emailDelivery?: ProviderEmailDelivery | null;
   readonly jobId: string;
   readonly scopeKind: string;
   readonly scopeId: string;

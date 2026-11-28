@@ -7,7 +7,8 @@ using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-public sealed partial class P0701Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
+public sealed partial class P0701Tests(LicensingPostgreSqlFixture database, MailpitFixture mailpit)
+    : IClassFixture<LicensingPostgreSqlFixture>, IClassFixture<MailpitFixture>
 {
     [Fact]
     public async Task TrialOwnerHasOneScheduledThreeDayNotice()

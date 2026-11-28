@@ -214,3 +214,7 @@ How to run them is in the [README](../README.md).
 ## Licence notice V1 contracts (P07-01)
 
 `Intelibill.Shared.Contracts/V1/LicenseNoticesV1.cs` (pinned by `tests/contracts/licensing/license-notices-v1.json`) separates operational shop notices from commercial account and provider preview payloads, bounds covered shop-name samples (`MaxShopNameSampleCount = 5`, `MaxShopNamePreviewCodeUnits = 64`) and contact pages (`ContactPageSize = 25`), omits verification proof tokens from `BillingContactV1`, requires exactly one recipient lookup purpose (named actors or an affiliation-bound shop roster), and enforces strict scope/cursor/identity/minimized-PII validation on `NoticeRecipientAuthorityResponseV1`.
+
+`ProviderEmailDeliveryV1` is an additive field on a provider notification preview item.
+The licensing service owns its disclosure. Merchant notification and contact contracts carry no transport detail.
+An SMTP acknowledgement records transport acceptance. Uncertain records preserve an unresolved external outcome.

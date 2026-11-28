@@ -41,6 +41,7 @@ public sealed partial class P0701Tests
         var runtime = database.Login(dbName, LicensingPostgreSqlFixture.RuntimeRole);
         await ApplyFreshMigrationAndProductionGrantsAsync(dbName, migrator);
 
+        await P0702Tests.AssertRuntimePrivilegesAsync(runtime);
         await AssertForcedRlsAndUniqueIndexesAsync(migrator);
         var (accountId, ownerId) = await P0209Fixture.SeedAccountAsync(database.Bootstrap(dbName));
         await AssertRuntimeRlsAndImmutabilityAsync(runtime, accountId, ownerId);
@@ -192,6 +193,8 @@ public sealed partial class P0701Tests
             GRANT USAGE ON SCHEMA public TO licensing_runtime;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO licensing_runtime;
             GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO licensing_runtime;
+            GRANT EXECUTE ON FUNCTION public.next_notice_email(timestamptz,timestamptz) TO licensing_runtime;
+            GRANT EXECUTE ON FUNCTION public.advance_notice_email(uuid,uuid,uuid,text,text,timestamptz) TO licensing_runtime;
             GRANT EXECUTE ON FUNCTION public.due_notification_planning(timestamptz, uuid, integer) TO licensing_runtime;
             GRANT EXECUTE ON FUNCTION public.account_notification_billing_members(uuid, uuid, integer) TO licensing_runtime;
             """);

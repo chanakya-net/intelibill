@@ -73,6 +73,24 @@ internal sealed class NotificationDestinationProtector(
         SHA256.HashData(Encoding.UTF8.GetBytes(
             $"{ProofPurpose}:{accountId:D}:{contactId:D}:{Convert.ToHexStringLower(destinationHash)}:{token}"));
 
+    internal string ProtectProof(Guid account, Guid contact, Guid delivery, string token) =>
+        ProofProtector(account, contact, delivery).Protect(token);
+
+    internal string? OpenProof(Guid account, Guid contact, Guid delivery, string ciphertext)
+    {
+        try
+        {
+            return ProofProtector(account, contact, delivery).Unprotect(ciphertext);
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
+    private IDataProtector ProofProtector(Guid account, Guid contact, Guid delivery) =>
+        protection.CreateProtector(ProofPurpose, account.ToString("D"), contact.ToString("D"), delivery.ToString("D"));
+
     private IDataProtector JobProtector(Guid accountId, string scopeKind, Guid scopeId, string recipientKey) =>
         protection.CreateProtector(JobPurpose, accountId.ToString("D"), scopeKind, scopeId.ToString("D"), recipientKey);
 

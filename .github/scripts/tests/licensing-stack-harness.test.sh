@@ -20,8 +20,8 @@ set -euo pipefail
 case "$1" in
   ps|network) exit 0 ;;
   volume)
-    if [[ "${FOREIGN_LABEL:-}" == yes ]]; then
-      printf '%s|foreign\n' "${P0105_PROJECT}_postgres_data"
+    if [[ -n "${FOREIGN_LABEL:-}" ]]; then
+      printf '%s|foreign\n' "${P0105_PROJECT}_${FOREIGN_LABEL}"
     fi
     exit 0
     ;;
@@ -91,6 +91,7 @@ assert_isolated_or_refused() {
       .name == $project and
       .networks.default.name == ($project + "_default") and
       .volumes.postgres_data.name == ($project + "_postgres_data") and
+      .volumes.licensing_keys.name == ($project + "_licensing_keys") and
       .services.postgres.container_name == ($project + "_postgres")
     ' "${RECORDS}-${verb}.json" >/dev/null || {
       printf 'FAIL: %s reached a mutating Docker call with non-fixture resources\n' "${verb}" >&2
@@ -114,11 +115,13 @@ foreign_resources() {
   done
   cp "${root}/docker-compose.yml" "${fixture}/docker-compose.yml"
   for case_name in fresh cleanup; do
-    if FOREIGN_LABEL=yes case_status "${case_name}" || [[ -e "${RECORDS}" ]]; then
-      printf 'FAIL: %s allowed a fixture-named volume with a foreign project label\n' "${case_name}" >&2
-      exit 1
-    fi
-    grep -q 'owned by another project' "${P0105_ARTIFACTS}/run.log"
+    for volume in postgres_data licensing_keys; do
+      if FOREIGN_LABEL="$volume" case_status "${case_name}" || [[ -e "${RECORDS}" ]]; then
+        printf 'FAIL: %s allowed a foreign label on %s\n' "${case_name}" "$volume" >&2
+        exit 1
+      fi
+      grep -q 'owned by another project' "${P0105_ARTIFACTS}/run.log"
+    done
   done
   printf 'Foreign resolved volumes and ownership labels block startup and cleanup before mutation.\n'
 }

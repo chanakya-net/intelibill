@@ -21,6 +21,8 @@ public partial class LicensingPostgreSqlFixture
         GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.due_transfer_applications(timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.due_scheduled_capacity_reductions(timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.next_notice_email(timestamptz,timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.advance_notice_email(uuid,uuid,uuid,text,text,timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.due_notification_planning(timestamptz,uuid,integer) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.account_notification_billing_members(uuid,uuid,integer) TO licensing_runtime;
         """;

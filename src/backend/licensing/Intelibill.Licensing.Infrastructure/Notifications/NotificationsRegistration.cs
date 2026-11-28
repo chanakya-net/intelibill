@@ -1,3 +1,6 @@
+using Intelibill.Licensing.Infrastructure.AdminIdentities;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.Notifications;
 using Intelibill.Licensing.Application.Restrictions;
@@ -14,7 +17,6 @@ internal static class NotificationsRegistration
     {
         services.AddOptions<NotificationPlanningOptions>()
             .BindConfiguration(NotificationPlanningOptions.SectionName);
-        services.TryAddSingleton<IBillingContactMailboxProofDispatch, NoOpBillingContactMailboxProofDispatch>();
         services.AddScoped<NotificationDestinationProtector>();
         services.AddScoped<INotificationPlanStore, NotificationPlanStore>();
         services.AddScoped<ILicenseNoticeReader, NotificationJobReader>();
@@ -37,8 +39,20 @@ internal static class NotificationsRegistration
         services.AddScoped(provider => new BillingContactConsentHandler(
             provider.GetRequiredService<IBillingDelegationAccess>(),
             provider.GetRequiredService<IBillingContactStore>(),
-            provider.GetRequiredService<IBillingContactMailboxProofDispatch>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
+        services.AddOptions<BillingEmailOptions>().BindConfiguration("BillingEmail");
+        services.TryAddKeyedSingleton<TimeProvider>(BillingNotificationWorker.LeaseClock, TimeProvider.System);
+        services.AddScoped<NotificationEmailDeliveryStore>();
+        services.AddScoped<NotificationEmailAuthorization>();
+        services.AddSingleton(provider => new BillingContactVerificationPage(
+            provider.GetRequiredService<IOptions<BillingEmailOptions>>().Value,
+            provider.GetRequiredService<IOptions<AdminMailOptions>>().Value,
+            provider.GetRequiredService<IHostEnvironment>()));
+        services.AddSingleton<BillingEmailCaptureLinks>();
+        services.AddScoped<BillingEmailTransport>();
+        services.AddScoped<StandaloneProofEmail>();
+        services.AddScoped<IBillingEmailDispatcher, BillingEmailDispatcher>();
+        services.AddHostedService<BillingNotificationWorker>();
         services.AddHostedService<NotificationPlanningWorker>();
     }
 }

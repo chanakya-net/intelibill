@@ -131,6 +131,32 @@
                   <dd>{{ item.coveredShopCount }}</dd>
                 </dl>
 
+                @if (mayInspectEmail() && commercialIncluded() && item.emailDelivery; as delivery) {
+                  <details data-testid="email-detail" open>
+                    <summary>{{ 'notifications.email.detail' | transloco }}</summary>
+                    <dl class="notif-facts">
+                      <dt>{{ 'notifications.email.state' | transloco }}</dt>
+                      <dd data-testid="email-state">{{ ('notifications.email.' + delivery.state) | transloco }}</dd>
+                      <dt>{{ 'notifications.email.attempts' | transloco }}</dt>
+                      <dd>{{ delivery.attempts }}</dd>
+                      @if (delivery.lastAttemptAt; as time) {
+                        <dt>{{ 'notifications.email.last' | transloco }}</dt><dd>{{ ist(time) }} · {{ utc(time) }}</dd>
+                      }
+                      @if (delivery.nextAttemptAt; as time) {
+                        <dt>{{ 'notifications.email.next' | transloco }}</dt><dd>{{ ist(time) }} · {{ utc(time) }}</dd>
+                      }
+                      @if (delivery.outcomeAt; as time) {
+                        <dt>{{ 'notifications.email.outcome' | transloco }}</dt><dd>{{ ist(time) }} · {{ utc(time) }}</dd>
+                      }
+                    </dl>
+                    @if (localCapture(delivery.captureUrl); as url) {
+                      <a [href]="url" target="_blank" rel="noopener noreferrer" data-testid="mailpit-capture">
+                        {{ 'notifications.email.capture' | transloco }}
+                      </a>
+                    }
+                  </details>
+                }
+
                 @if (item.paymentDoesNotLiftSuspension) {
                   <p class="notif-card__warn" role="status">
                     {{ 'notifications.suspensionNoLift' | transloco }}

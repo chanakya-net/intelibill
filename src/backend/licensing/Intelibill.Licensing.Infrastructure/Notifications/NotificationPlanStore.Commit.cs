@@ -124,7 +124,7 @@ internal sealed partial class NotificationPlanStore
             write.AccountId, write.ScopeKind, write.ScopeId, job.RecipientKey, write.EmailDestination!) : null;
         var hash = email ? write.EmailDestinationHash : null;
         var hint = email ? write.DestinationHint : null;
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
+        var rows = await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.notification_channel_additions
                 (account_id, job_id, channel, recipient_user_id, authority_revision, destination_hash,
                     protected_destination, destination_hint, recorded_at)
@@ -132,6 +132,10 @@ internal sealed partial class NotificationPlanStore
                 {ciphertext}, {hint}, {decisionAt})
             ON CONFLICT (job_id) DO NOTHING
             """, ct);
+        if (rows != 1)
+            return null;
+        if (email)
+            await EnqueueEmailAsync(job.Id, write, ct);
         return job with
         {
             AllowedChannels = [LicenseNoticesV1.ChannelInApp, LicenseNoticesV1.ChannelEmail],
@@ -171,8 +175,20 @@ internal sealed partial class NotificationPlanStore
                 {write.DestinationHint}, {plannedAt}, {plannedAt})
             ON CONFLICT DO NOTHING
             """, ct);
-        return rows == 1 ? jobId : null;
+        if (rows != 1)
+            return null;
+        if (write.AllowedChannels.Contains(LicenseNoticesV1.ChannelEmail))
+            await EnqueueEmailAsync(jobId, write, ct);
+        return jobId;
     }
+
+    private Task<int> EnqueueEmailAsync(Guid jobId, PlannedNotificationWrite write, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.notification_email_deliveries
+                (id, account_id, job_id, affiliation_request_id, due_at, state, attempts, next_attempt_at)
+            VALUES ({Guid.NewGuid()}, {write.AccountId}, {jobId}, {write.ExpectedAffiliationRequestId},
+                {write.DueAt}, 'Pending', 0, '-infinity')
+            """, ct);
 
     private static IEnumerable<PlannedNotificationWrite> OrderDeterministic(
         IReadOnlyList<PlannedNotificationWrite> writes) =>

@@ -630,3 +630,11 @@ blocker. Local evidence and independent review authorize no production change.
 ## Paid capacity increases and downgrade recovery
 
 Keep both services offline during schema downgrades. EF Core commits each migration separately. A refusal with SQLSTATE `55000` can preserve the refund requests while an earlier step has already removed the capacity tables. Before restarting current binaries, migrate both service databases forward to their current heads, reapply their environment-owned runtime grants, and verify that the runtime roles can read the capacity tables and the original subscription. Retain the original orders, confirmations, reservation decisions and refund evidence throughout recovery.
+
+### P07 local notice delivery
+
+Run [the isolated P07-02 demonstration](../tests/backend/licensing/acceptance/p07-02-email-delivery.md) for source-built
+merchant and licensing services, local signing roots, browser sessions and Mailpit.
+Apply migration `20261128100620_DeliverBillingNoticeEmails` and its explicit runtime grants before enabling workers.
+Retain the licensing Data Protection volume with the database. The database stores ciphertext for queued mailbox proofs.
+Review `Uncertain` outcomes as unresolved. A process can stop after remote acceptance and before the local receipt commits.
