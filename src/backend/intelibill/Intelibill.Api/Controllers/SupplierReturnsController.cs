@@ -14,60 +14,104 @@ public sealed class SupplierReturnsController(IMessageBus bus, SupplierReturnSer
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> Preview(SupplierReturnPreviewRequest request,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
         return (await service.PreviewAsync(UserId!.Value,ActiveShopId!.Value,request,ct)).ToActionResult(Ok);
     }
     [HttpPost]
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> Record(SupplierReturnRequest request,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
         return (await service.RecordAsync(UserId!.Value,ActiveShopId!.Value,request,ct)).ToActionResult(Ok);
     }
     [HttpGet("{id:guid}")]
     [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Get(Guid id,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
         return (await service.GetAsync(UserId!.Value,ActiveShopId!.Value,id,ct)).ToActionResult(Ok);
     }
     [HttpGet]
     [LicenceAction(LicenceAction.History)]
-    public async Task<IActionResult> List(CancellationToken ct,Guid? supplierId=null,Guid? receiptValueId=null,string? status=null,int page=1,int pageSize=20)
+    public async Task<IActionResult> List(
+        CancellationToken ct,
+        Guid? supplierId=null,
+        Guid? receiptValueId=null,
+        string? status=null,
+        int page=1,
+        int pageSize=20)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
-        return (await service.ListAsync(UserId!.Value,ActiveShopId!.Value,supplierId,receiptValueId,status,page,pageSize,ct)).ToActionResult(Ok);
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
+        return (
+            await service.ListAsync(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                supplierId,
+                receiptValueId,
+                status,
+                page,
+                pageSize,
+                ct)).ToActionResult(Ok);
     }
     [HttpPost("{id:guid}/credit")]
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> Credit(Guid id,SupplierReturnCreditRequest request,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
         return (await service.AcceptAsync(UserId!.Value,ActiveShopId!.Value,id,request,ct)).ToActionResult(Ok);
     }
 }
 [ApiController, Authorize, Route("api/purchase-receipts")]
-public sealed class PurchaseReceiptsController(IMessageBus bus,SupplierReturnService service,PurchaseReceiptReversalService reversalService) : AuthenticatedControllerBase(bus)
+public sealed class PurchaseReceiptsController(
+    IMessageBus bus,
+    SupplierReturnService service,
+    PurchaseReceiptReversalService reversalService) : AuthenticatedControllerBase(bus)
 {
     [HttpGet("{id:guid}")]
     [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Get(Guid id,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
         return (await service.GetReceiptAsync(UserId!.Value,ActiveShopId!.Value,id,ct)).ToActionResult(Ok);
     }
     [HttpPost("{id:guid}/reversal")]
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> Reverse(Guid id,ReceiptReversalRequest request,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
-        return (await reversalService.ReverseAsync(UserId!.Value,ActiveShopId!.Value,id,false,request.OperationKey,request.Reason,[new(id,request.ExpectedReceiptVersion,request.ExpectedBatchVersion)],ct)).ToActionResult(Ok);
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
+        return (
+            await reversalService.ReverseAsync(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                id,
+                false,
+                request.OperationKey,
+                request.Reason,
+                [new(id,request.ExpectedReceiptVersion,request.ExpectedBatchVersion)],
+                ct)).ToActionResult(Ok);
     }
     [HttpPost("/api/purchase-order-receipts/{id:guid}/reversal")]
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> ReverseGroup(Guid id,GroupReceiptReversalRequest request,CancellationToken ct)
     {
-        var auth=CheckAuthAndShop(); if(auth is not null) return auth;
-        return (await reversalService.ReverseAsync(UserId!.Value,ActiveShopId!.Value,id,true,request.OperationKey,request.Reason,request.Lines,ct)).ToActionResult(Ok);
+        var auth=CheckAuthAndShop();
+        if(auth is not null) return auth;
+        return (
+            await reversalService.ReverseAsync(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                id,
+                true,
+                request.OperationKey,
+                request.Reason,
+                request.Lines,
+                ct)).ToActionResult(Ok);
     }
 }

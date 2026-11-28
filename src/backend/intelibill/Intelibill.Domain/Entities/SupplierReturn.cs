@@ -22,17 +22,41 @@ public sealed class SupplierReturn : BaseEntity
     public SupplierReturnCredit? Credit { get; private set; }
     private SupplierReturn() { }
 
-    public static ErrorOr<SupplierReturn> Create(Guid shopId, Guid supplierId, string number, string reason, Guid actor, DateTimeOffset instant, DateOnly date, string zone, string shopName, string supplierName)
+    public static ErrorOr<SupplierReturn> Create(
+        Guid shopId,
+        Guid supplierId,
+        string number,
+        string reason,
+        Guid actor,
+        DateTimeOffset instant,
+        DateOnly date,
+        string zone,
+        string shopName,
+        string supplierName)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 255)
             return Error.Validation("SupplierReturn.ReasonInvalid", "Reason must be 3 to 255 characters.");
-        return new SupplierReturn { ShopId=shopId, SupplierId=supplierId, ReturnNumber=number, Reason=reason.Trim(), CreatedBy=actor, ShippedAt=instant.ToUniversalTime(), BusinessDate=date, BusinessTimeZoneId=zone, ShopName=shopName, SupplierName=supplierName, Status=SupplierReturnStatus.PendingSupplierCredit };
+        return new SupplierReturn
+        {
+            ShopId = shopId,
+            SupplierId = supplierId,
+            ReturnNumber = number,
+            Reason = reason.Trim(),
+            CreatedBy = actor,
+            ShippedAt = instant.ToUniversalTime(),
+            BusinessDate = date,
+            BusinessTimeZoneId = zone,
+            ShopName = shopName,
+            SupplierName = supplierName,
+            Status = SupplierReturnStatus.PendingSupplierCredit
+        };
     }
     public ErrorOr<Success> AddLine(SupplierReturnLine line)
     {
         if (line.ShopId != ShopId || line.SupplierReturnId != Id || Lines.Any(l => l.ReceiptValueId == line.ReceiptValueId))
             return Error.Validation("SupplierReturn.DuplicateLine", "Each receipt lot must appear exactly once in its own shop.");
-        Lines.Add(line); return Result.Success;
+        Lines.Add(line);
+        return Result.Success;
     }
     public ErrorOr<Success> AcceptCredit(SupplierReturnCredit? credit = null)
     {
@@ -41,6 +65,7 @@ public sealed class SupplierReturn : BaseEntity
         if (credit is not null && (credit.SupplierReturnId != Id || credit.ShopId != ShopId))
             return Error.Validation("SupplierReturn.CreditInvalid", "Credit must belong to this shipment.");
         Credit=credit;
-        Status=SupplierReturnStatus.CreditAccepted; return Result.Success;
+        Status=SupplierReturnStatus.CreditAccepted;
+        return Result.Success;
     }
 }

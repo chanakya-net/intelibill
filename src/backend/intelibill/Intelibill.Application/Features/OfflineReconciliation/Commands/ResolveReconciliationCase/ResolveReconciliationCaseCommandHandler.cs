@@ -152,48 +152,24 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         var command = request.Command;
 
         // Lock order across all writers: operation receipt -> device lock -> case lock -> licence fence -> period/expiry/till/business.
-        if (!string.IsNullOrWhiteSpace(request.DeviceId)
-            && await submissionRepository.LockDeviceIntakeAsync(command.ShopId, request.DeviceId, cancellationToken) == RowLockOutcome.TimedOut)
-        {
-            return Errors.Reconciliation.ConcurrentChange;
-        }
+        var lockResult = await LockDeviceAndCaseAsync(request, cancellationToken);
+        if (lockResult.IsError)
+            return lockResult.Errors;
 
-        var locked = await issueRepository.LockForResolutionAsync(command.ShopId, command.CaseId, cancellationToken);
-        if (locked == RowLockOutcome.TimedOut)
-            return Errors.Reconciliation.ConcurrentChange;
-        if (locked != RowLockOutcome.Acquired)
-            return Errors.Reconciliation.CaseNotFound;
-
-        if (liveSessionAuthority is not null
-            && await liveSessionAuthority.SessionDenialAsync(command.Session, command.ActorUserId, command.ShopId, cancellationToken) is { } sessionDenied)
-        {
-            return sessionDenied;
-        }
-
-        var liveRoleResult = await ReconciliationActor.ResolveRoleAsync(userRepository, command.ActorUserId, command.ShopId, cancellationToken);
+        var liveRoleResult = await ResolveLiveRoleAsync(command, cancellationToken);
         if (liveRoleResult.IsError)
             return liveRoleResult.Errors;
         var liveRole = liveRoleResult.Value;
 
-        var issue = await issueRepository.GetTrackedAsync(command.ShopId, command.CaseId, cancellationToken);
-        if (issue is null || !IsVisibleTo(issue, liveRole, command.ActorUserId))
-            return Errors.Reconciliation.CaseNotFound;
+        var issueResult = await LoadResolvableIssueAsync(command, liveRole, cancellationToken);
+        if (issueResult.IsError)
+            return issueResult.Errors;
+        var issue = issueResult.Value;
 
-        if (issue.Status == ReconciliationCaseStatus.Resolved)
-            return Errors.Reconciliation.CaseAlreadyResolved;
-
-        if (issue.Version != command.ExpectedVersion)
-            return Errors.Reconciliation.CaseVersionConflict;
-
-        ShopLicenceLease? fencedLicence = null;
-        if (licenceFence is not null)
-        {
-            var entered = await licenceFence.EnterAsync(command.ShopId, LicenceAction.Recovery, cancellationToken);
-            if (entered.IsError) return entered.Errors;
-            if (entered.Value.CurrentDecision().EnforcedDenial() is { } licenceDenial) return licenceDenial;
-            fencedLicence = entered.Value;
-            captureLicence(fencedLicence);
-        }
+        var fence = await EnterLicenceFenceAsync(command, captureLicence, cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+        var fencedLicence = fence.Value.Lease;
 
         var submission = issue.OfflineSubmissionId is { } submissionId
             ? await submissionRepository.GetByIdAsync(submissionId, cancellationToken)
@@ -204,21 +180,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         var lease = await ResolveLeaseAsync(command.ShopId, submission, cancellationToken);
         var now = timeProvider.GetUtcNow();
 
-        var tillEligible = false;
-        var expiryVerified = false;
-        var expiryLinkVerified = false;
-        if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
-        {
-            var payload = OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
-            expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
-                !(await expiryAuthority.ValidateFrozenAsync(command.ShopId, payload, now, cancellationToken)).IsError;
-            tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
-                await tillEligibility.CanReconcileAsync(command.ShopId, payload!, issuer, now, cancellationToken);
-            var posted = command.LinkedOperationId is { } linked
-                ? await saleRepository.GetByIdAsync(linked, command.ShopId, cancellationToken)
-                : await saleRepository.GetByClientSaleIdAsync(command.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
-            expiryLinkVerified = posted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, posted, cancellationToken);
-        }
+        var expiryChecks = await VerifyExpiryReviewAsync(issue, submission, command, now, cancellationToken);
 
         LicenseHistoryCaseEvaluation? historyEval = historyAssessment is null
             ? null
@@ -227,19 +189,8 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             return historyDenial;
 
         var isHistoryCase = ReconciliationActionPolicy.IsLicenceHistoryCase(issue, historyEval?.HasSavedObservations ?? false);
-        var availableActions = ReconciliationActionPolicy.AvailableActions(
-            issue, submission, liveRole, command.ActorUserId,
-            expiryVerified, expiryLinkVerified, tillEligible,
-            historyEval?.HasSavedObservations ?? false,
-            historyEval?.RetryEligible ?? false,
-            historyEval?.LinkEligible ?? false);
-
-        if (!availableActions.Contains(request.Action))
-        {
-            return liveRole is ShopRole.Owner or ShopRole.Manager
-                ? Errors.Reconciliation.ActionNotAllowed
-                : Errors.Reconciliation.ActionForbidden;
-        }
+        if (CheckActionAvailable(issue, submission, liveRole, request, expiryChecks, historyEval) is { } unavailable)
+            return unavailable;
 
         var fromStatus = issue.Status;
         ErrorOr<Effect> effect = request.Action switch
@@ -266,6 +217,129 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             return saved.Errors;
 
         return await mapper.ToDetailAsync(issue, submission, liveRole, command.ActorUserId, cancellationToken, fencedLicence);
+    }
+
+    private async Task<ErrorOr<Success>> LockDeviceAndCaseAsync(
+        ResolutionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = request.Command;
+        if (!string.IsNullOrWhiteSpace(request.DeviceId)
+            && await submissionRepository.LockDeviceIntakeAsync(command.ShopId, request.DeviceId, cancellationToken) == RowLockOutcome.TimedOut)
+        {
+            return Errors.Reconciliation.ConcurrentChange;
+        }
+
+        var locked = await issueRepository.LockForResolutionAsync(command.ShopId, command.CaseId, cancellationToken);
+        if (locked == RowLockOutcome.TimedOut)
+            return Errors.Reconciliation.ConcurrentChange;
+        if (locked != RowLockOutcome.Acquired)
+            return Errors.Reconciliation.CaseNotFound;
+
+        return Result.Success;
+    }
+
+    private async Task<ErrorOr<ShopRole>> ResolveLiveRoleAsync(
+        ResolveReconciliationCaseCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (liveSessionAuthority is not null
+            && await liveSessionAuthority.SessionDenialAsync(command.Session, command.ActorUserId, command.ShopId, cancellationToken) is { } sessionDenied)
+        {
+            return sessionDenied;
+        }
+
+        var liveRoleResult = await ReconciliationActor.ResolveRoleAsync(userRepository, command.ActorUserId, command.ShopId, cancellationToken);
+        if (liveRoleResult.IsError)
+            return liveRoleResult.Errors;
+        return liveRoleResult.Value;
+    }
+
+    private async Task<ErrorOr<ReconciliationIssue>> LoadResolvableIssueAsync(
+        ResolveReconciliationCaseCommand command,
+        ShopRole liveRole,
+        CancellationToken cancellationToken)
+    {
+        var issue = await issueRepository.GetTrackedAsync(command.ShopId, command.CaseId, cancellationToken);
+        if (issue is null || !IsVisibleTo(issue, liveRole, command.ActorUserId))
+            return Errors.Reconciliation.CaseNotFound;
+
+        if (issue.Status == ReconciliationCaseStatus.Resolved)
+            return Errors.Reconciliation.CaseAlreadyResolved;
+
+        if (issue.Version != command.ExpectedVersion)
+            return Errors.Reconciliation.CaseVersionConflict;
+
+        return issue;
+    }
+
+    private async Task<ErrorOr<FencedLicence>> EnterLicenceFenceAsync(
+        ResolveReconciliationCaseCommand command,
+        Action<ShopLicenceLease?> captureLicence,
+        CancellationToken cancellationToken)
+    {
+        ShopLicenceLease? fencedLicence = null;
+        if (licenceFence is not null)
+        {
+            var entered = await licenceFence.EnterAsync(command.ShopId, LicenceAction.Recovery, cancellationToken);
+            if (entered.IsError) return entered.Errors;
+            if (entered.Value.CurrentDecision().EnforcedDenial() is { } licenceDenial) return licenceDenial;
+            fencedLicence = entered.Value;
+            captureLicence(fencedLicence);
+        }
+
+        return new FencedLicence(fencedLicence);
+    }
+
+    private async Task<ExpiryChecks> VerifyExpiryReviewAsync(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        ResolveReconciliationCaseCommand command,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var tillEligible = false;
+        var expiryVerified = false;
+        var expiryLinkVerified = false;
+        if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
+        {
+            var payload = OfflineSubmissionPayload.TryReadValidated(command.ShopId, submission);
+            expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
+                !(await expiryAuthority.ValidateFrozenAsync(command.ShopId, payload, now, cancellationToken)).IsError;
+            tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
+                await tillEligibility.CanReconcileAsync(command.ShopId, payload!, issuer, now, cancellationToken);
+            var posted = command.LinkedOperationId is { } linked
+                ? await saleRepository.GetByIdAsync(linked, command.ShopId, cancellationToken)
+                : await saleRepository.GetByClientSaleIdAsync(command.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
+            expiryLinkVerified = posted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, posted, cancellationToken);
+        }
+
+        return new ExpiryChecks(tillEligible, expiryVerified, expiryLinkVerified);
+    }
+
+    private static Error? CheckActionAvailable(
+        ReconciliationIssue issue,
+        OfflineSubmission? submission,
+        ShopRole liveRole,
+        ResolutionRequest request,
+        ExpiryChecks expiryChecks,
+        LicenseHistoryCaseEvaluation? historyEval)
+    {
+        var availableActions = ReconciliationActionPolicy.AvailableActions(
+            issue, submission, liveRole, request.Command.ActorUserId,
+            expiryChecks.ExpiryVerified, expiryChecks.ExpiryLinkVerified, expiryChecks.TillEligible,
+            historyEval?.HasSavedObservations ?? false,
+            historyEval?.RetryEligible ?? false,
+            historyEval?.LinkEligible ?? false);
+
+        if (!availableActions.Contains(request.Action))
+        {
+            return liveRole is ShopRole.Owner or ShopRole.Manager
+                ? Errors.Reconciliation.ActionNotAllowed
+                : Errors.Reconciliation.ActionForbidden;
+        }
+
+        return null;
     }
 
     private async Task<InvoiceLease?> ResolveLeaseAsync(Guid shopId, OfflineSubmission? submission, CancellationToken ct)
@@ -521,6 +595,10 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         string DeviceId);
 
     private sealed record Effect(Guid? LinkedOperationId);
+
+    private sealed record FencedLicence(ShopLicenceLease? Lease);
+
+    private sealed record ExpiryChecks(bool TillEligible, bool ExpiryVerified, bool ExpiryLinkVerified);
 
     private sealed record ResolutionPayload(
         Guid CaseId,

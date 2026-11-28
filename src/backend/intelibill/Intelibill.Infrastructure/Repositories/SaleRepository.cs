@@ -277,58 +277,9 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         SaleHistoryFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Sales
-            .AsNoTracking()
-            .Where(s =>
-                s.ShopId == filter.ShopId
-                && s.BusinessDate >= filter.StartDate
-                && s.BusinessDate <= filter.EndDate);
-
-        if (!string.IsNullOrWhiteSpace(filter.Search))
-        {
-            var term = filter.Search.Trim();
-            var amountMatch = decimal.TryParse(term, out var parsedAmount);
-            query = query.Where(s =>
-                EF.Functions.ILike(s.InvoiceNumber, $"%{term}%")
-                || EF.Functions.ILike(s.CustomerName!, $"%{term}%")
-                || EF.Functions.ILike(s.CustomerPhone!, $"%{term}%")
-                || _context.SaleReturns.Any(r =>
-                    r.ShopId == filter.ShopId
-                    && r.SaleId == s.Id
-                    && !r.IsVoided
-                    && EF.Functions.ILike(r.ReturnNumber, $"%{term}%"))
-                || (amountMatch && s.TotalAmount == parsedAmount));
-        }
-
-        var status = NormalizeStatus(filter.Status);
-        if (status is SaleHistoryStatus.Cancelled)
-            query = query.Where(s => s.Status == SaleStatus.Cancelled);
-        else if (status is not null)
-            query = query.Where(s => s.Status != SaleStatus.Cancelled);
-
-        if (status is SaleHistoryStatus.Refunded)
-        {
-            query = query.Where(s =>
-                _context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided));
-        }
-        else if (status is SaleHistoryStatus.Paid)
-        {
-            query = query.Where(s =>
-                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
-                && s.DueAmount == 0m);
-        }
-        else if (status is SaleHistoryStatus.PartiallyPaid)
-        {
-            query = query.Where(s =>
-                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
-                && s.DueAmount > 0m);
-        }
-        else if (status is SaleHistoryStatus.Unknown)
-        {
-            query = query.Where(s =>
-                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
-                && s.DueAmount < 0m);
-        }
+        var query = BuildHistoryBaseQuery(filter);
+        query = ApplyHistorySearch(query, filter);
+        query = ApplyHistoryStatus(query, filter);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -361,20 +312,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             .ToListAsync(cancellationToken);
 
         var saleIds = page.Select(x => x.Id).ToList();
-        var returnsBySaleId = await _context.SaleReturns
-            .AsNoTracking()
-            .Where(r => r.ShopId == filter.ShopId && saleIds.Contains(r.SaleId) && !r.IsVoided)
-            .Select(r => new { r.SaleId, r.ReturnNumber, r.TotalRefundAmount, r.DueReductionAmount })
-            .ToListAsync(cancellationToken);
-
-        var lookup = returnsBySaleId
-            .GroupBy(x => x.SaleId)
-            .ToDictionary(
-                g => g.Key,
-                g => (
-                    ReturnNumbers: (IReadOnlyList<string>)g.Select(x => x.ReturnNumber).ToList(),
-                    RefundAmount: g.Sum(x => x.TotalRefundAmount),
-                    DueReductionAmount: g.Sum(x => x.DueReductionAmount)));
+        var lookup = await LoadActiveReturnsBySaleIdAsync(filter.ShopId, saleIds, cancellationToken);
 
         var items = page
             .Select(s =>
@@ -408,6 +346,91 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             .ToList();
 
         return (items, totalCount);
+    }
+
+    private IQueryable<Sale> BuildHistoryBaseQuery(SaleHistoryFilter filter)
+    {
+        return _context.Sales
+            .AsNoTracking()
+            .Where(s =>
+                s.ShopId == filter.ShopId
+                && s.BusinessDate >= filter.StartDate
+                && s.BusinessDate <= filter.EndDate);
+    }
+
+    private IQueryable<Sale> ApplyHistorySearch(IQueryable<Sale> query, SaleHistoryFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var term = filter.Search.Trim();
+            var amountMatch = decimal.TryParse(term, out var parsedAmount);
+            query = query.Where(s =>
+                EF.Functions.ILike(s.InvoiceNumber, $"%{term}%")
+                || EF.Functions.ILike(s.CustomerName!, $"%{term}%")
+                || EF.Functions.ILike(s.CustomerPhone!, $"%{term}%")
+                || _context.SaleReturns.Any(r =>
+                    r.ShopId == filter.ShopId
+                    && r.SaleId == s.Id
+                    && !r.IsVoided
+                    && EF.Functions.ILike(r.ReturnNumber, $"%{term}%"))
+                || (amountMatch && s.TotalAmount == parsedAmount));
+        }
+
+        return query;
+    }
+
+    private IQueryable<Sale> ApplyHistoryStatus(IQueryable<Sale> query, SaleHistoryFilter filter)
+    {
+        var status = NormalizeStatus(filter.Status);
+        if (status is SaleHistoryStatus.Cancelled)
+            query = query.Where(s => s.Status == SaleStatus.Cancelled);
+        else if (status is not null)
+            query = query.Where(s => s.Status != SaleStatus.Cancelled);
+
+        if (status is SaleHistoryStatus.Refunded)
+        {
+            query = query.Where(s =>
+                _context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided));
+        }
+        else if (status is SaleHistoryStatus.Paid)
+        {
+            query = query.Where(s =>
+                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
+                && s.DueAmount == 0m);
+        }
+        else if (status is SaleHistoryStatus.PartiallyPaid)
+        {
+            query = query.Where(s =>
+                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
+                && s.DueAmount > 0m);
+        }
+        else if (status is SaleHistoryStatus.Unknown)
+        {
+            query = query.Where(s =>
+                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
+                && s.DueAmount < 0m);
+        }
+
+        return query;
+    }
+
+    private async Task<Dictionary<Guid, (IReadOnlyList<string> ReturnNumbers, decimal RefundAmount, decimal DueReductionAmount)>>
+        LoadActiveReturnsBySaleIdAsync(Guid shopId, List<Guid> saleIds, CancellationToken cancellationToken)
+    {
+        var returnsBySaleId = await _context.SaleReturns
+            .AsNoTracking()
+            .Where(r => r.ShopId == shopId && saleIds.Contains(r.SaleId) && !r.IsVoided)
+            .Select(r => new { r.SaleId, r.ReturnNumber, r.TotalRefundAmount, r.DueReductionAmount })
+            .ToListAsync(cancellationToken);
+
+        return returnsBySaleId
+            .GroupBy(x => x.SaleId)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    ReturnNumbers: (IReadOnlyList<string>)g.Select(x => x.ReturnNumber).ToList(),
+                    RefundAmount: g.Sum(x => x.TotalRefundAmount),
+                    DueReductionAmount: g.Sum(x => x.DueReductionAmount)));
     }
 
     private static string DeriveStatus(decimal dueAmount, bool hasActiveReturn)

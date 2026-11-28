@@ -82,12 +82,23 @@ public sealed class VoidBatchCommandHandler(
 
     private sealed record VoidOutcome(Guid ItemId, Guid BatchId, VoidBatchResultDto Result);
 
+    private sealed record ReversibleReceipt(PurchaseReceiptValue ReceiptValue, Domain.Entities.Inventory Inventory);
+
+    private sealed record LedgerReversal(Guid? LedgerEntryId, decimal? Amount);
+
     private async Task<ErrorOr<VoidOutcome>> VoidAsync(VoidBatchCommand command, Shop shop, CancellationToken cancellationToken)
     {
-        var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.ActorUserId,
-            command.ActiveShopId, LicenceAction.SourceCorrection, cancellationToken);
-        if (licence.IsError) return licence.Errors;
-        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
+        var licence = await licenceFence.EnterForSessionAsync(
+            authority,
+            command.Session,
+            command.ActorUserId,
+            command.ActiveShopId,
+            LicenceAction.SourceCorrection,
+            cancellationToken);
+        if (licence.IsError)
+            return licence.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial)
+            return denial;
 
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
             command.ActiveShopId,
@@ -96,25 +107,18 @@ public sealed class VoidBatchCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
-        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
-        if (batch is null || batch.ShopId != command.ActiveShopId)
-            return Errors.Inventory.BatchNotFound;
+        var batchResult = await LoadVoidableBatchAsync(command, cancellationToken);
+        if (batchResult.IsError)
+            return batchResult.Errors;
 
-        if (batch.IsVoided)
-            return Errors.Inventory.BatchAlreadyVoided;
+        var batch = batchResult.Value;
 
-        var receiptValue=await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId,batch.Id,cancellationToken);
-        if(receiptValue is null)
-            return Error.Conflict("PurchaseReceipt.EvidenceMissing","Full reversal requires the source receipt. Review the source evidence first.");
-        if(receiptValue.SupplierId is null)
-            return Error.Conflict("PurchaseReceipt.SupplierMissing","The source receipt needs a supplier before it can be reversed.");
-        var originalFence=await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId,businessClock.GetBusinessDate(receiptValue.ReceivedAt,shop.BusinessTimeZoneId),cancellationToken);
-        if(originalFence.IsError) return originalFence.Errors;
-        var allocated=(await paymentReceiptRepository.GetActiveAllocatedByTargetAsync(command.ActiveShopId,PaymentAllocationTargetType.SupplierReceipt,[receiptValue.Id],cancellationToken)).GetValueOrDefault(receiptValue.Id);
-        var reasons=await reversalPolicy.GetReasonsAsync(receiptValue,batch,allocated,cancellationToken);
-        if(reasons.Count>0) return Error.Conflict(reasons[0],"The receipt has stock, payment or return history and cannot be fully reversed.");
-        var inventory=await inventoryRepository.GetByItemAsync(command.ActiveShopId,batch.ItemId,cancellationToken);
-        if(inventory is null) return Errors.Inventory.InventoryAggregateNotFound;
+        var receiptResult = await LoadReversibleReceiptAsync(command, shop, batch, cancellationToken);
+        if (receiptResult.IsError)
+            return receiptResult.Errors;
+
+        var receiptValue = receiptResult.Value.ReceiptValue;
+        var inventory = receiptResult.Value.Inventory;
         var remainingQuantity = batch.Quantity;
         var originalQuantity = batch.OriginalQuantity;
         var supplierId = receiptValue.SupplierId;
@@ -124,8 +128,8 @@ public sealed class VoidBatchCommandHandler(
         // with a supplier return shipment or a receipt reversal: see SupplierReceiptWriteLock.
         var supplierLock = await supplierReturnLock.TakeBeforeReceiptWriteAsync(
             command.ActiveShopId,
-            receiptValue.SupplierId.Value,
-            Error.Conflict("PurchaseReceipt.SupplierMissing", "The source receipt needs a supplier before it can be reversed."),
+            receiptValue.SupplierId!.Value, // LoadReversibleReceiptAsync refused a receipt without a supplier
+            SupplierMissingError(),
             cancellationToken);
         if (supplierLock.IsError)
             return supplierLock.Errors;
@@ -137,9 +141,136 @@ public sealed class VoidBatchCommandHandler(
         inventoryBatchRepository.Update(batch);
 
         var now = businessClock.UtcNow;
+        var stockTransactionResult = await StageReversalMovementAsync(
+            command,
+            batch,
+            originalQuantity,
+            now,
+            cancellationToken);
+        if (stockTransactionResult.IsError)
+            return stockTransactionResult.Errors;
+
+        var ledgerReversalResult = await StageLedgerReversalAsync(
+            command,
+            shop,
+            batch,
+            receiptValue,
+            supplierId,
+            now,
+            cancellationToken);
+        if (ledgerReversalResult.IsError)
+            return ledgerReversalResult.Errors;
+
+        var ledgerReversal = ledgerReversalResult.Value;
+
+        var reversalFact = await StageReceiptReversalAsync(
+            command,
+            shop,
+            receiptValue,
+            stockTransactionResult.Value.Id,
+            ledgerReversal.LedgerEntryId,
+            now,
+            cancellationToken);
+        if (reversalFact.IsError)
+            return reversalFact.Errors;
+
+        // Written against the version it was read at, like the batch: a cost correction committing in
+        // between fails this save, so the void never reverses a stale total.
+        if (receiptValue is not null)
+            purchaseReceiptValueRepository.Update(receiptValue);
+
+        var subtractResult = inventory.SubtractQuantity(remainingQuantity, command.ActorUserId);
+        if (subtractResult.IsError)
+            return subtractResult.Errors;
+
+        inventoryRepository.Update(inventory);
+
+        var saved = await SaveVoidAsync(cancellationToken);
+        if (saved.IsError)
+            return saved.Errors;
+
+        return new VoidOutcome(
+            itemId,
+            batch.Id,
+            new VoidBatchResultDto(batch.Id, originalQuantity, remainingQuantity, ledgerReversal.Amount));
+    }
+
+    private static Error SupplierMissingError() =>
+        Error.Conflict("PurchaseReceipt.SupplierMissing", "The source receipt needs a supplier before it can be reversed.");
+
+    private async Task<ErrorOr<InventoryBatch>> LoadVoidableBatchAsync(
+        VoidBatchCommand command,
+        CancellationToken cancellationToken)
+    {
+        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
+        if (batch is null || batch.ShopId != command.ActiveShopId)
+            return Errors.Inventory.BatchNotFound;
+
+        if (batch.IsVoided)
+            return Errors.Inventory.BatchAlreadyVoided;
+
+        return batch;
+    }
+
+    private async Task<ErrorOr<ReversibleReceipt>> LoadReversibleReceiptAsync(
+        VoidBatchCommand command,
+        Shop shop,
+        InventoryBatch batch,
+        CancellationToken cancellationToken)
+    {
+        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(
+            command.ActiveShopId,
+            batch.Id,
+            cancellationToken);
+        if (receiptValue is null)
+        {
+            return Error.Conflict(
+                "PurchaseReceipt.EvidenceMissing",
+                "Full reversal requires the source receipt. Review the source evidence first.");
+        }
+
+        if (receiptValue.SupplierId is null)
+            return SupplierMissingError();
+
+        var originalFence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.GetBusinessDate(receiptValue.ReceivedAt, shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (originalFence.IsError)
+            return originalFence.Errors;
+
+        var allocatedByTarget = await paymentReceiptRepository.GetActiveAllocatedByTargetAsync(
+            command.ActiveShopId,
+            PaymentAllocationTargetType.SupplierReceipt,
+            [receiptValue.Id],
+            cancellationToken);
+        var allocated = allocatedByTarget.GetValueOrDefault(receiptValue.Id);
+
+        var reasons = await reversalPolicy.GetReasonsAsync(receiptValue, batch, allocated, cancellationToken);
+        if (reasons.Count > 0)
+        {
+            return Error.Conflict(
+                reasons[0],
+                "The receipt has stock, payment or return history and cannot be fully reversed.");
+        }
+
+        var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
+        if (inventory is null)
+            return Errors.Inventory.InventoryAggregateNotFound;
+
+        return new ReversibleReceipt(receiptValue, inventory);
+    }
+
+    private async Task<ErrorOr<StockTransaction>> StageReversalMovementAsync(
+        VoidBatchCommand command,
+        InventoryBatch batch,
+        decimal originalQuantity,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var stockTransactionResult = StockTransaction.Create(
             command.ActiveShopId,
-            itemId,
+            batch.ItemId,
             batch.Id,
             StockTransactionType.Reversal,
             -originalQuantity,
@@ -154,9 +285,21 @@ public sealed class VoidBatchCommandHandler(
 
         await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
 
-        Guid? reversalLedgerId=null;
+        return stockTransactionResult.Value;
+    }
+
+    private async Task<ErrorOr<LedgerReversal>> StageLedgerReversalAsync(
+        VoidBatchCommand command,
+        Shop shop,
+        InventoryBatch batch,
+        PurchaseReceiptValue receiptValue,
+        Guid? supplierId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        Guid? reversalLedgerId = null;
         decimal? ledgerReversalAmount = null;
-        var reversalAmount=-receiptValue.EffectiveTotalCost;
+        var reversalAmount = -receiptValue.EffectiveTotalCost;
 
         if (supplierId.HasValue && reversalAmount != 0)
         {
@@ -174,28 +317,47 @@ public sealed class VoidBatchCommandHandler(
             if (ledgerResult.IsError)
                 return Errors.Inventory.SupplierLedgerEntryInvalid;
 
-            reversalLedgerId=ledgerResult.Value.Id;
+            reversalLedgerId = ledgerResult.Value.Id;
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        var exactAmount=receiptValue.EffectiveTotalCost;
-        {
-            var fact=PurchaseReceiptReversal.Create(command.ActiveShopId,receiptValue.Id,null,command.ActorUserId,"Receipt voided by owner",now,businessClock.Today(shop.BusinessTimeZoneId),shop.BusinessTimeZoneId,receiptValue.ReceivedQuantity,exactAmount,stockTransactionResult.Value.Id,reversalLedgerId,$"RR-{Guid.NewGuid():N}");
-            if(fact.IsError) return fact.Errors;
-            await receiptReversals.AddAsync(fact.Value,cancellationToken);
-        }
+        return new LedgerReversal(reversalLedgerId, ledgerReversalAmount);
+    }
 
-        // Written against the version it was read at, like the batch: a cost correction committing in
-        // between fails this save, so the void never reverses a stale total.
-        if (receiptValue is not null)
-            purchaseReceiptValueRepository.Update(receiptValue);
+    private async Task<ErrorOr<Success>> StageReceiptReversalAsync(
+        VoidBatchCommand command,
+        Shop shop,
+        PurchaseReceiptValue receiptValue,
+        Guid stockTransactionId,
+        Guid? reversalLedgerId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var exactAmount = receiptValue.EffectiveTotalCost;
+        var fact = PurchaseReceiptReversal.Create(
+            command.ActiveShopId,
+            receiptValue.Id,
+            null,
+            command.ActorUserId,
+            "Receipt voided by owner",
+            now,
+            businessClock.Today(shop.BusinessTimeZoneId),
+            shop.BusinessTimeZoneId,
+            receiptValue.ReceivedQuantity,
+            exactAmount,
+            stockTransactionId,
+            reversalLedgerId,
+            $"RR-{Guid.NewGuid():N}");
+        if (fact.IsError)
+            return fact.Errors;
 
-        var subtractResult = inventory.SubtractQuantity(remainingQuantity, command.ActorUserId);
-        if (subtractResult.IsError)
-            return subtractResult.Errors;
+        await receiptReversals.AddAsync(fact.Value, cancellationToken);
 
-        inventoryRepository.Update(inventory);
+        return Result.Success;
+    }
 
+    private async Task<ErrorOr<Success>> SaveVoidAsync(CancellationToken cancellationToken)
+    {
         // A concurrent sale or count of this batch or item fails the row-version check here, and
         // nothing of the void is kept.
         try
@@ -207,10 +369,6 @@ public sealed class VoidBatchCommandHandler(
             return Errors.Inventory.ConcurrentChange;
         }
 
-        return new VoidOutcome(
-            itemId,
-            batch.Id,
-            new VoidBatchResultDto(batch.Id, originalQuantity, remainingQuantity, ledgerReversalAmount));
+        return Result.Success;
     }
-
 }

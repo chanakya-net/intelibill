@@ -43,7 +43,21 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // ── Database ────────────────────────────────────────────────────────
+        AddDatabase(services, configuration);
+        AddAuthOptions(services, configuration);
+        AddRepositories(services, configuration);
+        AddAuthServices(services, configuration);
+        AddExportServices(services);
+        AddSharedCaches(services, configuration);
+        AddRateLimiting(services, configuration);
+        AddExternalLookupServices(services);
+        AddPurchaseOrderNumbering(services);
+
+        return services;
+    }
+
+    private static void AddDatabase(IServiceCollection services, IConfiguration configuration)
+    {
         services.AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName))
             .ValidateDataAnnotations()
@@ -83,8 +97,10 @@ public static class DependencyInjection
         // Before the revision serves a request: a connection secret pointing at a
         // privileged role would disarm every tenant policy silently.
         services.AddHostedService<RuntimeRoleGuard>();
+    }
 
-        // ── Auth options ─────────────────────────────────────────────────────
+    private static void AddAuthOptions(IServiceCollection services, IConfiguration configuration)
+    {
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .ValidateDataAnnotations()
@@ -109,8 +125,10 @@ public static class DependencyInjection
 
         services.AddOptions<HsnServiceOptions>()
             .Bind(configuration.GetSection(HsnServiceOptions.SectionName));
+    }
 
-        // ── Repositories ─────────────────────────────────────────────────────
+    private static void AddRepositories(IServiceCollection services, IConfiguration configuration)
+    {
         services.AddScoped<ITillRepository, TillRepository>();
         services.AddScoped<Application.Features.Tills.ITillSessionPolicy, Services.Tills.TillSessionPolicy>();
         services.AddOptions<Options.TillSessionOptions>()
@@ -177,8 +195,10 @@ public static class DependencyInjection
         services.AddScoped<IOperationReceiptRepository, OperationReceiptRepository>();
         services.AddScoped<IFinancialOperationExecutor, FinancialOperationExecutor>();
         services.AddScoped<IInboundRowExecutor, InboundRowExecutor>();
+    }
 
-        // ── Auth services ─────────────────────────────────────────────────────
+    private static void AddAuthServices(IServiceCollection services, IConfiguration configuration)
+    {
         // Singleton: the Key Vault signer caches the resolved key version and the
         // client that signs with it, and neither belongs to a request.
         services.AddSingleton<IJwtSigner>(sp =>
@@ -245,8 +265,10 @@ public static class DependencyInjection
                 ? new SmtpEmailService(emailOptions, sp.GetRequiredService<ISmtpClientFactory>())
                 : new NoOpEmailService();
         });
+    }
 
-        // ── Export services ────────────────────────────────────────────────────
+    private static void AddExportServices(IServiceCollection services)
+    {
         services.AddScoped<IExportReadStore, ExportReadStore>();
         services.AddScoped<IExportFileNameBuilder, ExportFileNameBuilder>();
         services.AddScoped<ISalesExcelExportRenderer, Services.Exports.SalesExcelExportRenderer>();
@@ -254,8 +276,10 @@ public static class DependencyInjection
         services.AddScoped<ISalesTallyXmlExportRenderer, Services.Exports.SalesTallyXmlExportRenderer>();
         services.AddScoped<IProfitLossExcelExportRenderer, Services.Exports.ProfitLossExcelExportRenderer>();
         services.AddScoped<IBarcodeLabelPdfRenderer, BarcodeLabelPdfRenderer>();
+    }
 
-        // ── Shared caches ─────────────────────────────────────────────────────
+    private static void AddSharedCaches(IServiceCollection services, IConfiguration configuration)
+    {
         services.AddMemoryCache();
 
         services.AddOptions<DistributedCacheOptions>()
@@ -278,8 +302,10 @@ public static class DependencyInjection
                 cache.CreateIfNotExists = options.CreateIfNotExists;
                 cache.ExpiredItemsDeletionInterval = options.ExpiredItemsDeletionInterval;
             });
+    }
 
-        // ── Rate limiting ─────────────────────────────────────────────────────
+    private static void AddRateLimiting(IServiceCollection services, IConfiguration configuration)
+    {
         // Singleton over the shared data source: every replica, and every request on this one,
         // reads and writes the same rows, so there is no per-request state to hold.
         services.AddOptions<RateLimitStoreOptions>()
@@ -288,7 +314,10 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IAtomicRateLimitStore, PostgresRateLimitStore>();
         services.AddHostedService<RateLimitBucketCleanupWorker>();
+    }
 
+    private static void AddExternalLookupServices(IServiceCollection services)
+    {
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
         {
             var lookupOptions = sp.GetRequiredService<IOptions<ProductLookupOptions>>().Value;
@@ -311,10 +340,11 @@ public static class DependencyInjection
             return handler;
         });
         services.AddScoped<IExternalHsnLookupService, Services.Hsn.ExternalHsnLookupService>();
+    }
 
+    private static void AddPurchaseOrderNumbering(IServiceCollection services)
+    {
         services.AddScoped<IPurchaseOrderNumberGenerator, PurchaseOrderNumberGenerator>();
         services.AddScoped<IPurchaseOrderReceiptNumberGenerator, PurchaseOrderReceiptNumberGenerator>();
-
-        return services;
     }
 }

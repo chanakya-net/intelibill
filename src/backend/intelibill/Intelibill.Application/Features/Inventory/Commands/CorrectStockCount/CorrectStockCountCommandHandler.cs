@@ -122,14 +122,9 @@ public sealed class CorrectStockCountCommandHandler(
         Action<ShopLicenceLease>? retainLease,
         CancellationToken cancellationToken)
     {
-        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
+        var licence = await EnterLicenceAsync(command, retainLease, cancellationToken);
         if (licence.IsError)
             return licence.Errors;
-        retainLease?.Invoke(licence.Value);
-        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
-            return denied;
-        if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
-            return admissionDenied;
 
         var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)
@@ -148,21 +143,12 @@ public sealed class CorrectStockCountCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
-        if (command.CountedQuantity < batch.QuarantinedQuantity) return Error.Conflict("Expiry.QuarantineProtected", "Count cannot reduce physical stock below quarantine.");
+        if (CheckBatchCountable(command, batch) is { } batchDenied)
+            return batchDenied;
 
-        if (batch.IsVoided)
-            return Errors.Inventory.BatchAlreadyVoided;
-
-        if (batch.Version != command.ExpectedVersion)
-            return Errors.Inventory.BatchVersionConflict;
-
-        var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, [batch.ItemId], cancellationToken);
-        var item = items.Count > 0 ? items[0] : null;
-        if (item is null)
-            return Errors.Inventory.ItemNotFound;
-
-        if (!QuantityPolicy.FitsScale(command.CountedQuantity, item.QuantityScale))
-            return Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale);
+        var scaleCheck = await ValidateQuantityScaleAsync(command, batch, cancellationToken);
+        if (scaleCheck.IsError)
+            return scaleCheck.Errors;
 
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
         if (inventory is null)
@@ -200,35 +186,17 @@ public sealed class CorrectStockCountCommandHandler(
         if (count.IsError)
             return count.Errors;
 
-        batch.MarkUpdatedBy(command.ActorUserId);
-        inventoryBatchRepository.Update(batch);
-        if (movement is not null)
-        {
-            inventoryRepository.Update(inventory);
-            await stockTransactionRepository.AddAsync(movement, cancellationToken);
-            await inventoryAdjustmentRepository.AddAsync(adjustment!, cancellationToken);
-        }
-
-        await stockCountRepository.AddAsync(count.Value, cancellationToken);
-
-        if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
-            return authorityDenied;
-        if (licence.Value.CurrentDecision().EnforcedDenial() is { } saveDenial)
-            return saveDenial;
-
-        try
-        {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return Errors.Inventory.BatchVersionConflict;
-        }
-
-        if (await CheckAuthorityAsync(command, cancellationToken) is { } postingAuthorityDenied)
-            return postingAuthorityDenied;
-        if (licence.Value.CurrentDecision().EnforcedDenial() is { } postingDenial)
-            return postingDenial;
+        var saveDenied = await SaveCountAsync(
+            command,
+            licence.Value,
+            batch,
+            inventory,
+            adjustment,
+            movement,
+            count.Value,
+            cancellationToken);
+        if (saveDenied is { } denied)
+            return denied;
 
         return new StockCountResultDto(
             count.Value.Id,
@@ -243,6 +211,96 @@ public sealed class CorrectStockCountCommandHandler(
             inventory.Quantity,
             batch.Version,
             performedAt);
+    }
+
+    private async Task<ErrorOr<ShopLicenceLease>> EnterLicenceAsync(
+        CorrectStockCountCommand command,
+        Action<ShopLicenceLease>? retainLease,
+        CancellationToken cancellationToken)
+    {
+        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
+        if (licence.IsError)
+            return licence.Errors;
+        retainLease?.Invoke(licence.Value);
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
+            return denied;
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
+            return admissionDenied;
+
+        return licence;
+    }
+
+    private static Error? CheckBatchCountable(CorrectStockCountCommand command, InventoryBatch batch)
+    {
+        if (command.CountedQuantity < batch.QuarantinedQuantity)
+            return Error.Conflict("Expiry.QuarantineProtected", "Count cannot reduce physical stock below quarantine.");
+
+        if (batch.IsVoided)
+            return Errors.Inventory.BatchAlreadyVoided;
+
+        if (batch.Version != command.ExpectedVersion)
+            return Errors.Inventory.BatchVersionConflict;
+
+        return null;
+    }
+
+    private async Task<ErrorOr<Success>> ValidateQuantityScaleAsync(
+        CorrectStockCountCommand command,
+        InventoryBatch batch,
+        CancellationToken cancellationToken)
+    {
+        var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, [batch.ItemId], cancellationToken);
+        var item = items.Count > 0 ? items[0] : null;
+        if (item is null)
+            return Errors.Inventory.ItemNotFound;
+
+        if (!QuantityPolicy.FitsScale(command.CountedQuantity, item.QuantityScale))
+            return Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale);
+
+        return Result.Success;
+    }
+
+    private async Task<Error?> SaveCountAsync(
+        CorrectStockCountCommand command,
+        ShopLicenceLease licence,
+        InventoryBatch batch,
+        Domain.Entities.Inventory inventory,
+        InventoryAdjustment? adjustment,
+        StockTransaction? movement,
+        StockCount count,
+        CancellationToken cancellationToken)
+    {
+        batch.MarkUpdatedBy(command.ActorUserId);
+        inventoryBatchRepository.Update(batch);
+        if (movement is not null)
+        {
+            inventoryRepository.Update(inventory);
+            await stockTransactionRepository.AddAsync(movement, cancellationToken);
+            await inventoryAdjustmentRepository.AddAsync(adjustment!, cancellationToken);
+        }
+
+        await stockCountRepository.AddAsync(count, cancellationToken);
+
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
+            return authorityDenied;
+        if (licence.CurrentDecision().EnforcedDenial() is { } saveDenial)
+            return saveDenial;
+
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Errors.Inventory.BatchVersionConflict;
+        }
+
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } postingAuthorityDenied)
+            return postingAuthorityDenied;
+        if (licence.CurrentDecision().EnforcedDenial() is { } postingDenial)
+            return postingDenial;
+
+        return null;
     }
 
     private ErrorOr<(InventoryAdjustment Adjustment, StockTransaction Movement)> PostDelta(

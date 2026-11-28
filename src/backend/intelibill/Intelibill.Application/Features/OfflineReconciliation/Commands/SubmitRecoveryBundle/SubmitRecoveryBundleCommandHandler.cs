@@ -153,16 +153,67 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         ShopLicenceLease? fencedLicence,
         CancellationToken cancellationToken)
     {
+        var (received, rejection) = await ReceiveSubmissionAsync(context, sale, now, cancellationToken);
+        if (rejection is not null)
+            return rejection;
+
+        var submission = received!.Submission;
+        var incomingLease = received.IncomingLease;
+
+        var held = new HeldInvoice(context, submission.ClientSaleId, submission.InvoiceNumber, submission.Id, submission.SubmittedByUserId, now);
+        var storedSale = OfflineSubmissionPayload.TryReadValidated(context.ShopId, submission);
+        if (storedSale is null)
+        {
+            var corrupted = await OpenLicenceHistoryAsync(held, Errors.OfflineLicenceHistory.EvidenceInvalid,
+                new(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, "PayloadCorrupted", "payloadJson"), cancellationToken);
+            return corrupted;
+        }
+
+        var lease = await ResolveEffectiveLeaseAsync(context.ShopId, submission, incomingLease, cancellationToken);
+        var review = new ReviewInput(fencedLicence, submission, storedSale, lease, now);
+
+        // Existing canonical history hold takes precedence immediately after receipt capture, including linked envelopes.
+        var existingHistory = await issueRepository.FindCanonicalHistoryCaseAsync(
+                context.ShopId, submission.Id, includeResolvedTypedCase: false, cancellationToken);
+        if (existingHistory is not null)
+            return await AttachToExistingHistoryAsync(held, review, existingHistory, cancellationToken);
+
+        // Prior non-history unresolved case on an unlinked envelope keeps that case; attach any licence conflict to it.
+        if (submission.SaleId is null)
+        {
+            var open = await issueRepository.FindUnresolvedPrePostingByEnvelopeAsync(context.ShopId, submission.Id, cancellationToken)
+                ?? await issueRepository.FindUnresolvedByEnvelopeAsync(context.ShopId, submission.Id, cancellationToken);
+            if (open is not null)
+                return await AttachToOpenCaseAsync(held, review, open, cancellationToken);
+        }
+
+        var existing = await saleRepository.GetByClientSaleIdAsync(context.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
+        if (existing is not null)
+            return await ResolveAlreadyPostedAsync(held, submission, existing, cancellationToken);
+
+        return await FileForReviewAsync(held, review, cancellationToken);
+    }
+
+    /// <summary>
+    /// Checks the invoice's identity, structure, lease and issuer, then records the submission.
+    /// A rejection is returned as its result; otherwise the recorded submission and incoming lease.
+    /// </summary>
+    private async Task<(ReceivedInvoice? Received, RecoveryInvoiceResultDto? Rejection)> ReceiveSubmissionAsync(
+        RecoveryContext context,
+        OfflineSaleSyncCommand sale,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         if (OfflineSaleSyncHelpers.CheckIdentity(sale, out var clientSaleId, out var invoiceNumber) is { } identityError)
-            return Rejected(clientSaleId, invoiceNumber, identityError);
+            return (null, Rejected(clientSaleId, invoiceNumber, identityError));
 
         var structure = salePoster.CheckStructure(sale);
         if (structure.IsError)
-            return Rejected(clientSaleId, invoiceNumber, structure.FirstError);
+            return (null, Rejected(clientSaleId, invoiceNumber, structure.FirstError));
 
         var incomingLease = await invoiceLeaseRepository.FindReservedRangeAsync(context.ShopId, context.DeviceId, invoiceNumber, cancellationToken);
         if (incomingLease is null)
-            return Rejected(clientSaleId, invoiceNumber, Errors.Recovery.LeaseNotOwned);
+            return (null, Rejected(clientSaleId, invoiceNumber, Errors.Recovery.LeaseNotOwned));
 
         Guid? verifiedIssuer = null;
         if (sale.IssuedByUserId is { } asserted)
@@ -170,7 +221,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             var standing = await OfflineIssuerVerification.AssessAsync(
                 shopRepository, submissionRepository, context.ShopId, context.DeviceId, asserted, cancellationToken);
             if (standing == OfflineIssuerStanding.NeverMember)
-                return Rejected(clientSaleId, invoiceNumber, Errors.Recovery.IssuerMismatch);
+                return (null, Rejected(clientSaleId, invoiceNumber, Errors.Recovery.IssuerMismatch));
             if (standing == OfflineIssuerStanding.Verified)
                 verifiedIssuer = asserted;
         }
@@ -183,69 +234,78 @@ public sealed class SubmitRecoveryBundleCommandHandler(
                 context.OperatorUserId, sale.IssuedByUserId, verifiedIssuer, incomingLease.Id, context.OperationKey),
             cancellationToken);
 
-        var held = new HeldInvoice(context, submission.ClientSaleId, submission.InvoiceNumber, submission.Id, submission.SubmittedByUserId, now);
-        var storedSale = OfflineSubmissionPayload.TryReadValidated(context.ShopId, submission);
-        if (storedSale is null)
+        return (new ReceivedInvoice(submission, incomingLease), null);
+    }
+
+    private async Task<ErrorOr<RecoveryInvoiceResultDto>> AttachToExistingHistoryAsync(
+        HeldInvoice held,
+        ReviewInput review,
+        ReconciliationIssue existingHistory,
+        CancellationToken cancellationToken)
+    {
+        var assess = await AssessLicenceAsync(
+            review.FencedLicence, review.Submission, review.StoredSale, review.Lease, review.Now, existingHistoryHold: true, cancellationToken);
+        if (assess is { Decision: OfflineLicenceHistoryDecision.Denied, Error: { } deniedErr })
+            return deniedErr;
+        if (assess is { Observation: { } obs })
         {
-            var corrupted = await OpenLicenceHistoryAsync(held, Errors.OfflineLicenceHistory.EvidenceInvalid,
-                new(Errors.OfflineLicenceHistory.EvidenceInvalid.Code, "PayloadCorrupted", "payloadJson"), cancellationToken);
-            return corrupted;
+            await varianceAnalyzer.AttachLicenceObservationAsync(
+                existingHistory, review.Submission.Id, obs, review.Now, advanceVersionOnNewObservation: true, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+        return ExistingCaseResult(held, existingHistory);
+    }
 
-        var lease = await ResolveEffectiveLeaseAsync(context.ShopId, submission, incomingLease, cancellationToken);
-
-        // Existing canonical history hold takes precedence immediately after receipt capture, including linked envelopes.
-        var existingHistory = await issueRepository.FindCanonicalHistoryCaseAsync(
-                context.ShopId, submission.Id, includeResolvedTypedCase: false, cancellationToken);
-        if (existingHistory is not null)
+    private async Task<ErrorOr<RecoveryInvoiceResultDto>> AttachToOpenCaseAsync(
+        HeldInvoice held,
+        ReviewInput review,
+        ReconciliationIssue open,
+        CancellationToken cancellationToken)
+    {
+        var assess = await AssessLicenceAsync(
+            review.FencedLicence, review.Submission, review.StoredSale, review.Lease, review.Now, existingHistoryHold: false, cancellationToken);
+        if (assess is { Decision: OfflineLicenceHistoryDecision.Denied, Error: { } deniedErr })
+            return deniedErr;
+        if (assess is { Decision: OfflineLicenceHistoryDecision.Hold, Observation: { } obs })
         {
-            var assess = await AssessLicenceAsync(fencedLicence, submission, storedSale, lease, now, existingHistoryHold: true, cancellationToken);
-            if (assess is { Decision: OfflineLicenceHistoryDecision.Denied, Error: { } deniedErr })
-                return deniedErr;
-            if (assess is { Observation: { } obs })
-            {
-                await varianceAnalyzer.AttachLicenceObservationAsync(
-                    existingHistory, submission.Id, obs, now, advanceVersionOnNewObservation: true, cancellationToken);
-                await unitOfWork.SaveChangesAsync(cancellationToken);
-            }
-            return ExistingCaseResult(held, existingHistory);
+            await varianceAnalyzer.AttachLicenceObservationAsync(
+                open, review.Submission.Id, obs, review.Now, advanceVersionOnNewObservation: true, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+        return ExistingCaseResult(held, open);
+    }
 
-        // Prior non-history unresolved case on an unlinked envelope keeps that case; attach any licence conflict to it.
+    private async Task<RecoveryInvoiceResultDto> ResolveAlreadyPostedAsync(
+        HeldInvoice held,
+        OfflineSubmission submission,
+        Sale existing,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(existing.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
+            return await OpenCaseAsync(held, existing.Id, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict, null, null, cancellationToken);
+
         if (submission.SaleId is null)
         {
-            var open = await issueRepository.FindUnresolvedPrePostingByEnvelopeAsync(context.ShopId, submission.Id, cancellationToken)
-                ?? await issueRepository.FindUnresolvedByEnvelopeAsync(context.ShopId, submission.Id, cancellationToken);
-            if (open is not null)
-            {
-                var assess = await AssessLicenceAsync(fencedLicence, submission, storedSale, lease, now, existingHistoryHold: false, cancellationToken);
-                if (assess is { Decision: OfflineLicenceHistoryDecision.Denied, Error: { } deniedErr })
-                    return deniedErr;
-                if (assess is { Decision: OfflineLicenceHistoryDecision.Hold, Observation: { } obs })
-                {
-                    await varianceAnalyzer.AttachLicenceObservationAsync(
-                        open, submission.Id, obs, now, advanceVersionOnNewObservation: true, cancellationToken);
-                    await unitOfWork.SaveChangesAsync(cancellationToken);
-                }
-                return ExistingCaseResult(held, open);
-            }
+            submission.LinkSale(existing.Id);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+        return new RecoveryInvoiceResultDto(submission.ClientSaleId, submission.InvoiceNumber, RecoveryInvoiceStatus.AlreadyPosted, null, existing.Id, []);
+    }
 
-        var existing = await saleRepository.GetByClientSaleIdAsync(context.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
-        if (existing is not null)
-        {
-            if (!string.Equals(existing.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
-                return await OpenCaseAsync(held, existing.Id, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict, null, null, cancellationToken);
+    /// <summary>
+    /// A fresh envelope with no prior case or posted sale: assesses licence history and files the first
+    /// failing review, or the generic recovery review when nothing else applies.
+    /// </summary>
+    private async Task<ErrorOr<RecoveryInvoiceResultDto>> FileForReviewAsync(
+        HeldInvoice held,
+        ReviewInput review,
+        CancellationToken cancellationToken)
+    {
+        var submission = review.Submission;
+        var storedSale = review.StoredSale;
 
-            if (submission.SaleId is null)
-            {
-                submission.LinkSale(existing.Id);
-                await unitOfWork.SaveChangesAsync(cancellationToken);
-            }
-            return new RecoveryInvoiceResultDto(submission.ClientSaleId, submission.InvoiceNumber, RecoveryInvoiceStatus.AlreadyPosted, null, existing.Id, []);
-        }
-
-        var historyAssess = await AssessLicenceAsync(fencedLicence, submission, storedSale, lease, now, existingHistoryHold: false, cancellationToken);
+        var historyAssess = await AssessLicenceAsync(
+            review.FencedLicence, submission, storedSale, review.Lease, review.Now, existingHistoryHold: false, cancellationToken);
         if (historyAssess is { Decision: OfflineLicenceHistoryDecision.Denied, Error: { } historyDenied })
             return historyDenied;
         var pendingObs = historyAssess is { Decision: OfflineLicenceHistoryDecision.Hold } ? historyAssess.Observation : null;
@@ -261,11 +321,11 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         if (OfflineSaleSyncHelpers.CheckArithmetic(storedSale) is { } arithmetic)
             return await OpenCaseAsync(held, null, arithmetic.IssueType, arithmetic.Error, arithmetic.Message, pendingObs, cancellationToken);
 
-        var expiry = await expiryAuthority.ValidateFrozenAsync(context.ShopId, storedSale, now, cancellationToken);
+        var expiry = await expiryAuthority.ValidateFrozenAsync(held.Context.ShopId, storedSale, review.Now, cancellationToken);
         if (expiry.IsError)
             return await OpenCaseAsync(held, null, ReconciliationIssueType.ExpiryReview, expiry.FirstError, null, pendingObs, cancellationToken);
 
-        if (OfflineIssueTimingPolicy.Evaluate(lease, storedSale.SoldAt, submission.ReceivedAt) is { } timing
+        if (OfflineIssueTimingPolicy.Evaluate(review.Lease, storedSale.SoldAt, submission.ReceivedAt) is { } timing
             && timing.Code != Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code)
         {
             return await OpenCaseAsync(held, null, ReconciliationIssueType.IssueTimingReview, timing, null, pendingObs, cancellationToken);
@@ -452,6 +512,15 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         string InvoiceNumber,
         Guid SubmissionId,
         Guid CaseCreatedByUserId,
+        DateTimeOffset Now);
+
+    private sealed record ReceivedInvoice(OfflineSubmission Submission, InvoiceLease IncomingLease);
+
+    private sealed record ReviewInput(
+        ShopLicenceLease? FencedLicence,
+        OfflineSubmission Submission,
+        OfflineSaleSyncCommand StoredSale,
+        InvoiceLease Lease,
         DateTimeOffset Now);
 
     private sealed record RecoveryPayload(string DeviceId, string Checksum);

@@ -36,16 +36,21 @@ public sealed class SaleReturn : BaseEntity
         var valid = TenderLine.ValidateLines(tender is null ? [] : [tender], external);
         if (valid.IsError) return valid.Errors;
         if (confirmed != (external > 0)) return Error.Validation("Till.RefundConfirmationInvalid", "Confirm the actual external refund.");
-        RefundTender = tender; RefundConfirmed = confirmed;
+        RefundTender = tender;
+        RefundConfirmed = confirmed;
         return Result.Success;
     }
 
     public ErrorOr<Success> RecordVoidSettlementEvidence(TillSettlementEvidence evidence)
     {
         if (VoidSettlementEvidence is not null) return Error.Conflict("Till.EvidenceAlreadyRecorded", "Void evidence is immutable.");
-        var valid = evidence.Validate(); if (valid.IsError) return valid.Errors;
+        var valid = evidence.Validate();
+        if (valid.IsError) return valid.Errors;
         if (evidence.Disposition != TillSettlementDisposition.NoPhysicalMovement &&
-            (evidence.Disposition != TillSettlementDisposition.MoneyReceived || RefundConfirmed != true || RefundTender is null || evidence.Tender!.AppliedAmount != RefundTender.AppliedAmount))
+            (evidence.Disposition != TillSettlementDisposition.MoneyReceived
+             || RefundConfirmed != true
+             || RefundTender is null
+             || evidence.Tender!.AppliedAmount != RefundTender.AppliedAmount))
             return Error.Validation("Till.SettlementDirectionInvalid", "Recovery requires the whole original evidenced external payout.");
         VoidSettlementEvidence = evidence;
         return Result.Success;

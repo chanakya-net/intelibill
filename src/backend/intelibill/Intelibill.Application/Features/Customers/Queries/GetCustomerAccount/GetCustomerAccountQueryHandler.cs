@@ -3,8 +3,10 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Services;
+using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Common.Time;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -22,6 +24,35 @@ public sealed class GetCustomerAccountQueryHandler(
     [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<CustomerAccountDto>> HandleAsync(GetCustomerAccountQuery query, CancellationToken cancellationToken)
     {
+        var authorization = await AuthorizeActorAsync(query, cancellationToken);
+        if (authorization.IsError)
+            return authorization.Errors;
+
+        if (query.From is { } windowStart && query.To is { } windowEnd && windowStart > windowEnd)
+            return Errors.Customer.StatementWindowInvalid;
+
+        var customer = await customerRepository.GetByShopAndIdAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
+        if (customer is null)
+            return Errors.Customer.CustomerNotFound;
+
+        var data = await LoadAccountDataAsync(query, cancellationToken);
+        var ledger = BuildLedger(query, data);
+
+        var asOfOrError = await ResolveAsOfAsync(query, cancellationToken);
+        if (asOfOrError.IsError)
+            return asOfOrError.Errors;
+
+        var asOf = asOfOrError.Value;
+
+        var saleDtos = MapSales(data, asOf);
+
+        return BuildAccountDto(query, customer, data, ledger, saleDtos, asOf);
+    }
+
+    private async Task<ErrorOr<Success>> AuthorizeActorAsync(
+        GetCustomerAccountQuery query,
+        CancellationToken cancellationToken)
+    {
         var actor = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);
         if (actor is null)
             return Errors.Auth.UserNotFound;
@@ -33,13 +64,13 @@ public sealed class GetCustomerAccountQueryHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Customer.UserIsNotOwnerOrManager;
 
-        if (query.From is { } windowStart && query.To is { } windowEnd && windowStart > windowEnd)
-            return Errors.Customer.StatementWindowInvalid;
+        return Result.Success;
+    }
 
-        var customer = await customerRepository.GetByShopAndIdAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
-        if (customer is null)
-            return Errors.Customer.CustomerNotFound;
-
+    private async Task<AccountData> LoadAccountDataAsync(
+        GetCustomerAccountQuery query,
+        CancellationToken cancellationToken)
+    {
         var sales = await saleRepository.GetByCustomerAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
         var ledgerEntries = await customerLedgerEntryRepository.GetByCustomerAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
         var outstandingDue = await customerLedgerEntryRepository.GetCustomerBalanceAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
@@ -48,9 +79,14 @@ public sealed class GetCustomerAccountQueryHandler(
         var receipts = await invoiceBalanceReader.GetReceiptsAsync(query.ActiveShopId, PaymentPartyType.Customer, query.CustomerId, cancellationToken);
         var receiptByLedgerEntry = receipts.ToDictionary(r => r.LedgerEntryId, r => r.ReceiptId);
 
+        return new AccountData(sales, ledgerEntries, outstandingDue, invoiceBalances, receipts, receiptByLedgerEntry);
+    }
+
+    private static LedgerView BuildLedger(GetCustomerAccountQuery query, AccountData data)
+    {
         // Oldest first, deterministically: entries on one date in the order they were written,
         // and the id settles any remaining tie.
-        var ledgerChronological = ledgerEntries
+        var ledgerChronological = data.LedgerEntries
             .OrderBy(e => e.EntryDate)
             .ThenBy(e => e.CreatedAt)
             .ThenBy(e => e.Id)
@@ -78,7 +114,7 @@ public sealed class GetCustomerAccountQueryHandler(
                 entry.EntryDate,
                 entry.Notes,
                 runningBalance,
-                receiptByLedgerEntry.TryGetValue(entry.Id, out var receiptId) ? receiptId : null));
+                data.ReceiptByLedgerEntry.TryGetValue(entry.Id, out var receiptId) ? receiptId : null));
         }
 
         var closingBalance = runningBalance;
@@ -90,24 +126,31 @@ public sealed class GetCustomerAccountQueryHandler(
             .Where(e => e.EntryType == CustomerLedgerEntryType.PaymentReceived)
             .ToList();
 
+        return new LedgerView(openingBalance, closingBalance, orderedLedgerDtos, paymentHistory);
+    }
+
+    private async Task<ErrorOr<DateOnly>> ResolveAsOfAsync(
+        GetCustomerAccountQuery query,
+        CancellationToken cancellationToken)
+    {
         // Without an explicit date, "overdue" is judged on today's date in the shop's own zone.
-        DateOnly asOf;
         if (query.AsOf is { } requestedAsOf)
         {
-            asOf = requestedAsOf;
-        }
-        else
-        {
-            var shop = await shopRepository.GetByIdAsync(query.ActiveShopId, cancellationToken);
-            if (shop is null)
-                return Errors.Shop.ShopNotFound;
-
-            asOf = businessClock.Today(shop.BusinessTimeZoneId);
+            return requestedAsOf;
         }
 
-        var saleDtos = sales.Select(s =>
+        var shop = await shopRepository.GetByIdAsync(query.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        return businessClock.Today(shop.BusinessTimeZoneId);
+    }
+
+    private static List<CustomerAccountSaleDto> MapSales(AccountData data, DateOnly asOf)
+    {
+        return data.Sales.Select(s =>
         {
-            var balance = invoiceBalances.GetValueOrDefault(s.Id);
+            var balance = data.InvoiceBalances.GetValueOrDefault(s.Id);
             var currentOutstanding = balance?.OutstandingAmount ?? 0m;
             return new CustomerAccountSaleDto(
                 s.Id,
@@ -127,7 +170,17 @@ public sealed class GetCustomerAccountQueryHandler(
                 IsOverdue = IsOverdue(currentOutstanding, s.DueDate, asOf),
             };
         }).ToList();
+    }
 
+    private static CustomerAccountDto BuildAccountDto(
+        GetCustomerAccountQuery query,
+        Customer customer,
+        AccountData data,
+        LedgerView ledger,
+        List<CustomerAccountSaleDto> saleDtos,
+        DateOnly asOf)
+    {
+        var outstandingDue = data.OutstandingDue;
         var creditState = CustomerCreditState.Of(customer);
         return new CustomerAccountDto(
             customer.Id,
@@ -135,18 +188,18 @@ public sealed class GetCustomerAccountQueryHandler(
             customer.PhoneNumber,
             outstandingDue,
             saleDtos,
-            orderedLedgerDtos,
-            paymentHistory,
-            receipts.Sum(r => r.UnallocatedAmount),
-            receipts)
+            ledger.OrderedLedgerDtos,
+            ledger.PaymentHistory,
+            data.Receipts.Sum(r => r.UnallocatedAmount),
+            data.Receipts)
         {
             CreditLimit = customer.CreditLimit,
             IsActive = customer.IsActive,
             CreditPolicyMode = customer.CreditPolicyMode,
             CreditTermsDays = customer.CreditTermsDays,
             AvailableCredit = CustomerCreditPolicy.AvailableCredit(creditState, outstandingDue),
-            OpeningBalance = openingBalance,
-            ClosingBalance = closingBalance,
+            OpeningBalance = ledger.OpeningBalance,
+            ClosingBalance = ledger.ClosingBalance,
             FromDate = query.From,
             ToDate = query.To,
             AsOfBusinessDate = asOf,
@@ -158,4 +211,18 @@ public sealed class GetCustomerAccountQueryHandler(
     /// <summary>Overdue is a due-date fact: something is still owed and its due date has passed.</summary>
     internal static bool IsOverdue(decimal currentOutstanding, DateOnly? dueDate, DateOnly asOf) =>
         currentOutstanding > 0m && dueDate is { } due && due < asOf;
+
+    private sealed record AccountData(
+        IReadOnlyList<Sale> Sales,
+        IReadOnlyList<CustomerLedgerEntry> LedgerEntries,
+        decimal OutstandingDue,
+        Dictionary<Guid, CustomerInvoiceBalanceDto> InvoiceBalances,
+        IReadOnlyList<PaymentReceiptSummaryDto> Receipts,
+        Dictionary<Guid, Guid> ReceiptByLedgerEntry);
+
+    private sealed record LedgerView(
+        decimal OpeningBalance,
+        decimal ClosingBalance,
+        List<CustomerLedgerEntryDto> OrderedLedgerDtos,
+        List<CustomerLedgerEntryDto> PaymentHistory);
 }

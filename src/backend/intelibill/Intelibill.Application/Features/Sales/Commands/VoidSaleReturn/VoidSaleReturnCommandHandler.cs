@@ -91,21 +91,11 @@ public sealed class VoidSaleReturnCommandHandler(
         ShopLicenceLease licence,
         CancellationToken cancellationToken)
     {
-        var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
-            command.ShopId,
-            command.SaleReturnId,
-            cancellationToken);
-        if (saleReturn is null)
-            return Errors.Sale.ReturnNotFound(command.SaleReturnId);
+        var source = await LoadSourceAsync(command, licence, cancellationToken);
+        if (source.IsError)
+            return source.Errors;
 
-        if (saleReturn.IsVoided)
-            return Errors.Sale.ReturnAlreadyVoided;
-
-        var sale = await saleRepository.GetByIdAsync(saleReturn.SaleId, command.ShopId, cancellationToken);
-        if (sale is null)
-            return Errors.Sale.NotFound(saleReturn.SaleId);
-
-        if (SaleReturnSourcePolicy.Check(licence, sale, businessClock, saleReturn) is { } denied) return denied;
+        var (saleReturn, sale) = source.Value;
 
         // Validate the source's immutable payout evidence before stock, credit or accounting changes.
         if (command.SettlementEvidence is { } evidence)
@@ -126,6 +116,76 @@ public sealed class VoidSaleReturnCommandHandler(
         // The void lands on the day it happened in the shop's current zone, the one the coordinator
         // fenced the period with.
         var voidDate = businessClock.GetBusinessDate(processedAt, shop.BusinessTimeZoneId);
+
+        var stockReversals = await ReverseStockAsync(
+            command,
+            saleReturn,
+            saleItemsById,
+            processedAt,
+            voidDate,
+            cancellationToken);
+        if (stockReversals.IsError)
+            return stockReversals.Errors;
+
+        CustomerLedgerEntry? returnCreditReversal = null;
+        if (saleReturn.DueReductionAmount > 0m && sale.CustomerId.HasValue)
+        {
+            var ledgerResult = CreateReturnCreditReversal(command, saleReturn, sale, voidDate);
+            if (ledgerResult.IsError)
+                return ledgerResult.Errors;
+
+            returnCreditReversal = ledgerResult.Value;
+        }
+
+        var voided = VoidSourceAndCreditNote(command, saleReturn, creditNote, processedAt, voidDate);
+        if (voided.IsError)
+            return voided.Errors;
+
+        foreach (var stockReversal in stockReversals.Value)
+            await stockTransactionRepository.AddAsync(stockReversal, cancellationToken);
+
+        if (returnCreditReversal is not null)
+            await customerLedgerEntryRepository.AddAsync(returnCreditReversal, cancellationToken);
+
+        var appended = await settlement.AppendAsync(session, TillMovementSource.SaleReturnVoid, saleReturn.Id,
+            command.ActorUserId, command.OperationKey, command.SettlementEvidence, cancellationToken);
+        if (appended.IsError) return appended.Errors;
+        saleReturnRepository.Update(saleReturn);
+        return await SaveGuardedAsync(command, licence, sale, saleReturn, cancellationToken);
+    }
+
+    private async Task<ErrorOr<(SaleReturn SaleReturn, Sale Sale)>> LoadSourceAsync(
+        VoidSaleReturnCommand command,
+        ShopLicenceLease licence,
+        CancellationToken cancellationToken)
+    {
+        var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
+            command.ShopId,
+            command.SaleReturnId,
+            cancellationToken);
+        if (saleReturn is null)
+            return Errors.Sale.ReturnNotFound(command.SaleReturnId);
+
+        if (saleReturn.IsVoided)
+            return Errors.Sale.ReturnAlreadyVoided;
+
+        var sale = await saleRepository.GetByIdAsync(saleReturn.SaleId, command.ShopId, cancellationToken);
+        if (sale is null)
+            return Errors.Sale.NotFound(saleReturn.SaleId);
+
+        if (SaleReturnSourcePolicy.Check(licence, sale, businessClock, saleReturn) is { } denied) return denied;
+
+        return (saleReturn, sale);
+    }
+
+    private async Task<ErrorOr<List<StockTransaction>>> ReverseStockAsync(
+        VoidSaleReturnCommand command,
+        SaleReturn saleReturn,
+        Dictionary<Guid, SaleItem> saleItemsById,
+        DateTimeOffset processedAt,
+        DateOnly voidDate,
+        CancellationToken cancellationToken)
+    {
         var stockReversals = new List<StockTransaction>();
 
         await dispositions.LockBatchesAsync(command.ShopId, saleReturn.Items.Where(x => x.QuarantineChangeId.HasValue && saleItemsById.ContainsKey(x.SaleItemId))
@@ -135,71 +195,103 @@ public sealed class VoidSaleReturnCommandHandler(
             if (!saleItemsById.TryGetValue(returnItem.SaleItemId, out var saleItem))
                 return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
 
-            if (!saleItem.ItemId.HasValue || !saleItem.InventoryBatchId.HasValue)
-                return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
-
-            var itemId = saleItem.ItemId.Value;
-            var batchId = saleItem.InventoryBatchId.Value;
-
-            var batch = await inventoryBatchRepository.GetByIdAsync(batchId, cancellationToken);
-            if (batch is null || batch.ShopId != command.ShopId)
-                return Errors.Sale.ReturnBatchNotFound(batchId);
-
-            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
-            if (inventory is null)
-                return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
-
-            if (batch.Quantity < returnItem.Quantity || inventory.Quantity < returnItem.Quantity)
-                return Errors.Sale.ReturnVoidInsufficientStock;
-
-            var inventoryResult = inventory.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
-            if (inventoryResult.IsError)
-                return inventoryResult.Errors;
-
-            var stockTransaction = StockTransaction.Create(
-                command.ShopId,
-                itemId,
-                batchId,
-                StockTransactionType.Out,
-                -returnItem.Quantity,
-                saleReturn.ReturnNumber,
-                command.Reason,
+            var reversal = await ReverseLineStockAsync(
+                command,
+                saleReturn,
+                returnItem,
+                saleItem,
                 processedAt,
-                command.ActorUserId,
-                command.ActorUserId);
-            if (stockTransaction.IsError)
-                return stockTransaction.Errors;
-
-            ErrorOr<Success> batchResult;
-            if (returnItem.QuarantineChangeId.HasValue)
-                batchResult = await dispositions.StageReversalAsync(command.ShopId, command.ActorUserId, batch, returnItem.QuarantineChangeId.Value,
-                    returnItem.QuarantinedQuantity, stockTransaction.Value.Id, voidDate, saleReturn.Id, returnItem.Id, processedAt, cancellationToken);
-            else
-                batchResult = batch.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
-            if (batchResult.IsError) return batchResult.Errors;
-            inventoryBatchRepository.Update(batch);
-            inventoryRepository.Update(inventory);
-            stockReversals.Add(stockTransaction.Value);
-        }
-
-        CustomerLedgerEntry? returnCreditReversal = null;
-        if (saleReturn.DueReductionAmount > 0m && sale.CustomerId.HasValue)
-        {
-            var ledgerResult = CustomerLedgerEntry.Create(
-                command.ShopId,
-                sale.CustomerId.Value,
-                sale.Id,
-                CustomerLedgerEntryType.ReturnCreditReversal,
-                saleReturn.DueReductionAmount,
                 voidDate,
-                $"Void return credit from {saleReturn.ReturnNumber} for sale {sale.InvoiceNumber}",
-                command.ActorUserId);
-            if (ledgerResult.IsError)
-                return ledgerResult.Errors;
+                cancellationToken);
+            if (reversal.IsError)
+                return reversal.Errors;
 
-            returnCreditReversal = ledgerResult.Value;
+            stockReversals.Add(reversal.Value);
         }
 
+        return stockReversals;
+    }
+
+    private async Task<ErrorOr<StockTransaction>> ReverseLineStockAsync(
+        VoidSaleReturnCommand command,
+        SaleReturn saleReturn,
+        SaleReturnItem returnItem,
+        SaleItem saleItem,
+        DateTimeOffset processedAt,
+        DateOnly voidDate,
+        CancellationToken cancellationToken)
+    {
+        if (!saleItem.ItemId.HasValue || !saleItem.InventoryBatchId.HasValue)
+            return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
+
+        var itemId = saleItem.ItemId.Value;
+        var batchId = saleItem.InventoryBatchId.Value;
+
+        var batch = await inventoryBatchRepository.GetByIdAsync(batchId, cancellationToken);
+        if (batch is null || batch.ShopId != command.ShopId)
+            return Errors.Sale.ReturnBatchNotFound(batchId);
+
+        var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
+        if (inventory is null)
+            return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
+
+        if (batch.Quantity < returnItem.Quantity || inventory.Quantity < returnItem.Quantity)
+            return Errors.Sale.ReturnVoidInsufficientStock;
+
+        var inventoryResult = inventory.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
+        if (inventoryResult.IsError)
+            return inventoryResult.Errors;
+
+        var stockTransaction = StockTransaction.Create(
+            command.ShopId,
+            itemId,
+            batchId,
+            StockTransactionType.Out,
+            -returnItem.Quantity,
+            saleReturn.ReturnNumber,
+            command.Reason,
+            processedAt,
+            command.ActorUserId,
+            command.ActorUserId);
+        if (stockTransaction.IsError)
+            return stockTransaction.Errors;
+
+        ErrorOr<Success> batchResult;
+        if (returnItem.QuarantineChangeId.HasValue)
+            batchResult = await dispositions.StageReversalAsync(command.ShopId, command.ActorUserId, batch, returnItem.QuarantineChangeId.Value,
+                returnItem.QuarantinedQuantity, stockTransaction.Value.Id, voidDate, saleReturn.Id, returnItem.Id, processedAt, cancellationToken);
+        else
+            batchResult = batch.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
+        if (batchResult.IsError) return batchResult.Errors;
+        inventoryBatchRepository.Update(batch);
+        inventoryRepository.Update(inventory);
+        return stockTransaction.Value;
+    }
+
+    private static ErrorOr<CustomerLedgerEntry> CreateReturnCreditReversal(
+        VoidSaleReturnCommand command,
+        SaleReturn saleReturn,
+        Sale sale,
+        DateOnly voidDate)
+    {
+        return CustomerLedgerEntry.Create(
+            command.ShopId,
+            sale.CustomerId!.Value,
+            sale.Id,
+            CustomerLedgerEntryType.ReturnCreditReversal,
+            saleReturn.DueReductionAmount,
+            voidDate,
+            $"Void return credit from {saleReturn.ReturnNumber} for sale {sale.InvoiceNumber}",
+            command.ActorUserId);
+    }
+
+    private ErrorOr<Success> VoidSourceAndCreditNote(
+        VoidSaleReturnCommand command,
+        SaleReturn saleReturn,
+        CreditNote? creditNote,
+        DateTimeOffset processedAt,
+        DateOnly voidDate)
+    {
         var voidResult = saleReturn.Void(processedAt, voidDate, command.ActorUserId, command.Reason);
         if (voidResult.IsError)
             return voidResult.Errors;
@@ -212,16 +304,16 @@ public sealed class VoidSaleReturnCommandHandler(
             creditNoteRepository.Update(creditNote);
         }
 
-        foreach (var stockReversal in stockReversals)
-            await stockTransactionRepository.AddAsync(stockReversal, cancellationToken);
+        return Result.Success;
+    }
 
-        if (returnCreditReversal is not null)
-            await customerLedgerEntryRepository.AddAsync(returnCreditReversal, cancellationToken);
-
-        var appended = await settlement.AppendAsync(session, TillMovementSource.SaleReturnVoid, saleReturn.Id,
-            command.ActorUserId, command.OperationKey, command.SettlementEvidence, cancellationToken);
-        if (appended.IsError) return appended.Errors;
-        saleReturnRepository.Update(saleReturn);
+    private async Task<ErrorOr<SaleReturnOperationOutcome>> SaveGuardedAsync(
+        VoidSaleReturnCommand command,
+        ShopLicenceLease licence,
+        Sale sale,
+        SaleReturn saleReturn,
+        CancellationToken cancellationToken)
+    {
         var currentRole = await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken);
         if (currentRole is null) return Errors.Shop.MembershipNotFound;
         if (currentRole is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Sale.ReturnForbidden;
