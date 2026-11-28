@@ -12,26 +12,32 @@ Add `--filter 'FullyQualifiedName~P0217Tests'` to run the lifecycle checks alone
 
 The suite uses the merchant suite's CPU- and memory-based concurrency limit.
 One PostgreSQL container serves ordinary test classes. Each class owns its
-databases, and routine licensing databases are cloned from one migrated
-template. Tests that change cluster-wide privileges or migrate isolated
-databases use their own container. Tests that inspect merchant
-log capture or modify process-wide settings run alone.
+databases; routine licensing databases are cloned from per-slot copies of
+migrated and pre-seeded provider templates (avoiding template-lock contention
+across parallel classes), and each test's licensing database is dropped on
+fixture disposal. Tests that change cluster-wide privileges or migrate isolated
+databases use their own container. Tests that inspect merchant log capture or
+modify process-wide settings run alone.
 
 Set `INTEGRATION_TEST_PARALLELISM=1` before running the script to run classes
 serially. Do not lower it for an ordinary local run: the default (up to eight
-classes) is what keeps the suite near half an hour, and `2` roughly triples it.
-Lower it only when several suites share one Docker host. The local script builds
-Debug binaries.
+classes) keeps the full suite near nine minutes, and lowering it stretches the
+run proportionally. Lower it only when several suites share one Docker host.
+The local script builds Debug binaries.
 
 Test hosts (`LicensingApiFactory`, `MerchantStartupProbeFactory`) differ from
-production in four ways, each to keep thousands of short-lived hosts cheap:
+production in five ways to keep the suite fast without weakening isolation:
+standard tests within a class reuse pooled hosts through swappable DB, clock,
+mailer and HTTP shims (with automatic eviction if a test mutates
+`IConfiguration`, and fresh hosts for browser, isolated or custom-DI tests),
 BCrypt hashes at the minimum work factor (`FastPasswordHashing`), named
 HttpClient handlers never expire (an expiry timer otherwise keeps every disposed
 host reachable for two minutes), merchant consent and trial deliveries poll every
-50 ms instead of 3 s (`MerchantDeliveryPolling:Interval`), and delegated licensing
-calls may take 30 s instead of 5 s (`MerchantBillingDelegation:RequestTimeout`),
-so a loaded machine is not mistaken for an outage. Merchant databases are cloned
-from a migrated `merchant_template`, like the licensing ones.
+10 ms instead of 3 s (`MerchantDeliveryPolling:Interval`), and delegated
+licensing calls may take 30 s instead of 5 s
+(`MerchantBillingDelegation:RequestTimeout`), so a loaded machine is not
+mistaken for an outage. Merchant databases are cloned once per class from a
+migrated `merchant_template`, like the licensing ones.
 
 ## Start, restart, stop
 
