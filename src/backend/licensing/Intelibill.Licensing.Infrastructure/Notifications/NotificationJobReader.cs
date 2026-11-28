@@ -10,9 +10,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Notifications;
 
-internal sealed class NotificationJobReader(
+internal sealed partial class NotificationJobReader(
     LicensingDbContext db,
-    SubscriptionAccessFactsReader factsReader) : ILicenseNoticeReader
+    SubscriptionAccessFactsReader factsReader,
+    BillingEmailCaptureLinks links) : ILicenseNoticeReader
 {
     public Task<int> ReadTrialExtensionRevisionAsync(Guid accountId, Guid termId, CancellationToken ct) =>
         NotificationPlanSourceQueries.ReadTrialExtensionRevisionAsync(db, accountId, termId, ct);
@@ -168,6 +169,7 @@ internal sealed class NotificationJobReader(
 
     public async Task<ErrorOr<NotificationReadPage>> ReadProviderAccountJobsAsync(
         Guid accountId,
+        bool commercialAllowed,
         Guid? after,
         int take,
         CancellationToken ct)
@@ -198,7 +200,8 @@ internal sealed class NotificationJobReader(
             LIMIT {take + 1}
             """).ToListAsync(ct);
 
-        return ToPage(rows, take, nextDue: null);
+        var page = ToPage(rows, take, nextDue: null);
+        return commercialAllowed ? await WithDeliveryAsync(accountId, page, ct) : page;
     }
 
     private static CurrentCommercialSource? BuildCurrentCommercialSource(

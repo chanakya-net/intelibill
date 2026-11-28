@@ -5,33 +5,6 @@ using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Notifications;
 
-public sealed record StandaloneMailboxProof(
-    Guid AccountId,
-    Guid ContactId,
-    string NormalizedEmail,
-    string ProofToken,
-    DateTimeOffset ExpiresAt);
-
-public sealed record ApprovedBillingContactResult(
-    BillingContactV1 Contact,
-    StandaloneMailboxProof? PendingMailboxProof);
-
-/// <summary>
-/// Out-of-band mailbox proof handoff seam. Production binds a no-op until outbound email delivery
-/// (#925) dispatches mailbox proofs directly to the address holder; proofs never return to the approver.
-/// </summary>
-public interface IBillingContactMailboxProofDispatch
-{
-    void OnStandaloneProofIssued(StandaloneMailboxProof proof);
-}
-
-public sealed class NoOpBillingContactMailboxProofDispatch : IBillingContactMailboxProofDispatch
-{
-    public void OnStandaloneProofIssued(StandaloneMailboxProof proof)
-    {
-    }
-}
-
 /// <summary>
 /// Manages account-approved commercial billing contacts with separate holder verification, opt-in,
 /// and revocation. Contact consent never grants billing membership, login, or shop data access.
@@ -39,7 +12,6 @@ public sealed class NoOpBillingContactMailboxProofDispatch : IBillingContactMail
 public sealed class BillingContactConsentHandler(
     IBillingDelegationAccess access,
     IBillingContactStore store,
-    IBillingContactMailboxProofDispatch proofDispatch,
     TimeProvider clock)
 {
     public async Task<ErrorOr<BillingContactV1>> ApproveAsync(
@@ -58,7 +30,7 @@ public sealed class BillingContactConsentHandler(
         if (!IsValidApproveRequest(request))
             return NotificationErrors.ContactInvalid;
 
-        var saved = await access.ExecuteAsync(
+        return await access.ExecuteAsync(
             delegation,
             (scope, token) => store.ApproveAsync(
                 accountId,
@@ -67,13 +39,7 @@ public sealed class BillingContactConsentHandler(
                 BillingAccountRules.StorageInstant(clock.GetUtcNow()),
                 token),
             ct);
-        if (saved.IsError)
-            return saved.Errors;
 
-        if (saved.Value.PendingMailboxProof is { } proof)
-            proofDispatch.OnStandaloneProofIssued(proof);
-
-        return saved.Value.Contact;
     }
 
     public Task<ErrorOr<BillingContactsPageV1>> ListAsync(

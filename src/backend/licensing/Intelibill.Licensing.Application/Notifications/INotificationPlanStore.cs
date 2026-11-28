@@ -150,7 +150,8 @@ public sealed record NotificationJobReadRow(
     string TemplateKey,
     string TemplateArguments,
     string? DestinationHint,
-    DateTimeOffset PlannedAt);
+    DateTimeOffset PlannedAt,
+    ProviderEmailDeliveryV1? EmailDelivery = null);
 
 public sealed record NotificationReadPage(
     IReadOnlyList<NotificationJobReadRow> Rows,
@@ -217,6 +218,7 @@ public interface ILicenseNoticeReader
 
     Task<ErrorOr<NotificationReadPage>> ReadProviderAccountJobsAsync(
         Guid accountId,
+        bool commercialAllowed,
         Guid? after,
         int take,
         CancellationToken ct);
@@ -224,7 +226,7 @@ public interface ILicenseNoticeReader
 
 public interface IBillingContactStore
 {
-    Task<ErrorOr<ApprovedBillingContactResult>> ApproveAsync(
+    Task<ErrorOr<BillingContactV1>> ApproveAsync(
         Guid accountId,
         Guid ownerActorId,
         ApproveBillingContactRequestV1 request,

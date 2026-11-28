@@ -302,3 +302,7 @@ Browser side:
 ## Scheduled notification preview (P07-01)
 
 `NotificationPreviewComponent` (`adm-notification-preview`, `OnPush`) renders read-only paged results from `GET /api/admin/accounts/{accountId}/notifications` inside `AccountStatusPageComponent` when the live session holds `support`, `billing`, or `licensing-manager`. Support sees redacted operational rows only; Billing and Licensing Manager see evidenced term prices, bounded shop-name samples, and masked destination hints. A monotonic request sequence across account/capability changes, refresh, focus revalidation, and pagination ensures older commercial responses can never overwrite newer redacted or denied responses, and mid-pagination visibility downgrades clear prior commercial rows before reloading page 1. Exact due and deadline instants preserve microsecond precision identically across UTC and IST, and the panel ships localized assets across all nine Indian locales via `@ngneat/transloco`.
+
+Email detail uses the existing account preview request, pagination and capability lifecycle.
+The view requires a commercial capability and the server-provided detail. Links allow only a loopback Mailpit search
+for one opaque notification Message-ID and open with referrer and opener isolation.

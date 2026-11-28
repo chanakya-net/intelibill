@@ -286,6 +286,13 @@ services:
       - AdminMail__Port=1025
       - AdminMail__LocalCapture=true
       - AdminMail__FromEmail=provider-console@intelibill.local
+      - BillingEmail__Enabled=true
+      - BillingEmail__FromEmail=billing@intelibill.test
+      - BillingEmail__SupportEmail=support@intelibill.test
+      - BillingEmail__MerchantOrigin=http://localhost:${INTELIBILL_WEB_PORT:-4000}
+      - BillingEmail__VerificationOrigin=http://localhost:${INTELIBILL_LICENSING_API_PORT:-5278}
+      - BillingEmail__MailpitUiOrigin=http://localhost:${INTELIBILL_MAILPIT_UI_PORT:-8025}
+      - AdminBootstrap__DataProtectionKeyDirectory=/var/lib/intelibill/licensing-keys
       # LOCAL FIXTURE ONLY, off unless an acceptance script sets the digest. No
       # production provider session exists yet; startup refuses a fixture outside
       # Development, and invitations still need the persisted MFA-enrolled owner.
@@ -295,6 +302,8 @@ services:
       # Optional local-only enrollment root. Keep stable across restarts.
       - AdminMfa__ActiveKeyId=${INTELIBILL_ADMIN_MFA_ACTIVE_KEY_ID:-}
       - AdminMfa__Keys__local=${INTELIBILL_ADMIN_MFA_LOCAL_KEY:-}
+    volumes:
+      - licensing_keys:/var/lib/intelibill/licensing-keys
     depends_on:
       licensing-runtime-role:
         condition: service_completed_successfully
@@ -369,5 +378,6 @@ services:
     restart: on-failure
 
 volumes:
+  licensing_keys:
   postgres_data:
 

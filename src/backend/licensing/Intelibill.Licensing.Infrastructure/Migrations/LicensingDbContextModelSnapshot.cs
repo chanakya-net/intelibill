@@ -541,6 +541,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_billing_notice_contacts");
 
+                    b.HasAlternateKey("AccountId", "Id")
+                        .HasName("ak_billing_notice_contact_account_id_id");
+
                     b.HasIndex("AccountId", "DestinationHash")
                         .IsUnique()
                         .HasDatabaseName("ux_billing_notice_contacts_active_destination")
@@ -1043,6 +1046,98 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.NotificationEmailDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid?>("AffiliationRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("affiliation_request_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTimeOffset>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_expires_at");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<DateTimeOffset?>("OutcomeAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("outcome_at");
+
+                    b.Property<Guid?>("ProofContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proof_contact_id");
+
+                    b.Property<string>("ProtectedProof")
+                        .HasColumnType("text")
+                        .HasColumnName("protected_proof");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("state");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notification_email_deliveries");
+
+                    b.HasIndex("JobId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notification_email_deliveries_job_id");
+
+                    b.HasIndex("LeaseExpiresAt")
+                        .HasDatabaseName("ix_notification_email_deliveries_lease_expires_at")
+                        .HasFilter("state IN ('Leased','Sending')");
+
+                    b.HasIndex("NextAttemptAt")
+                        .HasDatabaseName("ix_notification_email_deliveries_next_attempt_at")
+                        .HasFilter("state IN ('Pending','RetryPending')");
+
+                    b.HasIndex("ProofContactId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notification_email_deliveries_proof_contact_id");
+
+                    b.HasIndex("AccountId", "JobId")
+                        .HasDatabaseName("ix_notification_email_deliveries_account_id_job_id");
+
+                    b.HasIndex("AccountId", "ProofContactId")
+                        .HasDatabaseName("ix_notification_email_deliveries_account_id_proof_contact_id");
+
+                    b.ToTable("notification_email_deliveries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_email_source", "(job_id IS NOT NULL AND proof_contact_id IS NULL AND protected_proof IS NULL)\nOR (job_id IS NULL AND proof_contact_id IS NOT NULL AND protected_proof IS NOT NULL AND affiliation_request_id IS NULL)");
+
+                            t.HasCheckConstraint("ck_email_state", "state IN ('Pending','Leased','Sending','RetryPending','SmtpAccepted','Uncertain','Suppressed','Failed')\nAND attempts BETWEEN 0 AND 5\nAND (state IN ('Leased','Sending')) = (lease_token IS NOT NULL)\nAND (lease_token IS NULL) = (lease_expires_at IS NULL)\nAND (state IN ('Pending','RetryPending')) = (next_attempt_at IS NOT NULL)\nAND (state IN ('SmtpAccepted','Uncertain','Suppressed','Failed')) = (outcome_at IS NOT NULL)\nAND (attempts = 0) = (last_attempt_at IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.NotificationJob", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1164,6 +1259,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_notification_jobs");
+
+                    b.HasAlternateKey("AccountId", "Id")
+                        .HasName("ak_notification_jobs_account_id_id");
 
                     b.HasIndex("AccountId", "DueAt", "Id")
                         .HasDatabaseName("ix_notification_jobs_account_due");
@@ -1883,6 +1981,23 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasForeignKey("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", "OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_initial_admin_bootstrap_admin_identity_owner_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.NotificationEmailDelivery", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.NotificationJob", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "JobId")
+                        .HasPrincipalKey("AccountId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_notification_email_deliveries_notification_jobs_account_id_");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingNoticeContact", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "ProofContactId")
+                        .HasPrincipalKey("AccountId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_notification_email_deliveries_billing_notice_contact_accoun");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.NotificationJob", b =>

@@ -325,3 +325,22 @@ The worker scans eligible term IDs before loading facts or requesting rosters. A
 Forced RLS, immutable job rows and recipient identity and destination aliases preserve one notice per recipient and threshold. A later verified channel is appended to `notification_channel_additions`. The security-invoker view `effective_notification_jobs` projects both channels through the underlying table policies. Worker discovery requires the dedicated transaction-local planner scope.
 
 Merchant reads return a current notice per live source. The next refresh includes end-exclusive deadlines, and live restriction guidance changes on release. Provider preview retains the scheduled facts and job identifiers across those boundaries.
+
+### Sending an approved notice
+
+The licensing database holds the protected mailbox on the original job or its immutable channel addition.
+The email ledger references that job or an independently issued contact proof. Both inserts share their source transaction.
+The worker claims due work using a restricted database function with row locking and `SKIP LOCKED`.
+Before submission it verifies the bound mailbox against current role, contact or shop authority.
+A contact on the same account can still receive a contact-safe version after losing a billing role.
+The signed merchant observation and the licensing transaction have separate boundaries.
+
+Only a matching unexpired lease may commit `Sending` and finish the attempt. The worker releases database locks before SMTP.
+A positive final reply records `SmtpAccepted`. An ambiguous reply or expired sending lease records `Uncertain` and stops automatic retry.
+Pre-submission failures and explicit transient rejections can retry after 30, 60, 120 and 240 seconds.
+The fifth failure exhausts the budget. Append-only events preserve attempts and timestamps.
+The authorization step before the sending marker is the extension point for source relevance checks in #926.
+
+Use the same protected licensing key ring across worker replicas and restarts.
+Local capture has no SMTP credentials. A future live rollout requires independently verified sender and support contacts,
+authenticated TLS, external secret custody and explicit authorization.

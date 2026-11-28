@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Azure;
 using Azure.Identity;
 using Intelibill.Licensing.Application.Notifications;
@@ -15,9 +16,10 @@ namespace Intelibill.Licensing.Infrastructure.Notifications;
 /// languages and active shop memberships. No SQL transaction is open across this call; any transport,
 /// signature, or contract fault returns null so planning retries cleanly without fabricating recipients.
 /// </summary>
-internal sealed class MerchantNoticeRecipientAuthorityClient(
+internal sealed partial class MerchantNoticeRecipientAuthorityClient(
     LicensingEntitlementTransport transport,
-    IHttpClientFactory clients) : IMerchantNoticeRecipientAuthority
+    IHttpClientFactory clients,
+    ILogger<MerchantNoticeRecipientAuthorityClient> logger) : IMerchantNoticeRecipientAuthority
 {
     public bool Enabled => transport.HasPublicationRoute();
 
@@ -39,6 +41,7 @@ internal sealed class MerchantNoticeRecipientAuthorityClient(
             or System.Security.Cryptography.CryptographicException)
         {
             ct.ThrowIfCancellationRequested();
+            LogAuthorityUnavailable(logger, error.GetType().Name, 0);
             return null;
         }
     }
@@ -65,15 +68,25 @@ internal sealed class MerchantNoticeRecipientAuthorityClient(
             || !response.Headers.TryGetValues(LicenseNoticesV1.ProofHeader, out var signatures)
             || signatures.ToArray() is not [var proof])
         {
+            LogAuthorityUnavailable(logger, "Response", (int)response.StatusCode);
             return null;
         }
 
         await response.Content.LoadIntoBufferAsync(LicenseNoticesV1.RecipientAuthorityMaxResponseBytes, ct);
         var bytes = await response.Content.ReadAsByteArrayAsync(ct);
         if (transport.Verify(path, proof, bytes) is null)
+        {
+            LogAuthorityUnavailable(logger, "Signature", (int)response.StatusCode);
             return null;
+        }
 
         var answer = JsonSerializer.Deserialize<NoticeRecipientAuthorityResponseV1>(bytes, EntitlementSnapshotsV1.Json);
-        return answer is not null && answer.IsValid(payload) ? answer : null;
+        if (answer is not null && answer.IsValid(payload))
+            return answer;
+        LogAuthorityUnavailable(logger, "Contract", (int)response.StatusCode);
+        return null;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Notice authority unavailable ({Stage}, {StatusCode}).")]
+    private static partial void LogAuthorityUnavailable(ILogger logger, string stage, int statusCode);
 }

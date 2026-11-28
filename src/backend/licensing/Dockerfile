@@ -43,6 +43,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
 
 EXPOSE 8080
 
+RUN install -d -m 0700 -o "$APP_UID" /var/lib/intelibill/licensing-keys
+
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "Intelibill.Licensing.Api.dll"]

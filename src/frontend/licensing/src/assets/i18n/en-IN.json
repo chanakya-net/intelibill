@@ -1,5 +1,22 @@
 {
   "notifications": {
+    "email": {
+      "detail": "Email delivery",
+      "state": "Status",
+      "attempts": "Attempts",
+      "last": "Last attempt",
+      "next": "Next retry",
+      "outcome": "Outcome recorded",
+      "capture": "Find message in Mailpit",
+      "Pending": "Queued",
+      "Leased": "Claimed by worker",
+      "Sending": "Submitting to SMTP",
+      "RetryPending": "Retry scheduled",
+      "SmtpAccepted": "Accepted by SMTP",
+      "Uncertain": "SMTP outcome unknown",
+      "Suppressed": "Recipient no longer eligible",
+      "Failed": "Delivery failed"
+    },
     "heading": "Scheduled licence notifications",
     "subtitle": "Persisted notification schedule and role-scoped visibility for this billing account.",
     "languageLabel": "Language",

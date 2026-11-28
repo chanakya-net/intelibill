@@ -115,6 +115,23 @@ function setup(read: NotificationPreviewApi['read'], grants: string[] = ['billin
 afterEach(() => TestBed.resetTestingModule());
 
 describe('NotificationPreviewComponent', () => {
+  it('shows the local capture with a text outcome only while the live capability allows it', async () => {
+    const page = makePage(accountA, true);
+    const href = 'http://localhost:28025/search?q=message-id%3A11111111111111111111111111111111%40notices.intelibill.invalid';
+    const item = { ...page.items[0], emailDelivery: {
+      state: 'Uncertain', attempts: 1, lastAttemptAt: page.evaluatedAt, outcomeAt: page.evaluatedAt, nextAttemptAt: null, captureUrl: href,
+    }};
+    const { fixture, el, capabilities } = setup(() => of({ ...page, items: [item] }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.querySelector('[data-testid="email-state"]')?.textContent).toContain('SMTP outcome unknown');
+    expect(el.querySelector('a[data-testid="mailpit-capture"]')?.getAttribute('href')).toBe(href);
+    capabilities.set(['support']);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(el.querySelector('a[data-testid="mailpit-capture"]')).toBeNull();
+  });
+
   it('shows commercial preview with exact microsecond UTC and IST instants, bounded shops, and due/future badges', async () => {
     const read = vi.fn(() =>
       of(

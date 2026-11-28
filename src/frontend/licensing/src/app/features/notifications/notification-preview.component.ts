@@ -46,6 +46,20 @@ export class NotificationPreviewComponent {
       this.session.state() === 'authenticated' &&
       this.session.capabilities().some((grant) => (notificationReaders as readonly string[]).includes(grant)),
   );
+  protected readonly mayInspectEmail = computed(() =>
+    this.mayRead() && this.session.capabilities().some(grant => grant === 'billing' || grant === 'licensing-manager'),
+  );
+
+  protected localCapture(value: string | null): string | null {
+    if (!value || !URL.canParse(value)) return null;
+    const url = new URL(value);
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    const query = url.searchParams.get('q') ?? '';
+    return local && ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.hash &&
+      url.pathname === '/search' && url.searchParams.size === 1 && /^message-id:[0-9a-f]{32}@notices\.intelibill\.invalid$/.test(query)
+      ? url.href : null;
+  }
+
   protected readonly capabilityKey = computed(() =>
     [...this.session.capabilities()].sort().join(','),
   );

@@ -89,7 +89,7 @@ public sealed class ReadLicenseNoticesHandler(
 
             await statusStore.UseAccountAsync(accountId, token);
             var now = SubscriptionStatusProjection.EvaluationInstant(statusClock);
-            var page = await reader.ReadProviderAccountJobsAsync(accountId, after, LicenseNoticesV1.PageSize, token);
+            var page = await reader.ReadProviderAccountJobsAsync(accountId, grant.Value, after, LicenseNoticesV1.PageSize, token);
             if (page.IsError)
                 return page.Errors;
 
@@ -353,7 +353,8 @@ public sealed class ReadLicenseNoticesHandler(
             ReadBool(root, "paymentDoesNotLiftSuspension"),
             row.PlannedAt,
             commercial,
-            suspendedShopCount);
+            suspendedShopCount,
+            commercialAllowed ? row.EmailDelivery : null);
     }
 
     private static string ReadString(JsonElement root, string name, string fallback) =>

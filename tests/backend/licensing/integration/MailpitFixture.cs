@@ -1,3 +1,5 @@
+using Intelibill.Licensing.Application.Notifications;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Json;
 using System.Text.Json;
 using DotNet.Testcontainers.Builders;
@@ -32,19 +34,53 @@ public sealed class MailpitFixture : IAsyncLifetime
         ["AdminMail:FromName"] = "InteliBill Provider Console",
     };
 
-    /// <summary>Plain-text bodies of every captured message addressed to <paramref name="recipient"/>.</summary>
-    internal async Task<string[]> ReadAsync(string recipient)
+    internal Dictionary<string, string?> BillingSettings(bool runInBackground = false)
+    {
+        var settings = Settings();
+        settings["BillingEmail:Enabled"] = "true";
+        settings["BillingEmail:RunInBackground"] = runInBackground.ToString();
+        settings["BillingEmail:FromEmail"] = "billing@example.test";
+        settings["BillingEmail:SupportEmail"] = "billing-support@example.test";
+        settings["BillingEmail:MerchantOrigin"] = "http://localhost:4200";
+        settings["BillingEmail:VerificationOrigin"] = "http://localhost:5081";
+        settings["BillingEmail:MailpitUiOrigin"] = Api.GetLeftPart(UriPartial.Authority);
+        return settings;
+    }
+
+    internal async Task<string> ReadProofAsync(IServiceProvider services, string address, Guid contact)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var pump = scope.ServiceProvider.GetRequiredService<IBillingEmailDispatcher>();
+        for (var i = 0; i < 50 && await pump.DeliverOneAsync(CancellationToken.None); i++)
+        {
+            var bodies = await ReadAsync(address);
+            foreach (var line in bodies.SelectMany(body => body.Split('\n')))
+            {
+                if (!Uri.TryCreate(line.Trim(), UriKind.Absolute, out var uri) || uri.AbsolutePath != "/billing-contact/verify")
+                    continue;
+                var fields = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Fragment.TrimStart('#'));
+                if (fields["contact"] == contact.ToString("D"))
+                    return fields["proof"].ToString();
+            }
+        }
+        throw new InvalidOperationException("No verification email captured for the approved contact.");
+    }
+
+    internal async Task<string[]> ReadAsync(string recipient) =>
+        (await MessagesAsync(recipient)).Select(message => message.GetProperty("Text").GetString()!).ToArray();
+
+    internal async Task<JsonElement[]> MessagesAsync(string recipient)
     {
         using var http = new HttpClient();
         using var search = await http.GetAsync(new Uri(Api, "search?query=" + Uri.EscapeDataString($"to:\"{recipient}\"")));
         search.EnsureSuccessStatusCode();
         using var list = JsonDocument.Parse(await search.Content.ReadAsStringAsync());
-        var bodies = new List<string>();
+        var captures = new List<JsonElement>();
         foreach (var message in list.RootElement.GetProperty("messages").EnumerateArray())
         {
             var detail = await http.GetFromJsonAsync<JsonElement>(new Uri(Api, "message/" + message.GetProperty("ID").GetString()));
-            bodies.Add(detail.GetProperty("Text").GetString()!);
+            captures.Add(detail);
         }
-        return [.. bodies];
+        return [.. captures];
     }
 }

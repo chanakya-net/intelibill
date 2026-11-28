@@ -120,6 +120,9 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
             foreach (var (name, value) in setup.LicensingSettings)
                 catalogueSettings[name] = value;
 
+        // Each fixture host has its own ephemeral protection keys. The planner and SMTP worker share the licensing host.
+        catalogueSettings["BillingEmail:RunInBackground"] = "false";
+
         var useTrialTemplate = !database.IsIsolated
             && publish
             && prepareProvider
@@ -187,7 +190,9 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
         bool publishEntitlements,
         P0210HostSetup? setup)
     {
-        if (!database.IsIsolated && !browser && prepareProvider && setup?.ConfigureLicensing is null)
+        var activeEmailWorker = settings.GetValueOrDefault("BillingEmail:Enabled") == "true"
+            && !string.Equals(settings.GetValueOrDefault("BillingEmail:RunInBackground"), "false", StringComparison.OrdinalIgnoreCase);
+        if (!database.IsIsolated && !browser && prepareProvider && setup?.ConfigureLicensing is null && !activeEmailWorker)
         {
             var pooled = database.HostPool.AcquireLicensingHost(
                 signing.Runtime,

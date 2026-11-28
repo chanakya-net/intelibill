@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Intelibill.Licensing.Api.Documents;
 using Intelibill.Licensing.Api.Restrictions;
 using Intelibill.Licensing.Api.Entitlements;
@@ -73,6 +74,15 @@ public sealed class Program
             options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         });
 
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddFixedWindowLimiter("contact-proof", limit =>
+            {
+                limit.Window = TimeSpan.FromMinutes(1);
+                limit.PermitLimit = 60;
+            });
+        });
         var app = builder.Build();
         // First, so every failure — probes included — answers the shared safe envelope.
         app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -84,6 +94,8 @@ public sealed class Program
         }).AllowAnonymous();
 
         app.UseRouting();
+        app.UseRateLimiter();
+        app.MapBillingContactVerification();
         app.UseMiddleware<AdminRequestBoundary>();
         app.MapCustomerBilling();
         app.MapEntitlementIntegration();

@@ -210,6 +210,10 @@ DO $$ BEGIN
   IF to_regprocedure('public.complete_pending_payment()') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.complete_pending_payment() TO intelibill_licensing_app;
   END IF;
+  IF to_regprocedure('public.next_notice_email(timestamptz,timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.next_notice_email(timestamptz,timestamptz) TO intelibill_licensing_app;
+    GRANT EXECUTE ON FUNCTION public.advance_notice_email(uuid,uuid,uuid,text,text,timestamptz) TO intelibill_licensing_app;
+  END IF;
   IF to_regprocedure('public.due_notification_planning(timestamptz,uuid,integer)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.due_notification_planning(timestamptz,uuid,integer) TO intelibill_licensing_app;
   END IF;
