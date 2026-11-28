@@ -31,6 +31,9 @@ public sealed class MerchantEntitlementTransport(IOptionsMonitor<EntitlementTran
     public Task<string?> SignReductionObservationAsync(byte[] body, CancellationToken ct) =>
         SignAsync(ReductionTransportV1.ObservePath, body, ct);
 
+    public Task<string?> SignNoticeRecipientAuthorityAsync(byte[] body, CancellationToken ct) =>
+        SignAsync(LicenseNoticesV1.RecipientAuthorityPath, body, ct);
+
     internal async Task<string?> SignAsync(string path, byte[] body, CancellationToken ct)
     {
         var settings = options.CurrentValue;

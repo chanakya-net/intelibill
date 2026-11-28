@@ -18,6 +18,7 @@ import {
 import { SubscriptionCancellationComponent } from '../subscriptions/subscription-cancellation.component';
 import { SubscriptionCancellationWithdrawalComponent } from '../subscriptions/subscription-cancellation-withdrawal.component';
 import { EntitlementSynchronizationComponent } from './entitlement-synchronization.component';
+import { LicenseNoticeComponent } from './license-notice.component';
 import { StatusReadError, SubscriptionStatusService, TradingAuthorityReadError } from './subscription-status.service';
 
 type StatusView =
@@ -38,9 +39,9 @@ type TradingAuthorityView =
  */
 @Component({
   selector: 'app-subscription-status-page',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent, SubscriptionCancellationComponent,
-    SubscriptionCancellationWithdrawalComponent, ClosureConfirmationComponent, AccountClosureComponent, CapacityChangePreviewComponent,
-    CapacityReductionPreviewComponent],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent, LicenseNoticeComponent,
+    SubscriptionCancellationComponent, SubscriptionCancellationWithdrawalComponent, ClosureConfirmationComponent, AccountClosureComponent,
+    CapacityChangePreviewComponent, CapacityReductionPreviewComponent],
   templateUrl: './subscription-status-page.component.html',
   styleUrl: './subscription-status-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -12,6 +12,7 @@ import { billingRoutes } from '../billing.routes';
 import { SubscriptionStatusPageComponent } from './subscription-status-page.component';
 import { formatBillingInstant, type ShopSubscriptionStatus, type ShopTradingAuthority, type SubscriptionTermStatus } from './subscription-status.models';
 import { StatusReadError, SubscriptionStatusService, TradingAuthorityReadError } from './subscription-status.service';
+import { LicenseNoticeService } from './license-notice.service';
 
 const shopA = '11111111-1111-4111-8111-111111111111';
 const shopB = '22222222-2222-4222-8222-222222222222';
@@ -52,6 +53,7 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: AuthService, useValue: { session } },
       { provide: SubscriptionStatusService, useValue: { tradingAuthority: () => EMPTY, ...api } },
+      { provide: LicenseNoticeService, useValue: { shop: () => EMPTY, account: () => EMPTY } },
     ],
   });
   const fixture = TestBed.createComponent(SubscriptionStatusPageComponent);

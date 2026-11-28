@@ -228,6 +228,10 @@
       </div>
     }
 
+    @if (session() && activeShopId() && !isScopeTransitioning() && !hideShopData()) {
+      <app-license-notice mode="shop"></app-license-notice>
+    }
+
     <main class="shell-main" [attr.aria-busy]="isScopeTransitioning()">
       @if (isScopeTransitioning()) {
         <p class="shell-scope-transition" role="status">

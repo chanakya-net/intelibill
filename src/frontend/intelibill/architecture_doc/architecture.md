@@ -626,3 +626,7 @@ rules. Customer/supplier workflows retain keyboard names, loading/error/empty st
 locales. Deploy the new API before/with this client; legacy array routes remain available only for
 compatibility. See [bounded reads verification](../../../../docs/bounded-reads-verification.md) for limits, local
 measurements, regression evidence and remaining limitations.
+
+## Role-Correct Licence Notices (P07-01)
+
+`LicenseNoticeComponent` (`OnPush`) renders due operational shop notices in `ShellComponent` (`mode="shop"`) and due commercial notices on the selected-account status page (`mode="account"`, `SubscriptionStatusPageComponent`) using separate DTOs (`LicenseNoticeService`). Scope, active-shop, account, or session transitions immediately clear displayed notices, cancel pending timers, and discard late epoch replies. Notices revalidate on `window:focus`, `document:visibilitychange`, `window:online`, and the server-provided `nextDueAt` boundary. Protected `/api` requests continue to bypass service-worker caches, and all nine Indian locales carry complete `billing.notices.*` translations verified by `i18n-coverage.spec.ts`.

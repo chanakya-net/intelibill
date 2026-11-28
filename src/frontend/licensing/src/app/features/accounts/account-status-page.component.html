@@ -210,6 +210,9 @@
       }
     }
     @if (selected(); as account) {
+      @if (mayRead()) {
+        <adm-notification-preview [account]="account" />
+      }
       <adm-device-permit-panel [account]="account" [shops]="accountShops()" />
     }
     @if (mayGrant() && selected(); as account) {

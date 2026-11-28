@@ -4194,6 +4194,42 @@
       "supersedes": "Supersedes version",
       "loadOlder": "Load older versions",
       "refresh": "Refresh accounting invoices"
+    },
+    "notices": {
+      "shopHeading": "Shop licence notice",
+      "accountHeading": "Scheduled licence notices",
+      "deadlineAt": "Status {{state}} · Deadline {{time}}",
+      "accessState": "Access state",
+      "effectiveDeadline": "Effective deadline",
+      "coveredShops": "Covered shops",
+      "evidencedTermPrice": "Evidenced term price",
+      "renewalQuoteNote": "This shows the evidenced price of the recorded term. A new renewal requires a separate checkout quote.",
+      "suspensionNoLift": "Making a payment does not lift an active suspension.",
+      "nextScheduledAt": "Next notice scheduled for {{time}}.",
+      "empty": "No due licence notices for this account right now.",
+      "purposes": {
+        "TrialReminder": "Trial reminder",
+        "PaidRenewalReminder": "Subscription renewal reminder",
+        "GraceNotice": "Grace period notice"
+      },
+      "thresholds": {
+        "TrialMinus3Days": "3 days before trial ends",
+        "TrialMinus1Day": "1 day before trial ends",
+        "PaidMinus7Days": "7 days before paid term ends",
+        "PaidMinus1Day": "1 day before paid term ends",
+        "GraceStart": "Grace period started",
+        "GraceMinus1Day": "1 day before grace ends",
+        "GraceExpiry": "Grace period ended"
+      },
+      "guidance": {
+        "TrialEnding": "This shop's trial access is ending soon. Contact the account billing owner before trading is restricted.",
+        "PaidRenewalDue": "Paid subscription coverage is ending soon. Renew before the deadline to keep trading uninterrupted.",
+        "PaidTermCancelled": "This subscription is scheduled to end at the current deadline without automatic continuation.",
+        "GraceActive": "This shop is in its grace period. Renew before grace expires to avoid trading restrictions.",
+        "GraceEnding": "Grace period ends soon. Renew immediately to avoid trading restrictions.",
+        "AccessExpired": "Subscription access has expired. Contact the billing owner to restore coverage.",
+        "SuspendedNoPaymentLift": "Access is suspended. Payment alone does not lift a suspension; contact support."
+      }
     }
   }
 }

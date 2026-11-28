@@ -11,6 +11,7 @@ using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Api.Coverage;
 using Intelibill.Licensing.Api.Grants;
+using Intelibill.Licensing.Api.Notifications;
 using Intelibill.Licensing.Api.Observability;
 using Intelibill.Licensing.Api.Status;
 using Intelibill.Licensing.Application;
@@ -99,6 +100,7 @@ public sealed class Program
         app.MapAdminAudit();
         app.MapCatalogueDrafts();
         app.MapAdminSubscriptionStatus();
+        app.MapAdminLicenseNotices();
         app.MapComplimentaryGrants();
         app.MapAdminCoverageReplacementExceptions();
         app.MapAdminCoverageTransfers();

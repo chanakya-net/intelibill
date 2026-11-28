@@ -1326,3 +1326,7 @@ mutations), read through `DatabaseLockTimeouts` in `Intelibill.Shared.Web`. Use
 `db.SetLockTimeoutAsync(LockWait.Brief, ct)` or `DatabaseLockTimeouts.Value(db, wait)` inside SQL;
 do not hard-code a timeout. The licensing admin bootstrap budget still sets 3 s on its raw
 connection.
+
+## Licence notice recipient authority & relays (P07-01)
+
+`POST /internal/merchant/v1/licensing/notice-recipients` (`LicenceAction.InternalService`, served by `MerchantNoticeRecipientReader`) verifies licensing's single-use RS256 service assertion, consumes it in a brief-timeout Read Committed transaction, and returns live verified identities, preferred languages, and paged active shop memberships without cross-database reads. Customer-facing notice and billing-contact routes under `BillingController.Notices.cs` (`LicenceAction.Billing`, `Cache-Control: no-store`) check live shop membership before signing and again before returning operational shop notices, and delegate account notice and contact consent calls through signed `MerchantBillingClient` requests.

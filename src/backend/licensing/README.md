@@ -312,3 +312,11 @@ for the PostgreSQL and browser fixtures.
 First purchase and trial conversion start on a new anchor when licensing can publish the paid entitlement. A paid package bought after grace starts a fresh period at restoration readiness. Verified funds held by a restriction can use the same attempt or manual confirmation after an independent release. An accepted on-time renewal keeps its original anchor even when confirmation arrives late.
 
 The payment status distinguishes recorded funds, paid term fulfilment and merchant acknowledgement. A Licensing Manager can link a separately approved complimentary grant to a fulfilled payment order for covered shops. The adjustment preserves the original price and paid dates.
+
+## Role-correct licence notices (P07-01)
+
+`NotificationPlanner` and `NotificationPlanningWorker` (configured under `Notifications:*`) schedule durable semantic notice intents into `notification_jobs` (`20261128014150_PlanLicenseNotices`) with forced RLS, append-only history triggers, and unique `(account_id, scope_kind, scope_id, recipient_key, purpose, source_kind, source_id, source_revision, threshold)` convergence.
+
+- Discovery uses bounded `SECURITY DEFINER` routines (`public.due_notification_planning` and `public.account_notification_billing_members`), granted explicitly in `scripts/db/local-licensing-role.sql`.
+- Merchant identity and shop membership proof is fetched outside database transactions via signed RS256 requests to `/internal/merchant/v1/licensing/notice-recipients`; licensing re-checks and `FOR SHARE`-locks active billing memberships and verified opted-in `billing_notice_contacts` before inserting.
+- Separate read contracts serve due operational shop notices (`GET /api/licensing/shops/{shopId}/notices`), due commercial account notices (`GET /api/billing/accounts/{accountId}/notices`), and live capability-checked provider previews (`GET /api/admin/accounts/{accountId}/notifications`, `Cache-Control: no-store`, Support redacted). Email transport delivery (`#925`) and send-time invalidation (`#926`) remain separate slices.

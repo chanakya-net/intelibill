@@ -4,6 +4,8 @@
 **/node_modules
 **/.angular
 **/coverage
+!src/frontend/intelibill/src/app/features/billing/coverage
+!src/frontend/intelibill/src/app/features/billing/coverage/**
 **/dist
 
 # Local configuration and credentials must never enter Docker build contexts.

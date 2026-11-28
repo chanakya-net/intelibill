@@ -315,3 +315,7 @@ entitlement or delegation seams change. Parallelism and test-host differences ar
 | [licensing-p02-14-synchronization-status](../../../../docs/licensing-p02-14-synchronization-status.md) | Synchronization status |
 | [licensing-p02-15-cancellation](../../../../docs/licensing-p02-15-cancellation.md) | Scheduled cancellation |
 | [licensing-p02-16-cancellation-withdrawal](../../../../docs/licensing-p02-16-cancellation-withdrawal.md) | Cancellation withdrawal |
+
+## Licence notice planning (P07-01)
+
+`NotificationSchedulePolicy` computes deterministic thresholds from `SubscriptionAccessPolicy` and `GracePolicy` (trial −3/−1 days with no grace; paid −7/−1 days; eligible grace start, grace end−1, and expiry; handling shortened refund windows, coincident instants, renewals, trial extensions, handoffs, closures, incomplete evidence, and suspension without implying payment lifts suspension). `NotificationPlanner` resolves merchant identities/shop memberships outside DB transactions over `LicenseNoticesV1.RecipientAuthorityPath`, deduplicates member/contact overlap with canonicalized aliases, and commits `notification_jobs` via `ON CONFLICT DO NOTHING` after locking active memberships and verified opted-in `billing_notice_contacts` (`FOR SHARE`). All three tables (`notification_jobs`, `billing_notice_contacts`, `billing_notice_contact_events`) enforce forced RLS and append-only triggers. Read endpoints keep operational shop DTOs strictly separate from commercial account/provider DTOs and answer with `Cache-Control: no-store`.

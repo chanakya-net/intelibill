@@ -49,6 +49,20 @@ for (const width of [1440, 390]) {
         statusOrClosureCalls.push(route.request().url());
         return route.fulfill({ json: [] });
       });
+      await page.route('**/api/admin/accounts/*/notifications**', route => {
+        statusOrClosureCalls.push(route.request().url());
+        const target = new URL(route.request().url()).pathname.includes(other) ? other : account;
+        return route.fulfill({
+          json: {
+            schemaVersion: 1,
+            accountId: target,
+            evaluatedAt,
+            commercialIncluded: capabilities.includes('billing') || capabilities.includes('licensing-manager'),
+            items: [],
+            nextCursor: null,
+          },
+        });
+      });
       await page.route('**/api/admin/accounts/*/device-permits**', route => {
         const url = new URL(route.request().url());
         reads.push(url);

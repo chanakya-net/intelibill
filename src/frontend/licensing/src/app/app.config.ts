@@ -1,11 +1,14 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { type ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { type ApplicationConfig, isDevMode, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
 import { SESSION_PORT } from '@intelibill/api';
 import { INTELIBILL_PRIME_CSS_LAYER, INTELIBILL_PRIME_PRESET } from '@intelibill/ui/theme';
+import { provideTransloco, translocoConfig } from '@ngneat/transloco';
 import { providePrimeNG } from 'primeng/config';
 import { adminSessionInterceptor } from './core/auth/admin-session.interceptor';
+import { ADMIN_DEFAULT_LANGUAGE, ADMIN_SUPPORTED_LANGUAGE_CODES } from './core/i18n/admin-languages';
+import { AdminTranslocoLoader } from './core/i18n/admin-transloco.loader';
 import { AdminSessionService } from './features/auth/admin-session.service';
 import { requireAdminSession } from './features/auth/require-admin-session';
 
@@ -14,6 +17,16 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
     provideHttpClient(withInterceptors([adminSessionInterceptor])),
+    provideTransloco({
+      config: translocoConfig({
+        availableLangs: [...ADMIN_SUPPORTED_LANGUAGE_CODES],
+        defaultLang: ADMIN_DEFAULT_LANGUAGE,
+        fallbackLang: ADMIN_DEFAULT_LANGUAGE,
+        reRenderOnLangChange: true,
+        prodMode: !isDevMode(),
+      }),
+      loader: AdminTranslocoLoader,
+    }),
     providePrimeNG({
       ripple: true,
       theme: {

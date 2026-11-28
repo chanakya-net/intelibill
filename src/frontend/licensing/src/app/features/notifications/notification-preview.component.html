@@ -1,0 +1,183 @@
+@if (mayRead()) {
+  <section
+    class="ib-panel notif-panel"
+    aria-labelledby="provider-notifications-heading"
+    data-testid="provider-notifications-panel"
+  >
+    <div class="notif-panel__head">
+      <div class="notif-panel__titles">
+        <h2 id="provider-notifications-heading" class="ib-panel__title">
+          {{ 'notifications.heading' | transloco }}
+        </h2>
+        <p class="adm-panel-sub">{{ 'notifications.subtitle' | transloco }}</p>
+      </div>
+      <div class="notif-panel__controls">
+        <label class="notif-panel__lang-label" for="provider-notifications-locale">
+          {{ 'notifications.languageLabel' | transloco }}
+        </label>
+        <select
+          id="provider-notifications-locale"
+          class="notif-panel__select"
+          data-testid="provider-notifications-locale"
+          [value]="activeLanguage()"
+          (change)="onLanguageChange($event)"
+        >
+          @for (lang of languages; track lang.code) {
+            <option [value]="lang.code">{{ lang.label }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          class="notif-panel__btn"
+          data-testid="provider-notifications-refresh"
+          [disabled]="outcome() === 'loading'"
+          (click)="refresh()"
+        >
+          {{ 'notifications.refresh' | transloco }}
+        </button>
+      </div>
+    </div>
+
+    <p class="adm-callout adm-callout--info" data-testid="provider-notifications-readonly-note">
+      {{ 'notifications.readOnlyNote' | transloco }}
+    </p>
+
+    @if (evaluatedAt(); as evalAt) {
+      <p class="adm-field__hint" data-testid="provider-notifications-evaluated-at">
+        {{ 'notifications.evaluatedAt' | transloco: { utc: utc(evalAt), ist: ist(evalAt) } }}
+      </p>
+      @if (!commercialIncluded()) {
+        <p class="adm-callout" data-testid="provider-notifications-redacted">
+          {{ 'notifications.redactedNotice' | transloco }}
+        </p>
+      }
+    }
+
+    @switch (outcome()) {
+      @case ('loading') {
+        <p class="adm-callout adm-callout--info" role="status">{{ 'notifications.loading' | transloco }}</p>
+      }
+      @case ('denied') {
+        <p class="ib-error-banner" role="alert" data-testid="provider-notifications-denied">
+          {{ 'notifications.denied' | transloco }}
+        </p>
+      }
+      @case ('missing') {
+        <p class="ib-error-banner" role="alert">{{ 'notifications.missing' | transloco }}</p>
+      }
+      @case ('session') {
+        <p class="ib-error-banner" role="alert" data-testid="provider-notifications-session">
+          {{ 'notifications.sessionEnded' | transloco }}
+        </p>
+      }
+      @case ('unavailable') {
+        <p class="ib-error-banner" role="alert">{{ 'notifications.unavailable' | transloco }}</p>
+      }
+      @default {
+        @if (items().length > 0) {
+          <ul class="notif-list" data-testid="provider-notifications-list">
+            @for (item of items(); track item.jobId) {
+              <li
+                class="adm-subcard notif-card"
+                data-testid="provider-notification-row"
+                [attr.data-job-id]="item.jobId"
+                [attr.data-threshold]="item.threshold"
+                [attr.data-audience]="item.audience"
+              >
+                <div class="notif-card__head">
+                  <div>
+                    <strong>{{ purposeKey(item.purpose) | transloco }}</strong>
+                    <span class="notif-card__sep">·</span>
+                    <span>{{ thresholdKey(item.threshold) | transloco }}</span>
+                  </div>
+                  <div class="notif-card__badges">
+                    <span class="adm-pill" data-testid="provider-notification-status">
+                      {{ 'notifications.statuses.' + item.status | transloco }}
+                    </span>
+                    <span
+                      class="adm-pill"
+                      [class.adm-pill--warn]="item.isDue"
+                      [class.adm-pill--info]="!item.isDue"
+                      data-testid="provider-notification-due-badge"
+                    >
+                      {{ (item.isDue ? 'notifications.dueNow' : 'notifications.scheduledFuture') | transloco }}
+                    </span>
+                  </div>
+                </div>
+
+                <p class="notif-card__guidance">{{ guidanceKey(item.guidanceCode) | transloco }}</p>
+
+                <dl class="notif-facts">
+                  <dt>{{ 'notifications.audience' | transloco }}</dt>
+                  <dd>{{ audienceKey(item.audience) | transloco }}</dd>
+
+                  <dt>{{ 'notifications.channelsLabel' | transloco }}</dt>
+                  <dd>
+                    @for (ch of item.allowedChannels; track ch; let last = $last) {
+                      <span>{{ channelKey(ch) | transloco }}@if (!last) {, }</span>
+                    }
+                  </dd>
+
+                  <dt>{{ 'notifications.dueTimeUtc' | transloco }}</dt>
+                  <dd data-testid="provider-notification-due-utc">{{ utc(item.dueAt) }}</dd>
+
+                  <dt>{{ 'notifications.dueTimeIst' | transloco }}</dt>
+                  <dd data-testid="provider-notification-due-ist">{{ ist(item.dueAt) }} ({{ item.timeZone }})</dd>
+
+                  <dt>{{ 'notifications.effectiveDeadline' | transloco }}</dt>
+                  <dd>{{ ist(item.effectiveDeadlineAt) }} · {{ utc(item.effectiveDeadlineAt) }}</dd>
+
+                  <dt>{{ 'notifications.coveredShopCount' | transloco }}</dt>
+                  <dd>{{ item.coveredShopCount }}</dd>
+                </dl>
+
+                @if (item.paymentDoesNotLiftSuspension) {
+                  <p class="notif-card__warn" role="status">
+                    {{ 'notifications.suspensionNoLift' | transloco }}
+                  </p>
+                }
+
+                @if (commercialIncluded() && item.commercial; as commercial) {
+                  <dl class="notif-facts notif-facts--commercial" data-testid="provider-notification-commercial">
+                    @if (commercial.evidencedTermPricePaise !== null) {
+                      <dt>{{ 'notifications.evidencedTermPrice' | transloco }}</dt>
+                      <dd data-testid="provider-notification-price">
+                        {{ money(commercial.evidencedTermPricePaise, commercial.evidencedTermCurrency) }}
+                      </dd>
+                    }
+                    @if (commercial.destinationHint; as hint) {
+                      <dt>{{ 'notifications.destinationHint' | transloco }}</dt>
+                      <dd data-testid="provider-notification-destination">{{ hint }}</dd>
+                    }
+                    @if (commercial.coveredShopNames.length > 0) {
+                      <dt>{{ 'notifications.coveredShopNames' | transloco }}</dt>
+                      <dd>{{ commercial.coveredShopNames.join(', ') }}</dd>
+                    }
+                  </dl>
+                  @if (commercial.renewalQuoteRequired) {
+                    <p class="adm-field__hint">{{ 'notifications.renewalQuoteNote' | transloco }}</p>
+                  }
+                }
+              </li>
+            }
+          </ul>
+          @if (nextCursor()) {
+            <button
+              type="button"
+              class="notif-panel__btn"
+              data-testid="provider-notifications-more"
+              [disabled]="loadingMore()"
+              (click)="loadMore()"
+            >
+              {{ 'notifications.loadMore' | transloco }}
+            </button>
+          }
+        } @else if (evaluatedAt()) {
+          <p class="adm-callout" data-testid="provider-notifications-empty">
+            {{ 'notifications.empty' | transloco }}
+          </p>
+        }
+      }
+    }
+  </section>
+}

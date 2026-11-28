@@ -298,3 +298,7 @@ Browser side:
 - Budgets: initial bundle warning at 650 kB and error at 1 MB; any component style warning at 7 kB
   and error at 12 kB.
 - The `development` configuration (used by `ng serve`) disables optimisation and enables source maps.
+
+## Scheduled notification preview (P07-01)
+
+`NotificationPreviewComponent` (`adm-notification-preview`, `OnPush`) renders read-only paged results from `GET /api/admin/accounts/{accountId}/notifications` inside `AccountStatusPageComponent` when the live session holds `support`, `billing`, or `licensing-manager`. Support sees redacted operational rows only; Billing and Licensing Manager see evidenced term prices and masked destination hints. Stale rows clear immediately on account, capability, or session transitions, late responses are dropped, exact due times render in both UTC and IST with due vs future badges, and the panel ships localized assets across all nine Indian locales via `@ngneat/transloco`.

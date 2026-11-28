@@ -21,6 +21,7 @@
     "@angular/router": "^21.2.0",
     "@intelibill/api": "workspace:*",
     "@intelibill/ui": "workspace:*",
+    "@ngneat/transloco": "^6.0.4",
     "@primeuix/themes": "^2.0.3",
     "@tailwindcss/postcss": "^4.2.2",
     "postcss": "^8.5.8",

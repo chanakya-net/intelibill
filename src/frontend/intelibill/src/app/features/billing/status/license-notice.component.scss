@@ -1,0 +1,71 @@
+.license-shop-banner {
+  display: grid;
+  gap: 0.4rem;
+  border-bottom: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #78350f;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+}
+
+.license-shop-banner__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.license-shop-banner__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+
+.license-account-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.license-account-card {
+  border: 1px solid var(--app-border, #e2e8f0);
+  border-radius: 0.5rem;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.license-account-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.license-account-card__tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.license-account-card__facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+
+.license-account-card__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.license-account-card__note {
+  font-size: 0.8125rem;
+  color: var(--app-text-muted, #475569);
+  margin: 0;
+}
+
+.license-account-card__warning {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0;
+}

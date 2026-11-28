@@ -1,0 +1,67 @@
+{
+  "notifications": {
+    "heading": "Scheduled licence notifications",
+    "subtitle": "Persisted notification schedule and role-scoped visibility for this billing account.",
+    "languageLabel": "Language",
+    "refresh": "Refresh preview",
+    "loadMore": "Load more scheduled notices",
+    "readOnlyNote": "Read-only preview of scheduled jobs. Refreshing does not create jobs or claim delivery.",
+    "evaluatedAt": "Evaluated at {{ist}} · {{utc}}",
+    "redactedNotice": "Support view: commercial prices and destination hints are redacted.",
+    "loading": "Loading scheduled licence notifications…",
+    "denied": "Only Support, Billing, or Licensing Manager administrators can view notification previews.",
+    "missing": "No notification schedule exists for that billing account.",
+    "sessionEnded": "Your provider session ended. Sign in again.",
+    "unavailable": "Notification preview could not be loaded right now. Try again.",
+    "empty": "No notification jobs are currently scheduled for this billing account.",
+    "dueNow": "Due",
+    "scheduledFuture": "Scheduled (future)",
+    "audience": "Audience",
+    "channelsLabel": "Allowed channels",
+    "dueTimeUtc": "Due time (UTC)",
+    "dueTimeIst": "Due time (IST)",
+    "effectiveDeadline": "Effective deadline",
+    "coveredShopCount": "Covered shops",
+    "evidencedTermPrice": "Evidenced term price",
+    "destinationHint": "Masked destination",
+    "coveredShopNames": "Covered shop names",
+    "renewalQuoteNote": "Shows the evidenced term price; a new renewal requires its own quote.",
+    "suspensionNoLift": "Active suspension: paying does not lift suspension.",
+    "statuses": {
+      "Scheduled": "Scheduled"
+    },
+    "audiences": {
+      "CommercialBillingRole": "Commercial (Billing role)",
+      "CommercialContact": "Commercial (Verified opted-in contact)",
+      "ShopOwnerOperational": "Shop owner (Operational)",
+      "ShopStaffOperational": "Shop staff (Operational)"
+    },
+    "channels": {
+      "InApp": "In-app",
+      "Email": "Email"
+    },
+    "purposes": {
+      "TrialReminder": "Trial reminder",
+      "PaidRenewalReminder": "Paid renewal reminder",
+      "GraceNotice": "Grace period notice"
+    },
+    "thresholds": {
+      "TrialMinus3Days": "3 days before trial ends",
+      "TrialMinus1Day": "1 day before trial ends",
+      "PaidMinus7Days": "7 days before paid term ends",
+      "PaidMinus1Day": "1 day before paid term ends",
+      "GraceStart": "Grace period start",
+      "GraceMinus1Day": "1 day before grace ends",
+      "GraceExpiry": "Grace period expiry"
+    },
+    "guidance": {
+      "TrialEnding": "Trial access is ending soon.",
+      "PaidRenewalDue": "Paid subscription coverage is ending soon.",
+      "PaidTermCancelled": "Paid term is scheduled to end without continuation.",
+      "GraceActive": "Account entered its grace period.",
+      "GraceEnding": "Grace period ends soon.",
+      "AccessExpired": "Subscription access has expired.",
+      "SuspendedNoPaymentLift": "Access is suspended; payment alone does not lift suspension."
+    }
+  }
+}

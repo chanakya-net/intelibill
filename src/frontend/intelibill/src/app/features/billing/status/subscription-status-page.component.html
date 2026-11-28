@@ -95,7 +95,10 @@
       <app-entitlement-synchronization [synchronization]="current.status.synchronization ?? null" />
     }
     @case ('account') {
-      @if (accountId(); as account) { <app-account-closure [account]="account" /> }
+      @if (accountId(); as account) {
+        <app-license-notice mode="account" [accountId]="account" />
+        <app-account-closure [account]="account" />
+      }
       @if (accountId(); as account) {
         <p><a [routerLink]="['/billing/accounts', account, 'transfers']" data-testid="transfer-list-open">{{ 'billing.coverageTransfer.incoming' | transloco }}</a></p>
       }

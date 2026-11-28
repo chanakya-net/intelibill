@@ -4,7 +4,7 @@ import { NavigationEnd, Router } from '@angular/router';
 import { RouterTestingHarness, RouterTestingModule } from '@angular/router/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of, filter, firstValueFrom } from 'rxjs';
+import { EMPTY, of, filter, firstValueFrom } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthSession, UserShop } from '../auth/auth.models';
@@ -28,6 +28,7 @@ import { OfflinePackUpdateService } from '../service-worker/offline-pack-update.
 import type { OfflinePackStatus } from '../storage/offline-pack-status.storage';
 import { ProtectedCacheSafetyService } from '../service-worker/protected-cache-safety.service';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
+import { LicenseNoticeService } from '../../features/billing/status/license-notice.service';
 
 @Component({ standalone: true, template: '<p>Account content</p>' })
 class AccountRouteStub {}
@@ -135,6 +136,7 @@ describe('ShellComponent', () => {
         { provide: Store, useValue: store },
         { provide: LocalizationService, useValue: localizationService },
         { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
+        { provide: LicenseNoticeService, useValue: { shop: () => EMPTY, account: () => EMPTY } },
       ],
     });
   }
