@@ -28,7 +28,7 @@ public sealed class P0613BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.False(string.IsNullOrWhiteSpace(evidence), "Set P0613_EVIDENCE_DIR.");
         Directory.CreateDirectory(evidence);
         var scratch = Directory.CreateTempSubdirectory("intelibill-p0613-");
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa, browser: true);
         using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         try { await RunAsync(s, evidence, scratch.FullName, limit.Token); }

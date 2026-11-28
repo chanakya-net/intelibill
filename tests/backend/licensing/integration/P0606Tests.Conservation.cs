@@ -14,7 +14,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task CourtesyBridgeConservesThePurchasedSlotAtEveryBoundary()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
         var originalHistory = await P0605Tests.OriginalHistoryDigestAsync(f, p, term);
@@ -92,7 +92,7 @@ public sealed partial class P0606Tests
     [Fact]
     public async Task WaitDispositionKeepsIncomingBlockedUntilCutoverWithoutCourtesyGrant()
     {
-        using var key = RSA.Create(2048);
+        using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var f = await StartPermitFixtureAsync(database, key, January31);
         var (p, term) = await PrepareWithTradingNorthAsync(f);
         var permit = await IssueRealPermitAsync(f, p.Shops[2], EarlyStart, deliverObservation: true);

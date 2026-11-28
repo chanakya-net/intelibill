@@ -30,10 +30,11 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         IReadOnlyDictionary<string, string?>? licensingExtras = null, Action<IServiceCollection>? licensingServices = null,
         bool? prepareProvider = null, P0201Clock? businessClock = null, bool observeDelegation = false,
         Action<IServiceCollection>? merchantServices = null, bool liveDelivery = false,
-        bool countAllTraffic = false, IReadOnlyDictionary<string, string?>? merchantExtras = null)
+        bool countAllTraffic = false, IReadOnlyDictionary<string, string?>? merchantExtras = null,
+        P0201Clock? checkoutClock = null, HttpMessageHandler? razorpayHandler = null)
     {
         var transport = new P0213Transport();
-        using var consent = RSA.Create(2048);
+        using var consent = TestRsaKeys.Create(TestRsaKeyPurpose.ShopAffiliation);
         var source = P0205Tests.MerchantSettings(consent);
         var destination = new Dictionary<string, string?>
         {
@@ -47,18 +48,20 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         foreach (var (name, value) in merchantExtras ?? new Dictionary<string, string?>()) source[name] = value;
         var merchantTraffic = new P0213Traffic(countAllTraffic);
         var licensingTraffic = new P0213Traffic(countAllTraffic);
-        var setup = new P0210HostSetup(destination, source,
-            services =>
-            {
-                Configure(services, transport, licensingTraffic, licensing: true, liveDelivery);
-                licensingServices?.Invoke(services);
-            },
-            services =>
-            {
-                Configure(services, transport, merchantTraffic, licensing: false, liveDelivery);
-                merchantServices?.Invoke(services);
-            },
-            PrepareProvider: prepareProvider ?? !browser, UseDeliveryOnCatalogue: true, BusinessClock: businessClock);
+        var setup = new P0210HostSetup(
+            destination,
+            source,
+            licensingServices,
+            merchantServices,
+            PrepareProvider: prepareProvider ?? !browser,
+            UseDeliveryOnCatalogue: true,
+            BusinessClock: businessClock,
+            Transport: transport,
+            LicensingTraffic: licensingTraffic,
+            MerchantTraffic: merchantTraffic,
+            LiveDelivery: liveDelivery,
+            CheckoutClock: checkoutClock,
+            RazorpayHandler: razorpayHandler);
         var trial = await P0210Fixture.StartAsync(db, publish: prepareProvider ?? !browser, browser: browser,
             transport: observeDelegation ? _ => transport.Bridge(licensing: false) : null, setup: setup);
         var licensing = trial.Hosts.Licensing.CreateClient();
@@ -73,7 +76,7 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         return new(trial, transport, merchant, licensing, merchantTraffic, licensingTraffic);
     }
 
-    private static void Configure(IServiceCollection services, P0213Transport transport, P0213Traffic traffic, bool licensing, bool liveDelivery)
+    internal static void Configure(IServiceCollection services, P0213Transport transport, P0213Traffic traffic, bool licensing, bool liveDelivery)
     {
         var worker = services.Single(service => service.ServiceType == typeof(IHostedService) &&
             service.ImplementationType == typeof(LeasedHttpDeliveryWorker));

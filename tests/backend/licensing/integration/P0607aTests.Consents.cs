@@ -13,7 +13,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task BillingConsentsRequireTheirOwnLiveAuthority()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var before = await s.BaselineAsync();
         var id = (await CreateAsync(s)).GetProperty("transferId").GetGuid();
@@ -107,7 +107,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task OneOwnerOfBothAccountsStillDecidesEachPurposeSeparately()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa, sameOwner: true);
         var before = await s.BaselineAsync();
         var owner = s.Source.Payer.Client;

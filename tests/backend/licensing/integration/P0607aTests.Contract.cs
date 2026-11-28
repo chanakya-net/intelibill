@@ -55,7 +55,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task ConcurrentConsentsAndRetainedEvidenceAreSafe()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var before = await s.BaselineAsync();
         var id = (await CreateAsync(s)).GetProperty("transferId").GetGuid();

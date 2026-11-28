@@ -15,7 +15,7 @@ public sealed partial class P0607Tests
     [InlineData(false)]
     public async Task FinalConsentEpochAndConsumeReceiptSerializeInBothOrders(bool applyFirst)
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var id = await ConsentedAsync(s, s.Permit.ValidUntil);
         var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("race@example.test");
@@ -46,7 +46,7 @@ public sealed partial class P0607Tests
     [InlineData("shop-owner-revoke")]
     public async Task PostConsumeShopOwnerChangeOrRevokeNeverOrphansBinding(string mutation)
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var id = await ConsentedAsync(s, s.Permit.ValidUntil);
         var (manager, _) = await s.F.Checkout.Trial.Catalogue.ManagerAsync("post-consume@example.test");

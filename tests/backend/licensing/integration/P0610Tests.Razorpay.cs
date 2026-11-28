@@ -171,8 +171,7 @@ public sealed partial class P0610Tests
         settings["Payments:Razorpay:WebhookAccountId"] = P0305Tests.Account;
         if (extraSettings is not null)
             foreach (var (k, v) in extraSettings) settings[k] = v;
-        var fixture = await P0609Tests.StartAsync(database, Instant, settings, services =>
-            services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        var fixture = await P0609Tests.StartAsync(database, Instant, settings, razorpayHandler: fake);
         fake.Clock = () => fixture.Checkout.CheckoutClock.Now;
         var package = await fixture.PackageAsync(1, ["Razorpay Refund Shop"]);
         var quote = await AcceptAsync(package, await FirstQuoteAsync(package, "Month"));

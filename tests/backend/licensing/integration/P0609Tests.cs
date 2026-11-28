@@ -16,9 +16,15 @@ public sealed partial class P0609Tests(LicensingPostgreSqlFixture database) : IC
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
     internal static async Task<P0308Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset at,
-        IReadOnlyDictionary<string, string?>? settings = null, Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>? services = null)
+        IReadOnlyDictionary<string, string?>? settings = null, Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>? services = null,
+        HttpMessageHandler? razorpayHandler = null)
     {
-        var fixture = await P0308Fixture.StartAsync(database, at, settings, services: services);
+        var fixture = await P0308Fixture.StartAsync(
+            database,
+            at,
+            settings,
+            services: services,
+            razorpayHandler: razorpayHandler);
         var clock = fixture.Checkout.Trial.Catalogue.Clock;
         SetCredentialTime(fixture, clock.GetUtcNow());
         clock.Advanced += now => SetCredentialTime(fixture, now);

@@ -231,8 +231,11 @@ public sealed class P0304TestsEvidence(LicensingPostgreSqlFixture database)
         var fake = new FakeRazorpay();
         var settings = FakeRazorpay.Settings();
         settings[key] = value;
-        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, settings,
-            services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+        await using var fixture = await P0302Fixture.StartAsync(
+            database,
+            new P0201Clock { Now = P0210Fixture.Start },
+            settings,
+            razorpayHandler: fake);
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
         var started = await StartAsync(payer.Client, quote, HttpStatusCode.Created);
 

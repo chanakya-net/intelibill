@@ -114,7 +114,7 @@ public sealed partial class P0507Tests(LicensingPostgreSqlFixture database) : IC
 
         internal static async Task<Run> StartAsync(LicensingPostgreSqlFixture database)
         {
-            using var key = RSA.Create(2048);
+            using var key = TestRsaKeys.Create(TestRsaKeyPurpose.General);
             var clock = new P0201Clock { Now = P0202Fixture.WholeSecondNow() };
             var fixture = await P0213Fixture.StartAsync(database, businessClock: clock, merchantExtras: new Dictionary<string, string?>
             {

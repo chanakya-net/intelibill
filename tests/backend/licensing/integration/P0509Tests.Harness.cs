@@ -59,7 +59,7 @@ public sealed partial class P0509Tests
             if (SharedPinnedBuild is not null && Directory.Exists(SharedPinnedBuild.BrowserRoot))
                 return SharedPinnedBuild;
 
-            using var rsa = RSA.Create(2048);
+            using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
             var privatePem = rsa.ExportPkcs8PrivateKeyPem();
             var publicSpki = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
             var pinMap = JsonSerializer.Serialize(new Dictionary<string, string> { [BrowserPermitKeyId] = publicSpki });

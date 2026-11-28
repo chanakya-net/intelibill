@@ -15,7 +15,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task LiveReviewCheckRejectsLostAndRegainedAuthority()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var before = await s.BaselineAsync();
         var created = await CreateAsync(s);
@@ -51,7 +51,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task RemainingPermitIdentityMustMatchAfterAnObservedPermitExpires()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         // Enter the scheduled entitlement refresh window while the first permit is still active.
         var issuedAt = s.Permit.ValidUntil.AddMinutes(-10);
@@ -71,7 +71,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task ReviewRequiresAStillVerifiedShopOwner()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var proposal = await CollectConsentsAsync(s);
         Task<CoverageTransferReviewCheck> Check() => CheckAsync(s, proposal.TransferId, proposal.ProposalRevision, proposal.TermsDigest);
@@ -85,7 +85,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task InternalAuthorityCheckValidatesInputAndConsumesProofOnce()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var clock = s.F.Hosts.Fixture.Clock;
         var check = new CoverageTransferShopAuthorityCheckV1(1, Guid.NewGuid(), Guid.NewGuid(), s.Source.Account,
@@ -112,7 +112,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task FinalReviewPredicateRequiresAnOpenTransaction()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var transfer = await CollectConsentsAsync(s);
         await using var scope = s.F.Hosts.Licensing.Services.CreateAsyncScope();
@@ -129,7 +129,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task ReviewFailsClosedWhenTheExchangeCannotConfirmAuthority()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var proposal = await CollectConsentsAsync(s);
         Task<CoverageTransferReviewCheck> Check() => CheckAsync(s, proposal.TransferId, proposal.ProposalRevision, proposal.TermsDigest);
@@ -176,7 +176,7 @@ public sealed partial class P0607aTests
     [Fact]
     public async Task BillingOwnerChangeDuringExchangeIsRecheckedUnderLock()
     {
-        using var rsa = RSA.Create(2048);
+        using var rsa = TestRsaKeys.Create(TestRsaKeyPurpose.General);
         await using var s = await StartAsync(database, rsa);
         var proposal = await CollectConsentsAsync(s);
         var transport = s.F.Checkout.Delivery.Transport;

@@ -22,14 +22,19 @@ internal static class P0209Fixture
     internal const string StatusClockKey = "subscription-status";
 
     internal sealed record Hosts(P0201Fixture Fixture, LicensingApiFactory Licensing, MerchantStartupProbeFactory Merchant,
-        P0201Clock StatusClock, LicensingPostgreSqlFixture Database) : IAsyncDisposable
+        P0201Clock StatusClock, LicensingPostgreSqlFixture Database,
+        bool OwnsLicensing = true, bool OwnsMerchant = true, Func<ValueTask>? OnDispose = null) : IAsyncDisposable
     {
         internal NpgsqlConnectionStringBuilder LicensingOwner => Database.Bootstrap(Fixture.Owner.Database);
 
         public async ValueTask DisposeAsync()
         {
-            await Merchant.DisposeAsync();
-            await Licensing.DisposeAsync();
+            if (OnDispose is not null)
+                await OnDispose();
+            if (OwnsMerchant)
+                await Merchant.DisposeAsync();
+            if (OwnsLicensing)
+                await Licensing.DisposeAsync();
             Fixture.Dispose();
         }
     }
