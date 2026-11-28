@@ -1,6 +1,6 @@
 # intelibill — Agent Guide
 
-`CLAUDE.md` and `GEMINI.md` symlink to this file. Keep this guide concise. Each project owns its docs: `<project>/README.md` and `<project>/architecture_doc/`; cross-project setup, rollout and operations notes go in `docs/`. Link them in the index below.
+`CLAUDE.md` and `GEMINI.md` are committed symlinks to this file. Keep it under 12,000 characters (Antigravity's rule-file limit). Each project owns its docs: `<project>/README.md` and `<project>/architecture_doc/`; cross-project setup, rollout and operations notes go in `docs/`. Link them in the index below.
 
 ## Build & Test
 
@@ -56,6 +56,17 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 - Angular 21 standalone components, NgRx root/feature stores, PrimeNG + shared `@intelibill/ui` and `@intelibill/api` workspace packages, Transloco i18n (`src/frontend/intelibill/public/assets/i18n`).
 - Mobile: feature-first clean architecture (domain-independent), Riverpod codegen, GoRouter, Dio, Freezed/Json Serializable, Very Good Analysis.
 
+## Maintainability Rules (All Code)
+
+Read `.agents/rules/maintainability.md` (full rules and checklist) before writing or reviewing code. Hard limits:
+- One statement per line; lines ≤ 140 chars; wrapped argument lists one per line.
+- Methods ≤ 60 lines (never > 100), split into named steps; source files ≤ 400 lines.
+- ≤ 10 injected dependencies per class (never > 12): move cohesive work into a collaborator (`patterns.md` §17), no pass-through wrappers. Locks, fences, transactions and saves stay in the handler's top-level method, in lock order.
+- One definition and one message per error code, in `Errors`; no inline `Error.X("Code", …)` outside Domain. Check `IsError` before `.Value`.
+- Application never names EF Core or Npgsql types: use `IUnitOfWork.IsConcurrencyConflict` / `IsWriteFailure`.
+- Web: `OnPush`, no bare `.subscribe(`, no `any`, components ≤ 300 lines. Mobile: Freezed state, controllers ≤ 400 lines.
+- Refactors change no behaviour and no test assertion; behaviour changes get their own commit. No dead, template, cache or generated files.
+
 ## Security, Tenancy & Runtime Invariants
 
 - **Multi-shop RLS**: session interceptor sets `app.current_user_id` and `app.active_shop_id`; tenant tables enforce PostgreSQL RLS.
@@ -67,35 +78,16 @@ Each context starts from one `Baseline` migration that runs an embedded, verifie
 ## Environment & Tech Stack
 
 - **.NET**: SDK pinned in `global.json` (`10.0.105`, `latestMinor` roll-forward); ASP.NET Core 10, C# latest, EF Core 10, Npgsql, Wolverine 5.24, FluentValidation 12, ErrorOr 2.0, xUnit 2.9.
-- **Database**: PostgreSQL (`src/backend/intelibill/Intelibill.Api/appsettings.Development.json` or `docker compose up -d`; `DatabaseOptions` in `src/backend/intelibill/Intelibill.Infrastructure/Options/DatabaseOptions.cs`). `appsettings.json` is intentionally empty.
-- **Web / Mobile**: Angular 21 + PrimeNG 21 + Bun 1.3.11 + Vitest + Playwright; Flutter 3.44.2.
-
-## Structure
-
-| Path | Purpose |
-|---|---|
-| `src/backend/intelibill/` | Merchant API (`Domain`, `Application`, `Infrastructure`, `Api`) |
-| `src/backend/licensing/` | Licensing service (`Intelibill.Licensing.slnx`) |
-| `src/backend/shared/` | Shared backend libraries (`Contracts`, `Security`, `Web`) |
-| `src/backend/barcode-master-api/` & `src/backend/hsn-finder-ai/` | Separate deployable services (own solutions & package versions) |
-| `src/frontend/intelibill/` | Merchant Angular web app |
-| `src/frontend/licensing/` | Admin Angular web app (`ADMIN`) |
-| `src/frontend/shared/` | Shared web workspace packages (`@intelibill/ui`, `@intelibill/api`) |
-| `src/mobile/android/intelibill_mobile/` | Flutter Android app |
-| `tests/backend/` | Unit & Testcontainers integration tests (`intelibill/`, `licensing/`, `shared/`, `barcode-master-api/`) |
-| `Directory.Build.props`, `Directory.Packages.props`, `global.json` | Root MSBuild, CPM, and .NET SDK pin |
+- **Database**: PostgreSQL (`src/backend/intelibill/Intelibill.Api/appsettings.Development.json` or `docker compose up -d`; `DatabaseOptions` in `Intelibill.Infrastructure/Options/`). `appsettings.json` is intentionally empty.
+- **Web tests**: Vitest + Playwright.
 
 ## NuGet Packages & Supporting Services
 
-- Root projects: add `<PackageVersion Include="Pkg.Name" Version="X.Y.Z" />` to `Directory.Packages.props` and versionless `<PackageReference Include="Pkg.Name" />` to `.csproj`.
-- **Supporting services (`src/backend/barcode-master-api/`, `src/backend/hsn-finder-ai/`, `tests/backend/barcode-master-api/`, `tests/backend/hsn-finder-ai/`)**: `barcode-master-api` (`BarcodeAPI.sln`, own `AGENTS.md`) and `hsn-finder-ai` (`Sankra.HsnFinder.sln`) are separate deployables with their own solutions, also listed in the root `Intelibill.slnx` (not in the merchant or licensing solutions); a new project under their folders must be added to the root solution (`ProjectBoundaryAssertions` enforces it). Their local `Directory.Build.props` / `Directory.Packages.props` disable root CPM — keep those copies identical and **never** add service packages to the root `Directory.Packages.props`.
+- **Supporting services** (`barcode-master-api`, `hsn-finder-ai` under `src/backend/` and `tests/backend/`): separate deployables with their own solutions (`BarcodeAPI.sln`, `Sankra.HsnFinder.sln`), also listed in the root `Intelibill.slnx` but not in the merchant or licensing solutions; a new project there must be added to the root solution (`ProjectBoundaryAssertions` enforces it). Their local `Directory.Build.props` / `Directory.Packages.props` disable root CPM: keep those copies identical and **never** add service packages to the root `Directory.Packages.props`.
 
 ## CodeGraph
 
-`.codegraph/` holds the repository's code knowledge graph:
-- Use `codegraph_context` first for broad codebase tasks, `codegraph_search` / `codegraph_node` for symbols, `codegraph_callers` / `codegraph_callees` to trace execution, and `codegraph_impact` before changing shared symbols.
-- Use `rg`, `rg --files`, and direct file reads for config, docs, and non-symbol searches.
-- If `.codegraph/` is missing, ask before running `codegraph init -i`.
+`.codegraph/` holds the code knowledge graph. Use `codegraph_context` first for broad tasks, `codegraph_search` / `codegraph_node` for symbols, `codegraph_callers` / `codegraph_callees` to trace execution, `codegraph_impact` before changing shared symbols; `rg` and file reads for config and docs. If `.codegraph/` is missing, ask before running `codegraph init -i`.
 
 ## Documentation Index (Read Before Editing a Project)
 
@@ -114,6 +106,6 @@ Docs are per project. Read **only the row for the project you are working in**; 
 | `src/mobile/android/intelibill_mobile/` | `README.md` and `architecture_doc/architecture.md` in that folder |
 | `.tofu/`, `.github/workflows/infra-*.yml` | `.tofu/README.md`, `.tofu/architecture_doc/architecture.md`, `docs/infrastructure-decisions.md`, `docs/infrastructure-implementation-guide.md` |
 
-Repo-wide: `README.md` (overview, local setup, Docker stack) and `docs/` (auth setup, rollout, operations, security notes that span projects).
+Repo-wide: `README.md` (overview, local setup, Docker stack) and `docs/` (auth setup, rollout, operations, security notes that span projects). Tests: `tests/backend/<project>/`. Root `Directory.Build.props`, `Directory.Packages.props`, `global.json`: MSBuild, CPM, SDK pin.
 
 When you change a project's behaviour or structure, update that project's README and `architecture_doc/` in the same change. Do not recreate a root `architecture_doc/`.
